@@ -1,0 +1,67 @@
+# Dependencies
+node_modules/
+vendor/
+bower_components/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+.DS_Store
+Thumbs.db
+
+# Build outputs
+dist/
+build/
+out/
+*.log
+
+# Package files
+*.zip
+*.tar.gz
+*.rar
+
+# Cache and temporary files
+.cache/
+.tmp/
+temp/
+*.temp
+*.tmp
+
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SFTP configuration
+sftp.json
+.vscode/sftp.json
+
+# WordPress specific
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+wp-content/backup*
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/plugins/hello.php
+themes/*
+plugins/*
+
+# Project specific
+nastya/*
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
