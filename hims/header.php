@@ -20,11 +20,11 @@
                     <p class="text-uppercase m-0">Работаем по всей России</p>
                 </div>
                 <div class="him-top-nav__btns d-flex align-items-center gap-1">
-                    <a href="<?php echo get_permalink(get_page_by_path('expo')) ?: '#'; ?>" class="btn bg-blue">Выставка</a>
-                    <a href="<?php echo get_permalink(get_page_by_path('expo')) ?: '#'; ?>" class="btn bg-blue-dark">Вакансии</a>
-                    <a href="<?php echo get_permalink(get_page_by_path('ai-assistant')) ?: ''; ?>" class="btn bg-purple">ИИ помощник</a>
-                    <a href="<?php echo get_permalink(get_page_by_path('articles')) ?: '#'; ?>" class="btn bg-blue-green">Статьи</a>
-                    <a href="<?php echo get_permalink(get_page_by_path('news')) ?: '#'; ?>" class="btn bg-green">Новости</a>
+                    <a href="<?php echo get_permalink(get_page_by_path('news')); ?>" class="btn bg-green <?php if (is_page('news')) echo 'active'; ?>">Новости</a>
+                    <a href="<?php echo get_permalink(get_page_by_path('articles')); ?>" class="btn bg-blue-green <?php if (is_page('articles')) echo 'active'; ?>">Статьи</a>
+                    <a href="<?php echo get_permalink(get_page_by_path('expo')); ?>" class="btn bg-blue <?php if (is_page('expo')) echo 'active'; ?>">Выставка</a>
+                    <a href="<?php echo get_permalink(get_page_by_path('ai-assistant')); ?>" class="btn bg-purple <?php if (is_page('ai-assistant')) echo 'active'; ?>">ИИ помощник</a>
+                    <a href="<?php echo get_permalink(get_page_by_path('vacancies')); ?>" class="btn bg-blue-dark <?php if (is_page('vacancies')) echo 'active'; ?>">Вакансии</a>
                     <a href="tel:+74951102145" class="d-flex align-items-center gap-2 him-top-nav__phone ms-3">
                         <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/phone.svg" alt="">
                         <p class="m-0">+7 (495) 110-21-45</p>
