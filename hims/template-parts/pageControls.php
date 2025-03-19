@@ -1,25 +1,25 @@
 <div class="him-page-controls row g-2">
     <div class="col-6 col-md-3">
-        <a href="<?php echo get_permalink(get_page_by_title('AI Assistant')); ?>" class="him-page-controls__item ai <?php if (is_page('AI Assistant')) echo 'active'; ?>">
-            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/ai-active.svg" alt="">
+        <a href="<?php echo get_permalink(get_page_by_path('ai-assistant')) ?: '#'; ?>" class="him-page-controls__item ai <?php if (is_page('ai-assistant')) echo 'active'; ?>">
+            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/<?php echo is_page('ai-assistant') ? 'ai-active.svg' : 'ai.svg'; ?>" alt="">
             <p class="mb-0">ИИ помощник</p>
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="<?php echo get_permalink(get_page_by_title('News')); ?>" class="him-page-controls__item news <?php if (is_page('News')) echo 'active'; ?>">
-            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/news-active.svg" alt="">
+        <a href="<?php echo get_permalink(get_page_by_path('news')) ?: '#'; ?>" class="him-page-controls__item news <?php if (is_page('news')) echo 'active'; ?>">
+            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/<?php echo is_page('news') ? 'news-active.svg' : 'news.svg'; ?>" alt="">
             <p class="mb-0">Новости</p>
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="<?php echo get_permalink(get_page_by_title('Articles')); ?>" class="him-page-controls__item article <?php if (is_page('Articles')) echo 'active'; ?>">
-            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/article.svg" alt="">
+        <a href="<?php echo get_permalink(get_page_by_path('articles')) ?: '#'; ?>" class="him-page-controls__item article <?php if (is_page('articles')) echo 'active'; ?>">
+            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/<?php echo is_page('articles') ? 'article-active.svg' : 'article.svg'; ?>" alt="">
             <p class="mb-0">Статьи</p>
         </a>
     </div>
     <div class="col-6 col-md-3">
-        <a href="<?php echo get_permalink(get_page_by_title('Expo')); ?>" class="him-page-controls__item expo <?php if (is_page('Expo')) echo 'active'; ?>">
-            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/expo.svg" alt="">
+        <a href="<?php echo get_permalink(get_page_by_path('expo')) ?: '#'; ?>" class="him-page-controls__item expo <?php if (is_page('expo')) echo 'active'; ?>">
+            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/<?php echo is_page('expo') ? 'expo-active.svg' : 'expo.svg'; ?>" alt="">
             <p class="mb-0">Выставки</p>
         </a>
     </div>
