@@ -28,7 +28,7 @@ get_header(); ?>
                                                 <span><?php echo get_the_date(); ?></span>
                                                 <p class="mb-0"><?php echo get_the_title(); ?></p>
                                             </div>
-                                            <a href="<?php echo get_permalink(); ?>" class="d-flex align-items-end"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/arrow-green.svg" alt=""></a>
+                                            <a href="<?php echo get_permalink(); ?>" class="d-flex align-items-end"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt=""></a>
                                         </div>
                                     </div>
                                     <?php

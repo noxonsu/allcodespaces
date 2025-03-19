@@ -82,44 +82,85 @@ const writtenReviews = new Swiper(".him-written-review-slider", {
   },
 });
 
+document.addEventListener('DOMContentLoaded', function() {
+  // Audio player initialization
+  const audioPlayers = document.querySelectorAll('.him-review__item');
+  const waveSurfers = [];
 
-const tracks = [
-  { containerId: 'waveform1', buttonId: 'playBtn1', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform2', buttonId: 'playBtn2', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform3', buttonId: 'playBtn3', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform4', buttonId: 'playBtn4', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform5', buttonId: 'playBtn5', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform6', buttonId: 'playBtn6', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform7', buttonId: 'playBtn7', audio: 'src/assets/audios/audio.mp3' },
-  { containerId: 'waveform8', buttonId: 'playBtn8', audio: 'src/assets/audios/audio.mp3' },
-];
+  audioPlayers.forEach((player, index) => {
+    const containerId = `waveform-${index}`;
+    const buttonId = `playBtn-${index}`;
+    const container = player.querySelector('.waveform');
+    const playBtn = player.querySelector('.him-play-btn');
+    
+    if (container && playBtn) {
+      // Set unique IDs
+      container.id = containerId;
+      playBtn.id = buttonId;
+      
+      // Get audio URL from data attribute
+      const audioUrl = player.dataset.audioUrl || '';
+      
+      if (audioUrl) {
+        try {
+          const waveSurfer = WaveSurfer.create({
+            container: `#${containerId}`,
+            waveColor: '#BBBBBB',
+            progressColor: '#18AB6B',
+            cursorColor: 'transparent',
+            responsive: true,
+            height: 32,
+            barWidth: 2,
+            barGap: 3,
+            barRadius: 3,
+            normalize: true,
+            backend: 'WebAudio'
+          });
 
-const waveSurfers = [];
+          // Load audio with error handling
+          waveSurfer.load(audioUrl);
+          
+          // Handle loading errors
+          waveSurfer.on('error', function(err) {
+            console.warn(`Error loading audio: ${err}`);
+            container.innerHTML = '<p class="text-danger">Audio unavailable</p>';
+          });
 
-tracks.forEach((track) => {
-  const waveSurfer = WaveSurfer.create({
-    container: `#${track.containerId}`,
-    waveColor: '#BBBBBB',
-    progressColor: '#18AB6B',
-    cursorColor: 'transparent',
-    responsive: true,
-    height: 32,
-  });
+          // Handle play/pause
+          playBtn.addEventListener('click', function() {
+            // Pause all other players
+            waveSurfers.forEach(ws => {
+              if (ws !== waveSurfer && ws.isPlaying()) {
+                ws.pause();
+                const btn = document.querySelector(`[data-wave-id="${ws.container.id}"]`);
+                if (btn) {
+                  btn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
+                }
+              }
+            });
 
-  waveSurfer.load(track.audio);
+            // Toggle current player
+            if (waveSurfer.isPlaying()) {
+              waveSurfer.pause();
+              playBtn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
+            } else {
+              waveSurfer.play();
+              playBtn.innerHTML = '<img src="src/assets/icons/pause.svg" alt="Pause">';
+            }
+          });
 
-  const playBtn = document.getElementById(track.buttonId);
-  playBtn.addEventListener('click', function () {
-    if (waveSurfer.isPlaying()) {
-      waveSurfer.pause();
-      playBtn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
-    } else {
-      waveSurfer.play();
-      playBtn.innerHTML = '<img src="src/assets/icons/pause.svg" alt="Pause">';
+          // Reset button on finish
+          waveSurfer.on('finish', function() {
+            playBtn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
+          });
+
+          waveSurfers.push(waveSurfer);
+        } catch (error) {
+          console.error('WaveSurfer initialization error:', error);
+        }
+      }
     }
   });
-
-  waveSurfers.push(waveSurfer);
 });
 
 const exhibitions = document.querySelectorAll('.him-exhibition__control-item');

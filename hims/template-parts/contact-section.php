@@ -9,15 +9,15 @@
                     </div>
                     <div class="d-flex flex-column gap-3">
                         <div class="d-flex align-items-center gap-2">
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/location-green.svg" alt="">
+                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/location-green.svg" alt="">
                             <p class="mb-0">115054, Москва, Большой Строченовский переулок, дом 7</p>
                         </div>
                         <a class="d-flex align-items-center gap-2" href="mailto:zapros@propartners.world">
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/mail-green.svg" alt="">
+                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/mail-green.svg" alt="">
                             <p class="mb-0 text-green">zapros@propartners.world</p>
                         </a>
                         <div class="d-flex align-items-center gap-2">
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/Icons/phone-green.svg" alt="">
+                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/phone-green.svg" alt="">
                             <h5 class="mb-0 fw-bold fs-5">+7 (495) 110-21-45</h5>
                         </div>
                     </div>
