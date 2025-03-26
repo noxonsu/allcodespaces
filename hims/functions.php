@@ -11,6 +11,9 @@ function himpartners_enqueue() {
 }
 add_action('wp_enqueue_scripts', 'himpartners_enqueue');
 
+// Add theme support for post thumbnails
+add_theme_support('post-thumbnails');
+
 // Регистрируем пользовательский тип записи для АБС-гранул
 function register_abs_granules_post_type() {
     register_post_type('abs_granules', array(
@@ -119,10 +122,24 @@ function register_written_reviews_post_type() {
         'labels' => array(
             'name' => 'Письменные отзывы',
             'singular_name' => 'Письменный отзыв',
+            'add_new' => 'Добавить новый',
+            'add_new_item' => 'Добавить новый отзыв',
+            'edit_item' => 'Редактировать отзыв',
+            'view_item' => 'Просмотреть отзыв',
+            'featured_image' => 'Изображение отзыва',
+            'set_featured_image' => 'Установить изображение отзыва',
+            'remove_featured_image' => 'Удалить изображение',
+            'use_featured_image' => 'Использовать как изображение отзыва',
         ),
         'public' => true,
         'has_archive' => true,
-        'supports' => array('title', 'editor', 'thumbnail', 'custom-fields'),
+        'supports' => array(
+            'title',
+            'editor',
+            'thumbnail',
+            'custom-fields'
+        ),
+        'show_in_rest' => false, // Disable Gutenberg
     ));
 }
 add_action('init', 'register_written_reviews_post_type');

@@ -14,7 +14,7 @@ get_header(); ?>
                     </div>
                     <h1 class="fs-1 fw-light text-uppercase him-banner__text-green m-0">Выгодные оптовые цены</h1>
                     <h1 class="fs-1 fw-light text-uppercase him-banner__text-green m-0">Высокое подтвержденное</h1>
-                    <h1 class="fs-1 fw-light text-uppercase him-banner__text-green m-0">качество!</h1>
+                    <h1 class="fs-1 fw-light text-uppercase him-banner__text-green м-0">качество!</h1>
                 </div>
                 <div class="him-banner__text-letto d-flex flex-column flex-lg-row align-items-start align-items-sm-center gap-4">
                     <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/lotte.svg" alt="">
@@ -307,79 +307,81 @@ get_header(); ?>
             </div>
         </div>
 
-        <div class="him-container">
-            <div class="him-areas d-flex flex-column" id="applications">
-                <h1 class="fw-light text-uppercase fs-1 mb-0 text-center">Наши АБС-гранулы <span class="fw-bold">применяются в следующих областях</span></h1>
-                <div class="row g-2">
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-1.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Автомобильные детали</span>
-                                <p class="mb-0">Включает панели, ручки, корпуса зеркал, решетки радиатора и другие элементы. АБС активно используется в автоиндустрии благодаря прочности и термостойкости.</p>
+        <div class="him-areas-wrapper" style="background-color: #fff;">
+            <div class="him-container">
+                <div class="him-areas d-flex flex-column" id="applications">
+                    <h1 class="fw-light text-uppercase fs-1 mb-0 text-center">Наши АБС-гранулы <span class="fw-bold">применяются в следующих областях</span></h1>
+                    <div class="row g-2">
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-1.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Автомобильные детали</span>
+                                    <p class="mb-0">Включает панели, ручки, корпуса зеркал, решетки радиатора и другие элементы. АБС активно используется в автоиндустрии благодаря прочности и термостойкости.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-2.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Детали для электроники</span>
-                                <p class="mb-0">Корпуса для компьютеров, принтеров, игровых приставок, клавиатур и телефонов. Электроника повсеместно содержит компоненты из АБС.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-2.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Детали для электроники</span>
+                                    <p class="mb-0">Корпуса для компьютеров, принтеров, игровых приставок, клавиатур и телефонов. Электроника повсеместно содержит компоненты из АБС.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-3.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Бытовая техника</span>
-                                <p class="mb-0">Корпуса для холодильников, стиральных машин, пылесосов, телевизоров и кондиционеров. Высокая прочность и ударостойкость делают АБС оптимальным выбором.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-3.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Бытовая техника</span>
+                                    <p class="mb-0">Корпуса для холодильников, стиральных машин, пылесосов, телевизоров и кондиционеров. Высокая прочность и ударостойкость делают АБС оптимальным выбором.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-4.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Детские игрушки</span>
-                                <p class="mb-0">Например, LEGO и другие популярные игрушки. АБС безопасен, долговечен и позволяет создавать яркие, прочные изделия.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-4.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Детские игрушки</span>
+                                    <p class="mb-0">Например, LEGO и другие популярные игрушки. АБС безопасен, долговечен и позволяет создавать яркие, прочные изделия.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-5.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Сантехника и строительные изделия</span>
-                                <p class="mb-0">Панели для ванн, душевых кабин, различные комплектующие для сантехники. АБС устойчив к воздействию влаги, химикатов и может сохранять форму при контакте с горячей водой.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-5.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Сантехника и строительные изделия</span>
+                                    <p class="mb-0">Панели для ванн, душевых кабин, различные комплектующие для сантехники. АБС устойчив к воздействию влаги, химикатов и может сохранять форму при контакте с горячей водой.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-6.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Мебель и фурнитура</span>
-                                <p class="mb-0">Декоративные элементы мебели, ручки, накладки, а также детали фурнитуры, которые требуют прочного и стойкого к ударам материала.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-6.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Мебель и фурнитура</span>
+                                    <p class="mb-0">Декоративные элементы мебели, ручки, накладки, а также детали фурнитуры, которые требуют прочного и стойкого к ударам материала.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-7.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>Спортивные товары</span>
-                                <p class="mb-0">Из АБС изготавливают шлемы, защитные элементы, лыжные крепления и другие товары, требующие надежного и ударопрочного материала.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-7.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>Спортивные товары</span>
+                                    <p class="mb-0">Из АБС изготавливают шлемы, защитные элементы, лыжные крепления и другие товары, требующие надежного и ударопрочного материала.</p>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-3">
-                        <div class="him-areas__item">
-                            <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-8.png" alt=""></div>
-                            <div class="him-areas__item-content">
-                                <span>3D-печать</span>
-                                <p class="mb-0">АБС является одним из самых распространенных материалов для 3D-принтеров благодаря легкости печати и обработке, что делает его популярным для прототипирования и создания функциональных изделий.</p>
+                        <div class="col-12 col-md-6 col-lg-3">
+                            <div class="him-areas__item">
+                                <div class="him-areas__item-img"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/area-8.png" alt=""></div>
+                                <div class="him-areas__item-content">
+                                    <span>3D-печать</span>
+                                    <p class="mb-0">АБС является одним из самых распространенных материалов для 3D-принтеров благодаря легкости печати и обработке, что делает его популярным для прототипирования и создания функциональных изделий.</p>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -393,109 +395,140 @@ get_header(); ?>
                     <h1 class="fs-1 text-uppercase fw-light mx-auto">Сертификаты</h1>
                     <div class="him-certificates__slider w-100 overflow-hidden">
                         <div class="swiper-wrapper">
-                            <div class="swiper-slide"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/certificate-1.png" alt=""></div>
-                            <div class="swiper-slide"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/certificate-2.png" alt=""></div>
-                            <div class="swiper-slide"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/certificate-3.png" alt=""></div>
-                            <div class="swiper-slide"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/certificate-4.png" alt=""></div>
-                            <div class="swiper-slide"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/certificate-5.png" alt=""></div>
-                            <div class="swiper-slide"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/certificate-1.png" alt=""></div>
+                            <?php
+                            $certificates = new WP_Query([
+                                'post_type' => 'certificates',
+                                'posts_per_page' => -1,
+                                'orderby' => 'date',
+                                'order' => 'DESC'
+                            ]);
+
+                            if ($certificates->have_posts()) :
+                                while ($certificates->have_posts()) : $certificates->the_post();
+                                    $full_image = wp_get_attachment_image_src(get_post_thumbnail_id(), 'full');
+                                    if ($full_image) :
+                            ?>
+                                    <div class="swiper-slide">
+                                        <img src="<?php echo esc_url($full_image[0]); ?>" 
+                                             alt="<?php echo esc_attr(get_the_title()); ?>"
+                                             class="certificate-image"
+                                             data-full-image="<?php echo esc_url($full_image[0]); ?>">
+                                    </div>
+                            <?php
+                                    endif;
+                                endwhile;
+                                wp_reset_postdata();
+                            endif;
+                            ?>
                         </div>
                     </div>
                     <div class="him-certificates__controls d-flex align-items-center">
-                        <span class="swiper-prev certificate-prev"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt=""></span>
+                        <span class="swiper-prev certificate-prev">
+                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt="">
+                        </span>
                         <div class="swiper-pagination him-certificates__pagination"></div>
-                        <span class="swiper-next certificate-next"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt=""></span>
+                        <span class="swiper-next certificate-next">
+                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt="">
+                        </span>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="him-container">
+        <!-- Modal for certificates -->
+        <div id="certificateModal" class="modal">
+            <span class="modal-close">&times;</span>
+            <img class="modal-content" id="certificateModalImg">
+        </div>
+
+        <div class="him-advantages" style="background-color: #fff;">
+            <div class="him-container">
             <div class="him-advantages d-flex flex-column align-items-center">
                 <h1 class="fw-light text-uppercase fs-1 mb-0"><span class="fw-bold">Преимущества</span> АБС-гранул</h1>
                 <div class="row g-2">
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Ударопрочность до 20 кДж/м²</span>
-                                <p class="mb-0">Материал выдерживает высокие нагрузки и удары.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-1.svg" alt="">
-                        </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Ударопрочность до 20 кДж/м²</span>
+                        <p class="mb-0">Материал выдерживает высокие нагрузки и удары.</p>
                     </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Температурный диапазон от -20°C до +90°C</span>
-                                <p class="mb-0">Сохраняет свойства при умеренных температурах.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-2.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Плотность 1,05 г/см³</span>
-                                <p class="mb-0">Лёгкий, но прочный материал для разных задач.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-3.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Долговечность Срок службы до 10 лет</span>
-                                <p class="mb-0">Отличается устойчивостью к износу и деформации.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-4.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Жёсткость до 2400 МПа</span>
-                                <p class="mb-0">Гарантирует стабильность формы под нагрузками.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-5.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Химическая устойчивость До 80% химикатов</span>
-                                <p class="mb-0">Надёжно противостоит кислотам и щелочам.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-6.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Применение Более 50 отраслей</span>
-                                <p class="mb-0">Широко используется в электронике, автомобилестроении и быту.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-7.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Влагостойкость До 95% влажности</span>
-                                <p class="mb-0">Сохраняет свойства даже в условиях высокой влажности.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-8.svg" alt="">
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-6 col-lg-4">
-                        <div class="him-advantages__item d-flex justify-content-between">
-                            <div class="d-flex flex-column">
-                                <span>Технологичность цикл формования 30–60 секунд</span>
-                                <p class="mb-0">Ускоряет производство благодаря лёгкой обработке.</p>
-                            </div>
-                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-9.svg" alt="">
-                        </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-1.svg" alt="">
                     </div>
                 </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Температурный диапазон от -20°C до +90°C</span>
+                        <p class="mb-0">Сохраняет свойства при умеренных температурах.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-2.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Плотность 1,05 г/см³</span>
+                        <p class="mb-0">Лёгкий, но прочный материал для разных задач.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-3.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Долговечность Срок службы до 10 лет</span>
+                        <p class="mb-0">Отличается устойчивостью к износу и деформации.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-4.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Жёсткость до 2400 МПа</span>
+                        <p class="mb-0">Гарантирует стабильность формы под нагрузками.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-5.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Химическая устойчивость До 80% химикатов</span>
+                        <p class="mb-0">Надёжно противостоит кислотам и щелочам.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-6.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Применение Более 50 отраслей</span>
+                        <p class="mb-0">Широко используется в электронике, автомобилестроении и быту.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-7.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Влагостойкость До 95% влажности</span>
+                        <p class="mb-0">Сохраняет свойства даже в условиях высокой влажности.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-8.svg" alt="">
+                    </div>
+                </div>
+                <div class="col-12 col-md-6 col-lg-4">
+                    <div class="him-advantages__item d-flex justify-content-between">
+                    <div class="d-flex flex-column">
+                        <span>Технологичность цикл формования 30–60 секунд</span>
+                        <p class="mb-0">Ускоряет производство благодаря лёгкой обработке.</p>
+                    </div>
+                    <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/advantage-9.svg" alt="">
+                    </div>
+                </div>
+                </div>
+            </div>
             </div>
         </div>
 
@@ -528,7 +561,7 @@ get_header(); ?>
                                     <div class="col-12 col-md-6">
                                         <div class="him-review__item" data-audio-url="<?php echo esc_url(get_post_meta(get_the_ID(), 'audio_file', true)); ?>">
                                             <div class="him-waveform-container d-flex align-items-center gap-3">
-                                                <button class="him-play-btn">
+                                                <button class="him-play-btn" style="cursor: pointer;">
                                                     <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/play.svg" alt="Play">
                                                 </button>
                                                 <div class="waveform"></div>
@@ -578,9 +611,9 @@ get_header(); ?>
                                     <div class="swiper-slide him-written-review__slide">
                                         <div class="him-written-review-slide__img">
                                             <?php if (has_post_thumbnail()) : ?>
-                                                <img src="<?php echo get_the_post_thumbnail_url(); ?>" alt="">
+                                                <img src="<?php echo get_the_post_thumbnail_url(); ?>" alt="" class="review-image" data-full-image="<?php echo get_the_post_thumbnail_url(); ?>">
                                             <?php else : ?>
-                                                <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/written-review.png" alt="">
+                                                <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/written-review.png" alt="" class="review-image" data-full-image="<?php echo get_template_directory_uri(); ?>/src/assets/images/written-review.png">
                                             <?php endif; ?>
                                         </div>
                                         <div class="d-flex flex-column gap-4 him-written-review__text">
@@ -691,15 +724,20 @@ get_header(); ?>
                         if ($query->have_posts()) {
                             while ($query->have_posts()) {
                                 $query->the_post();
+                                $permalink = get_permalink();
                                 ?>
                                 <div class="col-12 col-md-6 col-lg-3">
-                                    <div class="him-news__item">
-                                        <div class="him-news__item-img"><img src="<?php echo get_the_post_thumbnail_url(); ?>" alt=""></div>
+                                    <div class="him-news__item" style="cursor: pointer" onclick="window.location='<?php echo $permalink; ?>'">
+                                        <div class="him-news__item-img">
+                                            <img src="<?php echo get_the_post_thumbnail_url(); ?>" alt="">
+                                        </div>
                                         <div class="him-news__item-text d-flex flex-column gap-2">
                                             <span><?php echo get_the_date(); ?></span>
-                                            <p class="mb-0"><?php the_title(); ?></p>
+                                            <p class="mb-0" style="text-decoration: none; transition: text-decoration 0.3s;" onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'"><?php the_title(); ?></p>
                                         </div>
-                                        <a href="<?php echo get_permalink(); ?>" class="d-flex align-items-end"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt=""></a>
+                                        <div class="d-flex align-items-end">
+                                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt="">
+                                        </div>
                                     </div>
                                 </div>
                                 <?php
@@ -826,5 +864,215 @@ get_header(); ?>
         <?php get_template_part('template-parts/contact-section'); ?>
     </main>
 
+    <div class="image-modal" id="imageModal">
+        <span class="close-modal">&times;</span>
+        <img src="" alt="" id="modalImage">
+    </div>
+
     <div class="him-to-top" id="scrollToTopBtn"></div>
 <?php get_footer(); ?>
+
+<style>
+.image-modal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+}
+
+.image-modal img {
+    max-width: 90%;
+    max-height: 90vh;
+    margin: auto;
+    display: block;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.close-modal {
+    position: absolute;
+    right: 25px;
+    top: 15px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.review-image {
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.review-image:hover {
+    opacity: 0.8;
+}
+
+.him-advantages {
+    background-color: #fff;
+    padding: 50px 0;
+}
+
+#certificateModal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    padding-top: 50px;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+}
+
+#certificateModal .modal-content {
+    margin: auto;
+    display: block;
+    max-width: 90%;
+    max-height: 90vh;
+}
+
+.modal-close {
+    position: absolute;
+    right: 35px;
+    top: 15px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.certificate-image {
+    cursor: pointer;
+    transition: opacity 0.3s;
+}
+
+.certificate-image:hover {
+    opacity: 0.8;
+}
+
+.him-certificates__slider .swiper-slide img {
+    width: auto;
+    height: 300px; /* фиксированная высота для слайдера */
+    object-fit: contain;
+    margin: 0 auto;
+    display: block;
+}
+
+#certificateModal .modal-content {
+    margin: auto;
+    display: block;
+    width: auto;
+    height: auto;
+    max-width: 80%;
+    max-height: 90vh;
+    object-fit: contain;
+    position: relative;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.certificate-image {
+    cursor: pointer;
+    transition: opacity 0.3s;
+    width: auto !important; /* переопределяем стили swiper если нужно */
+    height: 100%;
+    object-fit: contain;
+}
+
+.certificate-image:hover {
+    opacity: 0.8;
+}
+
+/* Центрирование модального окна */
+#certificateModal {
+    display: none;
+    position: fixed;
+    z-index: 9999;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.9);
+    padding: 20px;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('imageModal');
+    const modalImg = document.getElementById('modalImage');
+    const closeBtn = document.getElementsByClassName('close-modal')[0];
+    
+    // Get all review images
+    const images = document.querySelectorAll('.review-image');
+    
+    // Add click handler to each image
+    images.forEach(img => {
+        img.addEventListener('click', function() {
+            modal.style.display = "block";
+            modalImg.src = this.getAttribute('data-full-image');
+        });
+    });
+    
+    // Close modal on X click
+    closeBtn.addEventListener('click', function() {
+        modal.style.display = "none";
+    });
+    
+    // Close modal on outside click
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+            modal.style.display = "none";
+        }
+    });
+    
+    // Close modal on ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.style.display === "block") {
+            modal.style.display = "none";
+        }
+    });
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Get all certificate images
+    const certificateImages = document.querySelectorAll('.certificate-image');
+    const modal = document.getElementById('certificateModal');
+    const modalImg = document.getElementById('certificateModalImg');
+    const closeBtn = document.querySelector('.modal-close');
+
+    // Add click handler to each certificate image
+    certificateImages.forEach(img => {
+        img.addEventListener('click', function() {
+            modal.style.display = "block";
+            modalImg.src = this.getAttribute('data-full-image');
+        });
+    });
+
+    // Close modal on X click
+    closeBtn.addEventListener('click', function() {
+        modal.style.display = "none";
+    });
+
+    // Close modal on outside click
+    window.addEventListener('click', function(e) {
+        if (e.target == modal) {
+            modal.style.display = "none";
+        }
+    });
+
+    // Close modal on ESC key
+    document.addEventListener('keydown', function(e) {
+        if (e.key === "Escape") {
+            modal.style.display = "none";
+        }
+    });
+});
+</script>

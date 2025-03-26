@@ -83,6 +83,9 @@ const writtenReviews = new Swiper(".him-written-review-slider", {
 });
 
 document.addEventListener('DOMContentLoaded', function() {
+  // Get WordPress theme directory URL from a meta tag that we'll need to add to header
+  const themeUrl = document.querySelector('meta[name="theme-url"]').content;
+
   // Audio player initialization
   const audioPlayers = document.querySelectorAll('.him-review__item');
   const waveSurfers = [];
@@ -134,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 ws.pause();
                 const btn = document.querySelector(`[data-wave-id="${ws.container.id}"]`);
                 if (btn) {
-                  btn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
+                  btn.innerHTML = `<img src="${themeUrl}/src/assets/icons/play.svg" alt="Play">`;
                 }
               }
             });
@@ -142,16 +145,16 @@ document.addEventListener('DOMContentLoaded', function() {
             // Toggle current player
             if (waveSurfer.isPlaying()) {
               waveSurfer.pause();
-              playBtn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
+              playBtn.innerHTML = `<img src="${themeUrl}/src/assets/icons/play.svg" alt="Play">`;
             } else {
               waveSurfer.play();
-              playBtn.innerHTML = '<img src="src/assets/icons/pause.svg" alt="Pause">';
+              playBtn.innerHTML = `<img src="${themeUrl}/src/assets/icons/pause.svg" alt="Pause">`;
             }
           });
 
           // Reset button on finish
           waveSurfer.on('finish', function() {
-            playBtn.innerHTML = '<img src="src/assets/icons/play.svg" alt="Play">';
+            playBtn.innerHTML = `<img src="${themeUrl}/src/assets/icons/play.svg" alt="Play">`;
           });
 
           waveSurfers.push(waveSurfer);
@@ -160,6 +163,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       }
     }
+  });
+
+  // Get modal elements
+  const modal = document.getElementById('certificateModal');
+  const modalImg = document.getElementById('certificateModalImg');
+  const closeBtn = document.getElementsByClassName('modal-close')[0];
+  
+  // Add click handlers to certificate images
+  document.querySelectorAll('.certificate-image').forEach(img => {
+      img.addEventListener('click', function() {
+          modal.style.display = "block";
+          modalImg.src = this.getAttribute('data-full-image');
+      });
+  });
+  
+  // Close modal when clicking X
+  closeBtn.addEventListener('click', () => {
+      modal.style.display = "none";
+  });
+  
+  // Close modal when clicking outside
+  window.addEventListener('click', (e) => {
+      if (e.target === modal) {
+          modal.style.display = "none";
+      }
+  });
+  
+  // Close modal with Escape key
+  document.addEventListener('keydown', (e) => {
+      if (e.key === "Escape") {
+          modal.style.display = "none";
+      }
   });
 });
 
