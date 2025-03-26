@@ -65,3 +65,5 @@ nastya/*
 *.log
 *.sql
 *.sqlite
+result.json
+result2.json

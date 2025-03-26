@@ -1,6 +1,6 @@
 <?php
 /*
- Template Name: News Page
+ Template Name: News Page Him
 */
 get_header(); ?>
 <main class="him-main">
