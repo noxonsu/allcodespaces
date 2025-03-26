@@ -741,3 +741,19 @@ input {
         font-size: 14px;
     }
 }
+
+.hover-green {
+    transition: color 0.3s ease;
+    
+    &:hover {
+        color: #00A651;  /* Adjust this green color code to match your brand's green */
+        
+        img {
+            filter: invert(48%) sepia(79%) saturate(2476%) hue-rotate(86deg) brightness(118%) contrast(119%);
+        }
+        
+        p {
+            color: #00A651;  /* Ensure the paragraph text also changes color */
+        }
+    }
+}

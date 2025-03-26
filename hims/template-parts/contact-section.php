@@ -16,9 +16,9 @@
                             <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/mail-green.svg" alt="">
                             <p class="mb-0 text-green">zapros@propartners.world</p>
                         </a>
-                        <div class="d-flex align-items-center gap-2">
+                        <div class="d-flex align-items-center gap-2 ">
                             <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/phone-green.svg" alt="">
-                            <h5 class="mb-0 fw-bold fs-5"><a href="tel:+74951102145">+7 (495) 110-21-45</a></h5>
+                            <h5 class="mb-0 fw-bold fs-5 " ><a href="tel:+74951102145" style='color:#00A651;cursor:pointer'>+7 (495) 110-21-45</a></h5>
                         </div>
                     </div>
                     <p class="mb-0">Наши склады находятся на всей территории Российской Федерации</p>

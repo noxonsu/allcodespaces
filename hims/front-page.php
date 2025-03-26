@@ -1,5 +1,10 @@
 <?php
 get_header(); ?>
+<style>
+.him-in-stock__list-item {
+    height: 100%;
+}
+</style>
 <main class="him-main">
     <div class="him-banner">
         <div class="him-container position-relative h-100">
@@ -14,7 +19,7 @@ get_header(); ?>
                     </div>
                     <h1 class="fs-1 fw-light text-uppercase him-banner__text-green m-0">Выгодные оптовые цены</h1>
                     <h1 class="fs-1 fw-light text-uppercase him-banner__text-green m-0">Высокое подтвержденное</h1>
-                    <h1 class="fs-1 fw-light text-uppercase him-banner__text-green м-0">качество!</h1>
+                    <h1 class="fs-1 fw-light text-uppercase him-banner__text-green m-0">качество!</h1>
                 </div>
                 <div class="him-banner__text-letto d-flex flex-column flex-lg-row align-items-start align-items-sm-center gap-4">
                     <img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/lotte.svg" alt="">
@@ -24,6 +29,22 @@ get_header(); ?>
                         Для экструзии и литья под давлением.<br>
                     </p>
                 </div>
+                <div class="him-always-in-stock d-flex flex-column gap-2 gap-sm-3">
+                        <div class="d-flex align-items-center">
+                            <span class="him-always-in-stock__circle">1</span>
+                            <h4 class="fs-4 fw-bold text-uppercase position-relative mb-0">Всегда в наличии на складе!</h4>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="him-always-in-stock__circle">2</span>
+                            <p class="mb-0">Широкий ассортимент цветов и марок. 
+                                Для литья под давлением и экструзии!
+                            </p>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <span class="him-always-in-stock__circle">3</span>
+                            <p class="mb-0">23 года опыта. Высокое качество АБС гранул!</p>
+                        </div>
+                    </div>
             </div>
         </div>
     </div>
@@ -167,7 +188,7 @@ get_header(); ?>
                         <h1 class="fs-1 fw-light text-uppercase mb-0 text-center"><span class="fw-bold">Сравнение характеристик</span> АБС-гранул</h1>
                     </div>
                     <div class="him-table-wrapper">
-                        <table class="him-table-custom">
+                        <table class="him-table-custom" style="margin-bottom: 50px;">
                             <thead>
                                 <tr>
                                     <th scope="col">ПАРАМЕТР</th>
@@ -710,7 +731,7 @@ get_header(); ?>
             </div>
         </div>
 
-        <div class="him-news">
+        <div class="him-news" style="background-color: #fff; width: 100%;">
             <div class="him-container">
                 <div class="him-news__content d-flex flex-column align-items-center">
                     <h1 class="fs-1 fw-bold text-uppercase m-0">Новости</h1>
@@ -815,7 +836,7 @@ get_header(); ?>
             </div>
         </div>
 
-        <div class="him-form-wrapper">
+        <div class="him-form-wrapper" style="background-color: #fff; width: 100%;">
             <div class="him-container">
                 <div class="him-form-content d-flex flex-column align-items-center">
                     <div class="d-flex flex-column align-items-center gap-3 him-reputation__title">
@@ -870,8 +891,8 @@ get_header(); ?>
     </div>
 
     <div class="him-to-top" id="scrollToTopBtn"></div>
-<?php get_footer(); ?>
 
+    
 <style>
 .image-modal {
     display: none;
@@ -1076,3 +1097,6 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 </script>
+
+<?php get_footer(); ?>
+

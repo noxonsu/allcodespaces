@@ -22,7 +22,7 @@ get_header(); ?>
                                     $query->the_post();
                                     ?>
                                     <div class="col-12 col-md-6 col-lg-4">
-                                        <div class="him-news__item">
+                                        <div class="him-news__item" style="cursor:pointer" onclick="window.location.href='<?php echo get_permalink(); ?>'">
                                             <div class="him-news__item-img"><img src="<?php echo get_the_post_thumbnail_url(); ?>" alt=""></div>
                                             <div class="him-news__item-text d-flex flex-column gap-2">
                                                 <span><?php echo get_the_date(); ?></span>
@@ -30,7 +30,7 @@ get_header(); ?>
                                             </div>
                                             <a href="<?php echo get_permalink(); ?>" class="d-flex align-items-end"><img src="<?php echo get_template_directory_uri(); ?>/src/assets/icons/arrow-green.svg" alt=""></a>
                                         </div>
-                                    </div>
+                                    </div> 
                                     <?php
                                 }
                             }
