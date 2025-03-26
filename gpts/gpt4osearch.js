@@ -25,7 +25,7 @@ const conversations = {};
 const systemMessage = {
   role: 'system',
   content: [
-    { type: 'input_text', text: 'Ты ассистент для поиска, сначала спроси имя человека потом спроси что он хочет узнать. При ответе обращайся по имени' }
+    { type: 'input_text', text: `${require('fs').readFileSync('.env.logistprompt', 'utf8')}` }
   ]
 };
 
@@ -79,7 +79,7 @@ bot.on('message', async (msg) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${openaiApiKey}`
+          'Authorization': `Bearer ${openaiApiKey}`,
         }
       }
     );
