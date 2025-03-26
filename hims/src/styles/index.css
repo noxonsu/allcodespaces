@@ -256,6 +256,7 @@
     gap: 30px;
     background-color: white;
     border-radius: 6px;
+    height: 100% 
 }
 
 .him-in-stock__list-item>div:last-of-type {
@@ -295,6 +296,7 @@
 
 .him-in-stock__list-item ul {
     list-style-image: url(../assets/icons/check.svg);
+    background-position: 0 4px;
     padding-left: 25px;
     margin-top: 10px;
 }

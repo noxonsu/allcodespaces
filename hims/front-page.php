@@ -128,119 +128,123 @@ get_header(); ?>
     </div>
 
     <div class="him-in-stock">
-        <div class="him-container">
-            <div class="him-in-stock__content d-flex flex-column">
-                <div class="him-in-stock__content-item d-flex flex-column align-items-center" id="marks">
-                    <div class="him-in-stock__title d-flex flex-column align-items-center gap-3">
-                        <h1 class="fs-1 fw-light text-uppercase mb-0 text-center">Марки <span class="fw-bold">АБС в наличии</span></h1>
-                        <p class="mb-0">АБС-гранулы — это небольшие твердые частицы акрилонитрил-бутадиен-стирола (АБС), термопластичного полимера, широко используемого в промышленности. Гранулы служат сырьем для различных методов переработки пластмасс, таких как литье под давлением, экструзия и 3D-печать.</p>
-                    </div>
-                    <div class="him-in-stock__list row g-3">
-                        <?php
-                        $args = array(
-                            'post_type' => 'abs_granules',
-                            'posts_per_page' => -1,
-                        );
-                        $query = new WP_Query($args);
-                        if ($query->have_posts()) {
-                            while ($query->have_posts()) {
-                                $query->the_post();
-                                $characteristics = get_post_meta(get_the_ID(), 'characteristics', true);
-                                ?>
-                                <div class="col-12 col-md-6">
-                                    <div class="him-in-stock__list-item">
-                                        <div class="him-in-stock__list-item-img">
-                                            <?php if (has_post_thumbnail()) : ?>
-                                                <img src="<?php echo get_the_post_thumbnail_url(); ?>" alt="">
-                                            <?php else : ?>
-                                                <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/bag.png" alt="">
-                                            <?php endif; ?>
+    <div class="him-container">
+        <div class="him-in-stock__content d-flex flex-column">
+            <div class="him-in-stock__content-item d-flex flex-column align-items-center" id="marks">
+                <div class="him-in-stock__title d-flex flex-column align-items-center gap-3">
+                    <h1 class="fs-1 fw-light text-uppercase mb-0 text-center">Марки <span class="fw-bold">АБС в наличии</span></h1>
+                    <p class="mb-0">АБС-гранулы — это небольшие твердые частицы акрилонитрил-бутадиен-стирола (АБС), термопластичного полимера, широко используемого в промышленности. Гранулы служат сырьем для различных методов переработки пластмасс, таких как литье под давлением, экструзия и 3D-печать.</p>
+                </div>
+                <div class="him-in-stock__list row g-3">
+                    <?php
+                    $args = array(
+                        'post_type' => 'abs_granules',
+                        'posts_per_page' => -1,
+                    );
+                    $query = new WP_Query($args);
+                    if ($query->have_posts()) {
+                        while ($query->have_posts()) {
+                            $query->the_post();
+                            $characteristics = get_post_meta(get_the_ID(), 'characteristics', true);
+                            ?>
+                            <div class="col-12 col-md-6">
+                                <div class="him-in-stock__list-item">
+                                    <div class="him-in-stock__list-item-img">
+                                        <?php if (has_post_thumbnail()) : ?>
+                                            <img src="<?php echo get_the_post_thumbnail_url(); ?>" alt="">
+                                        <?php else : ?>
+                                            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/bag.png" alt="">
+                                        <?php endif; ?>
+                                    </div>
+                                    <div class="d-flex flex-column">
+                                        <div class="d-flex flex-column gap-2 mb-1">
+                                            <h4 class="fs-4 fw-bold mb-0"><?php the_title(); ?></h4>
+                                            <span><?php echo get_post_meta(get_the_ID(), 'model', true); ?></span>
                                         </div>
-                                        <div class="d-flex flex-column">
-                                            <div class="d-flex flex-column gap-2 mb-1">
-                                                <h4 class="fs-4 fw-bold mb-0"><?php the_title(); ?></h4>
-                                                <span><?php echo get_post_meta(get_the_ID(), 'model', true); ?></span>
+                                        <?php the_content(); ?>
+                                        <?php if ($characteristics) : ?>
+                                            <div class="him-in-stock__characteristics mt-0">
+                                                <p class="mb-0">Основные характеристики:</p>
+                                                <ul>
+                                                    <?php foreach ($characteristics as $char) : ?>
+                                                        <li style='padding-bottom:12px;padding-left: 10px;'><?php echo esc_html($char); ?></li>
+                                                    <?php endforeach; ?>
+                                                </ul>
                                             </div>
-                                            <p class="mb-0"><?php the_content(); ?></p>
-                                            <?php if ($characteristics) : ?>
-                                                <div class="him-in-stock__characteristics">
-                                                    <p class="mb-0">Основные характеристики:</p>
-                                                    <ul>
-                                                        <?php foreach ($characteristics as $char) : ?>
-                                                            <li><?php echo esc_html($char); ?></li>
-                                                        <?php endforeach; ?>
-                                                    </ul>
-                                                </div>
-                                            <?php endif; ?>
-                                        </div>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
-                                <?php
+                            </div>
+                            <?php
+                        }
+                    }
+                    wp_reset_postdata();
+                    ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Separate characteristics table section -->
+<div class="him-characteristics">
+    <div class="him-container">
+        <div class="him-characteristics__content d-flex flex-column align-items-center" id="characteristics">
+            <div class="him-characteristics__title d-flex flex-column align-items-center gap-3">
+                <h1 class="fs-1 fw-light text-uppercase mb-0 text-center"><span class="fw-bold">Сравнение характеристик</span> АБС-гранул</h1>
+            </div>
+            <div class="him-table-wrapper">
+                <table class="him-table-custom" style="margin-bottom: 50px;">
+                    <thead>
+                        <tr>
+                            <th scope="col">ПАРАМЕТР</th>
+                            <?php
+                            $args = array(
+                                'post_type' => 'abs_granules',
+                                'posts_per_page' => -1,
+                            );
+                            $query = new WP_Query($args);
+                            if ($query->have_posts()) : 
+                                while ($query->have_posts()) : 
+                                    $query->the_post();
+                            ?>
+                                <th scope="col"><?php the_title(); ?></th>
+                            <?php 
+                                endwhile;
+                            endif;
+                            ?>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        $query->rewind_posts();
+                        if ($query->have_posts()) {
+                            $query->the_post();
+                            $characteristics = get_post_meta(get_the_ID(), 'characteristics', true);
+                            if (is_array($characteristics)) {
+                                foreach ($characteristics as $char) {
+                                    echo '<tr>';
+                                    echo '<td>' . esc_html($char) . '</td>';
+                                    
+                                    $query->rewind_posts();
+                                    while ($query->have_posts()) {
+                                        $query->the_post();
+                                        $post_chars = get_post_meta(get_the_ID(), 'characteristics', true);
+                                        echo '<td>' . esc_html($post_chars[array_search($char, $characteristics)]) . '</td>';
+                                    }
+                                    
+                                    echo '</tr>';
+                                }
                             }
                         }
                         wp_reset_postdata();
                         ?>
-                    </div>
-                </div>
-
-                <div class="him-in-stock__content-item d-flex flex-column align-items-center" id="characteristics">
-                    <div class="him-in-stock__title d-flex flex-column align-items-center gap-3">
-                        <h1 class="fs-1 fw-light text-uppercase mb-0 text-center"><span class="fw-bold">Сравнение характеристик</span> АБС-гранул</h1>
-                    </div>
-                    <div class="him-table-wrapper">
-                        <table class="him-table-custom" style="margin-bottom: 50px;">
-                            <thead>
-                                <tr>
-                                    <th scope="col">ПАРАМЕТР</th>
-                                    <?php
-                                    $args = array(
-                                        'post_type' => 'abs_granules',
-                                        'posts_per_page' => -1,
-                                    );
-                                    $query = new WP_Query($args);
-                                    if ($query->have_posts()) : 
-                                        while ($query->have_posts()) : 
-                                            $query->the_post();
-                                    ?>
-                                        <th scope="col"><?php the_title(); ?></th>
-                                    <?php 
-                                        endwhile;
-                                    endif;
-                                    ?>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php
-                                // Get characteristics from the first post to determine what fields exist
-                                $query->rewind_posts();
-                                if ($query->have_posts()) {
-                                    $query->the_post();
-                                    $characteristics = get_post_meta(get_the_ID(), 'characteristics', true);
-                                    if (is_array($characteristics)) {
-                                        foreach ($characteristics as $char) {
-                                            echo '<tr>';
-                                            echo '<td>' . esc_html($char) . '</td>';
-                                            
-                                            // Output value for each post
-                                            $query->rewind_posts();
-                                            while ($query->have_posts()) {
-                                                $query->the_post();
-                                                $post_chars = get_post_meta(get_the_ID(), 'characteristics', true);
-                                                echo '<td>' . esc_html($post_chars[array_search($char, $characteristics)]) . '</td>';
-                                            }
-                                            
-                                            echo '</tr>';
-                                        }
-                                    }
-                                }
-                                wp_reset_postdata();
-                                ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
+    </div>
+</div>
 
         <div class="him-available-colors">
             <div class="him-container">
@@ -693,7 +697,7 @@ get_header(); ?>
                                 ?>
                                 <div class="him-exhibition__control-item d-flex flex-column <?php echo $count == 1 ? 'active' : ''; ?>" data-id="<?php echo $count; ?>">
                                     <span><?php the_title(); ?></span>
-                                    <p><?php echo get_post_meta(get_the_ID(), 'exhibition_date', true); ?>, <?php echo get_post_meta(get_the_ID(), 'exhibition_location', true); ?></p>
+                                    <p style='color:gray'><?php echo get_post_meta(get_the_ID(), 'exhibition_date', true); ?>, <?php echo get_post_meta(get_the_ID(), 'exhibition_location', true); ?></p>
                                 </div>
                                 <?php
                                 $count++;
@@ -717,7 +721,7 @@ get_header(); ?>
                                         <?php endif; ?>
                                     </div>
                                     <h2 class="fw-bold mt-4"><?php the_title(); ?></h2>
-                                    <span class="mt-1 mb-2"><?php echo get_post_meta(get_the_ID(), 'exhibition_date', true); ?>, <?php echo get_post_meta(get_the_ID(), 'exhibition_location', true); ?></span>
+                                    <span class="mt-1 mb-2" style='color:gray'><?php echo get_post_meta(get_the_ID(), 'exhibition_date', true); ?>, <?php echo get_post_meta(get_the_ID(), 'exhibition_location', true); ?></span>
                                     <p class="mb-0 mt-4"><?php the_content(); ?></p>
                                 </div>
                                 <?php
