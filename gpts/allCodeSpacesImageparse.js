@@ -2,6 +2,78 @@ const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto'); // Add after existing imports
+
+// Add logging setup
+const CHAT_HISTORIES_DIR = path.join(__dirname, 'chat_histories');
+if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
+    fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
+}
+
+function logChat(chatId, message, type = 'user') {
+    if (!validateChatId(chatId)) {
+        console.error('Invalid chat ID detected:', chatId);
+        return;
+    }
+
+    const timestamp = new Date().toISOString();
+    const logFile = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
+    
+    // Sanitize and validate message content
+    const sanitizedMessage = typeof message === 'object' ? 
+        JSON.parse(JSON.stringify(message, (key, value) => {
+            if (typeof value === 'string') return sanitizeString(value);
+            return value;
+        })) : 
+        { text: sanitizeString(String(message)) };
+
+    const messageHash = generateMessageHash(chatId, timestamp);
+    const logEntry = `[${timestamp}] ${type}: ${JSON.stringify(sanitizedMessage)} hash=${messageHash}\n`;
+    
+    try {
+        fs.appendFileSync(logFile, logEntry, { mode: 0o600 }); // Secure file permissions
+    } catch (error) {
+        console.error('Error writing to log file:', error);
+    }
+}
+
+// Security utility functions
+function sanitizeString(str) {
+    if (typeof str !== 'string') return '';
+    return str.replace(/[<>'"`;]/g, '');
+}
+
+function validateChatId(chatId) {
+    // Ensure chatId is a positive number and within reasonable bounds
+    return Number.isInteger(chatId) && 
+           chatId > 0 && 
+           chatId < Number.MAX_SAFE_INTEGER;
+}
+
+function validateImageResponse(response, maxSizeInBytes = 10 * 1024 * 1024) { // 10MB limit
+    if (!response || !response.data) {
+        throw new Error('Invalid image response');
+    }
+    if (response.data.length > maxSizeInBytes) {
+        throw new Error('Image size exceeds maximum allowed');
+    }
+    return true;
+}
+
+function validateMimeType(mimeType) {
+    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+    return allowedMimeTypes.includes(mimeType);
+}
+
+// Add hash verification for messages
+function generateMessageHash(chatId, timestamp) {
+    const secret = process.env.MESSAGE_HASH_SECRET || 'default-secret-change-me';
+    return crypto
+        .createHmac('sha256', secret)
+        .update(`${chatId}:${timestamp}`)
+        .digest('hex');
+}
 
 let nameprompt = 'calories';
 // --- Configuration Loading ---
@@ -57,6 +129,23 @@ const systemMessage = {
 
 // --- Helper Function for OpenAI API Call (no changes needed here) ---
 async function callOpenAI(chatId, userMessageContent) {
+    if (!validateChatId(chatId)) {
+        throw new Error('Invalid chat ID');
+    }
+
+    // Sanitize user message content
+    const sanitizedContent = userMessageContent.map(content => ({
+        ...content,
+        text: content.text ? sanitizeString(content.text) : content.text,
+        image_url: content.image_url ? new URL(content.image_url).toString() : undefined
+    }));
+
+    // Rate limiting
+    const rateLimit = getRateLimit(chatId);
+    if (!rateLimit.canProceed) {
+        throw new Error('Rate limit exceeded');
+    }
+
     if (!conversations[chatId]) {
         conversations[chatId] = [systemMessage];
         console.log(`Initialized conversation history for chat ID: ${chatId}`);
@@ -64,7 +153,7 @@ async function callOpenAI(chatId, userMessageContent) {
 
     const userMessage = {
         role: 'user',
-        content: userMessageContent
+        content: sanitizedContent
     };
     conversations[chatId].push(userMessage);
 
@@ -107,9 +196,19 @@ async function callOpenAI(chatId, userMessageContent) {
                 headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${openaiApiKey}`,
-                }
+                },
+                timeout: 30000, // 30 second timeout
+                maxContentLength: 50 * 1024 * 1024, // 50MB max response size
+                validateStatus: status => status === 200 // Only accept 200 OK
             }
         );
+
+        // Validate response structure
+        if (!response.data || 
+            typeof response.data !== 'object' || 
+            !Array.isArray(response.data.output)) {
+            throw new Error('Invalid API response structure');
+        }
 
         // console.log('OpenAI API Full Response:', JSON.stringify(response.data, null, 2));
 
@@ -145,8 +244,12 @@ async function callOpenAI(chatId, userMessageContent) {
              }
         }
 
-        await bot.sendMessage(chatId, assistantText);
-        console.log(`Sent assistant response to chat ID: ${chatId}`);
+        // Sanitize assistant response before sending
+        const sanitizedAssistantText = sanitizeString(assistantText);
+        await bot.sendMessage(chatId, sanitizedAssistantText);
+        
+        // Add logging for assistant response
+        logChat(chatId, { text: sanitizedAssistantText }, 'assistant');
 
         conversations[chatId].push({
             role: 'assistant',
@@ -154,25 +257,39 @@ async function callOpenAI(chatId, userMessageContent) {
         });
 
     } catch (error) {
-        const apiError = error.response?.data?.error;
-        console.error(`Error interacting with OpenAI or Telegram for chat ID ${chatId}:`, apiError || (error.response ? JSON.stringify(error.response.data) : error.message));
-        if (error.response) {
-            console.error('API Status:', error.response.status);
-            console.error('API Headers:', error.response.headers);
-        } else if (error.request) {
-            console.error('No response received:', error.request);
-        } else {
-            console.error('Error setting up request:', error.message);
-        }
-        try {
-            const userErrorMessage = apiError?.message ? `Ошибка от OpenAI: ${apiError.message}` : 'Извините, произошла ошибка при обработке вашего запроса.';
-            await bot.sendMessage(chatId, userErrorMessage);
-        } catch (sendError) {
-            console.error(`Failed to send error message to chat ID ${chatId}:`, sendError.message);
-        }
+        // Security-enhanced error handling
+        const safeErrorMessage = 'Произошла ошибка при обработке запроса.';
+        logChat(chatId, { 
+            error: error.message,
+            timestamp: new Date().toISOString(),
+            hash: generateMessageHash(chatId, Date.now())
+        }, 'error');
+        
+        await bot.sendMessage(chatId, safeErrorMessage);
+        throw error; // Re-throw for higher-level handling
     }
 }
 
+// Add rate limiting
+const rateLimits = new Map();
+
+function getRateLimit(chatId) {
+    const now = Date.now();
+    const limit = rateLimits.get(chatId) || { count: 0, timestamp: now };
+    
+    if (now - limit.timestamp > 60000) { // Reset after 1 minute
+        limit.count = 0;
+        limit.timestamp = now;
+    }
+    
+    limit.count++;
+    rateLimits.set(chatId, limit);
+    
+    return {
+        canProceed: limit.count <= 10, // Max 10 requests per minute
+        remainingRequests: Math.max(0, 10 - limit.count)
+    };
+}
 
 // --- Telegram Bot Event Handlers ---
 
@@ -192,14 +309,19 @@ bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const userText = msg.text;
 
+    
+    
+    if (msg.photo) {
+        console.log(`Ignoring text message handler for photo with caption from chat ID: ${chatId}`);
+        return;
+    }
+
     if (!userText || userText.startsWith('/')) {
         console.log(`Ignoring command or empty message from chat ID: ${chatId}`);
         return;
     }
-    if (msg.photo) {
-        console.log(`Ignoring text message handler for photo with caption from chat ID: ${chatId}`);
-        return;
-     }
+    // Add logging
+    logChat(chatId, { text: userText });
 
     console.log(`Received text message from chat ID ${chatId}: "${userText}"`);
 
@@ -212,32 +334,60 @@ bot.on('message', async (msg) => {
 // Handler for photo messages
 bot.on('photo', async (msg) => {
     const chatId = msg.chat.id;
-    const caption = msg.caption;
-
-    console.log(`Received photo message from chat ID: ${chatId}${caption ? ` with caption: "${caption}"` : ''}`);
-
+    if (!validateChatId(chatId)) {
+        console.error('Invalid chat ID in photo message');
+        return;
+    }
+    
+    console.log(`Received photo message from chat ID: ${chatId}`);
+    const caption = msg.caption ? sanitizeString(msg.caption) : '';
     const photo = msg.photo[msg.photo.length - 1];
-    const fileId = photo.file_id;
+    
+    if (!photo || !photo.file_id) {
+        console.error('Invalid photo data received');
+        return;
+    }
 
     try {
-        const file = await bot.getFile(fileId);
+        const file = await bot.getFile(photo.file_id);
+        if (!file || !file.file_path) {
+            throw new Error('Invalid file data received');
+        }
+
         const filePath = file.file_path;
         const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
-        console.log(`Workspaceing image file from URL: ${fileUrl}`);
+        console.log(`Processing image file from URL: ${fileUrl}`);
+
+        // Validate file extension and mime type
+        const fileExtension = path.extname(filePath).toLowerCase();
+        const mimeType = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.bmp': 'image/bmp'
+        }[fileExtension];
+
+        if (!mimeType || !validateMimeType(mimeType)) {
+            throw new Error('Invalid file type');
+        }
 
         const imageResponse = await axios.get(fileUrl, {
-            responseType: 'arraybuffer'
+            responseType: 'arraybuffer',
+            timeout: 30000,
+            maxContentLength: 10 * 1024 * 1024 // 10MB limit
         });
 
+        validateImageResponse(imageResponse);
+
         const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
-
-        let mimeType = 'image/jpeg';
-        if (filePath.endsWith('.png')) mimeType = 'image/png';
-        else if (filePath.endsWith('.gif')) mimeType = 'image/gif';
-        else if (filePath.endsWith('.webp')) mimeType = 'image/webp';
-        else if (filePath.endsWith('.bmp')) mimeType = 'image/bmp';
-
         console.log(`Successfully downloaded and encoded image. Mime type: ${mimeType}, Base64 length: ${imageBase64.length}`);
+
+        // Validate base64 string length
+        if (imageBase64.length > 10 * 1024 * 1024) { // 10MB limit for base64
+            throw new Error('Encoded image size exceeds maximum allowed');
+        }
 
         // --- Image Message Format (Using data URL format) ---
         const imageUrl = `data:${mimeType};base64,${imageBase64}`;
@@ -245,7 +395,10 @@ bot.on('photo', async (msg) => {
         
         // Add caption first if it exists
         if (caption) {
-            userMessageContent.push({ type: "input_text", text: caption });
+            userMessageContent.push({ 
+                type: "input_text", 
+                text: sanitizeString(caption) 
+            });
         }
         
         // Add image with correct format
@@ -253,16 +406,39 @@ bot.on('photo', async (msg) => {
             type: "input_image",
             image_url: imageUrl
         });
+
+        // Log image processing (excluding the base64 data for security)
+        logChat(chatId, { 
+            type: 'photo',
+            mimeType: mimeType,
+            hasCaption: Boolean(caption),
+            timestamp: new Date().toISOString()
+        });
         
         await callOpenAI(chatId, userMessageContent);
 
     } catch (error) {
-        console.error(`Error processing photo for chat ID ${chatId}:`, error.message);
-         try {
-            await bot.sendMessage(chatId, 'Извините, не удалось обработать изображение. Попробуйте еще раз.');
-         } catch (sendError) {
-             console.error(`Failed to send image processing error message to chat ID ${chatId}:`, sendError.message);
-         }
+        // Secure error handling
+        console.error(`Secure photo processing error for chat ID ${chatId}:`, error.message);
+        
+        // Log the error securely
+        logChat(chatId, { 
+            error: 'photo_processing_error',
+            message: error.message,
+            timestamp: new Date().toISOString()
+        }, 'error');
+
+        try {
+            await bot.sendMessage(
+                chatId, 
+                'Не удалось обработать изображение. Попробуйте другое изображение.'
+            );
+        } catch (sendError) {
+            console.error(
+                `Failed to send error message to chat ID ${chatId}:`, 
+                sendError.message
+            );
+        }
     }
 });
 

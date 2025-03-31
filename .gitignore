@@ -60,6 +60,7 @@ plugins/*
 
 # Project specific
 nastya/*
+*/chat_histories/*
 
 # Logs and databases
 *.log
