@@ -3,32 +3,44 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 
+let nameprompt = 'calories';
 // --- Configuration Loading ---
-const result = dotenv.config();
+const result = dotenv.config({ path: `.env.${nameprompt}` });
 if (result.error) {
-    console.error("Error loading .env file:", result.error);
+    console.error("Error loading .env.${nameprompt} file:", result.error);
     process.exit(1);
 }
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
-    console.error('Error: TELEGRAM_BOT_TOKEN is not defined in .env file');
+    console.error('Error: TELEGRAM_BOT_TOKEN is not defined in .env.${nameprompt} file');
     process.exit(1);
 }
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
-    console.error('Error: OPENAI_API_KEY is not defined in .env file');
+    console.error('Error: OPENAI_API_KEY is not defined in .env.${nameprompt}_env file');
     process.exit(1);
 }
 
 let systemPromptContent = 'You are a helpful assistant.';
-let nameprompt = 'calories';
+//load from process.env or .env.${nameprompt}_prompt
 try {
-    systemPromptContent = fs.readFileSync(`gpts/.env.${nameprompt}`, 'utf8');
-    console.log(`Successfully loaded system prompt from .env.${nameprompt} ${systemPromptContent}`);
-} catch (err) {
-    console.warn(`Warning: Could not read .env.${nameprompt}. Using default system prompt.`, err.message);
+    const promptPath = `.env.${nameprompt}_prompt`;
+    if (fs.existsSync(promptPath)) {
+        const promptData = fs.readFileSync(promptPath, 'utf8');
+        systemPromptContent = promptData;
+    } else {
+        systemPromptContent = process.env.SYSTEM_PROMPT;
+    }
+    
+    if (!systemPromptContent) {
+        throw new Error('System prompt is empty or undefined');
+    }
+}
+catch (error) {
+    console.error('Error loading system prompt:', error);
+    process.exit(1);
 }
 
 const bot = new TelegramBot(token, { polling: true });
