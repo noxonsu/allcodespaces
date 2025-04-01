@@ -294,8 +294,8 @@ bot.on('message', async (msg) => {
         return;
     }
 
-    // Skip /start command
-    if (userText === '/start') {
+    // Skip /start command as it has a separate handler or parameters 
+    if (userText.startsWith('/start')) {
         return;
     }
 
