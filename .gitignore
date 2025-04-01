@@ -61,7 +61,8 @@ plugins/*
 # Project specific
 nastya/*
 */chat_histories/*
-
+*/user_data/*
+lastrestarttime.txt
 # Logs and databases
 *.log
 *.sql
