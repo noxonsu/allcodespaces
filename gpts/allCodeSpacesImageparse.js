@@ -300,6 +300,18 @@ bot.on('message', async (msg) => {
     }
 
     try {
+        // Check for user_data file first
+        const userDataDir = path.join(__dirname, 'user_data');
+        const userDataPath = path.join(userDataDir, `${chatId}.json`);
+        
+        if (!fs.existsSync(userDataPath)) {
+            await bot.sendMessage(
+                chatId, 
+                'Мы обновили бота, пожалуйста нажмите /start еще раз. Приносим извинения за неудобства.'
+            );
+            return;
+        }
+
         const chatLogPath = path.join(chatHistoriesDir, `chat_${chatId}.log`);
         
         // Check if chat log exists
