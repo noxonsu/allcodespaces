@@ -95,6 +95,25 @@ async function callOpenAI(chatId, userMessageContent) {
         console.log(`New length: ${conversations[chatId].length}`);
     }
 
+    // первый элемент в conversations[chatId] - системное сообщение добавляем к инструкции туда chatId снизу новой строкой
+    
+    conversations[chatId] = conversations[chatId].map((message, index) => {
+        if (message.role === 'system') {
+            if (index === 0) {
+                return {
+                    role: 'system',
+                    content: [{ 
+                        type: 'input_text', 
+                        text: message.content[0].text + `\n chatId: ${chatId}` 
+                    }]
+                };
+            } 
+        } else {
+            return message;
+        }
+        return message; 
+    }); 
+
     const payload = {
         model: 'gpt-4o-mini',
         input: conversations[chatId],
