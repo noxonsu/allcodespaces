@@ -1,3 +1,5 @@
+console.log("this is file openai.js");
+
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
@@ -60,12 +62,12 @@ function saveUserData(chatId, userData) {
 }
 
 async function updateLongMemory(chatId, lastUserMessage = null) {
-    const debug = true;
+    const debug = true; // Включение отладочных логов
     const chatLogPath = path.join(__dirname, 'chat_histories', `chat_${chatId}.log`);
     const userData = loadUserData(chatId);
     const lastLongMemoryUpdate = userData.lastLongMemoryUpdate || 0;
     const now = Date.now();
-    const updateInterval = 60 * 1000;
+    const updateInterval = 60 * 1000; // 60 секунд для отладки
 
     if (debug) {
         console.log(`Checking longMemory update for chat ${chatId}: last update at ${new Date(lastLongMemoryUpdate).toISOString()}, now ${new Date(now).toISOString()}`);
@@ -98,13 +100,13 @@ async function updateLongMemory(chatId, lastUserMessage = null) {
         .filter(Boolean)
         .map(line => JSON.parse(line));
 
-    // Учитываем все записи с текстом и добавляем последнее сообщение которое 
-    let textMessages = logs;
+    // Учитываем все записи с текстом, независимо от роли
+    const textMessages = logs.filter(entry => entry.text);
     const messageCount = textMessages.length;
 
     if (debug) {
         console.log(`Found ${messageCount} text messages for chat ${chatId}`);
-        console.log(`Messages: ${JSON.stringify(textMessages.map(m => ({ role: m.role, text: m.text })))}`);
+        console.log(`Messages: ${JSON.stringify(textMessages.map(m => ({ role: m.role, text: m.text, timestamp: m.timestamp })))}`);
     }
 
     // Обновляем при каждом из первых 5 сообщений или после интервала
@@ -121,27 +123,43 @@ async function updateLongMemory(chatId, lastUserMessage = null) {
         if (debug) console.log(`No text messages to analyze for chat ${chatId}, skipping update`);
         return;
     }
-    
-    const recentMessages = textMessages.slice(-20).map(entry => `${entry.role}: ${entry.text}`).join('\n');
-    if (debug) console.log(`Analyzing recent messages for chat ${chatId}: ${recentMessages}`);
+
+    // Подготовка истории разговора для анализа
+    if (!conversations[chatId]) {
+        conversations[chatId] = [systemMessage];
+        if (debug) console.log(`Initialized conversation history for chat ${chatId} in updateLongMemory`);
+    }
 
     const currentMemory = userData.longMemory || '';
-    const analysisPrompt = {
+    const systemPrompt = systemMessage?.content[0]?.text || 'Вы полезный ассистент.';
+    const analysisConversation = [{
         role: 'system',
-        content: [{ type: 'input_text', text: `Текущая долгосрочная память: ${currentMemory}\n\nАнализируй сообщения пользователя и ответы ассистента, обнови долгосрочную память (самое важное). Верни только чистый текст longMemory без префикса "longMemory:". Используй существующую информацию из долгосрочной памяти, если она актуальна.` }]
-    };
-    const userMessages = {
-        role: 'user',
-        content: [{ type: 'input_text', text: recentMessages }]
+        content: [{
+            type: 'input_text',
+            text: `Текущая долгосрочная память о пользователе: ${currentMemory}\n\nВыполни только анализ всех логов (включая пользователя, ассистента и другие записи) и обнови долгосрочную память. Верни только чистый текст longMemory без префикса "longMemory:". Используй существующую информацию из долгосрочной памяти, если она актуальна. Выдавай формат json где будут name,city,timezone и другие \n\n Последние сообщения: `
+        }]
+    }];
+
+    // Добавляем логи из файла (последние 20 записей)
+    const lastLogs = textMessages.slice(-20);
+    
+    analysisConversation.push({
+        role: 'system',
+        content: [{
+            type: 'input_text',
+            text: lastLogs.map(log => `${log.role}: ${log.text}`).join('\n')
+        }]
+    });
+    
+    const payload = {
+        model: 'gpt-4o',
+        input: analysisConversation,
+        text: { format: { type: 'text' } },
+        temperature: 0,
+        max_output_tokens: 512
     };
 
-    const payload = {
-        model: 'gpt-4o-mini',
-        input: [analysisPrompt, userMessages],
-        text: { format: { type: 'text' } },
-        temperature: 1,
-        max_output_tokens: 512,
-    };
+    if (debug) console.log(`Sending payload to OpenAI for chat ID: ${chatId} in updateLongMemory. History length: ${analysisConversation.length}`);
 
     try {
         const response = await axios.post(
@@ -163,15 +181,12 @@ async function updateLongMemory(chatId, lastUserMessage = null) {
         }
 
         const messageOutput = response.data.output.find(output => output.type === 'message');
-        const assistantText = messageOutput?.content?.find(c => c.type === 'output_text')?.text ||
-                             messageOutput?.content?.find(c => c.type === 'text')?.text;
-
-        if (!assistantText) {
-            throw new Error('No valid message content found in OpenAI response');
-        }
+        const rawText = messageOutput?.content?.find(c => c.type === 'output_text')?.text ||
+                        messageOutput?.content?.find(c => c.type === 'text')?.text || '';
+        if (debug) console.log(`Raw response from OpenAI for chat ${chatId}: ${JSON.stringify(response.data.output)}`);
 
         // Убираем префикс "longMemory:" если он есть
-        let newLongMemory = sanitizeString(assistantText.replace(/^longMemory:\s*/i, ''));
+        let newLongMemory = sanitizeString(rawText.replace(/^longMemory:\s*/i, ''));
         if (!newLongMemory) {
             console.warn(`Empty longMemory received for chat ${chatId} after processing, keeping previous value`);
             return;
@@ -210,13 +225,23 @@ async function callOpenAI(chatId, userMessageContent) {
         console.log(`Initialized conversation history for chat ID: ${chatId}`);
     }
 
+    const userData = loadUserData(chatId);
+    const currentTimestamp = new Date().toISOString();
+    const longMemory = userData.longMemory || '';
+
+    // Добавляем timestamp и longMemory в сообщение пользователя
     const userMessage = {
         role: 'user',
-        content: sanitizedContent
+        content: [
+            ...sanitizedContent,
+            { type: 'input_text', text: `Текущее время: ${currentTimestamp}` },
+            { type: 'input_text', text: `Долгосрочная память о пользователе: ${longMemory}` },
+            { type: 'input_text', text: `chatId: ${chatId}` }
+        ]
     };
     conversations[chatId].push(userMessage);
 
-    // Get the text content from sanitizedContent
+    // Get the text content from sanitizedContent for longMemory update
     const lastUserMessage = sanitizedContent.find(c => c.text)?.text;
     await updateLongMemory(chatId, lastUserMessage);
 
@@ -228,18 +253,12 @@ async function callOpenAI(chatId, userMessageContent) {
         ];
     }
 
-    const userData = loadUserData(chatId);
+    // Обновляем системное сообщение с chatId (без timestamp и longMemory, они уже в userMessage)
     conversations[chatId] = conversations[chatId].map((message, index) => {
         if (message.role === 'system' && index === 0) {
             let text = message.content[0].text;
             if (!text.includes('chatId')) {
                 text += `\nchatId: ${chatId}`;
-            }
-            if (!text.includes('timestamp')) {
-                text += `\ntimestamp: ${new Date().toISOString()}`;
-            }
-            if (userData.longMemory && !text.includes('longMemory')) {
-                text += `\nlongMemory: ${userData.longMemory}`;
             }
             return {
                 role: 'system',

@@ -1,4 +1,4 @@
-console.log('this is allCodeSpacesImageparse.js file')
+console.log('this is allCodeSpacesImageparse.js file');
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const dotenv = require('dotenv');
@@ -68,6 +68,12 @@ try {
     console.log(`Restart time recorded: ${lastRestartTime.getTime()}`);
 } catch (error) {
     console.error('Failed to write restart time:', error);
+}
+
+// --- Вспомогательная функция для отправки сообщения и логирования ---
+async function sendAndLogResponse(chatId, assistantText) {
+    await bot.sendMessage(chatId, assistantText);
+    logChat(chatId, { text: assistantText }, 'assistant');
 }
 
 // --- Обработка голосовых сообщений ---
@@ -236,13 +242,14 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
 
         clearConversation(chatId);
-        await updateLongMemory(chatId);
-
+        
         const chatLogPath = path.join(chatHistoriesDir, `chat_${chatId}.log`);
         if (fs.existsSync(chatLogPath)) {
             fs.unlinkSync(chatLogPath);
             console.log(`Removed chat log for ${chatId}`);
         }
+
+        await updateLongMemory(chatId);
 
         logChat(chatId, {
             type: 'system',
@@ -254,7 +261,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         await bot.sendMessage(chatId, 'Как вас зовут?');
     } catch (error) {
         console.error(`Error handling /start for chat ${chatId}:`, error);
-        await bot.sendMessage(chatId, 'Произошла ошибка. Пожалуйста, попробуйте ещё раз.');
+        await bot.sendMessage(chatId, 'Произошла ошибка при запуске бота. Пожалуйста, попробуйте ещё раз.');
     }
 });
 
@@ -288,7 +295,7 @@ bot.on('message', async (msg) => {
         if (!fs.existsSync(chatLogPath)) {
             await bot.sendMessage(
                 chatId, 
-                'Please start the conversation with /start command.'
+                'Пожалуйста, начните разговор с команды /start.'
             );
             return;
         }
@@ -303,7 +310,7 @@ bot.on('message', async (msg) => {
             console.log(`Chat history for ${chatId} is outdated`);
             await bot.sendMessage(
                 chatId, 
-                'Бот был обновлен (исправили ошибки, добавили новых). Пожалуйста перезапустите бота нажав /start . Просим прощения за доставленные неудобства.'
+                'Бот был обновлён (исправили ошибки, добавили новых). Пожалуйста, перезапустите бота командой /start. Приносим извинения за неудобства.'
             );
             return;
         }
@@ -328,31 +335,28 @@ bot.on('message', async (msg) => {
                 timestamp: new Date().toISOString()
             });
         
-            // Отправляем имя в OpenAI
             const answer = await callOpenAI(chatId, [{
                 type: 'input_text',
                 text: `Меня зовут ${userText}`
             }]);
         
-            await bot.sendMessage(chatId, answer);
-            logChat(chatId, { text: answer }, 'assistant');
+            await sendAndLogResponse(chatId, answer);
             return;
         }
 
         // Обычная обработка сообщений
-        logChat(chatId, { text: userText });
+        // Убрано: logChat(chatId, { text: userText });
         const assistantText = await callOpenAI(chatId, [{
             type: 'input_text',
             text: userText
         }]);
-        await bot.sendMessage(chatId, assistantText);
-        logChat(chatId, { text: assistantText }, 'assistant');
+        await sendAndLogResponse(chatId, assistantText);
 
     } catch (error) {
         console.error(`Error processing message from ${chatId}:`, error);
         await bot.sendMessage(
             chatId, 
-            'An error occurred processing your message. Please try again.'
+            `Произошла ошибка при обработке вашего сообщения: ${error.message}. Пожалуйста, попробуйте ещё раз.`
         );
     }
 });
@@ -364,8 +368,7 @@ bot.on('photo', async (msg) => {
     try {
         const userMessageContent = await processPhoto(msg);
         const assistantText = await callOpenAI(chatId, userMessageContent);
-        await bot.sendMessage(chatId, assistantText);
-        logChat(chatId, { text: assistantText }, 'assistant');
+        await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         console.error(`Secure photo processing error for chat ID ${chatId}:`, error.message);
         logChat(chatId, { 
@@ -388,8 +391,7 @@ bot.on('voice', async (msg) => {
     try {
         const userMessageContent = await processVoice(msg);
         const assistantText = await callOpenAI(chatId, userMessageContent);
-        await bot.sendMessage(chatId, assistantText);
-        logChat(chatId, { text: assistantText }, 'assistant');
+        await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         console.error(`Secure voice processing error for chat ID ${chatId}:`, error.message);
         logChat(chatId, { 
@@ -412,4 +414,3 @@ bot.on('polling_error', (error) => {
 
 // Запуск бота
 console.log('Bot started successfully and is polling for messages...');
-
