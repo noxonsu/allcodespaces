@@ -1,12 +1,11 @@
-//this is allCodeSpacesImageparse.js file
-
+console.log('this is allCodeSpacesImageparse.js file')
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
 const { sanitizeString, validateChatId, logChat, validateImageResponse, validateMimeTypeImg, validateMimeTypeAudio } = require('./utilities');
-const { setSystemMessage, setOpenAIKey, callOpenAI, clearConversation, transcribeAudio } = require('./openai');
+const { setSystemMessage, setOpenAIKey, callOpenAI, clearConversation, transcribeAudio, updateLongMemory } = require('./openai');
 
 // --- Конфигурация ---
 let nameprompt = 'calories';
@@ -72,11 +71,6 @@ try {
 }
 
 // --- Обработка голосовых сообщений ---
-/**
- * Обрабатывает голосовое сообщение, транскрибирует его и готовит содержимое для OpenAI.
- * @param {Object} msg - Сообщение от Telegram
- * @returns {Array} - Содержимое сообщения для OpenAI
- */
 async function processVoice(msg) {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) {
@@ -100,7 +94,6 @@ async function processVoice(msg) {
     const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
     console.log(`Processing voice file from URL: ${fileUrl}`);
 
-    // Валидация MIME-типа (голосовые сообщения обычно 'audio/ogg')
     const mimeType = voice.mime_type;
     if (!mimeType || !validateMimeTypeAudio(mimeType)) {
         throw new Error('Invalid voice MIME type');
@@ -115,7 +108,6 @@ async function processVoice(msg) {
     }
     userMessageContent.push({ type: 'input_text', text: text });
 
-    // Логирование обработки голосового сообщения
     logChat(chatId, {
         type: 'voice',
         mimeType: mimeType,
@@ -127,11 +119,6 @@ async function processVoice(msg) {
 }
 
 // --- Обработка фото ---
-/**
- * Обрабатывает фото-сообщение, загружает изображение и готовит содержимое для OpenAI.
- * @param {Object} msg - Сообщение от Telegram
- * @returns {Array} - Содержимое сообщения для OpenAI
- */
 async function processPhoto(msg) {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) {
@@ -155,7 +142,6 @@ async function processPhoto(msg) {
     const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
     console.log(`Processing image file from URL: ${fileUrl}`);
 
-    // Валидация расширения файла и MIME-типа
     const fileExtension = path.extname(filePath).toLowerCase();
     const mimeType = {
         '.jpg': 'image/jpeg',
@@ -170,11 +156,10 @@ async function processPhoto(msg) {
         throw new Error('Invalid file type');
     }
 
-    // Загрузка изображения
     const imageResponse = await axios.get(fileUrl, {
         responseType: 'arraybuffer',
         timeout: 30000,
-        maxContentLength: 10 * 1024 * 1024 // Лимит 10 МБ
+        maxContentLength: 10 * 1024 * 1024
     });
 
     validateImageResponse(imageResponse);
@@ -182,12 +167,10 @@ async function processPhoto(msg) {
     const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
     console.log(`Successfully downloaded and encoded image. Mime type: ${mimeType}, Base64 length: ${imageBase64.length}`);
 
-    // Валидация размера закодированного изображения
     if (imageBase64.length > 10 * 1024 * 1024) {
         throw new Error('Encoded image size exceeds maximum allowed');
     }
 
-    // Формирование содержимого сообщения
     const imageUrl = `data:${mimeType};base64,${imageBase64}`;
     const userMessageContent = [];
     
@@ -197,7 +180,6 @@ async function processPhoto(msg) {
     
     userMessageContent.push({ type: 'input_image', image_url: imageUrl });
 
-    // Логирование обработки фото (без base64 для безопасности)
     logChat(chatId, { 
         type: 'photo',
         mimeType: mimeType,
@@ -216,16 +198,12 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     console.log(`Received /start command from chat ${chatId}`);
 
     try {
-        // Create user_data directory if it doesn't exist
         const userDataDir = path.join(__dirname, 'user_data');
         if (!fs.existsSync(userDataDir)) {
             fs.mkdirSync(userDataDir, { recursive: true });
         }
 
-        // Path to user's data file
         const userFilePath = path.join(userDataDir, `${chatId}.json`);
-
-        // Get raw start parameter if provided and sanitize it
         let startParam = match?.[1] || null;
         if (startParam) {
             startParam = sanitizeString(startParam);
@@ -235,14 +213,11 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
         let userData = {};
         if (fs.existsSync(userFilePath)) {
-            // Load existing data
             userData = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
-            // Update lastStartParam if new parameter is provided and different from first
             if (startParam && (!userData.startParameter || startParam !== userData.startParameter)) {
                 userData.lastStartParam = startParam;
             }
         } else {
-            // New user, save first visit and parameter
             userData = {
                 chatId: chatId.toString(),
                 firstVisit: Date.now(),
@@ -251,25 +226,24 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 username: msg.from?.username || null,
                 firstName: msg.from?.first_name || null,
                 lastName: msg.from?.last_name || null,
-                languageCode: msg.from?.language_code || null
+                languageCode: msg.from?.language_code || null,
+                longMemory: '',
+                lastLongMemoryUpdate: 0
             };
-            // Note: Telegram Bot API does not provide account registration date, so we can't save it
             console.log(`User data recorded for chat ${chatId}:`, userData);
         }
 
         fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
 
-        // Clear conversation history
         clearConversation(chatId);
+        await updateLongMemory(chatId);
 
-        // Remove chat log if exists
         const chatLogPath = path.join(chatHistoriesDir, `chat_${chatId}.log`);
         if (fs.existsSync(chatLogPath)) {
             fs.unlinkSync(chatLogPath);
             console.log(`Removed chat log for ${chatId}`);
         }
 
-        // Create initial chat log
         logChat(chatId, {
             type: 'system',
             text: 'Chat initiated',
@@ -289,18 +263,15 @@ bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     const userText = msg.text;
 
-    // Skip photo/voice messages and empty text
     if (msg.photo || msg.voice || !userText) {
         return;
     }
 
-    // Skip /start command as it has a separate handler or parameters 
     if (userText.startsWith('/start')) {
         return;
     }
 
     try {
-        // Check for user_data file first
         const userDataDir = path.join(__dirname, 'user_data');
         const userDataPath = path.join(userDataDir, `${chatId}.json`);
         
@@ -314,7 +285,6 @@ bot.on('message', async (msg) => {
 
         const chatLogPath = path.join(chatHistoriesDir, `chat_${chatId}.log`);
         
-        // Check if chat log exists
         if (!fs.existsSync(chatLogPath)) {
             await bot.sendMessage(
                 chatId, 
@@ -323,18 +293,12 @@ bot.on('message', async (msg) => {
             return;
         }
 
-        // Read restart timestamp
         const restartTimestamp = fs.existsSync(restartFilePath) 
             ? parseInt(fs.readFileSync(restartFilePath, 'utf8'), 10)
             : Date.now();
 
-        // Get chat log modification time as Unix timestamp
         const logMtime = fs.statSync(chatLogPath).mtime.getTime();
 
-        // Debug logging
-        console.log(`Chat ${chatId} timestamps - Log: ${logMtime}, Restart: ${restartTimestamp}`);
-
-        // Compare timestamps
         if (logMtime < restartTimestamp) {
             console.log(`Chat history for ${chatId} is outdated`);
             await bot.sendMessage(
@@ -358,39 +322,24 @@ bot.on('message', async (msg) => {
         });
 
         if (!hasName) {
-            // First message after /start - handle as name
             logChat(chatId, { 
                 type: 'name_provided',
                 name: userText,
                 timestamp: new Date().toISOString()
             });
-
-            // Send name to OpenAI as first interaction
-            answer = await callOpenAI(chatId, [{
+        
+            // Отправляем имя в OpenAI
+            const answer = await callOpenAI(chatId, [{
                 type: 'input_text',
                 text: `Меня зовут ${userText}`
             }]);
-
+        
             await bot.sendMessage(chatId, answer);
             logChat(chatId, { text: answer }, 'assistant');
             return;
         }
 
-        // Regular message processing with restart check
-        const restartTime = fs.existsSync(restartFilePath) 
-            ? new Date(fs.readFileSync(restartFilePath, 'utf8'))
-            : new Date();
-
-        if (fs.statSync(chatLogPath).mtime < restartTime) {
-            console.log(`Chat history for ${chatId} is outdated`);
-            await bot.sendMessage(
-                chatId, 
-                'Мы обновили бота (исправление ошибок). Пожалуйста перезапустите бота нажав /start . Просим прощения за доставленые неудобства.'
-            );
-            return;
-        }
-
-        // Process regular message
+        // Обычная обработка сообщений
         logChat(chatId, { text: userText });
         const assistantText = await callOpenAI(chatId, [{
             type: 'input_text',
@@ -463,3 +412,4 @@ bot.on('polling_error', (error) => {
 
 // Запуск бота
 console.log('Bot started successfully and is polling for messages...');
+
