@@ -60,40 +60,49 @@ function saveUserData(chatId, userData) {
 }
 
 async function updateLongMemory(chatId) {
+    const debug = true; // Включение отладочных логов
     const chatLogPath = path.join(__dirname, 'chat_histories', `chat_${chatId}.log`);
     const userData = loadUserData(chatId);
     const lastLongMemoryUpdate = userData.lastLongMemoryUpdate || 0;
     const now = Date.now();
-    const oneDay = 60 * 1000; //24 * 60 * 60 * 1000;
+    const updateInterval = 60 * 1000; // 60 секунд для отладки (вместо 24 часов)
 
-    // Если longMemory ещё не установлено и есть имя в логах, используем его
-    if (!userData.longMemory && fs.existsSync(chatLogPath)) {
-        const logs = fs.readFileSync(chatLogPath, 'utf8')
-            .split('\n')
-            .filter(Boolean)
-            .map(line => JSON.parse(line));
-        const nameEntry = logs.find(entry => entry.type === 'name_provided');
-        if (nameEntry && nameEntry.name) {
-            userData.longMemory = `Пользователь представился как ${sanitizeString(nameEntry.name)}.`;
-            userData.lastLongMemoryUpdate = now;
-            saveUserData(chatId, userData);
-            console.log(`Initialized longMemory with name for chat ${chatId}: ${userData.longMemory}`);
-            return;
-        }
+    if (debug) {
+        console.log(`Checking longMemory update for chat ${chatId}: last update at ${new Date(lastLongMemoryUpdate).toISOString()}, now ${new Date(now).toISOString()}`);
     }
 
-    // Обычное обновление раз в день
-    if (now - lastLongMemoryUpdate < oneDay || !fs.existsSync(chatLogPath)) return;
+    if (!fs.existsSync(chatLogPath)) {
+        if (debug) console.log(`No chat log exists for chat ${chatId}, skipping update`);
+        return;
+    }
 
     const logs = fs.readFileSync(chatLogPath, 'utf8')
         .split('\n')
         .filter(Boolean)
-        .map(line => JSON.parse(line))
-        .filter(entry => entry.role === 'user' && entry.text);
+        .map(line => JSON.parse(line));
 
-    if (logs.length === 0) return;
+    const userTextMessages = logs.filter(entry => entry.role === 'user' && entry.text);
 
-    const recentMessages = logs.slice(-20).map(entry => entry.text).join('\n');
+    if (debug) {
+        console.log(`Found ${userTextMessages.length} user text messages for chat ${chatId}`);
+        console.log(`Messages: ${JSON.stringify(userTextMessages.map(m => m.text))}`);
+    }
+
+    const shouldUpdate = (now - lastLongMemoryUpdate >= updateInterval) || 
+                        (userTextMessages.length >= 2 && lastLongMemoryUpdate === 0);
+
+    if (!shouldUpdate) {
+        if (debug) console.log(`No update needed for chat ${chatId}: time elapsed ${Math.round((now - lastLongMemoryUpdate) / 1000)}s < ${updateInterval / 1000}s or messages < 2`);
+        return;
+    }
+
+    if (userTextMessages.length === 0) {
+        if (debug) console.log(`No user text messages to analyze for chat ${chatId}, skipping update`);
+        return;
+    }
+
+    const recentMessages = userTextMessages.slice(-10).map(entry => entry.text).join('\n');
+    if (debug) console.log(`Analyzing recent messages for chat ${chatId}: ${recentMessages}`);
 
     const analysisPrompt = {
         role: 'system',
@@ -130,8 +139,10 @@ async function updateLongMemory(chatId) {
         userData.lastLongMemoryUpdate = now;
         saveUserData(chatId, userData);
         console.log(`Updated longMemory for chat ${chatId}: ${newLongMemory}`);
+        if (debug) console.log(`Successfully updated longMemory for chat ${chatId} at ${new Date(now).toISOString()}`);
     } catch (error) {
         console.error(`Failed to update longMemory for chat ${chatId}:`, error.message);
+        if (debug) console.log(`Error details: ${JSON.stringify(error, null, 2)}`);
     }
 }
 
@@ -242,7 +253,7 @@ async function callOpenAI(chatId, userMessageContent) {
         }
 
         const sanitizedAssistantText = sanitizeString(assistantText);
-        logChat(chatId, { text: sanitizedAssistantText }, 'assistant');
+        // Удалено дублирующее логирование здесь, оставлено в обработчике
         conversations[chatId].push({
             role: 'assistant',
             content: sanitizedAssistantText
@@ -298,7 +309,7 @@ async function transcribeAudio(audioPath, language = 'ru') {
         return transcribedText;
 
     } catch (error) {
-        console.error(`Error transcribing audio: ${error.message}`);
+        console.error(`Error transcribing audio:`, error.message);
         throw new Error('Failed to transcribe audio');
     }
 }
