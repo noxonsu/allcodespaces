@@ -59,16 +59,33 @@ function saveUserData(chatId, userData) {
     fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
 }
 
-async function updateLongMemory(chatId) {
-    const debug = true; // Включение отладочных логов
+async function updateLongMemory(chatId, lastUserMessage = null) {
+    const debug = true;
     const chatLogPath = path.join(__dirname, 'chat_histories', `chat_${chatId}.log`);
     const userData = loadUserData(chatId);
     const lastLongMemoryUpdate = userData.lastLongMemoryUpdate || 0;
     const now = Date.now();
-    const updateInterval = 60 * 1000; // 60 секунд для отладки (вместо 24 часов)
+    const updateInterval = 60 * 1000;
 
     if (debug) {
         console.log(`Checking longMemory update for chat ${chatId}: last update at ${new Date(lastLongMemoryUpdate).toISOString()}, now ${new Date(now).toISOString()}`);
+    }
+
+    // Ensure chat_histories directory exists
+    const chatHistoryDir = path.dirname(chatLogPath);
+    if (!fs.existsSync(chatHistoryDir)) {
+        fs.mkdirSync(chatHistoryDir, { recursive: true });
+    }
+
+    // Add last user message to log if provided
+    if (lastUserMessage) {
+        const logEntry = {
+            role: 'user',
+            text: lastUserMessage,
+            timestamp: new Date().toISOString()
+        };
+        fs.appendFileSync(chatLogPath, JSON.stringify(logEntry) + '\n');
+        if (debug) console.log(`Added last user message to log: ${JSON.stringify(logEntry)}`);
     }
 
     if (!fs.existsSync(chatLogPath)) {
@@ -81,32 +98,37 @@ async function updateLongMemory(chatId) {
         .filter(Boolean)
         .map(line => JSON.parse(line));
 
-    const userTextMessages = logs.filter(entry => entry.role === 'user' && entry.text);
+    // Учитываем все записи с текстом и добавляем последнее сообщение которое 
+    let textMessages = logs;
+    const messageCount = textMessages.length;
 
     if (debug) {
-        console.log(`Found ${userTextMessages.length} user text messages for chat ${chatId}`);
-        console.log(`Messages: ${JSON.stringify(userTextMessages.map(m => m.text))}`);
+        console.log(`Found ${messageCount} text messages for chat ${chatId}`);
+        console.log(`Messages: ${JSON.stringify(textMessages.map(m => ({ role: m.role, text: m.text })))}`);
     }
 
-    const shouldUpdate = (now - lastLongMemoryUpdate >= updateInterval) || 
-                        (userTextMessages.length >= 2 && lastLongMemoryUpdate === 0);
+    // Обновляем при каждом из первых 5 сообщений или после интервала
+    const shouldUpdate = (messageCount > 0 && messageCount <= 5) || 
+                        (now - lastLongMemoryUpdate >= updateInterval) || 
+                        (messageCount >= 2 && lastLongMemoryUpdate === 0);
 
     if (!shouldUpdate) {
-        if (debug) console.log(`No update needed for chat ${chatId}: time elapsed ${Math.round((now - lastLongMemoryUpdate) / 1000)}s < ${updateInterval / 1000}s or messages < 2`);
+        if (debug) console.log(`No update needed for chat ${chatId}: time elapsed ${Math.round((now - lastLongMemoryUpdate) / 1000)}s < ${updateInterval / 1000}s and messages > 5`);
         return;
     }
 
-    if (userTextMessages.length === 0) {
-        if (debug) console.log(`No user text messages to analyze for chat ${chatId}, skipping update`);
+    if (messageCount === 0) {
+        if (debug) console.log(`No text messages to analyze for chat ${chatId}, skipping update`);
         return;
     }
-
-    const recentMessages = userTextMessages.slice(-10).map(entry => entry.text).join('\n');
+    
+    const recentMessages = textMessages.slice(-20).map(entry => `${entry.role}: ${entry.text}`).join('\n');
     if (debug) console.log(`Analyzing recent messages for chat ${chatId}: ${recentMessages}`);
 
+    const currentMemory = userData.longMemory || '';
     const analysisPrompt = {
         role: 'system',
-        content: [{ type: 'input_text', text: 'Анализируй последние сообщения пользователя и обнови его долгосрочную память (краткое описание интересов, предпочтений, характера). Верни только обновлённый текст longMemory.' }]
+        content: [{ type: 'input_text', text: `Текущая долгосрочная память: ${currentMemory}\n\nАнализируй сообщения пользователя и ответы ассистента, обнови долгосрочную память (самое важное). Верни только чистый текст longMemory без префикса "longMemory:". Используй существующую информацию из долгосрочной памяти, если она актуальна.` }]
     };
     const userMessages = {
         role: 'user',
@@ -130,11 +152,31 @@ async function updateLongMemory(chatId) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${openaiApiKey}`,
                 },
-                timeout: 30000,
+                timeout: 30 * 1000,
+                maxContentLength: 50 * 1024 * 1024,
+                validateStatus: status => status === 200
             }
         );
 
-        const newLongMemory = sanitizeString(response.data.output.find(o => o.type === 'message')?.content.find(c => c.type === 'text')?.text || '');
+        if (!response.data || !Array.isArray(response.data.output)) {
+            throw new Error('Invalid API response structure');
+        }
+
+        const messageOutput = response.data.output.find(output => output.type === 'message');
+        const assistantText = messageOutput?.content?.find(c => c.type === 'output_text')?.text ||
+                             messageOutput?.content?.find(c => c.type === 'text')?.text;
+
+        if (!assistantText) {
+            throw new Error('No valid message content found in OpenAI response');
+        }
+
+        // Убираем префикс "longMemory:" если он есть
+        let newLongMemory = sanitizeString(assistantText.replace(/^longMemory:\s*/i, ''));
+        if (!newLongMemory) {
+            console.warn(`Empty longMemory received for chat ${chatId} after processing, keeping previous value`);
+            return;
+        }
+
         userData.longMemory = newLongMemory;
         userData.lastLongMemoryUpdate = now;
         saveUserData(chatId, userData);
@@ -168,13 +210,15 @@ async function callOpenAI(chatId, userMessageContent) {
         console.log(`Initialized conversation history for chat ID: ${chatId}`);
     }
 
-    await updateLongMemory(chatId);
-
     const userMessage = {
         role: 'user',
         content: sanitizedContent
     };
     conversations[chatId].push(userMessage);
+
+    // Get the text content from sanitizedContent
+    const lastUserMessage = sanitizedContent.find(c => c.text)?.text;
+    await updateLongMemory(chatId, lastUserMessage);
 
     const MAX_HISTORY = 20;
     if (conversations[chatId].length > MAX_HISTORY + 1) {
@@ -234,7 +278,7 @@ async function callOpenAI(chatId, userMessageContent) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${openaiApiKey}`,
                 },
-                timeout: 30000,
+                timeout: 30 * 1000,
                 maxContentLength: 50 * 1024 * 1024,
                 validateStatus: status => status === 200
             }
@@ -253,7 +297,6 @@ async function callOpenAI(chatId, userMessageContent) {
         }
 
         const sanitizedAssistantText = sanitizeString(assistantText);
-        // Удалено дублирующее логирование здесь, оставлено в обработчике
         conversations[chatId].push({
             role: 'assistant',
             content: sanitizedAssistantText
@@ -296,7 +339,7 @@ async function transcribeAudio(audioPath, language = 'ru') {
                     ...formData.getHeaders(),
                     'Authorization': `Bearer ${openaiApiKey}`
                 },
-                timeout: 60000
+                timeout: 60 * 1000
             }
         );
 
