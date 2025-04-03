@@ -263,18 +263,50 @@ async function updateLongMemory(chatId) { // Removed lastUserMessageText as it's
             }
         );
 
-         // Find the message output, then the JSON output within its content
+        // --- Improved JSON Parsing Logic ---
         const messageOutput = response.data?.output?.find(output => output.type === 'message');
-        const jsonOutput = messageOutput?.content?.find(c => c.type === 'output_json_object')?.json_object;
+        let parsedJson = null;
 
-        // Check if jsonOutput is a valid object (even if empty {})
-        if (typeof jsonOutput !== 'object' || jsonOutput === null) {
-             console.warn(`[LongMemory ${chatId}] Некорректный или отсутствующий JSON объект в ответе анализатора. Raw text: ${messageOutput?.content?.find(c => c.type === 'output_text')?.text}`);
-            return; // Don't update if the response is not the expected JSON
+        // 1. Try to get the structured JSON object first
+        const jsonObjectOutput = messageOutput?.content?.find(c => c.type === 'output_json_object')?.json_object;
+
+        if (typeof jsonObjectOutput === 'object' && jsonObjectOutput !== null) {
+            parsedJson = jsonObjectOutput;
+            console.info(`[LongMemory ${chatId}] Успешно получен структурированный JSON из 'output_json_object'.`);
+        } else {
+            // 2. If structured JSON is missing, try parsing the text output
+            const textOutput = messageOutput?.content?.find(c => c.type === 'output_text')?.text;
+            if (textOutput) {
+                console.warn(`[LongMemory ${chatId}] Не найден 'output_json_object', попытка парсинга 'output_text'. Raw text: ${textOutput}`);
+                try {
+                    parsedJson = JSON.parse(textOutput);
+                    // Double-check if parsing resulted in a valid object
+                    if (typeof parsedJson !== 'object' || parsedJson === null) {
+                         console.error(`[LongMemory ${chatId}] Парсинг 'output_text' не дал валидный объект JSON.`);
+                         parsedJson = null; // Reset if parsing didn't yield an object
+                    } else {
+                         console.info(`[LongMemory ${chatId}] Успешно распарсен JSON из 'output_text'.`);
+                    }
+                } catch (parseError) {
+                    console.error(`[LongMemory ${chatId}] Ошибка парсинга JSON из 'output_text': ${parseError.message}. Raw text: ${textOutput}`);
+                    parsedJson = null; // Ensure it's null on parse error
+                }
+            } else {
+                 console.warn(`[LongMemory ${chatId}] Не найдены ни 'output_json_object', ни 'output_text' в ответе.`);
+            }
         }
 
-        // Convert the JSON object back to a string for storage
-        const newLongMemoryString = JSON.stringify(jsonOutput);
+        // Check if we successfully got a parsed JSON object
+        if (parsedJson === null) {
+             console.error(`[LongMemory ${chatId}] Не удалось получить валидный JSON ни одним из способов. Обновление памяти пропущено.`);
+            return; // Don't update if we couldn't get valid JSON
+        }
+        // --- End of Improved JSON Parsing Logic ---
+
+
+        // Convert the successfully parsed JSON object back to a string for storage
+        const newLongMemoryString = JSON.stringify(parsedJson);
+
 
         // Avoid saving empty "{}" string if memory was previously populated, unless it was already "{}"
         if (newLongMemoryString === '{}' && currentMemory && currentMemory !== '{}') {
@@ -284,6 +316,7 @@ async function updateLongMemory(chatId) { // Removed lastUserMessageText as it's
             saveUserData(chatId, userData);
             return;
         }
+
 
         // Update only if the memory content has actually changed
         if (newLongMemoryString !== currentMemory) {

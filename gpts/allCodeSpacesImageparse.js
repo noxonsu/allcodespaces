@@ -414,7 +414,7 @@ bot.on('message', async (msg) => {
             console.info(`[Сообщение ${chatId}] Файл данных пользователя не найден. Предлагаем /start.`);
             await bot.sendMessage(
                 chatId,
-                'Кажется, мы еще не знакомы! Пожалуйста, используйте команду /start, чтобы начать наш разговор.'
+                'Кажется, вышло крупное обновление бота! Пожалуйста, используйте команду /start, чтобы начать наш разговор.'
             );
              logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata' }, 'system');
             return; // Stop processing until /start is used
