@@ -4,413 +4,584 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
-const { sanitizeString, validateChatId, logChat, validateImageResponse, validateMimeTypeImg, validateMimeTypeAudio } = require('./utilities');
-const { setSystemMessage, setOpenAIKey, callOpenAI, clearConversation, transcribeAudio, updateLongMemory } = require('./openai');
+// Import necessary functions from utilities, including CHAT_HISTORIES_DIR
+const {
+    sanitizeString,
+    validateChatId,
+    logChat,
+    validateImageResponse,
+    validateMimeTypeImg,
+    validateMimeTypeAudio,
+    CHAT_HISTORIES_DIR // Use the exported path
+} = require('./utilities');
+// Import functions from openai module
+const {
+    setSystemMessage,
+    setOpenAIKey,
+    callOpenAI,
+    transcribeAudio,
+    updateLongMemory // Keep for /start potentially
+    // clearConversation is removed
+} = require('./openai');
 
-// --- Конфигурация ---
-let nameprompt = 'calories';
+// --- Configuration ---
+let nameprompt = 'calories'; // Example, ensure this is set correctly
 const result = dotenv.config({ path: `.env.${nameprompt}` });
 if (result.error) {
-    console.error(`Error loading .env.${nameprompt} file:`, result.error);
-    process.exit(1);
+    console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
+    process.exit(1); // Exit if config fails
 }
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
-    console.error(`Error: TELEGRAM_BOT_TOKEN is not defined in .env.${nameprompt} file`);
+    console.error(`Ошибка: TELEGRAM_BOT_TOKEN не определен в файле .env.${nameprompt}`);
     process.exit(1);
 }
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 if (!openaiApiKey) {
-    console.error(`Error: OPENAI_API_KEY is not defined in .env.${nameprompt} file`);
+    console.error(`Ошибка: OPENAI_API_KEY не определен в файле .env.${nameprompt}`);
     process.exit(1);
 }
 
-let systemPromptContent = 'You are a helpful assistant.';
+// Load system prompt from file or env
+let systemPromptContent = 'You are a helpful assistant.'; // Default prompt
 try {
     const promptPath = `.env.${nameprompt}_prompt`;
     if (fs.existsSync(promptPath)) {
         const promptData = fs.readFileSync(promptPath, 'utf8');
-        systemPromptContent = promptData;
+        systemPromptContent = promptData.trim(); // Trim whitespace
+        console.log(`Системный промпт загружен из ${promptPath}`);
     } else {
+        // Fallback to environment variable if file doesn't exist
         systemPromptContent = process.env.SYSTEM_PROMPT || systemPromptContent;
+        console.log(`Системный промпт загружен из переменной окружения или по умолчанию.`);
     }
-    
+
     if (!systemPromptContent) {
-        throw new Error('System prompt is empty or undefined');
+        throw new Error('Системный промпт пуст или не определен после загрузки.');
     }
 } catch (error) {
-    console.error('Error loading system prompt:', error);
-    process.exit(1);
+    console.error('Ошибка загрузки системного промпта:', error);
+    process.exit(1); // Exit if prompt loading fails
 }
 
-// Установка системного сообщения и ключа API для OpenAI
+// --- Initialize OpenAI Module ---
 setSystemMessage(systemPromptContent);
 setOpenAIKey(openaiApiKey);
 
-// Инициализация бота
+// --- Initialize Bot ---
 const bot = new TelegramBot(token, { polling: true });
 
-// Initialize restart time tracking
-const restartFilePath = path.join(__dirname, 'lastrestarttime.txt');
-const lastRestartTime = new Date();
-
-// Ensure chat_histories directory exists
-const chatHistoriesDir = path.join(__dirname, 'chat_histories');
-if (!fs.existsSync(chatHistoriesDir)) {
-    fs.mkdirSync(chatHistoriesDir, { recursive: true });
+// --- Ensure Directories Exist (Redundant check, but safe) ---
+const USER_DATA_DIR = path.join(__dirname, 'user_data');
+if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
+    fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
+}
+if (!fs.existsSync(USER_DATA_DIR)) {
+    fs.mkdirSync(USER_DATA_DIR, { recursive: true });
 }
 
-// Write restart time as Unix timestamp
-try {
-    fs.writeFileSync(restartFilePath, lastRestartTime.getTime().toString());
-    console.log(`Restart time recorded: ${lastRestartTime.getTime()}`);
-} catch (error) {
-    console.error('Failed to write restart time:', error);
-}
+// --- Helper Functions ---
 
-// --- Вспомогательная функция для отправки сообщения и логирования ---
+/**
+ * Sends a response message via Telegram and logs it to the chat history.
+ * @param {number} chatId The chat ID.
+ * @param {string} assistantText The text response from the assistant.
+ */
 async function sendAndLogResponse(chatId, assistantText) {
-    await bot.sendMessage(chatId, assistantText);
-    logChat(chatId, { text: assistantText }, 'assistant');
+    try {
+        await bot.sendMessage(chatId, assistantText);
+        // Logging is now handled inside callOpenAI *after* successful response.
+    } catch (error) {
+        console.error(`Ошибка отправки сообщения в чат ${chatId}:`, error.message);
+        // Attempt to notify user of send failure
+        try {
+            await bot.sendMessage(chatId, "Извините, не удалось отправить предыдущий ответ. Пожалуйста, попробуйте еще раз или перезапустите бота командой /start.");
+        } catch (nestedError) {
+            console.error(`Не удалось отправить уведомление об ошибке в чат ${chatId}:`, nestedError.message);
+        }
+        // Log the failure to send
+        logChat(chatId, { error: 'send_message_failed', message: error.message }, 'error');
+    }
 }
 
-// --- Обработка голосовых сообщений ---
+/**
+ * Sends a generic error message to the user, suggesting a restart.
+ * @param {number} chatId The chat ID.
+ * @param {string} specificErrorMsg The error message from the caught exception (for logging).
+ * @param {string} context E.g., 'обработки текста', 'обработки фото'.
+ */
+async function sendErrorMessage(chatId, specificErrorMsg, context = 'обработки вашего запроса') {
+     console.error(`Ошибка во время ${context} для чата ${chatId}:`, specificErrorMsg);
+     try {
+         // Send a user-friendly message including the restart suggestion
+         await bot.sendMessage(
+             chatId,
+             `Извините, возникла проблема во время ${context}. Пожалуйста, повторите попытку. Если ошибка повторяется, попробуйте перезапустить бота командой /start.`
+         );
+     } catch (sendError) {
+         console.error(`Не удалось отправить сообщение об ошибке в чат ${chatId}:`, sendError.message);
+     }
+     // Log the detailed error internally
+     logChat(chatId, {
+         error: `error_in_${context.replace(/\s+/g, '_')}`,
+         message: specificErrorMsg, // Log the actual error message here
+         timestamp: new Date().toISOString()
+     }, 'error');
+}
+
+
+// --- Message Processors ---
+
+/**
+ * Processes voice messages: downloads, transcribes, and prepares content for OpenAI.
+ * @param {object} msg The Telegram message object.
+ * @returns {Promise<Array<object>>} A promise resolving to the user message content array.
+ * @throws {Error} If processing fails.
+ */
 async function processVoice(msg) {
     const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) {
-        console.error('Invalid chat ID in voice message');
-        throw new Error('Invalid chat ID');
-    }
+    if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в голосовом сообщении');
 
     const caption = msg.caption ? sanitizeString(msg.caption) : '';
     const voice = msg.voice;
-    if (!voice || !voice.file_id) {
-        console.error('Invalid voice data received');
-        throw new Error('Invalid voice data');
-    }
+    if (!voice || !voice.file_id) throw new Error('Некорректные данные голосового сообщения');
 
+    console.info(`[Голос ${chatId}] Обработка голосового сообщения.`);
     const file = await bot.getFile(voice.file_id);
-    if (!file || !file.file_path) {
-        throw new Error('Invalid file data received');
-    }
+    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файле от Telegram');
 
-    const filePath = file.file_path;
-    const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
-    console.log(`Processing voice file from URL: ${fileUrl}`);
+    const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+    const mimeType = voice.mime_type; // Get mime type from voice object
 
-    const mimeType = voice.mime_type;
+    // Validate mime type *before* transcription attempt
     if (!mimeType || !validateMimeTypeAudio(mimeType)) {
-        throw new Error('Invalid voice MIME type');
+        console.warn(`[Голос ${chatId}] Некорректный или отсутствующий MIME тип аудио: ${mimeType}`);
+        throw new Error(`Неподдерживаемый формат аудио: ${mimeType || 'Unknown'}. Пожалуйста, отправьте стандартные форматы (MP3, OGG, WAV, M4A).`);
     }
 
-    const text = await transcribeAudio(fileUrl, 'ru');
-    console.log(`Transcribed voice: ${text}`);
+    console.info(`[Голос ${chatId}] Попытка транскрибации аудио с ${fileUrl} (MIME: ${mimeType})`);
+    const transcribedText = await transcribeAudio(fileUrl, 'ru'); // Request Russian transcription
+    console.info(`[Голос ${chatId}] Голос транскрибирован. Длина: ${transcribedText.length}`);
 
     const userMessageContent = [];
     if (caption) {
-        userMessageContent.push({ type: 'input_text', text: sanitizeString(caption) });
+        userMessageContent.push({ type: 'input_text', text: caption });
     }
-    userMessageContent.push({ type: 'input_text', text: text });
+    userMessageContent.push({ type: 'input_text', text: transcribedText }); // Add transcribed text
 
+     // Log the voice event details (excluding the actual audio data)
     logChat(chatId, {
-        type: 'voice',
+        type: 'voice_received',
         mimeType: mimeType,
+        duration: voice.duration,
+        fileSize: voice.file_size,
         hasCaption: Boolean(caption),
-        timestamp: new Date().toISOString()
-    });
+        transcribedTextLength: transcribedText.length, // Log length, not full text
+        timestamp: new Date(msg.date * 1000).toISOString() // Use message timestamp
+    }, 'event');
 
-    return userMessageContent;
+
+    return userMessageContent; // Return content for callOpenAI
 }
 
-// --- Обработка фото ---
+/**
+ * Processes photo messages: downloads, encodes, and prepares content for OpenAI.
+ * @param {object} msg The Telegram message object.
+ * @returns {Promise<Array<object>>} A promise resolving to the user message content array.
+ * @throws {Error} If processing fails.
+ */
 async function processPhoto(msg) {
     const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) {
-        console.error('Invalid chat ID in photo message');
-        throw new Error('Invalid chat ID');
-    }
+    if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в фото сообщении');
 
     const caption = msg.caption ? sanitizeString(msg.caption) : '';
-    const photo = msg.photo[msg.photo.length - 1];
-    if (!photo || !photo.file_id) {
-        console.error('Invalid photo data received');
-        throw new Error('Invalid photo data');
-    }
+    // Get the largest available photo
+    const photo = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1] : null;
+    if (!photo || !photo.file_id) throw new Error('Некорректные данные фото в сообщении');
 
+    console.info(`[Фото ${chatId}] Обработка фото сообщения.`);
     const file = await bot.getFile(photo.file_id);
-    if (!file || !file.file_path) {
-        throw new Error('Invalid file data received');
-    }
+    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файле от Telegram');
 
-    const filePath = file.file_path;
-    const fileUrl = `https://api.telegram.org/file/bot${token}/${filePath}`;
-    console.log(`Processing image file from URL: ${fileUrl}`);
+    const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
+    console.info(`[Фото ${chatId}] Загрузка изображения с ${fileUrl}`);
 
-    const fileExtension = path.extname(filePath).toLowerCase();
+    // Determine MIME type from file extension (less reliable) or fetch headers (better)
+    const fileExtension = path.extname(file.file_path).toLowerCase();
     const mimeType = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp',
-        '.bmp': 'image/bmp'
+        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+        '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp'
     }[fileExtension];
 
     if (!mimeType || !validateMimeTypeImg(mimeType)) {
-        throw new Error('Invalid file type');
+        console.warn(`[Фото ${chatId}] Неподдерживаемый тип изображения по расширению: ${fileExtension}`);
+        throw new Error(`Неподдерживаемый формат изображения (${fileExtension || 'Unknown'}). Пожалуйста, отправьте JPEG, PNG, GIF, WEBP, или BMP.`);
     }
 
+    // Download the image
     const imageResponse = await axios.get(fileUrl, {
         responseType: 'arraybuffer',
-        timeout: 30000,
-        maxContentLength: 10 * 1024 * 1024
+        timeout: 30000, // 30 seconds timeout for download
+        maxContentLength: 15 * 1024 * 1024 // Allow slightly larger download (e.g., 15MB)
     });
 
-    validateImageResponse(imageResponse);
+    // Validate downloaded size before encoding
+    validateImageResponse(imageResponse, 10 * 1024 * 1024); // Validate against 10MB limit
 
+    // Encode to Base64
     const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
-    console.log(`Successfully downloaded and encoded image. Mime type: ${mimeType}, Base64 length: ${imageBase64.length}`);
-
-    if (imageBase64.length > 10 * 1024 * 1024) {
-        throw new Error('Encoded image size exceeds maximum allowed');
-    }
-
     const imageUrl = `data:${mimeType};base64,${imageBase64}`;
-    const userMessageContent = [];
-    
-    if (caption) {
-        userMessageContent.push({ type: 'input_text', text: sanitizeString(caption) });
+    console.info(`[Фото ${chatId}] Изображение загружено и закодировано. Длина Base64: ${imageBase64.length}`);
+
+    // Check encoded size (Base64 is larger than binary) - OpenAI has its own limits too (e.g., 20MB total payload)
+    if (imageUrl.length > 20 * 1024 * 1024 * 0.75) { // Estimate max base64 size for ~20MB limit
+         throw new Error('Закодированные данные изображения слишком велики.');
     }
-    
-    userMessageContent.push({ type: 'input_image', image_url: imageUrl });
 
-    logChat(chatId, { 
-        type: 'photo',
+    const userMessageContent = [];
+    if (caption) {
+        userMessageContent.push({ type: 'input_text', text: caption });
+    }
+    userMessageContent.push({ type: 'input_image', image_url: imageUrl }); // Use the base64 data URI
+
+     // Log photo event details
+    logChat(chatId, {
+        type: 'photo_received',
         mimeType: mimeType,
+        fileSize: photo.file_size, // From Telegram metadata
+        width: photo.width,
+        height: photo.height,
         hasCaption: Boolean(caption),
-        timestamp: new Date().toISOString()
-    });
+        timestamp: new Date(msg.date * 1000).toISOString() // Use message timestamp
+    }, 'event');
 
-    return userMessageContent;
+
+    return userMessageContent; // Return content for callOpenAI
 }
 
-// --- Обработчики событий Telegram ---
 
-// Обработчик команды /start
+// --- Telegram Bot Event Handlers ---
+
+// Handler for /start command
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
-    console.log(`Received /start command from chat ${chatId}`);
+    if (!validateChatId(chatId)) {
+         console.error(`Некорректный chat ID получен в /start: ${msg.chat.id}`);
+        return;
+    }
+    console.info(`[Start ${chatId}] Получена команда /start.`);
 
     try {
-        const userDataDir = path.join(__dirname, 'user_data');
-        if (!fs.existsSync(userDataDir)) {
-            fs.mkdirSync(userDataDir, { recursive: true });
-        }
-
-        const userFilePath = path.join(userDataDir, `${chatId}.json`);
-        let startParam = match?.[1] || null;
-        if (startParam) {
-            startParam = sanitizeString(startParam);
-        }
-
-        const howPassed = startParam ? `via parameter: ${startParam}` : 'direct via /start command';
+        // --- User Data Handling (Keep this part) ---
+        const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
+        let startParam = match?.[1] ? sanitizeString(match[1]) : null; // Sanitize start parameter
+        const howPassed = startParam ? `через параметр: ${startParam}` : 'прямая команда /start';
 
         let userData = {};
+        let isNewUser = false;
         if (fs.existsSync(userFilePath)) {
-            userData = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
-            if (startParam && (!userData.startParameter || startParam !== userData.startParameter)) {
-                userData.lastStartParam = startParam;
+            try {
+                userData = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
+                // Update start parameter info if changed
+                if (startParam && startParam !== userData.startParameter) {
+                    userData.lastStartParam = startParam; // Record the new param
+                    console.info(`[Start ${chatId}] Чат перезапущен с новым параметром: ${startParam}`);
+                }
+                 userData.lastRestartTime = new Date().toISOString(); // Record restart time
+            } catch (parseError) {
+                 console.error(`Ошибка парсинга существующих данных пользователя для ${chatId}, сброс:`, parseError);
+                 // Reset data if parsing fails
+                 isNewUser = true; // Treat as new user if data is corrupted
+                 userData = {}; // Start fresh
             }
         } else {
+            isNewUser = true;
+        }
+
+        // If new user or data was reset, initialize fields
+        if (isNewUser) {
             userData = {
                 chatId: chatId.toString(),
-                firstVisit: Date.now(),
+                firstVisit: new Date().toISOString(),
                 startParameter: startParam,
                 howPassed: howPassed,
                 username: msg.from?.username || null,
                 firstName: msg.from?.first_name || null,
                 lastName: msg.from?.last_name || null,
                 languageCode: msg.from?.language_code || null,
-                longMemory: '',
-                lastLongMemoryUpdate: 0
+                longMemory: '', // Initialize empty long memory
+                lastLongMemoryUpdate: 0, // Initialize update timestamp
+                lastRestartTime: new Date().toISOString() // Record first start/restart
             };
-            console.log(`User data recorded for chat ${chatId}:`, userData);
+            console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
         }
 
+        // Save updated/new user data
         fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
+        console.info(`[Start ${chatId}] Данные пользователя сохранены.`);
 
-        clearConversation(chatId);
-        
-        const chatLogPath = path.join(chatHistoriesDir, `chat_${chatId}.log`);
+        // --- History Handling ---
+        // Clear the existing chat log file to start fresh conversation
+        const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
         if (fs.existsSync(chatLogPath)) {
-            fs.unlinkSync(chatLogPath);
-            console.log(`Removed chat log for ${chatId}`);
+            try {
+                fs.unlinkSync(chatLogPath);
+                console.info(`[Start ${chatId}] Лог чата очищен из-за команды /start.`);
+            } catch (unlinkError) {
+                console.error(`Ошибка удаления лога чата для ${chatId}:`, unlinkError);
+                // Continue execution, but log the error
+            }
+        } else {
+             console.info(`[Start ${chatId}] Существующий лог чата для очистки не найден.`);
         }
 
-        await updateLongMemory(chatId);
 
+        // Log the /start event itself
         logChat(chatId, {
-            type: 'system',
-            text: 'Chat initiated',
-            timestamp: new Date().toISOString(),
-            howPassed: howPassed
-        });
+            type: 'system_event',
+            event: 'start_command',
+            howPassed: howPassed,
+            isNewUser: isNewUser, // Log if it was the first time
+            timestamp: new Date(msg.date * 1000).toISOString()
+        }, 'system');
 
-        await bot.sendMessage(chatId, 'Как вас зовут?');
+        // --- Optional: Trigger initial long memory update (if needed) ---
+        // updateLongMemory(chatId).catch(err => console.error(`Initial long memory update failed for ${chatId}:`, err));
+
+        // --- Send Welcome Message ---
+        // Ask for name only if it's the very first interaction (or data was reset)
+        if (isNewUser) {
+             await bot.sendMessage(chatId, 'Добро пожаловать! Я ваш полезный ассистент. Для начала, не могли бы вы сказать, как вас зовут?');
+             logChat(chatId, { type: 'system_message', text: 'Запрошено имя пользователя' }, 'system');
+        } else {
+            // Welcome back message for returning users
+             await bot.sendMessage(chatId, 'С возвращением! Чем могу помочь сегодня?');
+             logChat(chatId, { type: 'system_message', text: 'Отправлено приветствие "С возвращением"' }, 'system');
+        }
+
+
     } catch (error) {
-        console.error(`Error handling /start for chat ${chatId}:`, error);
-        await bot.sendMessage(chatId, 'Произошла ошибка при запуске бота. Пожалуйста, попробуйте ещё раз.');
+        console.error(`Критическая ошибка при обработке /start для чата ${chatId}:`, error);
+        // Try to send an error message, but avoid complex logic here
+        try {
+            // Add restart suggestion here too
+            await bot.sendMessage(chatId, 'Извините, что-то пошло не так во время инициализации. Пожалуйста, попробуйте /start еще раз позже или перезапустите бота командой /start.');
+        } catch (sendError) {
+             console.error(`Не удалось отправить сообщение об ошибке /start в чат ${chatId}:`, sendError.message);
+        }
+         logChat(chatId, { error: 'start_command_critical', message: error.message }, 'error');
     }
 });
 
-// Обработчик текстовых сообщений
+
+// Handler for text messages (and potentially others if not caught by specific handlers)
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-    const userText = msg.text;
 
-    if (msg.photo || msg.voice || !userText) {
+    // --- Basic Validation and Ignore Non-Text ---
+    if (!validateChatId(chatId)) {
+        console.error(`Некорректный chat ID в обработчике сообщений: ${msg.chat.id}`);
+        return; // Ignore messages with invalid chat IDs
+    }
+    // Ignore messages handled by specific handlers (photo, voice, /start command)
+    if (msg.photo || msg.voice || (msg.text && msg.text.startsWith('/start'))) {
+        return;
+    }
+     // Ignore messages without text content if they weren't caught by other handlers
+    if (!msg.text) {
+        console.info(`[Сообщение ${chatId}] Игнорирование нетекстового сообщения (тип: ${msg.document ? 'document' : msg.sticker ? 'sticker' : 'other'})`);
         return;
     }
 
-    if (userText.startsWith('/start')) {
-        return;
+
+    // --- Main Text Message Processing ---
+    const userText = sanitizeString(msg.text); // Sanitize user input
+    if (!userText) {
+         console.info(`[Сообщение ${chatId}] Игнорирование пустого текстового сообщения после очистки.`);
+        return; // Ignore empty messages after sanitization
     }
+
 
     try {
-        const userDataDir = path.join(__dirname, 'user_data');
-        const userDataPath = path.join(userDataDir, `${chatId}.json`);
-        
+        console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}`);
+
+        // --- Check if User Data Exists (Required after /start) ---
+        // This ensures the user has run /start at least once to create their data file.
+        const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
         if (!fs.existsSync(userDataPath)) {
+            console.info(`[Сообщение ${chatId}] Файл данных пользователя не найден. Предлагаем /start.`);
             await bot.sendMessage(
-                chatId, 
-                'Мы обновили бота, пожалуйста нажмите /start еще раз. Приносим извинения за неудобства.'
+                chatId,
+                'Кажется, мы еще не знакомы! Пожалуйста, используйте команду /start, чтобы начать наш разговор.'
             );
-            return;
+             logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata' }, 'system');
+            return; // Stop processing until /start is used
         }
 
-        const chatLogPath = path.join(chatHistoriesDir, `chat_${chatId}.log`);
-        
-        if (!fs.existsSync(chatLogPath)) {
-            await bot.sendMessage(
-                chatId, 
-                'Пожалуйста, начните разговор с команды /start.'
-            );
-            return;
-        }
+        // --- REMOVED Restart Check ---
+        // The logic checking restartFilePath and logMtime has been removed.
 
-        const restartTimestamp = fs.existsSync(restartFilePath) 
-            ? parseInt(fs.readFileSync(restartFilePath, 'utf8'), 10)
-            : Date.now();
-
-        const logMtime = fs.statSync(chatLogPath).mtime.getTime();
-
-        if (logMtime < restartTimestamp) {
-            console.log(`Chat history for ${chatId} is outdated`);
-            await bot.sendMessage(
-                chatId, 
-                'Бот был обновлён (исправили ошибки, добавили новых). Пожалуйста, перезапустите бота командой /start. Приносим извинения за неудобства.'
-            );
-            return;
-        }
-
-        const chatHistory = fs.readFileSync(chatLogPath, 'utf8')
-            .split('\n')
-            .filter(Boolean);
-        
-        const hasName = chatHistory.some(line => {
-            try {
-                const entry = JSON.parse(line);
-                return entry.type === 'name_provided';
-            } catch {
-                return false;
+        // --- Check if Name has been Provided (Example Logic) ---
+        // This logic depends on how you store the name (in user_data.json or chat log)
+        let hasProvidedName = false;
+        try {
+            const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+            if (userData.providedName) { // Check if name exists in user data
+                hasProvidedName = true;
             }
-        });
-
-        if (!hasName) {
-            logChat(chatId, { 
-                type: 'name_provided',
-                name: userText,
-                timestamp: new Date().toISOString()
-            });
-        
-            const answer = await callOpenAI(chatId, [{
-                type: 'input_text',
-                text: `Меня зовут ${userText}`
-            }]);
-        
-            await sendAndLogResponse(chatId, answer);
-            return;
+        } catch(err) {
+             console.error(`[Сообщение ${chatId}] Ошибка чтения данных пользователя для проверки имени:`, err);
+             // Proceed cautiously, assume name not provided if data is unreadable
         }
 
-        // Обычная обработка сообщений
-        // Убрано: logChat(chatId, { text: userText });
-        const assistantText = await callOpenAI(chatId, [{
-            type: 'input_text',
-            text: userText
-        }]);
+
+        // If name hasn't been provided yet, treat this message as the name.
+        if (!hasProvidedName) {
+            console.info(`[Сообщение ${chatId}] Обработка сообщения как имени пользователя: "${userText}"`);
+            // Log that the name was provided
+            logChat(chatId, {
+                type: 'name_provided', // Specific type for this event
+                role: 'user', // Logged as a user action
+                name: userText, // Log the provided name
+                content: [{ type: 'input_text', text: `Пользователь предоставил имя: ${userText}` }], // Content for potential history use
+                timestamp: new Date(msg.date * 1000).toISOString()
+            }, 'user'); // Log type 'user'
+
+             // Update user_data.json with the name
+             try {
+                const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+                userData.providedName = userText; // Add a field for the name
+                userData.nameLastUpdate = new Date().toISOString();
+                fs.writeFileSync(userDataPath, JSON.stringify(userData, null, 2));
+                console.info(`[Сообщение ${chatId}] Имя пользователя сохранено в данных пользователя.`);
+             } catch (err) {
+                 console.error(`[Сообщение ${chatId}] Не удалось обновить данные пользователя с именем:`, err);
+             }
+
+
+            // Call OpenAI with context that the user provided their name
+            const assistantResponse = await callOpenAI(chatId, [{
+                type: 'input_text',
+                // Frame it clearly for the AI
+                text: `Пользователь только что сказал мне, что его зовут "${userText}". Пожалуйста, подтверди это и продолжи разговор естественно.`
+            }]);
+
+            await sendAndLogResponse(chatId, assistantResponse);
+            return; // Stop further processing for this message
+        }
+
+
+        // --- Normal Message Handling ---
+        // Prepare content for OpenAI call
+        const userMessageContent = [{ type: 'input_text', text: userText }];
+
+        // Logging of the user message is now handled *inside* callOpenAI before the API call.
+
+        // Call OpenAI
+        const assistantText = await callOpenAI(chatId, userMessageContent);
+
+        // Send response (logging of assistant response is handled inside callOpenAI)
         await sendAndLogResponse(chatId, assistantText);
 
     } catch (error) {
-        console.error(`Error processing message from ${chatId}:`, error);
-        await bot.sendMessage(
-            chatId, 
-            `Произошла ошибка при обработке вашего сообщения: ${error.message}. Пожалуйста, попробуйте ещё раз.`
-        );
+        // Use the helper function to send a standardized error message
+        await sendErrorMessage(chatId, error.message, 'обработки текстового сообщения');
     }
 });
 
-// Обработчик фото-сообщений
+
+// Handler for photo messages
 bot.on('photo', async (msg) => {
     const chatId = msg.chat.id;
+    if (!validateChatId(chatId)) return; // Basic validation
+
+     // --- Check if User Data Exists (Required after /start) ---
+     const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
+     if (!fs.existsSync(userDataPath)) {
+         console.info(`[Фото ${chatId}] Файл данных пользователя не найден при обработке фото. Предлагаем /start.`);
+         await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой фото.');
+         logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_photo' }, 'system');
+         return;
+     }
+
 
     try {
-        const userMessageContent = await processPhoto(msg);
+        console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
+        await bot.sendChatAction(chatId, 'upload_photo'); // Indicate processing
+
+        const userMessageContent = await processPhoto(msg); // Handles download, encoding, logging event
+
+        // Logging of the user message content for history is now handled inside callOpenAI
+
         const assistantText = await callOpenAI(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
+
     } catch (error) {
-        console.error(`Secure photo processing error for chat ID ${chatId}:`, error.message);
-        logChat(chatId, { 
-            error: 'photo_processing_error',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        }, 'error');
-        try {
-            await bot.sendMessage(chatId, 'Не удалось обработать изображение. Попробуйте другое изображение.');
-        } catch (sendError) {
-            console.error(`Failed to send error message to chat ID ${chatId}:`, sendError.message);
-        }
+         await sendErrorMessage(chatId, error.message, 'обработки фото');
     }
 });
 
-// Обработчик голосовых сообщений
+// Handler for voice messages
 bot.on('voice', async (msg) => {
     const chatId = msg.chat.id;
+    if (!validateChatId(chatId)) return; // Basic validation
+
+    // --- Check if User Data Exists (Required after /start) ---
+     const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
+     if (!fs.existsSync(userDataPath)) {
+         console.info(`[Голос ${chatId}] Файл данных пользователя не найден при обработке голоса. Предлагаем /start.`);
+         await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой голосовых сообщений.');
+         logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_voice' }, 'system');
+         return;
+     }
+
 
     try {
-        const userMessageContent = await processVoice(msg);
+        console.info(`[Голос ${chatId}] Получено голосовое сообщение.`);
+        await bot.sendChatAction(chatId, 'typing'); // Indicate processing
+
+        const userMessageContent = await processVoice(msg); // Handles download, transcription, logging event
+
+        // Logging of the user message content for history is now handled inside callOpenAI
+
         const assistantText = await callOpenAI(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
+
     } catch (error) {
-        console.error(`Secure voice processing error for chat ID ${chatId}:`, error.message);
-        logChat(chatId, { 
-            error: 'voice_processing_error',
-            message: error.message,
-            timestamp: new Date().toISOString()
-        }, 'error');
-        try {
-            await bot.sendMessage(chatId, 'Не удалось обработать голосовое сообщение. Попробуйте отправить другое сообщение.');
-        } catch (sendError) {
-            console.error(`Failed to send error message to chat ID ${chatId}:`, sendError.message);
-        }
+        await sendErrorMessage(chatId, error.message, 'обработки голосового сообщения');
     }
 });
 
-// Обработка ошибок polling
+// --- Error Handlers ---
 bot.on('polling_error', (error) => {
-    console.error('Polling error:', error.code, '-', error.message);
+    console.error('Ошибка опроса (Polling):', error.code, '-', error.message);
+    // Consider adding more robust error handling, e.g., exponential backoff or process restart
 });
 
-// Запуск бота
-console.log('Bot started successfully and is polling for messages...');
+bot.on('webhook_error', (error) => {
+    console.error('Ошибка Webhook:', error.code, '-', error.message);
+    // Handle webhook specific errors if using webhooks
+});
+
+// --- Bot Start ---
+console.log('Конфигурация бота завершена. Запуск опроса...');
+// The bot starts polling automatically when initialized with { polling: true }
+
+// Optional: Graceful shutdown handling
+process.on('SIGINT', () => {
+    console.log('Получен SIGINT. Завершение работы бота...');
+    bot.stopPolling().then(() => {
+        console.log('Опрос остановлен.');
+        process.exit(0);
+    });
+});
+
+process.on('SIGTERM', () => {
+    console.log('Получен SIGTERM. Завершение работы бота...');
+    bot.stopPolling().then(() => {
+        console.log('Опрос остановлен.');
+        process.exit(0);
+    });
+});
