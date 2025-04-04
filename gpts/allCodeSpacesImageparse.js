@@ -4,6 +4,11 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
+
+// --- Configuration ---
+let nameprompt = 'calories'; // Example, ensure this is set correctly
+const result = dotenv.config({ path: `.env.${nameprompt}` });
+
 // Import necessary functions from utilities, including CHAT_HISTORIES_DIR
 const {
     sanitizeString,
@@ -20,13 +25,12 @@ const {
     setOpenAIKey,
     setDeepSeekKey, // Добавляем для DeepSeek
     callLLM, // Заменяем callOpenAI на callLLM
+    callOpenAI,
     transcribeAudio,
     updateLongMemory // Keep for /start potentially
 } = require('./openai');
 
-// --- Configuration ---
-let nameprompt = 'calories'; // Example, ensure this is set correctly
-const result = dotenv.config({ path: `.env.${nameprompt}` });
+
 if (result.error) {
     console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
     process.exit(1); // Exit if config fails
@@ -86,11 +90,14 @@ if (!fs.existsSync(USER_DATA_DIR)) {
 // --- Helper Functions ---
 
 function escapeMarkdown(text) {
-    return text.replace(/[_*[\]()~`>#+=|{}.!-]/g, '\\$&');
+    return text.replace(/[_[\]()~`>#+=|{}.!-]/g, '\\$&');
 }
 
 async function sendAndLogResponse(chatId, assistantText) {
     try {
+        // Start typing indication
+        
+        
         const escapedText = escapeMarkdown(assistantText);
         await bot.sendMessage(chatId, escapedText, {
             parse_mode: 'MarkdownV2'
@@ -208,7 +215,7 @@ async function processPhoto(msg) {
 
     const userMessageContent = [];
     if (caption) userMessageContent.push({ type: 'input_text', text: caption });
-    userMessageContent.push({ type: 'input_image', image_url: imageUrl });
+    userMessageContent.push({ type: 'input_image', image_url: fileUrl });
 
     logChat(chatId, {
         type: 'photo_received',
@@ -333,7 +340,7 @@ bot.on('message', async (msg) => {
         console.info(`[Сообщение ${chatId}] Игнорирование пустого текстового сообщения после очистки.`);
         return;
     }
-
+    await bot.sendChatAction(chatId, 'typing');
     try {
         console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}`);
 
@@ -406,7 +413,7 @@ bot.on('photo', async (msg) => {
         console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
         await bot.sendChatAction(chatId, 'upload_photo');
         const userMessageContent = await processPhoto(msg);
-        const assistantText = await callLLM(chatId, userMessageContent); // Заменяем callOpenAI на callLLM
+        const assistantText = await callOpenAI(chatId, userMessageContent); // Заменяем callOpenAI на callLLM
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки фото');

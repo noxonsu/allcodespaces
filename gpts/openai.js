@@ -463,6 +463,7 @@ module.exports = {
     setOpenAIKey,
     setDeepSeekKey,
     callLLM,
+    callOpenAI,
     transcribeAudio,
     updateLongMemory
 };
