@@ -9,6 +9,8 @@ function himpartners_enqueue() {
     wp_enqueue_script('header', get_template_directory_uri() . '/src/scripts/header.js', array(), false, true);
     wp_enqueue_script('index', get_template_directory_uri() . '/src/scripts/index.js', array(), false, true);
 }
+
+
 add_action('wp_enqueue_scripts', 'himpartners_enqueue');
 
 // Add theme support for post thumbnails

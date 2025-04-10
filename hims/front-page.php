@@ -9,7 +9,10 @@ get_header(); ?>
     <div class="him-banner">
         <div class="him-container position-relative h-100">
             <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/granules.png" alt="" class="him-banner__granuls position-absolute">
-            <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/bags.png" alt="" class="him-banner__bags position-absolute">
+            <picture>
+                <source media="(max-width: 767px)" srcset="<?php echo get_template_directory_uri(); ?>/src/assets/images/bags-mob.png">
+                <img src="<?php echo get_template_directory_uri(); ?>/src/assets/images/bags.png" alt="" class="him-banner__bags position-absolute">
+            </picture>
             <p class="him-banner__info position-absolute mb-0">* Внешний вид товара и его упаковки может отличаться от фотографий на сайте!</p>
             <div class="him-banner__text position-absolute d-flex flex-column gap-4">
                 <div class="d-flex flex-column">
@@ -29,6 +32,7 @@ get_header(); ?>
                         Для экструзии и литья под давлением.<br>
                     </p>
                 </div>
+				
                 <div class="him-always-in-stock d-flex flex-column gap-2 gap-sm-3">
                         <div class="d-flex align-items-center">
                             <span class="him-always-in-stock__circle">1</span>
