@@ -8,7 +8,7 @@ const fs = require('fs').promises;
 // Установка nameprompt и загрузка .env файла
 const nameprompt = 'flru';
 const envPath = `.env.${nameprompt}`;
-const result = dotenv.config({ path: `.env.${nameprompt}` });
+const result = dotenv.config({ path: envPath });
 
 const { setSystemMessage, callOpenAI } = require('./openai');
 
@@ -41,7 +41,7 @@ const systemPrompt = `
 `;
 setSystemMessage(systemPrompt);
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Загрузка лога обработанных проектов
 async function loadProcessedProjects() {
@@ -85,11 +85,10 @@ async function analyzeProject(projectTitle, projectDescription) {
     const userMessageContent = [
       {
         type: 'input_text',
-        text: `Название проекта: ${projectTitle}\nОписание: ${projectDescription}`
-      }
+        text: `Название проекта: ${projectTitle}\nОписание: ${projectDescription}`,
+      },
     ];
-    
-    // Add retry logic with error handling
+
     let retries = 3;
     while (retries > 0) {
       try {
@@ -103,16 +102,14 @@ async function analyzeProject(projectTitle, projectDescription) {
         if (retries === 0) {
           throw error;
         }
-        // Wait before retry
         await sleep(1000);
       }
     }
   } catch (error) {
     console.error('Ошибка при анализе проекта:', error.message);
-    // Initialize new chat data if JSON parsing failed
     if (error instanceof SyntaxError && error.message.includes('JSON')) {
       console.log('Инициализация нового чата...');
-      return 'Нет'; // Skip project on initialization error
+      return 'Нет';
     }
     return 'Ошибка анализа';
   }
@@ -124,13 +121,12 @@ async function processFeed() {
     console.log(`Получено ${feed.items.length} проектов`);
 
     const processedProjects = await loadProcessedProjects();
-    const delay = 4000; // Задержка между запросами (15 запросов в минуту)
+    const delay = 4000;
 
     for (const item of feed.items) {
       const projectTitle = item.title || 'Без названия';
       const projectUrl = item.link;
 
-      // Проверка, был ли проект уже обработан
       if (processedProjects[projectUrl]) {
         console.log(`Проект уже обработан: ${projectTitle}`);
         continue;
@@ -155,10 +151,9 @@ async function processFeed() {
         }
       }
 
-      // Сохранение проекта в лог
       await saveProcessedProject(projectUrl);
       console.log('---');
-      
+
       await sleep(delay);
     }
   } catch (error) {
@@ -167,11 +162,9 @@ async function processFeed() {
 }
 
 async function main() {
-  // Первоначальный запуск
   await processFeed();
 
-  // Периодический опрос RSS каждые 30 минут
-  const interval = 30 * 60 * 1000; // 30 минут в миллисекундах
+  const interval = 30 * 60 * 1000;
   setInterval(async () => {
     console.log('Запуск периодического опроса RSS...');
     await processFeed();
