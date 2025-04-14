@@ -15,7 +15,7 @@ const rateLimits = new Map(); // Лимиты запросов
 const USER_DATA_DIR = path.join(__dirname, 'user_data');
 const CHAT_HISTORIES_DIR = path.join(__dirname, 'chat_histories');
 const MAX_HISTORY = 20; // Максимум сообщений в истории
-
+console.log(openaiApiKey)
 // Обеспечение существования директорий
 if (!fs.existsSync(USER_DATA_DIR)) {
     fs.mkdirSync(USER_DATA_DIR, { recursive: true });
@@ -57,12 +57,13 @@ function getRateLimit(chatId) {
     rateLimits.set(chatId, limit);
 
     return {
-        canProceed: limit.count <= 10, // 10 запросов в минуту
+        canProceed: limit.count <= 15, // 10 запросов в минуту
         remainingRequests: Math.max(0, 10 - limit.count)
     };
 }
 
 function loadUserData(chatId) {
+    // Remove the stray 'i' character
     const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
     if (fs.existsSync(userFilePath)) {
         try {
@@ -124,6 +125,12 @@ function loadChatHistoryFromFile(chatId) {
 }
 
 async function updateLongMemory(chatId) {
+    // Skip immediately if chatId is 1
+    if (chatId === 1) {
+        console.info(`[LongMemory ${chatId}] Пропуск обновления для chatId = 1`);
+        return;
+    }
+
     console.info(`[LongMemory ${chatId}] Проверка необходимости обновления долговременной памяти.`);
     const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
     const userData = loadUserData(chatId);
