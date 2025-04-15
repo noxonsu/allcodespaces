@@ -424,6 +424,13 @@ bot.on('photo', async (msg) => {
         console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
         await bot.sendChatAction(chatId, 'upload_photo');
         
+        // Временно сохраняем текущую модель и принудительно устанавливаем OpenAI для обработки фото
+        const currentModel = process.env.OPENAIMODEL;
+        console.info(`[Фото ${chatId}] Текущая модель: ${currentModel}, переключение на OpenAI для изображений`);
+        
+        // Принудительно устанавливаем дефолтную модель openai из env OPENAIMODEL 
+        setModel(process.env.OPENAIMODEL || 'gpt-4.1-mini');
+        
         console.info(`[Фото ${chatId}] Вызываем processPhoto`);
         const userMessageContent = await processPhoto(msg);
         
@@ -433,8 +440,14 @@ bot.on('photo', async (msg) => {
             throw new Error("Ошибка обработки изображения: пустой результат");
         }
         
-        console.info(`[Фото ${chatId}] Вызываем LLM`);
+        console.info(`[Фото ${chatId}] Вызываем OpenAI с моделью gpt-4-vision-preview`);
         const assistantText = await callLLM(chatId, userMessageContent);
+        
+        // Восстанавливаем исходную модель после обработки изображения
+        if (currentModel) {
+            console.info(`[Фото ${chatId}] Восстанавливаем исходную модель: ${currentModel}`);
+            setModel(currentModel);
+        }
         
         console.info(`[Фото ${chatId}] Получен ответ от LLM длиной ${assistantText ? assistantText.length : 0}`);
         await sendAndLogResponse(chatId, assistantText);
