@@ -86,6 +86,9 @@ function saveUserData(chatId, userData) {
 }
 
 function loadChatHistoryFromFile(chatId) {
+    // Get nameprompt from the parent directory name
+    const nameprompt = path.basename(path.dirname(__dirname));
+    const CHAT_HISTORIES_DIR = path.join(__dirname, 'user_data', nameprompt, 'chat_histories');
     const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
     const history = [];
 
