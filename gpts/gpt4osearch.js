@@ -1,3 +1,5 @@
+console.log("this is file gpt4osearch.js");
+//pm2 start gpt4osearch.js --name "allcdspases-gpts-gpt4osearch-logist" --env.NAMEPROMPT=logist
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const dotenv = require('dotenv');
@@ -282,11 +284,24 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
             timestamp: new Date(msg.date * 1000).toISOString()
         }, 'system');
 
-        const welcomeMessage = isNewUser
-            ? 'Добро пожаловать! Я ваш помощник. Отправьте текст, фото или голосовое сообщение.'
-            : 'С возвращением! Чем могу помочь сегодня?';
-        await bot.sendMessage(chatId, escapeMarkdown(welcomeMessage), { parse_mode: 'MarkdownV2' });
-        logChat(chatId, { type: 'system_message', text: welcomeMessage }, 'system');
+        try {
+            const startMessage = isNewUser 
+                ? "Пользователь только что запустил бота. Поприветствуй его." 
+                : "Пользователь перезапустил бота. Поприветствуй его как вернувшегося пользователя.";
+            
+            const userMessageContent = [{ type: 'input_text', text: startMessage }];
+            const assistantText = await callLLM(chatId, userMessageContent);
+            await sendAndLogResponse(chatId, assistantText);
+            logChat(chatId, { type: 'system_event', text: 'AI welcome message sent' }, 'system');
+        } catch (error) {
+            console.error(`Ошибка при генерации приветствия AI для чата ${chatId}:`, error);
+            // Fallback to basic message if AI response fails
+            const basicWelcome = isNewUser
+                ? 'Добро пожаловать! Я ваш помощник. Отправьте текст, фото или голосовое сообщение.'
+                : 'С возвращением! Чем могу помочь сегодня?';
+            await bot.sendMessage(chatId, escapeMarkdown(basicWelcome), { parse_mode: 'MarkdownV2' });
+            logChat(chatId, { type: 'system_message', text: basicWelcome }, 'system');
+        }
     } catch (error) {
         console.error(`Критическая ошибка при обработке /start для чата ${chatId}:`, error);
         await sendErrorMessage(chatId, error.message, 'обработки команды /start');

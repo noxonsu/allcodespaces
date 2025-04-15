@@ -20,6 +20,7 @@ if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
  * @returns {string} The sanitized string. Returns an empty string if input is not a string.
  */
 function sanitizeString(str) {
+    return str
     if (typeof str !== 'string') return '';
     return str.replace(/[^\p{L}\p{N}\p{P}\p{Z}]/gu, '').trim();
 }
