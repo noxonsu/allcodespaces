@@ -69,3 +69,4 @@ lastrestarttime.txt
 *.sqlite
 result.json
 result2.json
+processed_projects.json
