@@ -303,8 +303,9 @@ async function callOpenAI(chatId, userMessageContent) {
     updateLongMemory(chatId).catch(err => console.error(`Ошибка обновления памяти для ${chatId}:`, err));
 
     const apiInput = [JSON.parse(JSON.stringify(systemMessage)), ...conversationHistory, userMessageForApi];
+    const modelName = process.env.OPENAIMODEL || 'gpt-4o-mini';
     const payload = {
-        model: 'gpt-4o-mini',
+        model: modelName,
         input: apiInput,
         text: { format: { type: 'text' } },
         temperature: 1,
@@ -313,7 +314,7 @@ async function callOpenAI(chatId, userMessageContent) {
         store: true
     };
 
-    console.info(`[API Call ${chatId}] Отправка в OpenAI. История: ${conversationHistory.length} сообщений.`);
+    console.info(`[API Call ${chatId}] Отправка в OpenAI. Модель: ${modelName}. История: ${conversationHistory.length} сообщений.`);
 
     try {
         const response = await axios.post(
