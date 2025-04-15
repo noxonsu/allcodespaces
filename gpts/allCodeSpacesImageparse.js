@@ -166,16 +166,30 @@ async function processPhoto(msg) {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в фото сообщении');
 
+    console.info(`[Фото ${chatId}] Начало обработки фото сообщения.`);
+    
     const caption = msg.caption ? sanitizeString(msg.caption) : '';
+    console.debug(`[Фото ${chatId}] Caption после санитизации: "${caption}"`);
+    
     const photo = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1] : null;
-    if (!photo || !photo.file_id) throw new Error('Некорректные данные фото в сообщении');
+    if (!photo || !photo.file_id) {
+        console.error(`[Фото ${chatId}] Некорректные данные фото:`, JSON.stringify(msg.photo));
+        throw new Error('Некорректные данные фото в сообщении');
+    }
+    console.debug(`[Фото ${chatId}] Размер фото: ${photo.width}x${photo.height}, file_id: ${photo.file_id}`);
 
-    console.info(`[Фото ${chatId}] Обработка фото сообщения.`);
+    console.info(`[Фото ${chatId}] Получение информации о файле от Telegram API`);
     const file = await bot.getFile(photo.file_id);
-    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файле от Telegram');
+    if (!file || !file.file_path) {
+        console.error(`[Фото ${chatId}] Не удалось получить файл:`, JSON.stringify(file));
+        throw new Error('Не удалось получить информацию о файле от Telegram');
+    }
+    console.debug(`[Фото ${chatId}] Получен путь к файлу: ${file.file_path}`);
 
     const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
     const fileExtension = path.extname(file.file_path).toLowerCase();
+    console.debug(`[Фото ${chatId}] Расширение файла: ${fileExtension}`);
+    
     const mimeType = {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
         '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp'
@@ -185,36 +199,50 @@ async function processPhoto(msg) {
         console.warn(`[Фото ${chatId}] Неподдерживаемый тип изображения: ${fileExtension}`);
         throw new Error(`Неподдерживаемый формат изображения (${fileExtension || 'Unknown'}). Используйте JPEG, PNG, GIF, WEBP, BMP.`);
     }
+    console.debug(`[Фото ${chatId}] MIME тип: ${mimeType}`);
 
-    const imageResponse = await axios.get(fileUrl, {
-        responseType: 'arraybuffer',
-        timeout: 30000,
-        maxContentLength: 15 * 1024 * 1024
-    });
+    console.info(`[Фото ${chatId}] Загрузка изображения с ${fileUrl}`);
+    try {
+        const imageResponse = await axios.get(fileUrl, {
+            responseType: 'arraybuffer',
+            timeout: 30000,
+            maxContentLength: 15 * 1024 * 1024
+        });
+        
+        console.debug(`[Фото ${chatId}] Изображение загружено, размер: ${imageResponse.data.length} байт`);
+        validateImageResponse(imageResponse, 10 * 1024 * 1024);
+        
+        const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
+        console.debug(`[Фото ${chatId}] Изображение конвертировано в base64, длина: ${imageBase64.length}`);
+        
+        const imageUrl = `data:${mimeType};base64,${imageBase64}`;
+        if (imageUrl.length > 20 * 1024 * 1024 * 0.75) {
+            console.error(`[Фото ${chatId}] Изображение слишком большое после кодирования: ${imageUrl.length} байт`);
+            throw new Error('Закодированные данные изображения слишком велики.');
+        }
 
-    validateImageResponse(imageResponse, 10 * 1024 * 1024);
-    const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
-    const imageUrl = `data:${mimeType};base64,${imageBase64}`;
+        const userMessageContent = [];
+        if (caption) userMessageContent.push({ type: 'input_text', text: caption });
+        userMessageContent.push({ type: 'input_image', image_url: imageUrl });
+        
+        console.info(`[Фото ${chatId}] Подготовлено сообщение с ${userMessageContent.length} частями (текст: ${caption ? 'да' : 'нет'}, изображение: да)`);
+        console.debug(`[Фото ${chatId}] Структура сообщения:`, JSON.stringify(userMessageContent.map(c => ({ type: c.type, hasContent: c.type === 'input_image' ? (c.image_url ? 'yes' : 'no') : (c.text ? 'yes' : 'no') }))));
 
-    if (imageUrl.length > 20 * 1024 * 1024 * 0.75) {
-        throw new Error('Закодированные данные изображения слишком велики.');
+        logChat(chatId, {
+            type: 'photo_received',
+            mimeType: mimeType,
+            fileSize: photo.file_size,
+            width: photo.width,
+            height: photo.height,
+            hasCaption: Boolean(caption),
+            timestamp: new Date(msg.date * 1000).toISOString()
+        }, 'event');
+
+        return userMessageContent;
+    } catch (error) {
+        console.error(`[Фото ${chatId}] Ошибка при загрузке/обработке изображения:`, error.message);
+        throw error;
     }
-
-    const userMessageContent = [];
-    if (caption) userMessageContent.push({ type: 'input_text', text: caption });
-    userMessageContent.push({ type: 'input_image', image_url: imageUrl });
-
-    logChat(chatId, {
-        type: 'photo_received',
-        mimeType: mimeType,
-        fileSize: photo.file_size,
-        width: photo.width,
-        height: photo.height,
-        hasCaption: Boolean(caption),
-        timestamp: new Date(msg.date * 1000).toISOString()
-    }, 'event');
-
-    return userMessageContent;
 }
 
 // --- Telegram Bot Event Handlers ---
@@ -379,7 +407,10 @@ bot.on('message', async (msg) => {
 
 bot.on('photo', async (msg) => {
     const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) return;
+    if (!validateChatId(chatId)) {
+        console.error(`[Фото] Некорректный chat ID: ${chatId}`);
+        return;
+    }
 
     const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
     if (!fs.existsSync(userDataPath)) {
@@ -392,8 +423,20 @@ bot.on('photo', async (msg) => {
     try {
         console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
         await bot.sendChatAction(chatId, 'upload_photo');
+        
+        console.info(`[Фото ${chatId}] Вызываем processPhoto`);
         const userMessageContent = await processPhoto(msg);
+        
+        console.info(`[Фото ${chatId}] Результат processPhoto: ${userMessageContent ? userMessageContent.length + ' элементов' : 'null'}`);
+        if (!userMessageContent || userMessageContent.length === 0) {
+            console.error(`[Фото ${chatId}] Пустой результат обработки фото`);
+            throw new Error("Ошибка обработки изображения: пустой результат");
+        }
+        
+        console.info(`[Фото ${chatId}] Вызываем LLM`);
         const assistantText = await callLLM(chatId, userMessageContent);
+        
+        console.info(`[Фото ${chatId}] Получен ответ от LLM длиной ${assistantText ? assistantText.length : 0}`);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки фото');
