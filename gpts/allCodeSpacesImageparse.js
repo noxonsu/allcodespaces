@@ -7,17 +7,30 @@ const path = require('path');
 
 // --- Configuration ---
 let nameprompt = 'calories'; // Example, ensure this is set correctly
-const result = dotenv.config({ path: `.env.${nameprompt}` });
+const result = dotenv.config({ path: path.join(__dirname, `.env.${nameprompt}`) });
+if (result.error) {
+    console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
+    process.exit(1); // Exit if config fails
+}
 
-// Import necessary functions from utilities, including CHAT_HISTORIES_DIR
+// Create instance-specific directories based on nameprompt
+const BASE_USER_DATA_DIR = path.join(__dirname, 'user_data');
+const USER_DATA_DIR = path.join(BASE_USER_DATA_DIR, nameprompt);
+const CHAT_HISTORIES_DIR = path.join(USER_DATA_DIR, 'chat_histories');
+
+// Ensure directories exist BEFORE any other operations
+fs.mkdirSync(BASE_USER_DATA_DIR, { recursive: true });
+fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
+
+// Import necessary functions from utilities after directory setup
 const {
     sanitizeString,
     validateChatId,
     logChat,
     validateImageResponse,
     validateMimeTypeImg,
-    validateMimeTypeAudio,
-    CHAT_HISTORIES_DIR // Use the exported path
+    validateMimeTypeAudio
 } = require('./utilities');
 // Import functions from openai module
 const {
@@ -29,12 +42,6 @@ const {
     transcribeAudio,
     updateLongMemory // Keep for /start potentially
 } = require('./openai');
-
-
-if (result.error) {
-    console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
-    process.exit(1); // Exit if config fails
-}
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -79,7 +86,6 @@ if (deepseekApiKey) setDeepSeekKey(deepseekApiKey); // Устанавливае�
 const bot = new TelegramBot(token, { polling: true });
 
 // --- Ensure Directories Exist ---
-const USER_DATA_DIR = path.join(__dirname, 'user_data');
 if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
     fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
 }
