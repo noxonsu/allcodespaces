@@ -309,7 +309,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }, 'system');
 
         if (isNewUser) {
-            await bot.sendMessage(chatId, 'Добро пожаловать! Я ваш полезный ассистент. Как вас зовут?');
+            await bot.sendMessage(chatId, 'Добро пожаловать! Как вас зовут?');
             logChat(chatId, { type: 'system_message', text: 'Запрошено имя пользователя' }, 'system');
         } else {
             await bot.sendMessage(chatId, 'С возвращением! Чем могу помочь сегодня?');
