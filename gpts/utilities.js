@@ -22,8 +22,7 @@ if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
  */
 function sanitizeString(str) {
     if (typeof str !== 'string') return '';
-    // Keep basic punctuation but remove characters often used in injection attacks
-    return str.replace(/[<>"'`$;]/g, ''); // Allow .,!?- etc.
+    return str.replace(/[^\p{L}\p{N}\p{P}\p{Z}]/gu, '').trim();
 }
 
 /**
@@ -32,8 +31,7 @@ function sanitizeString(str) {
  * @returns {boolean} True if valid, false otherwise.
  */
 function validateChatId(chatId) {
-    // Ensure it's a number, an integer, positive, and within safe integer limits
-    return typeof chatId === 'number' && Number.isInteger(chatId) && chatId > 0 && chatId < Number.MAX_SAFE_INTEGER;
+    return typeof chatId === 'number' && Number.isInteger(chatId) && chatId !== 0;
 }
 
 /**
@@ -58,8 +56,11 @@ function validateImageResponse(response, maxSizeInBytes = 10 * 1024 * 1024) {
  * @returns {boolean} True if allowed, false otherwise.
  */
 function validateMimeTypeImg(mimeType) {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
-    return typeof mimeType === 'string' && allowedMimeTypes.includes(mimeType.toLowerCase());
+    const allowedTypes = [
+        'image/jpeg', 'image/png', 'image/gif',
+        'image/webp', 'image/bmp'
+    ];
+    return allowedTypes.includes(mimeType);
 }
 
 /**
@@ -68,16 +69,12 @@ function validateMimeTypeImg(mimeType) {
  * @returns {boolean} True if allowed, false otherwise.
  */
 function validateMimeTypeAudio(mimeType) {
-    // Common types supported by Whisper (add more if needed)
-    const allowedMimeTypes = [
-        'audio/mpeg', // mp3
-        'audio/mp4', // mp4, m4a
-        'audio/ogg', // ogg, opus
-        'audio/wav', // wav
-        'audio/webm', // webm
-        'audio/flac' // flac
-        ];
-    return typeof mimeType === 'string' && allowedMimeTypes.includes(mimeType.toLowerCase());
+    const allowedTypes = [
+        'audio/mp3', 'audio/mpeg', 'audio/ogg',
+        'audio/wav', 'audio/x-wav', 'audio/mp4',
+        'audio/m4a', 'audio/x-m4a'
+    ];
+    return allowedTypes.includes(mimeType);
 }
 
 /**
@@ -101,27 +98,46 @@ function generateMessageHash(chatId, timestamp) {
  * @param {object} data The data object to log. Should include 'role' and 'content' for history.
  * @param {string} [logType='info'] A general type for the log entry (e.g., 'user', 'assistant', 'error', 'system', 'photo', 'voice'). Used if data.role is not set.
  */
-function logChat(chatId, data, logType = 'info') {
-     if (!validateChatId(chatId)) {
-        console.error(`[LogChat] Invalid chatId: ${chatId}. Cannot log.`);
+function logChat(chatId, content, type = 'message') {
+    if (!validateChatId(chatId) && chatId !== 0) {
+        console.error('Invalid chat ID in logChat:', chatId);
         return;
     }
-    const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
-    const entry = {
-        // Use data.role if provided (for user/assistant messages), otherwise use logType
-        role: data.role || logType,
-        // Include the actual data payload
-        ...data,
-        // Ensure a consistent timestamp
-        timestamp: data.timestamp || new Date().toISOString()
-    };
+
+    // Get nameprompt from directory path (last segment of the path)
+    const currentWorkingDir = process.cwd();
+    const baseUserDataDir = path.join(currentWorkingDir, 'user_data');
+    const nameDirs = fs.readdirSync(baseUserDataDir).filter(
+        dir => fs.statSync(path.join(baseUserDataDir, dir)).isDirectory()
+    );
+
+    let chatHistoriesDir;
+    for (const nameDir of nameDirs) {
+        const possibleHistoryDir = path.join(baseUserDataDir, nameDir, 'chat_histories');
+        if (fs.existsSync(possibleHistoryDir)) {
+            chatHistoriesDir = possibleHistoryDir;
+            break;
+        }
+    }
+
+    if (!chatHistoriesDir) {
+        console.error('Could not find chat histories directory');
+        return;
+    }
+
+    const logFileName = `chat_${chatId}.log`;
+    const logFilePath = path.join(chatHistoriesDir, logFileName);
 
     try {
-        // Append the JSON stringified entry followed by a newline
-        fs.appendFileSync(chatLogPath, JSON.stringify(entry) + '\n');
+        const logEntry = {
+            timestamp: new Date().toISOString(),
+            type: type,
+            content: content
+        };
+
+        fs.appendFileSync(logFilePath, JSON.stringify(logEntry) + '\n');
     } catch (error) {
-        console.error(`[LogChat] Failed to append log for chat ${chatId}:`, error);
-        // Consider alternative logging or error handling here
+        console.error(`Error logging chat ${chatId}:`, error);
     }
 }
 

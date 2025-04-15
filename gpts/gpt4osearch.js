@@ -7,7 +7,20 @@ const path = require('path');
 
 // --- Configuration ---
 let nameprompt = 'logist'; // Убедись, что это правильное имя для загрузки .env
-const result = dotenv.config({ path: `.env.${nameprompt}` });
+const result = dotenv.config({ path: path.join(__dirname, `.env.${nameprompt}`) });
+if (result.error) {
+    console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
+    process.exit(1); // Exit if config fails
+}
+// Create instance-specific directories based on nameprompt
+const BASE_USER_DATA_DIR = path.join(__dirname, 'user_data');
+const USER_DATA_DIR = path.join(BASE_USER_DATA_DIR, nameprompt);
+const CHAT_HISTORIES_DIR = path.join(USER_DATA_DIR, 'chat_histories');
+
+// Ensure directories exist BEFORE any other operations
+fs.mkdirSync(BASE_USER_DATA_DIR, { recursive: true });
+fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
 
 // Import necessary functions from utilities, including CHAT_HISTORIES_DIR
 const {
@@ -16,8 +29,7 @@ const {
     logChat,
     validateImageResponse,
     validateMimeTypeImg,
-    validateMimeTypeAudio,
-    CHAT_HISTORIES_DIR // Use the exported path
+    validateMimeTypeAudio
 } = require('./utilities');
 // Import functions from openai module
 const {
@@ -31,10 +43,7 @@ const {
 } = require('./openai');
 
 
-if (result.error) {
-    console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
-    process.exit(1); // Exit if config fails
-}
+
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
@@ -79,7 +88,6 @@ if (deepseekApiKey) setDeepSeekKey(deepseekApiKey); // Устанавливае�
 const bot = new TelegramBot(token, { polling: true });
 
 // --- Ensure Directories Exist ---
-const USER_DATA_DIR = path.join(__dirname, 'user_data');
 if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
     fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
 }
@@ -479,7 +487,7 @@ bot.on('photo', async (msg) => {
     if (!validateChatId(chatId)) return;
 
     const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
-    if (!fs.existsSync(userDataPath)) {
+    if (!fs.exists(userDataPath)) {
         console.info(`[Фото ${chatId}] Файл данных пользователя не найден при обработке фото. Предлагаем /start.`);
         const promptMsg = escapeMarkdown('Пожалуйста, используйте команду /start перед отправкой фото.');
         await bot.sendMessage(chatId, promptMsg, { parse_mode: 'MarkdownV2' });
