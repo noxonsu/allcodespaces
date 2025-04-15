@@ -1,17 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
+const { CHAT_HISTORIES_DIR } = require('./config');
 
-const CHAT_HISTORIES_DIR = path.join(__dirname, 'chat_histories');
-// Ensure the directory exists on module load
+// Ensure the chat histories directory exists on module load
 if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
     try {
         fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
         console.log(`Created chat histories directory: ${CHAT_HISTORIES_DIR}`);
     } catch (error) {
         console.error(`Fatal error: Could not create chat histories directory at ${CHAT_HISTORIES_DIR}`, error);
-        // Depending on the application, you might want to exit or handle this differently
-        process.exit(1); // Exit if logging directory cannot be created
+        process.exit(1);
     }
 }
 
@@ -43,7 +42,6 @@ function validateChatId(chatId) {
  */
 function validateImageResponse(response, maxSizeInBytes = 10 * 1024 * 1024) {
     if (!response || !response.data) throw new Error('Invalid image response data');
-    // Axios response.data for arraybuffer is a Buffer
     if (response.data.length > maxSizeInBytes) {
         throw new Error(`Image size (${response.data.length} bytes) exceeds maximum allowed (${maxSizeInBytes} bytes)`);
     }
@@ -78,13 +76,12 @@ function validateMimeTypeAudio(mimeType) {
 }
 
 /**
- * Generates a simple hash for a message (example, not for security).
+ * Generates a simple hash for a message.
  * @param {number} chatId The chat ID.
  * @param {number} timestamp The message timestamp.
  * @returns {string} A hex digest hash.
  */
 function generateMessageHash(chatId, timestamp) {
-    // Use a fixed secret or environment variable for consistency
     const secret = process.env.MESSAGE_HASH_SECRET || 'default-secret-change-me';
     return crypto.createHmac('sha256', secret)
                  .update(`${chatId}:${timestamp}`)
@@ -95,49 +92,27 @@ function generateMessageHash(chatId, timestamp) {
  * Logs data associated with a chat ID to a file.
  * Each log entry is stored as a JSON object on a new line.
  * @param {number} chatId The chat ID.
- * @param {object} data The data object to log. Should include 'role' and 'content' for history.
- * @param {string} [logType='info'] A general type for the log entry (e.g., 'user', 'assistant', 'error', 'system', 'photo', 'voice'). Used if data.role is not set.
+ * @param {object} data The data object to log.
+ * @param {string} [logType='message'] The type of log entry (e.g., 'user', 'assistant', 'error', 'system', 'event').
  */
-function logChat(chatId, content, type = 'message') {
+function logChat(chatId, data, logType = 'message') {
     if (!validateChatId(chatId) && chatId !== 0) {
         console.error('Invalid chat ID in logChat:', chatId);
         return;
     }
 
-    // Get nameprompt from directory path (last segment of the path)
-    const currentWorkingDir = process.cwd();
-    const baseUserDataDir = path.join(currentWorkingDir, 'user_data');
-    const nameDirs = fs.readdirSync(baseUserDataDir).filter(
-        dir => fs.statSync(path.join(baseUserDataDir, dir)).isDirectory()
-    );
-
-    let chatHistoriesDir;
-    for (const nameDir of nameDirs) {
-        const possibleHistoryDir = path.join(baseUserDataDir, nameDir, 'chat_histories');
-        if (fs.existsSync(possibleHistoryDir)) {
-            chatHistoriesDir = possibleHistoryDir;
-            break;
-        }
-    }
-
-    if (!chatHistoriesDir) {
-        console.error('Could not find chat histories directory');
-        return;
-    }
-
-    const logFileName = `chat_${chatId}.log`;
-    const logFilePath = path.join(chatHistoriesDir, logFileName);
-
+    const logFilePath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
     try {
         const logEntry = {
             timestamp: new Date().toISOString(),
-            type: type,
-            content: content
+            type: logType,
+            role: data.role || logType,
+            content: data
         };
-
         fs.appendFileSync(logFilePath, JSON.stringify(logEntry) + '\n');
+        console.debug(`[LogChat ${chatId}] Logged ${logType} entry to ${logFilePath}`);
     } catch (error) {
-        console.error(`Error logging chat ${chatId}:`, error);
+        console.error(`Error logging chat ${chatId} to ${logFilePath}:`, error);
     }
 }
 
@@ -148,7 +123,5 @@ module.exports = {
     validateMimeTypeImg,
     validateMimeTypeAudio,
     generateMessageHash,
-    logChat,
-    CHAT_HISTORIES_DIR // Export directory path if needed elsewhere
+    logChat
 };
-

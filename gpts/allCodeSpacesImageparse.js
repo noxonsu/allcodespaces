@@ -1,29 +1,9 @@
-console.log('this is allCodeSpacesImageparse.js file');
 const TelegramBot = require('node-telegram-bot-api');
 const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
-
-// --- Configuration ---
-let nameprompt = 'calories'; // Example, ensure this is set correctly
-const result = dotenv.config({ path: path.join(__dirname, `.env.${nameprompt}`) });
-if (result.error) {
-    console.error(`Ошибка загрузки файла .env.${nameprompt}:`, result.error);
-    process.exit(1); // Exit if config fails
-}
-
-// Create instance-specific directories based on nameprompt
-const BASE_USER_DATA_DIR = path.join(__dirname, 'user_data');
-const USER_DATA_DIR = path.join(BASE_USER_DATA_DIR, nameprompt);
-const CHAT_HISTORIES_DIR = path.join(USER_DATA_DIR, 'chat_histories');
-
-// Ensure directories exist BEFORE any other operations
-fs.mkdirSync(BASE_USER_DATA_DIR, { recursive: true });
-fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
-
-// Import necessary functions from utilities after directory setup
+const { NAMEPROMPT, USER_DATA_DIR, CHAT_HISTORIES_DIR } = require('./config');
 const {
     sanitizeString,
     validateChatId,
@@ -32,37 +12,48 @@ const {
     validateMimeTypeImg,
     validateMimeTypeAudio
 } = require('./utilities');
-// Import functions from openai module
 const {
     setSystemMessage,
     setOpenAIKey,
-    setDeepSeekKey, // Добавляем для DeepSeek
-    callLLM, // Заменяем callOpenAI на callLLM
-    callOpenAI,
-    transcribeAudio,
-    updateLongMemory // Keep for /start potentially
+    setDeepSeekKey,
+    setModel,
+    callLLM,
+    transcribeAudio
 } = require('./openai');
 
+// --- Configuration ---
+const result = dotenv.config({ path: path.join(__dirname, `.env.${NAMEPROMPT}`) });
+if (result.error) {
+    console.error(`Ошибка загрузки файла .env.${NAMEPROMPT}:`, result.error);
+    process.exit(1);
+}
+
+// Ensure directories exist
+fs.mkdirSync(USER_DATA_DIR, { recursive: true });
+fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
+
+// --- Initialize Bot ---
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
-    console.error(`Ошибка: TELEGRAM_BOT_TOKEN не определен в файле .env.${nameprompt}`);
+    console.error(`Ошибка: TELEGRAM_BOT_TOKEN не определен в файле .env.${NAMEPROMPT}`);
     process.exit(1);
 }
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
-const deepseekApiKey = process.env.DEEPSEEK_API_KEY; // Добавляем ключ для DeepSeek
+const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
 if (!openaiApiKey && !deepseekApiKey) {
-    console.error(`Ошибка: Ни OPENAI_API_KEY, ни DEEPSEEK_API_KEY не определены в файле .env.${nameprompt}`);
+    console.error(`Ошибка: Ни OPENAI_API_KEY, ни DEEPSEEK_API_KEY не определены в файле .env.${NAMEPROMPT}`);
     process.exit(1);
 }
 
-// Load system prompt from file or env
-let systemPromptContent = 'You are a helpful assistant.'; // Default prompt
+const bot = new TelegramBot(token, { polling: true });
+
+// --- Load System Prompt ---
+let systemPromptContent = 'You are a helpful assistant.';
 try {
-    const promptPath = `.env.${nameprompt}_prompt`;
+    const promptPath = path.join(__dirname, `.env.${NAMEPROMPT}_prompt`);
     if (fs.existsSync(promptPath)) {
-        const promptData = fs.readFileSync(promptPath, 'utf8');
-        systemPromptContent = promptData.trim(); // Trim whitespace
+        systemPromptContent = fs.readFileSync(promptPath, 'utf8').trim();
         console.log(`Системный промпт загружен из ${promptPath}`);
     } else {
         systemPromptContent = process.env.SYSTEM_PROMPT || systemPromptContent;
@@ -74,24 +65,14 @@ try {
     }
 } catch (error) {
     console.error('Ошибка загрузки системного промпта:', error);
-    process.exit(1); // Exit if prompt loading fails
+    process.exit(1);
 }
 
 // --- Initialize OpenAI/DeepSeek Module ---
 setSystemMessage(systemPromptContent);
-if (openaiApiKey) setOpenAIKey(openaiApiKey); // Устанавливаем ключ OpenAI, если есть
-if (deepseekApiKey) setDeepSeekKey(deepseekApiKey); // Устанавливаем ключ DeepSeek, если есть
-
-// --- Initialize Bot ---
-const bot = new TelegramBot(token, { polling: true });
-
-// --- Ensure Directories Exist ---
-if (!fs.existsSync(CHAT_HISTORIES_DIR)) {
-    fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
-}
-if (!fs.existsSync(USER_DATA_DIR)) {
-    fs.mkdirSync(USER_DATA_DIR, { recursive: true });
-}
+if (openaiApiKey) setOpenAIKey(openaiApiKey);
+if (deepseekApiKey) setDeepSeekKey(deepseekApiKey);
+if (process.env.MODEL) setModel(process.env.MODEL);
 
 // --- Helper Functions ---
 
@@ -101,20 +82,15 @@ function escapeMarkdown(text) {
 
 async function sendAndLogResponse(chatId, assistantText) {
     try {
-        // Start typing indication
-        
-        
+        await bot.sendChatAction(chatId, 'typing');
         const escapedText = escapeMarkdown(assistantText);
-        await bot.sendMessage(chatId, escapedText, {
-            parse_mode: 'MarkdownV2'
-        });
+        await bot.sendMessage(chatId, escapedText, { parse_mode: 'MarkdownV2' });
+        logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }], timestamp: new Date().toISOString() }, 'assistant');
     } catch (error) {
         console.error(`Ошибка отправки сообщения в чат ${chatId}:`, error.message);
         try {
-            const errorText = escapeMarkdown("Извините, не удалось отправить предыдущий ответ. Попробуйте еще раз или перезапустите бота командой /start.");
-            await bot.sendMessage(chatId, errorText, {
-                parse_mode: 'MarkdownV2'
-            });
+            const errorText = escapeMarkdown("Извините, не удалось отправить ответ. Попробуйте еще раз или перезапустите бота командой /start.");
+            await bot.sendMessage(chatId, errorText, { parse_mode: 'MarkdownV2' });
         } catch (nestedError) {
             console.error(`Не удалось отправить уведомление об ошибке в чат ${chatId}:`, nestedError.message);
         }
@@ -129,14 +105,14 @@ async function sendErrorMessage(chatId, specificErrorMsg, context = 'обраб�
             chatId,
             `Извините, возникла проблема во время ${context}. Пожалуйста, повторите попытку. Если ошибка повторяется, попробуйте перезапустить бота командой /start.`
         );
+        logChat(chatId, {
+            error: `error_in_${context.replace(/\s+/g, '_')}`,
+            message: specificErrorMsg,
+            timestamp: new Date().toISOString()
+        }, 'error');
     } catch (sendError) {
         console.error(`Не удалось отправить сообщение об ошибке в чат ${chatId}:`, sendError.message);
     }
-    logChat(chatId, {
-        error: `error_in_${context.replace(/\s+/g, '_')}`,
-        message: specificErrorMsg,
-        timestamp: new Date().toISOString()
-    }, 'error');
 }
 
 // --- Message Processors ---
@@ -151,7 +127,7 @@ async function processVoice(msg) {
 
     console.info(`[Голос ${chatId}] Обработка голосового сообщения.`);
     const file = await bot.getFile(voice.file_id);
-    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файле от Telegram');
+    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файло от Telegram');
 
     const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
     const mimeType = voice.mime_type;
@@ -221,7 +197,7 @@ async function processPhoto(msg) {
 
     const userMessageContent = [];
     if (caption) userMessageContent.push({ type: 'input_text', text: caption });
-    userMessageContent.push({ type: 'input_image', image_url: fileUrl });
+    userMessageContent.push({ type: 'input_image', image_url: imageUrl });
 
     logChat(chatId, {
         type: 'photo_received',
@@ -264,7 +240,6 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
             } catch (parseError) {
                 console.error(`Ошибка парсинга данных пользователя для ${chatId}, сброс:`, parseError);
                 isNewUser = true;
-                userData = {};
             }
         } else {
             isNewUser = true;
@@ -317,18 +292,12 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }
     } catch (error) {
         console.error(`Критическая ошибка при обработке /start для чата ${chatId}:`, error);
-        try {
-            await bot.sendMessage(chatId, 'Извините, что-то пошло не так. Попробуйте /start еще раз.');
-        } catch (sendError) {
-            console.error(`Не удалось отправить сообщение об ошибке /start в чат ${chatId}:`, sendError.message);
-        }
-        logChat(chatId, { error: 'start_command_critical', message: error.message }, 'error');
+        await sendErrorMessage(chatId, error.message, 'обработки команды /start');
     }
 });
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
-
     if (!validateChatId(chatId)) {
         console.error(`Некорректный chat ID в обработчике сообщений: ${msg.chat.id}`);
         return;
@@ -346,9 +315,10 @@ bot.on('message', async (msg) => {
         console.info(`[Сообщение ${chatId}] Игнорирование пустого текстового сообщения после очистки.`);
         return;
     }
-    await bot.sendChatAction(chatId, 'typing');
+
     try {
         console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}`);
+        await bot.sendChatAction(chatId, 'typing');
 
         const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
         if (!fs.existsSync(userDataPath)) {
@@ -395,9 +365,8 @@ bot.on('message', async (msg) => {
         }
 
         const userMessageContent = [{ type: 'input_text', text: userText }];
-        const assistantText = await callLLM(chatId, userMessageContent); // Заменяем callOpenAI на callLLM
+        const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
-
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки текстового сообщения');
     }
@@ -419,7 +388,7 @@ bot.on('photo', async (msg) => {
         console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
         await bot.sendChatAction(chatId, 'upload_photo');
         const userMessageContent = await processPhoto(msg);
-        const assistantText = await callOpenAI(chatId, userMessageContent); // Заменяем callOpenAI на callLLM
+        const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки фото');
@@ -442,7 +411,7 @@ bot.on('voice', async (msg) => {
         console.info(`[Голос ${chatId}] Получено голосовое сообщение.`);
         await bot.sendChatAction(chatId, 'typing');
         const userMessageContent = await processVoice(msg);
-        const assistantText = await callLLM(chatId, userMessageContent); // Заменяем callOpenAI на callLLM
+        const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки голосового сообщения');

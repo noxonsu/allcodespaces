@@ -1,22 +1,18 @@
-console.log("this is file openai.js");
-
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const { sanitizeString, validateChatId, logChat } = require('./utilities');
+const { CHAT_HISTORIES_DIR, USER_DATA_DIR, NAMEPROMPT, MAX_HISTORY } = require('./config');
 
 // --- Configuration & State ---
 let systemMessage;
-let openaiApiKey = process.env.OPENAI_API_KEY; // Загружаем из переменной окружения
-let deepseekApiKey = process.env.DEEPSEEK_API_KEY; // Ключ для DeepSeek
-const model = process.env.MODEL || 'openai'; // По умолчанию OpenAI, если не указано
-const rateLimits = new Map(); // Лимиты запросов
-const USER_DATA_DIR = path.join(__dirname, 'user_data');
-const CHAT_HISTORIES_DIR = path.join(__dirname, 'chat_histories');
-const MAX_HISTORY = 20; // Максимум сообщений в истории
-console.log(openaiApiKey)
-// Обеспечение существования директорий
+let openaiApiKey = process.env.OPENAI_API_KEY;
+let deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+let model = process.env.MODEL || 'openai';
+const rateLimits = new Map();
+
+// Ensure directories exist
 if (!fs.existsSync(USER_DATA_DIR)) {
     fs.mkdirSync(USER_DATA_DIR, { recursive: true });
 }
@@ -44,11 +40,16 @@ function setDeepSeekKey(key) {
     console.log("DeepSeek API key set.");
 }
 
+function setModel(newModel) {
+    model = newModel;
+    console.log(`Model set to: ${model}`);
+}
+
 function getRateLimit(chatId) {
     const now = Date.now();
     const limit = rateLimits.get(chatId) || { count: 0, timestamp: now };
 
-    if (now - limit.timestamp > 60000) { // Сброс каждую минуту
+    if (now - limit.timestamp > 60000) {
         limit.count = 0;
         limit.timestamp = now;
     }
@@ -57,13 +58,12 @@ function getRateLimit(chatId) {
     rateLimits.set(chatId, limit);
 
     return {
-        canProceed: limit.count <= 15, // 10 запросов в минуту
-        remainingRequests: Math.max(0, 10 - limit.count)
+        canProceed: limit.count <= 15,
+        remainingRequests: Math.max(0, 15 - limit.count)
     };
 }
 
 function loadUserData(chatId) {
-    // Remove the stray 'i' character
     const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
     if (fs.existsSync(userFilePath)) {
         try {
@@ -86,9 +86,6 @@ function saveUserData(chatId, userData) {
 }
 
 function loadChatHistoryFromFile(chatId) {
-    // Get nameprompt from the parent directory name
-    const nameprompt = path.basename(path.dirname(__dirname));
-    const CHAT_HISTORIES_DIR = path.join(__dirname, 'user_data', nameprompt, 'chat_histories');
     const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
     const history = [];
 
@@ -108,8 +105,8 @@ function loadChatHistoryFromFile(chatId) {
 
                 if (entry.content && Array.isArray(entry.content) && entry.content.length > 0) {
                     messageContent = entry.content;
-                } else if (typeof entry.text === 'string' && entry.text.trim() !== '') {
-                    messageContent = [{ type: entry.role === 'user' ? 'input_text' : 'output_text', text: entry.text }];
+                } else if (entry.content?.text && typeof entry.content.text === 'string' && entry.content.text.trim() !== '') {
+                    messageContent = [{ type: entry.role === 'user' ? 'input_text' : 'output_text', text: entry.content.text }];
                 }
 
                 if ((entry.role === 'user' || entry.role === 'assistant') && messageContent) {
@@ -128,7 +125,6 @@ function loadChatHistoryFromFile(chatId) {
 }
 
 async function updateLongMemory(chatId) {
-    // Skip immediately if chatId is 1
     if (chatId === 1) {
         console.info(`[LongMemory ${chatId}] Пропуск обновления для chatId = 1`);
         return;
@@ -139,7 +135,7 @@ async function updateLongMemory(chatId) {
     const userData = loadUserData(chatId);
     const lastLongMemoryUpdate = userData.lastLongMemoryUpdate || 0;
     const now = Date.now();
-    const updateInterval = 1 * 60 * 60 * 1000; // 1 час
+    const updateInterval = 1 * 60 * 60 * 1000;
 
     if (!fs.existsSync(chatLogPath)) {
         console.info(`[LongMemory ${chatId}] Файл лога чата не существует, обновление пропускается.`);
@@ -158,7 +154,7 @@ async function updateLongMemory(chatId) {
     const textMessages = logs.filter(entry =>
         entry.role && (
             (entry.content && Array.isArray(entry.content) && entry.content.some(c => c.text?.trim())) ||
-            (typeof entry.text === 'string' && entry.text.trim() !== '')
+            (entry.content?.text && typeof entry.content.text === 'string' && entry.content.text.trim() !== '')
         )
     );
 
@@ -191,7 +187,7 @@ async function updateLongMemory(chatId) {
             content: [{
                 type: 'input_text',
                 text: textMessages.slice(-20).map(log => {
-                    const textContent = log.content?.find(c => c.text)?.text || log.text || '[non-text content]';
+                    const textContent = log.content?.find(c => c.text)?.text || log.content?.text || '[non-text content]';
                     return `${log.role}: ${textContent}`;
                 }).join('\n')
             }]
@@ -219,7 +215,8 @@ async function updateLongMemory(chatId) {
             }
         );
 
-        const jsonObject = response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_json_object')?.json_object || JSON.parse(response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_text')?.text || '{}');
+        const jsonObject = response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_json_object')?.json_object ||
+                          JSON.parse(response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_text')?.text || '{}');
         const newLongMemoryString = JSON.stringify(jsonObject);
 
         if (newLongMemoryString !== currentMemory) {
@@ -237,13 +234,12 @@ async function updateLongMemory(chatId) {
     }
 }
 
-// --- LLM Switching Logic ---
 async function callLLM(chatId, userMessageContent) {
+    console.info(`[LLM ${chatId}] Вызов модели: ${model}`);
     if (model === 'deepseek') {
         return callDeepSeek(chatId, userMessageContent);
-    } else {
-        return callOpenAI(chatId, userMessageContent);
     }
+    return callOpenAI(chatId, userMessageContent);
 }
 
 async function callOpenAI(chatId, userMessageContent) {
@@ -292,15 +288,15 @@ async function callOpenAI(chatId, userMessageContent) {
         role: 'user',
         content: [
             ...sanitizedContent,
-            { 
-                type: 'input_text', 
-                text: `ChatID: ${chatId}, Текущее время: ${new Date().toISOString()}` 
+            {
+                type: 'input_text',
+                text: `ChatID: ${chatId}, Текущее время: ${new Date().toISOString()}`
             },
             ...(longMemory && longMemory !== '{}' ? [{ type: 'input_text', text: `Контекст: ${longMemory}` }] : [])
         ]
     };
 
-    logChat(chatId, { role: 'user', content: userMessageContent }, 'user');
+    logChat(chatId, { role: 'user', content: sanitizedContent }, 'user');
     const conversationHistory = loadChatHistoryFromFile(chatId);
 
     updateLongMemory(chatId).catch(err => console.error(`Ошибка обновления памяти для ${chatId}:`, err));
@@ -309,7 +305,7 @@ async function callOpenAI(chatId, userMessageContent) {
     const modelName = process.env.OPENAIMODEL || 'gpt-4o-mini';
     const payload = {
         model: modelName,
-        tools: [ { type: "web_search_preview" } ],
+        tools: [{ type: "web_search_preview" }],
         input: apiInput,
         text: { format: { type: 'text' } },
         temperature: 1,
@@ -319,6 +315,7 @@ async function callOpenAI(chatId, userMessageContent) {
     };
 
     console.info(`[API Call ${chatId}] Отправка в OpenAI. Модель: ${modelName}. История: ${conversationHistory.length} сообщений.`);
+    console.debug(`[API Call ${chatId}] Payload:`, JSON.stringify(payload, null, 2));
 
     try {
         const response = await axios.post(
@@ -387,27 +384,28 @@ async function callDeepSeek(chatId, userMessageContent) {
         })),
         {
             role: 'user',
-            content: sanitizedContent[0].text + 
+            content: sanitizedContent[0].text +
                      ` ChatID: ${chatId},` +
                      ` Текущее время: ${new Date().toISOString()}` +
                      (longMemory && longMemory !== '{}' ? ` Контекст: ${longMemory}` : '')
         }
     ];
 
-    logChat(chatId, { role: 'user', content: userMessageContent }, 'user');
+    logChat(chatId, { role: 'user', content: sanitizedContent }, 'user');
 
     const payload = {
-        model: 'deepseek-chat', // Предполагаемая модель DeepSeek
+        model: 'deepseek-chat',
         messages,
         temperature: 1,
         max_tokens: 2048
     };
 
     console.info(`[API Call ${chatId}] Отправка в DeepSeek. История: ${messages.length - 2} сообщений.`);
+    console.debug(`[API Call ${chatId}] Payload:`, JSON.stringify(payload, null, 2));
 
     try {
         const response = await axios.post(
-            'https://api.deepseek.com/v1/chat/completions', // Предполагаемый эндпоинт DeepSeek
+            'https://api.deepseek.com/v1/chat/completions',
             payload,
             {
                 headers: {
@@ -439,7 +437,7 @@ async function transcribeAudio(audioUrlOrPath, language = 'ru') {
 
     try {
         if (audioUrlOrPath.startsWith('http://') || audioUrlOrPath.startsWith('https://')) {
-            console.info(`[ [$ Transcribe ${language}] Транскрибация из URL: ${audioUrlOrPath}`);
+            console.info(`[Transcribe ${language}] Транскрибация из URL: ${audioUrlOrPath}`);
             const audioResponse = await axios.get(audioUrlOrPath, { responseType: 'stream', timeout: 20000 });
             formData.append('file', audioResponse.data, 'audio_from_url.mp3');
         } else {
@@ -474,8 +472,10 @@ module.exports = {
     setSystemMessage,
     setOpenAIKey,
     setDeepSeekKey,
+    setModel,
     callLLM,
     callOpenAI,
+    callDeepSeek,
     transcribeAudio,
     updateLongMemory
 };
