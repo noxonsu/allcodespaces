@@ -135,44 +135,113 @@ function loadChatHistoryFromFile(chatId) {
     return history.slice(-MAX_HISTORY);
 }
 
-async function updateLongMemory(chatId, userData) {
+async function updateLongMemory(chatId) {
+    // Skip immediately if chatId is 1
+    if (chatId === 1) {
+        console.info(`[LongMemory ${chatId}] Пропуск обновления для chatId = 1`);
+        return;
+    }
+
+    console.info(`[LongMemory ${chatId}] Проверка необходимости обновления долговременной памяти.`);
+    const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
+    const userData = loadUserData(chatId);
+    const lastLongMemoryUpdate = userData.lastLongMemoryUpdate || 0;
+    const now = Date.now();
+    const updateInterval = 1 * 60 * 60 * 1000; // 1 час
+
+    if (!fs.existsSync(chatLogPath)) {
+        console.info(`[LongMemory ${chatId}] Файл лога чата не существует, обновление пропускается.`);
+        return;
+    }
+
+    let logs = [];
     try {
-        // Read chat history
-        const history = loadChatHistoryFromFile(chatId);
-        if (!history || history.length === 0) {
-            console.debug(`[LongMemory ${chatId}] No chat history found, skipping memory update.`);
-            return false;
-        }
-
-        // Process each log entry
-        const processedMessages = history.map(log => {
-            // Safely extract text content - handle different content structures
-            let textContent = '';
-            
-            if (Array.isArray(log.content)) {
-                // If content is an array, look for a text field in its objects
-                const textItem = log.content.find(c => c.text);
-                textContent = textItem ? textItem.text : '';
-            } else if (typeof log.content === 'string') {
-                // If content is directly a string
-                textContent = log.content;
-            } else if (log.content && typeof log.content.text === 'string') {
-                // If content has a direct text property
-                textContent = log.content.text;
-            }
-            
-            return {
-                role: log.role,
-                content: textContent
-            };
-        }).filter(m => m.content); // Filter out entries with empty content
-
-        // Continue with the rest of your memory update logic...
-        
-        // Your existing code continues here...
+        const fileContent = fs.readFileSync(chatLogPath, 'utf8');
+        logs = fileContent.split('\n').filter(Boolean).map(line => JSON.parse(line));
     } catch (error) {
-        console.error(`Ошибка обновления памяти для ${chatId}:`, error);
-        return false;
+        console.error(`[LongMemory ${chatId}] Ошибка чтения лога:`, error);
+        return;
+    }
+
+    const textMessages = logs.filter(entry =>
+        entry.role && (
+            (entry.content && Array.isArray(entry.content) && entry.content.some(c => c.text?.trim())) ||
+            (typeof entry.text === 'string' && entry.text.trim() !== '')
+        )
+    );
+
+    const userMessageCount = textMessages.filter(m => m.role === 'user').length;
+    const isInitialPhase = userMessageCount > 0 && userMessageCount <= 5;
+    const intervalPassed = now - lastLongMemoryUpdate >= updateInterval;
+
+    if (!isInitialPhase && !intervalPassed) {
+        console.info(`[LongMemory ${chatId}] Обновление не требуется.`);
+        return;
+    }
+
+    if (textMessages.length === 0) {
+        console.info(`[LongMemory ${chatId}] Нет текстовых сообщений для анализа.`);
+        return;
+    }
+
+    const currentMemory = userData.longMemory || '';
+    const systemPromptText = systemMessage?.content?.[0]?.text || 'You are a helpful assistant.';
+    const analysisConversation = [
+        {
+            role: 'system',
+            content: [{
+                type: 'input_text',
+                text: `Current long-term memory: ${currentMemory}\n\nAnalyze recent messages and update the memory. Output ONLY JSON with fields like name, city, interests. Recent Messages:`
+            }]
+        },
+        {
+            role: 'system',
+            content: [{
+                type: 'input_text',
+                text: textMessages.slice(-20).map(log => {
+                    const textContent = log.content?.find(c => c.text)?.text || log.text || '[non-text content]';
+                    return `${log.role}: ${textContent}`;
+                }).join('\n')
+            }]
+        }
+    ];
+
+    const payload = {
+        model: 'gpt-4o-mini',
+        input: analysisConversation,
+        text: { format: { type: 'json_object' } },
+        temperature: 0.1,
+        max_output_tokens: 512
+    };
+
+    try {
+        const response = await axios.post(
+            'https://api.openai.com/v1/responses',
+            payload,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiApiKey}`
+                },
+                timeout: 30 * 1000
+            }
+        );
+
+        const jsonObject = response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_json_object')?.json_object || JSON.parse(response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_text')?.text || '{}');
+        const newLongMemoryString = JSON.stringify(jsonObject);
+
+        if (newLongMemoryString !== currentMemory) {
+            userData.longMemory = newLongMemoryString;
+            userData.lastLongMemoryUpdate = now;
+            saveUserData(chatId, userData);
+            console.info(`[LongMemory ${chatId}] Память обновлена: ${newLongMemoryString}`);
+        } else {
+            userData.lastLongMemoryUpdate = now;
+            saveUserData(chatId, userData);
+            console.info(`[LongMemory ${chatId}] Память не изменилась, обновлен timestamp.`);
+        }
+    } catch (error) {
+        console.error(`[LongMemory ${chatId}] Ошибка API:`, error.message);
     }
 }
 
@@ -281,10 +350,10 @@ async function callOpenAI(chatId, userMessageContent) {
         const assistantText = response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_text')?.text;
         if (!assistantText) throw new Error('Некорректный ответ от OpenAI.');
 
-        const sanitizedAssistantText = sanitizeString(assistantText);
-        logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: sanitizedAssistantText }] }, 'assistant');
+        // Remove sanitization of assistant responses
+        logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }] }, 'assistant');
 
-        return sanitizedAssistantText;
+        return assistantText;
     } catch (error) {
         console.error(`Ошибка вызова OpenAI API для чата ${chatId}:`, error.message);
         throw new Error('Ошибка при обработке запроса.');
@@ -325,7 +394,7 @@ async function callDeepSeek(chatId, userMessageContent) {
     }
 
     // Системное сообщение с служебной информацией
-    const systemMessageWithContext = `${systemMessage.content[0].text}\n\nСлужебная информация (не упоминайте её пользователю): ChatID: ${chatId}, Текущее время: ${new Date().toISOString()}${longMemory && longMemory !== '{}' ? `, Контекст: ${longMemory}` : ''}`;
+    const systemMessageWithContext = `${systemMessage.content[0].text}\n\nСлужебная информация (не упоминайте её пользователю): ChatID: ${chatId}, Текущее время: ${new Date().toISOString()}${longMemory && longMemory !== '{}' ? `, Данные о пользователе: ${longMemory}` : ''}`;
 
     const messages = [
         { role: 'system', content: systemMessageWithContext },
@@ -367,9 +436,9 @@ async function callDeepSeek(chatId, userMessageContent) {
         const assistantText = response.data.choices[0].message.content;
         if (!assistantText) throw new Error('Некорректный ответ от DeepSeek.');
 
-        const sanitizedAssistantText = sanitizeString(assistantText);
-        logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: sanitizedAssistantText }] }, 'assistant');
-        return sanitizedAssistantText;
+        // Remove sanitization of assistant responses
+        logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }] }, 'assistant');
+        return assistantText;
     } catch (error) {
         console.error(`Ошибка вызова DeepSeek API для чата ${chatId}:`, error.message);
         throw new Error('Ошибка при обработке запроса через DeepSeek.');
