@@ -84,17 +84,22 @@ async function sendAndLogResponse(chatId, assistantText) {
     try {
         await bot.sendChatAction(chatId, 'typing');
         const escapedText = escapeMarkdown(assistantText);
+        
+        // Отправляем сообщение в Telegram
         await bot.sendMessage(chatId, escapedText, { parse_mode: 'MarkdownV2' });
-        logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }], timestamp: new Date().toISOString() }, 'assistant');
+        
+        // УДАЛИТЕ СЛЕДУЮЩУЮ СТРОКУ, так как логирование уже выполняется в callOpenAI/callDeepSeek
+        // logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }] }, 'assistant');
+        
+        console.info(`[Bot ${chatId}] Отправлен ответ длиной ${assistantText.length}`);
     } catch (error) {
-        console.error(`Ошибка отправки сообщения в чат ${chatId}:`, error.message);
+        console.error(`Ошибка отправки сообщения для чата ${chatId}:`, error.message);
         try {
-            const errorText = escapeMarkdown("Извините, не удалось отправить ответ. Попробуйте еще раз или перезапустите бота командой /start.");
-            await bot.sendMessage(chatId, errorText, { parse_mode: 'MarkdownV2' });
-        } catch (nestedError) {
-            console.error(`Не удалось отправить уведомление об ошибке в чат ${chatId}:`, nestedError.message);
+            // Попытка отправить без форматирования при ошибке
+            await bot.sendMessage(chatId, assistantText);
+        } catch (fallbackError) {
+            console.error(`Не удалось отправить даже без форматирования:`, fallbackError.message);
         }
-        logChat(chatId, { error: 'send_message_failed', message: error.message }, 'error');
     }
 }
 
