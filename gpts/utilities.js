@@ -103,14 +103,23 @@ function logChat(chatId, data, logType = 'message') {
 
     const logFilePath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
     try {
+        let content;
+        if (logType === 'user' || logType === 'assistant') {
+            // Для сообщений user/assistant сохраняем только массив content
+            content = Array.isArray(data.content) ? data.content : (data.text ? [{ type: logType === 'user' ? 'input_text' : 'output_text', text: data.text }] : []);
+        } else {
+            // Для других типов (event, error, system) сохраняем весь объект
+            content = data;
+        }
+
         const logEntry = {
             timestamp: new Date().toISOString(),
             type: logType,
-            role: data.role || logType,
-            content: data
+            role: logType === 'user' || logType === 'assistant' ? logType : undefined,
+            content: content
         };
         fs.appendFileSync(logFilePath, JSON.stringify(logEntry) + '\n');
-        console.debug(`[LogChat ${chatId}] Logged ${logType} entry to ${logFilePath}`);
+        console.debug(`[LogChat ${chatId}] Logged ${logType} entry to ${logFilePath}:`, JSON.stringify(logEntry, null, 2));
     } catch (error) {
         console.error(`Error logging chat ${chatId} to ${logFilePath}:`, error);
     }

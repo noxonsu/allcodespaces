@@ -90,7 +90,7 @@ function loadChatHistoryFromFile(chatId) {
     const history = [];
 
     if (!fs.existsSync(chatLogPath)) {
-        console.info(`[История чата ${chatId}] Файл истории не найден. Начинаем новую историю.`);
+        console.info(`[История чата ${chatId}] Файл истории не найден: ${chatLogPath}`);
         return history;
     }
 
@@ -98,19 +98,29 @@ function loadChatHistoryFromFile(chatId) {
         const fileContent = fs.readFileSync(chatLogPath, 'utf8');
         const lines = fileContent.split('\n').filter(Boolean);
 
+        console.debug(`[История чата ${chatId}] Найдено ${lines.length} строк в логе`);
+
         for (const line of lines) {
             try {
                 const entry = JSON.parse(line);
                 let messageContent = null;
 
-                if (entry.content && Array.isArray(entry.content) && entry.content.length > 0) {
+                // Проверяем, является ли content массивом (для сообщений user/assistant)
+                if (entry.content && Array.isArray(entry.content)) {
                     messageContent = entry.content;
-                } else if (entry.content?.text && typeof entry.content.text === 'string' && entry.content.text.trim() !== '') {
+                }
+                // Проверяем вложенный content.content (для исправления старого формата)
+                else if (entry.content?.content && Array.isArray(entry.content.content)) {
+                    messageContent = entry.content.content;
+                }
+                // Проверяем content.text как строку
+                else if (entry.content?.text && typeof entry.content.text === 'string' && entry.content.text.trim() !== '') {
                     messageContent = [{ type: entry.role === 'user' ? 'input_text' : 'output_text', text: entry.content.text }];
                 }
 
                 if ((entry.role === 'user' || entry.role === 'assistant') && messageContent) {
                     history.push({ role: entry.role, content: messageContent });
+                    console.debug(`[История чата ${chatId}] Добавлено сообщение:`, { role: entry.role, content: messageContent });
                 }
             } catch (parseError) {
                 console.warn(`[Загрузка истории ${chatId}] Пропуск некорректной строки: ${parseError.message}. Строка: "${line}"`);
@@ -121,6 +131,7 @@ function loadChatHistoryFromFile(chatId) {
         return [];
     }
 
+    console.debug(`[История чата ${chatId}] Загружено ${history.length} сообщений`);
     return history.slice(-MAX_HISTORY);
 }
 
@@ -154,6 +165,7 @@ async function updateLongMemory(chatId) {
     const textMessages = logs.filter(entry =>
         entry.role && (
             (entry.content && Array.isArray(entry.content) && entry.content.some(c => c.text?.trim())) ||
+            (entry.content?.content && Array.isArray(entry.content.content) && entry.content.content.some(c => c.text?.trim())) ||
             (entry.content?.text && typeof entry.content.text === 'string' && entry.content.text.trim() !== '')
         )
     );
@@ -187,7 +199,7 @@ async function updateLongMemory(chatId) {
             content: [{
                 type: 'input_text',
                 text: textMessages.slice(-20).map(log => {
-                    const textContent = log.content?.find(c => c.text)?.text || log.content?.text || '[non-text content]';
+                    const textContent = log.content?.find(c => c.text)?.text || log.content?.content?.find(c => c.text)?.text || log.content?.text || '[non-text content]';
                     return `${log.role}: ${textContent}`;
                 }).join('\n')
             }]
