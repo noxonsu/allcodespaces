@@ -365,6 +365,7 @@ async function callDeepSeek(chatId, userMessageContent) {
 
     const userData = loadUserData(chatId);
     const longMemory = userData.longMemory || '';
+    const currentTime = new Date().toISOString();
     const sanitizedContent = userMessageContent.map(content => {
         const newContent = { ...content };
         if (newContent.text) newContent.text = sanitizeString(newContent.text);
@@ -375,18 +376,21 @@ async function callDeepSeek(chatId, userMessageContent) {
         throw new Error("Содержимое сообщения пусто после обработки.");
     }
 
+    // Системное сообщение с служебной информацией и текущим временем
+    const systemMessageWithContext = `${systemMessage.content[0].text}\n\nСлужебная информация (не упоминайте её пользователю): ChatID: ${chatId}, Текущее время: ${currentTime}${longMemory && longMemory !== '{}' ? `, Контекст: ${longMemory}` : ''}`;
+
+    // Добавляем текущее время к сообщению пользователя
+    const userMessageWithTime = `${sanitizedContent[0].text}\n\nТекущее время: ${currentTime}`;
+
     const messages = [
-        { role: 'system', content: systemMessage.content[0].text },
+        { role: 'system', content: systemMessageWithContext },
         ...loadChatHistoryFromFile(chatId).map(msg => ({
             role: msg.role,
             content: msg.content.find(c => c.text)?.text || ''
         })),
         {
             role: 'user',
-            content: sanitizedContent[0].text + 
-                     ` ChatID: ${chatId},` +
-                     ` Текущее время: ${new Date().toISOString()}` +
-                     (longMemory && longMemory !== '{}' ? ` Контекст: ${longMemory}` : '')
+            content: userMessageWithTime
         }
     ];
 

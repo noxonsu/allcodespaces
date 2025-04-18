@@ -279,6 +279,7 @@ async function callOpenAI(chatId, userMessageContent) {
 
     const userData = loadUserData(chatId);
     const longMemory = userData.longMemory || '';
+    const currentTime = new Date().toISOString();
     const sanitizedContent = userMessageContent.map(content => {
         const newContent = { ...content };
         if (newContent.text) newContent.text = sanitizeString(newContent.text);
@@ -299,10 +300,21 @@ async function callOpenAI(chatId, userMessageContent) {
         throw new Error("Содержимое сообщения пусто после обработки.");
     }
 
-    // Пользовательское сообщение без служебной информации
+    // Добавляем текущее время к каждому текстовому сообщению пользователя
+    const userMessageWithTime = sanitizedContent.map(content => {
+        if (content.text) {
+            return {
+                ...content,
+                text: `${content.text}\n\nТекущее время: ${currentTime}`
+            };
+        }
+        return content;
+    });
+
+    // Пользовательское сообщение с временем
     const userMessageForApi = {
         role: 'user',
-        content: sanitizedContent
+        content: userMessageWithTime
     };
 
     // Системное сообщение с контекстной информацией
@@ -310,7 +322,7 @@ async function callOpenAI(chatId, userMessageContent) {
         role: 'system',
         content: [{ 
             type: 'input_text', 
-            text: `${systemMessage.content[0].text}\n\nСлужебная информация (не упоминайте её пользователю): ChatID: ${chatId}, Текущее время: ${new Date().toISOString()}${longMemory && longMemory !== '{}' ? `, Контекст: ${longMemory}` : ''}`
+            text: `${systemMessage.content[0].text}\n\nСлужебная информация (не упоминайте её пользователю): ChatID: ${chatId}, Текущее время: ${currentTime}${longMemory && longMemory !== '{}' ? `, Контекст: ${longMemory}` : ''}`
         }]
     };
 

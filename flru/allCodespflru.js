@@ -143,7 +143,7 @@ async function processFeed() {
       console.log(`Дескрипшин: ${projectDescription}`);
       console.log(`Анализ: ${analysis}`);
       if (analysis !== 'Нет' && analysis !== 'Ошибка анализа') {
-        const message = `Новый проект: ${projectTitle}\nURL: ${projectUrl}\nАнализ: ${analysis}`;
+        const message = `Новый проект: ${projectTitle}\nURL: ${projectUrl}\n Дескрипшин ${projectDescription}\nАнализ: ${analysis}`;
         try {
           await bot.sendMessage(29165285, message);
           console.log(`Сообщение отправлено в Telegram для проекта: ${projectTitle}`);

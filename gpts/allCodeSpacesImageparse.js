@@ -213,7 +213,8 @@ async function processPhoto(msg) {
         validateImageResponse(imageResponse, 10 * 1024 * 1024);
         
         const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
-        console.debug(`[Фото ${chatId}] Изображение конвертировано в base64, длина: ${imageBase64.length}`);
+        // Не логируем содержимое base64, только его длину
+        console.debug(`[Фото ${chatId}] Изображение конвертировано в base64, длина: ${imageBase64.length} символов`);
         
         const imageUrl = `data:${mimeType};base64,${imageBase64}`;
         if (imageUrl.length > 20 * 1024 * 1024 * 0.75) {
@@ -226,7 +227,11 @@ async function processPhoto(msg) {
         userMessageContent.push({ type: 'input_image', image_url: imageUrl });
         
         console.info(`[Фото ${chatId}] Подготовлено сообщение с ${userMessageContent.length} частями (текст: ${caption ? 'да' : 'нет'}, изображение: да)`);
-        console.debug(`[Фото ${chatId}] Структура сообщения:`, JSON.stringify(userMessageContent.map(c => ({ type: c.type, hasContent: c.type === 'input_image' ? (c.image_url ? 'yes' : 'no') : (c.text ? 'yes' : 'no') }))));
+        // Модифицируем вывод структуры, чтобы избежать логирования base64
+        console.debug(`[Фото ${chatId}] Структура сообщения:`, JSON.stringify(userMessageContent.map(c => ({ 
+            type: c.type, 
+            hasContent: c.type === 'input_image' ? 'yes (data:image/... base64 data)' : (c.text ? 'yes' : 'no') 
+        }))));
 
         logChat(chatId, {
             type: 'photo_received',
