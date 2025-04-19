@@ -77,7 +77,7 @@ if (process.env.MODEL) setModel(process.env.MODEL);
 // --- Helper Functions ---
 
 function escapeMarkdown(text) {
-    return text.replace(/[_[\]()~`>#+=|{}.!-]/g, '\\$&');
+    return text.replace(/[_[\]()~`>#|{}.!-]/g, '\\$&');
 }
 
 async function sendAndLogResponse(chatId, assistantText) {

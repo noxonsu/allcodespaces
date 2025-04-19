@@ -70,3 +70,6 @@ lastrestarttime.txt
 result.json
 result2.json
 processed_projects.json
+tts/output_audio/*
+tts/text_chunks/*
+from.txt

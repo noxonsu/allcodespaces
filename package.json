@@ -3,7 +3,10 @@
     "axios": "^0.21.4",
     "cheerio": "1.0.0-rc.10",
     "dotenv": "^8.6.0",
+    "fs": "^0.0.1-security",
     "node-telegram-bot-api": "^0.50.0",
+    "openai": "^4.95.1",
+    "path": "^0.12.7",
     "rss-parser": "^3.12.0"
   }
 }
