@@ -73,3 +73,4 @@ processed_projects.json
 tts/output_audio/*
 tts/text_chunks/*
 from.txt
+whisper_streaming_input.py
