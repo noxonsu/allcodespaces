@@ -175,20 +175,22 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
 
     // Check if wallet address is provided
     if (!walletAddress) {
-        bot.sendMessage(chatId, 'Пожалуйста, укажите адрес кошелька TRON. Пример: /aml T... ');
+        bot.sendMessage(chatId, 'Пожалуйста, укажите адрес кошелька (TRON или Bitcoin). Пример: /aml T... или /aml 1...');
         return;
     }
 
-    // Basic TRON address format validation (Starts with 'T', 34 chars long)
-    if (!/^T[1-9A-HJ-NP-Za-km-z]{33}$/.test(walletAddress)) {
-        bot.sendMessage(chatId, 'Ошибка: Неверный формат адреса кошелька TRON. Адрес должен начинаться с "T" и содержать 34 символа.');
+    // Basic TRON and Bitcoin address format validation
+    const tronRegex = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
+    const bitcoinRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$/;
+
+    if (!tronRegex.test(walletAddress) && !bitcoinRegex.test(walletAddress)) {
+        bot.sendMessage(chatId, 'Ошибка: Неверный формат адреса кошелька. Поддерживаются адреса TRON (начинаются с "T" и содержат 34 символа) и Bitcoin (начинаются с "1", "3" или "bc1" и содержат 25-39 символов).');
         return;
     }
 
     try {
         // Use plain JSON object instead of FormData
         const requestData = {
-            blockchain: 'tron',  // Default to TRON blockchain
             address: walletAddress
         };
 
@@ -281,7 +283,7 @@ bot.onText(/\/start.*/, (msg) => {
 • /USDT_RUB 100 - Рассчитать конвертацию 100 USDT в RUB
 • /RUB_USDT - Показать текущий курс RUB → USDT
 • /RUB_USDT 10000 - Рассчитать конвертацию 10000 RUB в USDT
-• /aml Tr... - Проверить адрес кошелька tron по базе AML
+• /aml Tr... или 1... - Проверить адрес кошелька tron или bitcoin по базе AML
 
 _Курсы обновляются каждые 60 секунд._`;
 
