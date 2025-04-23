@@ -139,16 +139,34 @@ async function calculateExchangeAmount(direction, amount) {
     direction = direction.toUpperCase();
     console.log(`[ExchangeService] Calculating for direction: ${direction}, amount: ${amount} using live rate and commission.`);
 
-    // Fetch the current rate directly
-    const ratesData = await getExchangeRates();
-    if (!ratesData || !ratesData.USDT_RUB || !(ratesData.USDT_RUB.rate > 0)) {
-         console.error(`[ExchangeService] Cannot calculate ${direction}: Failed to fetch or invalid live USDT_RUB rate.`);
-         return null;
+    // Validate amount is a number and within reasonable limits
+    if (isNaN(amount) || amount <= 0) {
+        console.error(`[ExchangeService] Invalid amount provided: ${amount} (not a positive number)`);
+        return null;
     }
 
-    const usdtRubRate = ratesData.USDT_RUB.rate;
-    // Perform calculation using the fetched rate
-    return calculateWithLiveRate(direction, amount, usdtRubRate); // Pass the live rate
+    // Add a reasonable upper limit to prevent issues with extremely large numbers
+    const MAX_AMOUNT = 1000000; // 1 million
+    if (amount > MAX_AMOUNT) {
+        console.error(`[ExchangeService] Amount exceeds maximum allowed: ${amount} > ${MAX_AMOUNT}`);
+        return null;
+    }
+
+    try {
+        // Fetch the current rate directly
+        const ratesData = await getExchangeRates();
+        if (!ratesData || !ratesData.USDT_RUB || !(ratesData.USDT_RUB.rate > 0)) {
+             console.error(`[ExchangeService] Cannot calculate ${direction}: Failed to fetch or invalid live USDT_RUB rate.`);
+             return null;
+        }
+
+        const usdtRubRate = ratesData.USDT_RUB.rate;
+        // Perform calculation using the fetched rate
+        return calculateWithLiveRate(direction, amount, usdtRubRate); // Pass the live rate
+    } catch (error) {
+        console.error(`[ExchangeService] Error in calculateExchangeAmount for ${direction}, amount ${amount}:`, error);
+        return null;
+    }
 }
 
 /**
