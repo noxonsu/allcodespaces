@@ -45,13 +45,22 @@ const AML_CHECK_URL = `${AML_BASE_URL}/check`;         // Specific endpoint for 
 // --- Exchange Directions ---
 // !! IMPORTANT !! These IDs MUST match the actual IDs on your SafeExchange platform.
 const USDT_RUB_DIRECTION_ID = 1; // Replace with your actual direction ID for USDT->RUB
-const RUB_USDT_DIRECTION_ID = 2; // Replace with your actual direction ID for RUB->USDT
+const RUB_USDT_DIRECTION_ID = 1; // Replace with your actual direction ID for RUB->USDT
 
 // --- Hardcoded Commissions (Only for Rate Display) ---
 // Note: Actual calculation uses the commission returned by the exchange API.
 // These are only shown when displaying the rate without a specific amount.
-const USDT_RUB_DISPLAY_COMMISSION = '+1.0%'; // Example: +1%
-const RUB_USDT_DISPLAY_COMMISSION = '-0.8%'; // Example: -0.8%
+// Load display commissions from environment variables
+// Provide warnings if not set, as they are for display purposes only.
+const USDT_RUB_DISPLAY_COMMISSION = process.env.USDT_RUB_DISPLAY_COMMISSION;
+if (!USDT_RUB_DISPLAY_COMMISSION) {
+    console.warn('WARN: USDT_RUB_DISPLAY_COMMISSION environment variable not set. Display commission might not show correctly.');
+}
+
+const RUB_USDT_DISPLAY_COMMISSION = process.env.RUB_USDT_DISPLAY_COMMISSION;
+if (!RUB_USDT_DISPLAY_COMMISSION) {
+    console.warn('WARN: RUB_USDT_DISPLAY_COMMISSION environment variable not set. Display commission might not show correctly.');
+}
 
 // --- Caching ---
 const RATES_CACHE_TTL_SECONDS = 60; // Time-to-live for exchange rate cache

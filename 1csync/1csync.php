@@ -350,23 +350,21 @@ function cpu_run_csv_batch() {
                 $stock = !empty($stock_raw) ? intval(preg_replace('/[^\d]/', '', $stock_raw)) : 0; // Удаляем все нецифровое перед intval
 
                 // Обновляем мета-поля ACF
-                $price_updated = update_field(CPU_PRICE_ACF_KEY, $price, $post_id);
-                $stock_updated = update_field(CPU_STOCK_ACF_KEY, $stock, $post_id);
+                // update_field возвращает true при успехе, false при ошибке ИЛИ если значение не изменилось.
+                // Мы не будем проверять возвращаемое значение, т.к. false не всегда означает ошибку.
+                // Будем полагаться на блок catch для перехвата реальных исключений.
+                update_field(CPU_PRICE_ACF_KEY, $price, $post_id);
+                update_field(CPU_STOCK_ACF_KEY, $stock, $post_id);
 
-                // Проверяем результат обновления (update_field возвращает true при успехе)
-                if ($price_updated !== false && $stock_updated !== false) {
-                    $results['updated']++;
-                    // Добавляем лог только при успешном обновлении
-                    // $edit_link = admin_url('post.php?post=' . $post_id . '&action=edit');
-                    // $results['errors'][] = sprintf(
-                    //     __('Строка %d: Обновлен пост "%s" (ID: %d). Найден по: %s. Цена: %s, Остаток: %d. <a href="%s" target="_blank">Ред.</a>', 'csv-product-updater'),
-                    //     $current_row_index + 2, esc_html(get_the_title($post_id)), $post_id, esc_html($found_by), wc_price($price), $stock, esc_url($edit_link)
-                    // );
-                } else {
-                    // Если update_field вернул false, считаем это ошибкой
-                    $results['skipped_invalid_data']++;
-                    $results['errors'][] = sprintf(__('Строка %d (Пост ID: %d): Ошибка при обновлении ACF полей (update_field вернул false).', 'csv-product-updater'), $current_row_index + 2, $post_id);
-                }
+                // Считаем строку обработанной успешно, если не было исключения
+                $results['updated']++;
+
+                // Лог успешного обновления можно раскомментировать при необходимости
+                // $edit_link = admin_url('post.php?post=' . $post_id . '&action=edit');
+                // $results['errors'][] = sprintf(
+                //     __('Строка %d: Обновлен пост "%s" (ID: %d). Найден по: %s. Цена: %s, Остаток: %d. <a href="%s" target="_blank">Ред.</a>', 'csv-product-updater'),
+                //     $current_row_index + 2, esc_html(get_the_title($post_id)), $post_id, esc_html($found_by), wc_price($price), $stock, esc_url($edit_link)
+                // );
 
             } catch (Exception $e) {
                  $results['skipped_invalid_data']++;
