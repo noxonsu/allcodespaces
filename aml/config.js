@@ -1,16 +1,19 @@
 // config.js
-const dotenv = require('dotenv');
-const path = require('path'); // To ensure .env is found correctly
+const dotenv = require('dotenv-vault'); // Use dotenv-vault
+const path = require('path');
 
-// Load environment variables from .env file in the project root
-dotenv.config({ path: path.resolve(__dirname, '.env') });
+// Load environment variables using dotenv-vault
+// It will automatically look for .env, .env.vault, etc.
+// Ensure you have a .env file or a .env.vault file with a corresponding DOTENV_KEY.
+dotenv.config(); // Use config() for dotenv-vault
 
 // --- Environment Variable Validation ---
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 if (!BOT_TOKEN || BOT_TOKEN === 'YOUR_BOT_TOKEN') {
     console.error('FATAL ERROR: BOT_TOKEN environment variable is not set correctly.');
-    console.error('Please set it in the .env file.');
+    // Updated error message for dotenv-vault troubleshooting
+    console.error('Please ensure BOT_TOKEN is defined in your .env file or accessible via your .env.vault setup (check .env.vault and ensure DOTENV_KEY is set correctly in the environment if using a vault).');
     process.exit(1);
 }
 
@@ -18,6 +21,8 @@ const EXCHANGE_API_LOGIN = process.env.EXCHANGE_API_LOGIN;
 const EXCHANGE_API_KEY = process.env.EXCHANGE_API_KEY;
 if (!EXCHANGE_API_LOGIN || !EXCHANGE_API_KEY) {
     console.error('FATAL ERROR: EXCHANGE_API_LOGIN or EXCHANGE_API_KEY environment variables are not set.');
+    // Updated error message for dotenv-vault troubleshooting
+    console.error('Please ensure these are defined in your .env file or accessible via your .env.vault setup (check .env.vault and DOTENV_KEY if applicable).');
     console.error('Exchange rate functionality will not work properly.');
     process.exit(1);
 }
@@ -26,6 +31,8 @@ const AML_API_KEY = process.env.AML_API_KEY;
 if (!AML_API_KEY) {
     // Make this a fatal error as AML commands will fail
     console.error('FATAL ERROR: AML_API_KEY environment variable is not set.');
+    // Updated error message for dotenv-vault troubleshooting
+    console.error('Please ensure AML_API_KEY is defined in your .env file or accessible via your .env.vault setup (check .env.vault and DOTENV_KEY if applicable).');
     console.error('AML check functionality requires an API key.');
     process.exit(1);
 }

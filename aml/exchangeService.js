@@ -245,11 +245,10 @@ async function handleUsdtRubCommand(bot, chatId, amount) {
         const displayRate = rateData.rate.toFixed(2); // How many RUB for 1 USDT
 
         if (amount === null) {
-            // Just show the current rate - remove timestamp
+            // Just show the current rate - remove timestamp and commission (ориентировочно)
              responseText = `*USDT → RUB*\n\n` +
-                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*\n` +
-                           `Комиссия (ориентировочно): ${config.USDT_RUB_DISPLAY_COMMISSION}`;
-                           // Removed timestamp line
+                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*`;
+                           // Комиссия (ориентировочно) удалена
         } else {
              // Validate amount
             if (amount <= 0) {
@@ -267,13 +266,12 @@ async function handleUsdtRubCommand(bot, chatId, amount) {
             // Use the live USDT/RUB rate for display consistency
             const calculatedRateDisplay = parseFloat(rateData.rate).toFixed(2);
             const resultAmount = parseFloat(calcResult.sum_get).toFixed(2);
-            const commissionInfo = config.USDT_RUB_DISPLAY_COMMISSION ? `Комиссия: ${config.USDT_RUB_DISPLAY_COMMISSION}` : '';
+            // Комиссия: ... строка удалена
             // Removed fallbackNotice
 
             responseText = `*Конвертация USDT → RUB*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} USDT\n` +
                            `Курс: *1 USDT ≈ ${calculatedRateDisplay} RUB*\n` +
-                           (commissionInfo ? `${commissionInfo}\n` : '') +
                            `Получаете: *${resultAmount} RUB*\n` +
                            `_Расчет актуален на момент запроса._`; // Removed fallback notice
         }
@@ -309,11 +307,10 @@ async function handleRubUsdtCommand(bot, chatId, amount) {
         const displayRate = rateData.rate.toFixed(2); // How many RUB for 1 USDT
 
         if (amount === null) {
-            // Show the current rate in USDT -> RUB format - remove timestamp
+            // Show the current rate in USDT -> RUB format - remove timestamp and commission (ориентировочно)
              responseText = `*RUB → USDT*\n\n` +
-                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*\n` +
-                           `Комиссия (ориентировочно): ${config.RUB_USDT_DISPLAY_COMMISSION}`;
-                           // Removed timestamp line
+                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*`;
+                           // Комиссия (ориентировочно) удалена
         } else {
             // Validate amount
             if (amount <= 0) {
@@ -331,13 +328,12 @@ async function handleRubUsdtCommand(bot, chatId, amount) {
             // Use the live USDT/RUB rate for display consistency
             const calculatedRateDisplay = parseFloat(rateData.rate).toFixed(2);
             const resultAmount = parseFloat(calcResult.sum_get).toFixed(2);
-            const commissionInfo = config.RUB_USDT_DISPLAY_COMMISSION ? `Комиссия: ${config.RUB_USDT_DISPLAY_COMMISSION}` : '';
+            // Комиссия: ... строка удалена
             // Removed fallbackNotice
 
             responseText = `*Конвертация RUB → USDT*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} RUB\n` +
                            `Курс: *1 USDT ≈ ${calculatedRateDisplay} RUB*\n` +
-                           (commissionInfo ? `${commissionInfo}\n` : '') +
                            `Получаете: *${resultAmount} USDT*\n` +
                            `_Расчет актуален на момент запроса._`; // Removed fallback notice
         }

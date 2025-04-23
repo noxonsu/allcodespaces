@@ -8,5 +8,8 @@
     "openai": "^4.95.1",
     "path": "^0.12.7",
     "rss-parser": "^3.12.0"
+  },
+  "devDependencies": {
+    "dotenv-vault": "^1.26.2"
   }
 }
