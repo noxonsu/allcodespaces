@@ -204,10 +204,15 @@ async function getExistingReport(walletAddress) {
     return null; // Return null if not found or if there was an error fetching list
 }
 
+// Helper function to escape markdown special characters
+function escapeMarkdown(text) {
+    // Escape special markdown characters: _ * ` [ ]
+    return text.replace(/([_*\[\]`])/g, '\\$1');
+}
+
 // Formats the AML report data into a user-friendly message
 function formatReportMessage(reportData, walletAddress) {
     if (!reportData) {
-        // This case might happen if called after a failed list check
         return `Не удалось получить данные для адреса ${walletAddress}. Попробуйте позже.`;
     }
 
@@ -216,19 +221,23 @@ function formatReportMessage(reportData, walletAddress) {
 
     let entityDetails = '';
     if (entities.length > 0) {
-        entityDetails = '\n\n*Обнаруженные риски:*\n';
+        entityDetails = '\n\nОбнаруженные риски:\n';
         entities.forEach(entity => {
             const score = typeof entity.riskScore === 'number' ? entity.riskScore.toFixed(3) : 'N/A';
             const level = entity.level || 'N/A';
-            entityDetails += `- ${entity.entity || 'Unknown'}: ${score} (${level})\n`;
+            entityDetails += `• ${entity.entity || 'Unknown'}: ${score} (${level})\n`;
         });
     } else if (riskScore !== 'N/A') {
-        entityDetails = '\n\n*Детали по рискам не предоставлены.*';
+        entityDetails = '\n\nДетали по рискам не предоставлены';
     }
 
-    return `*AML Проверка кошелька*\n` +
-           `Адрес: \`${walletAddress}\`\n` +
-           `Итоговый риск: *${riskScore}*${entityDetails}`;
+    // Format message using HTML instead of Markdown
+    return {
+        text: `<b>AML Проверка кошелька</b>\n` +
+              `Адрес: <code>${walletAddress}</code>\n` +
+              `Итоговый риск: <b>${riskScore}</b>${entityDetails}`,
+        options: { parse_mode: 'HTML' }
+    };
 }
 
 // --- Bot Command Handlers ---
@@ -316,8 +325,8 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
         // *** Step 1: Check if report already exists in the list ***
         const existingReport = await getExistingReport(walletAddress);
         if (existingReport) {
-            const responseText = formatReportMessage(existingReport, walletAddress);
-            bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+            const { text, options } = formatReportMessage(existingReport, walletAddress);
+            bot.sendMessage(chatId, text, options);
             return; // Exit if found in the list
         }
 
@@ -325,8 +334,8 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
         // Send a "thinking" message
         const processingMsg = await bot.sendMessage(
             chatId, 
-            `Запрашиваю новый AML отчет для адреса \`${walletAddress}\`...`, 
-            { parse_mode: 'Markdown' }
+            `Запрашиваю новый AML отчет для адреса <code>${walletAddress}</code>...`, 
+            { parse_mode: 'HTML' }
         );
 
         let blockchainType = validation.type;
@@ -356,7 +365,7 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
                     { 
                         chat_id: chatId, 
                         message_id: processingMsg.message_id,
-                        parse_mode: 'Markdown'
+                        parse_mode: 'HTML'
                     }
                 );
                 
@@ -365,11 +374,11 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
                 
                 // Update user that we're checking the list
                 await bot.editMessageText(
-                    `Проверяю обновленный статус для адреса \`${walletAddress}\`...`, 
+                    `Проверяю обновленный статус для адреса <code>${walletAddress}</code>...`, 
                     { 
                         chat_id: chatId, 
                         message_id: processingMsg.message_id,
-                        parse_mode: 'Markdown'
+                        parse_mode: 'HTML'
                     }
                 );
 
@@ -377,23 +386,22 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
                 const updatedReport = await getExistingReport(walletAddress);
                 
                 if (updatedReport) {
-                    const responseText = formatReportMessage(updatedReport, walletAddress);
-                    // Send a new message with the results
-                    bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+                    const { text, options } = formatReportMessage(updatedReport, walletAddress);
+                    bot.sendMessage(chatId, text, options);
                 } else {
                     // Still not found in the list after waiting
-                    bot.sendMessage(chatId, `Отчет для \`${walletAddress}\` все еще обрабатывается. Пожалуйста, используйте команду /aml ${walletAddress} через несколько секунд для получения результатов.`, { parse_mode: 'Markdown' });
+                    bot.sendMessage(chatId, `Отчет для <code>${walletAddress}</code> все еще обрабатывается. Пожалуйста, используйте команду /aml ${walletAddress} через несколько секунд для получения результатов.`, { parse_mode: 'HTML' });
                 }
                 
                 // Delete the "processing" message
                 bot.deleteMessage(chatId, processingMsg.message_id).catch(err => console.error('Error deleting message:', err));
             } else {
                 // Status is not pending, format and send result directly
-                const responseText = formatReportMessage(responseData, walletAddress);
+                const { text, options } = formatReportMessage(responseData, walletAddress);
                 // Delete the "processing" message
                 bot.deleteMessage(chatId, processingMsg.message_id).catch(err => console.error('Error deleting message:', err));
                 // Send the result
-                bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+                bot.sendMessage(chatId, text, options);
             }
         } else {
             // Should not happen if axios doesn't throw for non-2xx
@@ -452,18 +460,18 @@ bot.onText(/\/amls/, async (msg) => {
                 return;
             }
 
-            let responseText = '*Список AML Отчетов:*\n\n';
+            let responseText = '<b>Список AML Отчетов:</b>\n\n';
             reports.slice(0, 10).forEach((report, index) => { // Limit to first 10 reports for brevity
                 const address = report.address || 'N/A';
                 const riskScore = report.context?.riskScore ?? 'N/A';
-                responseText += `${index + 1}. Адрес: \`${address}\` - Риск: ${riskScore}\n`;
+                responseText += `${index + 1}. Адрес: <code>${address}</code> - Риск: ${riskScore}\n`;
             });
 
             if (reports.length > 10) {
-                responseText += `\n_(Показаны первые 10 из ${reports.length} отчетов)_`;
+                responseText += `\n<i>Показаны первые 10 из ${reports.length} отчетов</i>`;
             }
 
-            bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, responseText, { parse_mode: 'HTML' });
 
         } else {
             console.error(`Failed to fetch AML reports list: Status ${response.status}`);
