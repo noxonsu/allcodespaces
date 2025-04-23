@@ -89,13 +89,12 @@ async function sendAndLogResponse(chatId, assistantText) {
     try {
         await bot.sendChatAction(chatId, 'typing');
         
-        // Fix referral links in messages before escaping for Markdown
-        assistantText = assistantText.replace(
-            /https:\/\/t\.me\/([^\/\s]+)\/\?start(\d+)/g, 
-            'https://t.me/$1/?start=$2'
-        );
+        // First apply Markdown escaping
+        let escapedText = escapeMarkdown(assistantText);
         
-        const escapedText = escapeMarkdown(assistantText);
+        // Then fix the referral links after escaping
+        // This replaces "?start" followed by digits with "?start=" followed by the same digits
+        escapedText = escapedText.replace(/\?start(\d+)/g, '?start=\\$1');
         
         // Отправляем сообщение в Telegram
         await bot.sendMessage(chatId, escapedText, { parse_mode: 'MarkdownV2' });
