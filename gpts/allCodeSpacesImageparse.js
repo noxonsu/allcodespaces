@@ -80,16 +80,25 @@ function escapeMarkdown(text) {
     return text.replace(/[_[\]()~`>#|{}.!-]/g, '\\$&');
 }
 
+function formatReferralLink(botUsername, referralCode) {
+    // Ensure the equals sign is included after "start"
+    return `https://t.me/${botUsername}/?start=${referralCode}`;
+}
+
 async function sendAndLogResponse(chatId, assistantText) {
     try {
         await bot.sendChatAction(chatId, 'typing');
+        
+        // Fix referral links in messages before escaping for Markdown
+        assistantText = assistantText.replace(
+            /https:\/\/t\.me\/([^\/\s]+)\/\?start(\d+)/g, 
+            'https://t.me/$1/?start=$2'
+        );
+        
         const escapedText = escapeMarkdown(assistantText);
         
         // Отправляем сообщение в Telegram
         await bot.sendMessage(chatId, escapedText, { parse_mode: 'MarkdownV2' });
-        
-        // УДАЛИТЕ СЛЕДУЮЩУЮ СТРОКУ, так как логирование уже выполняется в callOpenAI/callDeepSeek
-        // logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }] }, 'assistant');
         
         console.info(`[Bot ${chatId}] Отправлен ответ длиной ${assistantText.length}`);
     } catch (error) {
