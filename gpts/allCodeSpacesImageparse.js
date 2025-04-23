@@ -94,7 +94,7 @@ async function sendAndLogResponse(chatId, assistantText) {
         
         // Then fix the referral links after escaping
         // This replaces "?start" followed by digits with "?start=" followed by the same digits
-        escapedText = escapedText.replace(/\?start(\d+)/g, '?start=\\$1');
+        escapedText = escapedText.replace(/\?start(\d+)/g, '?start\\=\\$1');
         
         // Отправляем сообщение в Telegram
         await bot.sendMessage(chatId, escapedText, { parse_mode: 'MarkdownV2' });
