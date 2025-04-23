@@ -38,6 +38,11 @@ const RUB_USDT_COMMISSION = -0.8; // -0.8% for RUB → USDT
 // Initialize bot
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
+// Clear any previously set commands
+bot.setMyCommands([])
+    .then(() => console.log('Bot commands cleared successfully.'))
+    .catch(err => console.error('Error clearing bot commands:', err));
+
 // Cache for exchange rates
 let ratesCache = { timestamp: 0, data: null };
 
@@ -168,6 +173,66 @@ bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?/, async (msg, match) => {
     bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
 });
 
+// --- Helper Functions ---
+
+// Fetches the list of reports and finds one by address
+async function getExistingReport(walletAddress) {
+    try {
+        const headers = {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${AML_API_KEY.trim()}`
+        };
+        const listApiUrl = 'https://core.tr.energy/api/aml'; // Base URL for listing
+        console.log(`Checking existing reports for address: ${walletAddress}`);
+        const response = await axios.get(listApiUrl, { headers });
+
+        if (response.status === 200) {
+            const reports = response.data.data || [];
+            const foundReport = reports.find(report => report.address === walletAddress);
+            if (foundReport) {
+                console.log(`Found existing report for ${walletAddress}`);
+                return foundReport; // Return the report object if found
+            }
+        } else {
+            console.error(`Failed to fetch AML reports list during check: Status ${response.status}`);
+        }
+    } catch (error) {
+        console.error(`Error fetching AML reports list during check for ${walletAddress}:`, error.message);
+        // Don't throw, just return null, allowing the POST request to proceed
+    }
+    console.log(`No existing report found for ${walletAddress} in the list.`);
+    return null; // Return null if not found or if there was an error fetching list
+}
+
+// Formats the AML report data into a user-friendly message
+function formatReportMessage(reportData, walletAddress) {
+    if (!reportData) {
+        // This case might happen if called after a failed list check
+        return `Не удалось получить данные для адреса ${walletAddress}. Попробуйте позже.`;
+    }
+
+    const riskScore = reportData.context?.riskScore ?? 'N/A';
+    const entities = reportData.context?.entities || [];
+
+    let entityDetails = '';
+    if (entities.length > 0) {
+        entityDetails = '\n\n*Обнаруженные риски:*\n';
+        entities.forEach(entity => {
+            const score = typeof entity.riskScore === 'number' ? entity.riskScore.toFixed(3) : 'N/A';
+            const level = entity.level || 'N/A';
+            entityDetails += `- ${entity.entity || 'Unknown'}: ${score} (${level})\n`;
+        });
+    } else if (riskScore !== 'N/A') {
+        entityDetails = '\n\n*Детали по рискам не предоставлены.*';
+    }
+
+    return `*AML Проверка кошелька*\n` +
+           `Адрес: \`${walletAddress}\`\n` +
+           `Итоговый риск: *${riskScore}*${entityDetails}`;
+}
+
+// --- Bot Command Handlers ---
+
 // Handle /aml command
 bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
@@ -189,81 +254,152 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
     }
 
     try {
-        // Use plain JSON object instead of FormData
-        const requestData = {
-            address: walletAddress
-        };
+        // *** Step 1: Check if report already exists in the list ***
+        const existingReport = await getExistingReport(walletAddress);
+        if (existingReport) {
+            const responseText = formatReportMessage(existingReport, walletAddress);
+            bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+            return; // Exit if found in the list
+        }
 
-        // Ensure proper Bearer token format in the Authorization header
+        // *** Step 2: If not found, create a new report via POST ***
+        bot.sendMessage(chatId, `Запрашиваю новый AML отчет для адреса \`${walletAddress}\`...`, { parse_mode: 'Markdown' });
+
+        let blockchainType;
+        if (tronRegex.test(walletAddress)) {
+            blockchainType = 'tron';
+        } else {
+            blockchainType = 'btc';
+        }
+
+        const requestData = {
+            address: walletAddress,
+            blockchain: blockchainType
+        };
         const headers = {
             'Accept': 'application/json',
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${AML_API_KEY.trim()}`
         };
 
-        console.log(`Sending AML check request for address: ${walletAddress}`);
-
+        console.log(`Sending NEW AML check request for address: ${walletAddress}`);
         const response = await axios.post(AML_API_URL, requestData, { headers });
 
+        // *** Step 3: Handle POST response ***
         if (response.status === 200 || response.status === 201) {
-            // Update response handling to match API structure
-            const responseData = response.data.data || response.data;
-            // Handle cases where context might be missing or null
-            const riskScore = responseData.context?.riskScore ?? 'N/A'; // Use nullish coalescing
-            const entities = responseData.context?.entities || [];
+            let responseData = response.data.data || response.data;
+            let status = responseData.status; // Assuming status is directly in responseData
 
-            let entityDetails = '';
-            if (entities.length > 0) {
-                entityDetails = '\n\n*Обнаруженные риски:*\n';
-                entities.forEach(entity => {
-                    // Format risk score and level nicely
-                    const score = typeof entity.riskScore === 'number' ? entity.riskScore.toFixed(3) : 'N/A';
-                    const level = entity.level || 'N/A';
-                    entityDetails += `- ${entity.entity || 'Unknown'}: ${score} (${level})\n`;
-                });
-            } else if (riskScore !== 'N/A') {
-                 // Add message if risk score is available but no specific entities listed
-                 entityDetails = '\n\n*Детали по рискам не предоставлены.*';
+             // Check if status is pending
+            if (status === 'pending') {
+                bot.sendMessage(chatId, `Статус проверки AML: ${status}. Проверяю список существующих отчетов...`);
+
+                // *** Step 3a: Query the list again immediately ***
+                const reportFromList = await getExistingReport(walletAddress);
+
+                if (reportFromList) {
+                    // Found in the list after pending status
+                    const responseText = formatReportMessage(reportFromList, walletAddress);
+                     bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+                } else {
+                    // Still not found in the list
+                    bot.sendMessage(chatId, `Отчет для \`${walletAddress}\` все еще обрабатывается. Пожалуйста, проверьте позже с помощью команды /amls или повторите /aml через некоторое время.`, { parse_mode: 'Markdown' });
+                }
+            } else {
+                 // *** Step 3b: Status is not pending, format and send result directly ***
+                 const responseText = formatReportMessage(responseData, walletAddress);
+                 bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
             }
-
-
-            const responseText = `*AML Проверка кошелька*\n` +
-                               `Адрес: \`${walletAddress}\`\n` +
-                               `Итоговый риск: *${riskScore}*${entityDetails}`;
-
-            bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
         } else {
-             // Should not happen if axios doesn't throw for non-2xx, but good practice
-            console.error(`AML check unexpected status: ${response.status} for address ${walletAddress}`);
+            // Should not happen if axios doesn't throw for non-2xx
+            console.error(`AML check POST unexpected status: ${response.status} for address ${walletAddress}`);
             bot.sendMessage(chatId, `Ошибка AML проверки (Статус: ${response.status}). Попробуйте позже.`);
         }
     } catch (error) {
-        console.error(`AML check failed for address ${walletAddress}. Error:`, error.message);
+        // Generic error handling for the entire process (GET pre-check or POST)
+        console.error(`AML process failed for address ${walletAddress}. Error:`, error.message);
         let userErrorMessage = 'Произошла ошибка при проверке кошелька. Пожалуйста, попробуйте позже.';
 
         if (axios.isAxiosError(error)) {
             if (error.response) {
-                // API returned an error status code (4xx, 5xx)
                 console.error('API Error Data:', error.response.data);
-                if (error.response.status === 422) {
-                    // Specific error for invalid data (likely address)
+                const status = error.response.status;
+                if (status === 422) {
                     const apiErrorMsg = error.response.data?.error || 'Неверные данные';
                     userErrorMessage = `Ошибка AML проверки: ${apiErrorMsg}. Пожалуйста, проверьте правильность адреса.`;
-                } else if (error.response.status === 401) {
+                } else if (status === 401) {
                      userErrorMessage = 'Ошибка авторизации при проверке AML. Обратитесь к администратору.';
                 } else {
-                    userErrorMessage = `Ошибка сервиса AML (Статус: ${error.response.status}). Попробуйте позже.`;
+                    userErrorMessage = `Ошибка сервиса AML (Статус: ${status}). Попробуйте позже.`;
                 }
             } else if (error.request) {
-                // Request was made but no response received (network error, timeout)
                 console.error('Network Error:', error.message);
                 userErrorMessage = 'Не удалось связаться с сервисом AML. Проверьте ваше интернет-соединение или попробуйте позже.';
             }
         } else {
-            // Non-axios error (e.g., programming error before request)
              console.error('Non-API Error:', error);
         }
+        bot.sendMessage(chatId, userErrorMessage);
+    }
+});
 
+// Handle /amls command - List AML reports
+bot.onText(/\/amls/, async (msg) => {
+    const chatId = msg.chat.id;
+
+    try {
+        const headers = {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${AML_API_KEY.trim()}`
+        };
+
+        console.log('Fetching AML reports list...');
+        // Use the base URL for listing reports, not the check URL
+        const listApiUrl = 'https://core.tr.energy/api/aml';
+        const response = await axios.get(listApiUrl, { headers });
+
+        if (response.status === 200) {
+            const reports = response.data.data || [];
+
+            if (reports.length === 0) {
+                bot.sendMessage(chatId, 'Нет доступных AML отчетов.');
+                return;
+            }
+
+            let responseText = '*Список AML Отчетов:*\n\n';
+            reports.slice(0, 10).forEach((report, index) => { // Limit to first 10 reports for brevity
+                const address = report.address || 'N/A';
+                const riskScore = report.context?.riskScore ?? 'N/A';
+                responseText += `${index + 1}. Адрес: \`${address}\` - Риск: ${riskScore}\n`;
+            });
+
+            if (reports.length > 10) {
+                responseText += `\n_(Показаны первые 10 из ${reports.length} отчетов)_`;
+            }
+
+            bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+
+        } else {
+            console.error(`Failed to fetch AML reports list: Status ${response.status}`);
+            bot.sendMessage(chatId, `Не удалось получить список отчетов (Статус: ${response.status}).`);
+        }
+    } catch (error) {
+        console.error('Error fetching AML reports list:', error.message);
+        let userErrorMessage = 'Произошла ошибка при получении списка AML отчетов.';
+        if (axios.isAxiosError(error)) {
+            if (error.response) {
+                console.error('API Error Data:', error.response.data);
+                 if (error.response.status === 401) {
+                     userErrorMessage = 'Ошибка авторизации при получении списка AML. Обратитесь к администратору.';
+                 } else {
+                    userErrorMessage = `Ошибка сервиса AML при получении списка (Статус: ${error.response.status}).`;
+                 }
+            } else if (error.request) {
+                userErrorMessage = 'Не удалось связаться с сервисом AML для получения списка.';
+            }
+        } else {
+             console.error('Non-API Error:', error);
+        }
         bot.sendMessage(chatId, userErrorMessage);
     }
 });
@@ -277,6 +413,7 @@ bot.onText(/\/start.*/, (msg) => {
 • /USDT_RUB [сумма] - Конвертация USDT в RUB
 • /RUB_USDT [сумма] - Конвертация RUB в USDT
 • /aml [адрес кошелька] - Проверка кошелька по AML
+• /amls - Показать последние AML отчеты
 
 *Примеры:*
 • /USDT_RUB - Показать текущий курс USDT → RUB
@@ -284,6 +421,7 @@ bot.onText(/\/start.*/, (msg) => {
 • /RUB_USDT - Показать текущий курс RUB → USDT
 • /RUB_USDT 10000 - Рассчитать конвертацию 10000 RUB в USDT
 • /aml Tr... или 1... - Проверить адрес кошелька tron или bitcoin по базе AML
+• /amls - Показать список последних проверок AML
 
 _Курсы обновляются каждые 60 секунд._`;
 
