@@ -263,15 +263,14 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
         }
 
         // *** Step 2: If not found, create a new report via POST ***
-        bot.sendMessage(chatId, `Запрашиваю новый AML отчет для адреса \`${walletAddress}\`...`, { parse_mode: 'Markdown' });
+        // Send a "thinking" message
+        const processingMsg = await bot.sendMessage(
+            chatId, 
+            `Запрашиваю новый AML отчет для адреса \`${walletAddress}\`...`, 
+            { parse_mode: 'Markdown' }
+        );
 
-        let blockchainType;
-        if (tronRegex.test(walletAddress)) {
-            blockchainType = 'tron';
-        } else {
-            blockchainType = 'btc';
-        }
-
+        let blockchainType = tronRegex.test(walletAddress) ? 'tron' : 'btc';
         const requestData = {
             address: walletAddress,
             blockchain: blockchainType
@@ -288,31 +287,59 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
         // *** Step 3: Handle POST response ***
         if (response.status === 200 || response.status === 201) {
             let responseData = response.data.data || response.data;
-            let status = responseData.status; // Assuming status is directly in responseData
+            let status = responseData.status;
 
-             // Check if status is pending
+            // Check if status is pending - wait 5 seconds before checking again
             if (status === 'pending') {
-                bot.sendMessage(chatId, `Статус проверки AML: ${status}. Проверяю список существующих отчетов...`);
+                // Update the thinking message
+                await bot.editMessageText(
+                    `Статус проверки AML: ${status}. Пожалуйста, подождите 5 секунд...`, 
+                    { 
+                        chat_id: chatId, 
+                        message_id: processingMsg.message_id,
+                        parse_mode: 'Markdown'
+                    }
+                );
+                
+                // Wait 5 seconds
+                await new Promise(resolve => setTimeout(resolve, 5000));
+                
+                // Update user that we're checking the list
+                await bot.editMessageText(
+                    `Проверяю обновленный статус для адреса \`${walletAddress}\`...`, 
+                    { 
+                        chat_id: chatId, 
+                        message_id: processingMsg.message_id,
+                        parse_mode: 'Markdown'
+                    }
+                );
 
-                // *** Step 3a: Query the list again immediately ***
-                const reportFromList = await getExistingReport(walletAddress);
-
-                if (reportFromList) {
-                    // Found in the list after pending status
-                    const responseText = formatReportMessage(reportFromList, walletAddress);
-                     bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+                // Check the list again after waiting
+                const updatedReport = await getExistingReport(walletAddress);
+                
+                if (updatedReport) {
+                    const responseText = formatReportMessage(updatedReport, walletAddress);
+                    // Send a new message with the results
+                    bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
                 } else {
-                    // Still not found in the list
-                    bot.sendMessage(chatId, `Отчет для \`${walletAddress}\` все еще обрабатывается. Пожалуйста, проверьте позже с помощью команды /amls или повторите /aml через некоторое время.`, { parse_mode: 'Markdown' });
+                    // Still not found in the list after waiting
+                    bot.sendMessage(chatId, `Отчет для \`${walletAddress}\` все еще обрабатывается. Пожалуйста, используйте команду /aml ${walletAddress} через несколько секунд для получения результатов.`, { parse_mode: 'Markdown' });
                 }
+                
+                // Delete the "processing" message
+                bot.deleteMessage(chatId, processingMsg.message_id).catch(err => console.error('Error deleting message:', err));
             } else {
-                 // *** Step 3b: Status is not pending, format and send result directly ***
-                 const responseText = formatReportMessage(responseData, walletAddress);
-                 bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+                // Status is not pending, format and send result directly
+                const responseText = formatReportMessage(responseData, walletAddress);
+                // Delete the "processing" message
+                bot.deleteMessage(chatId, processingMsg.message_id).catch(err => console.error('Error deleting message:', err));
+                // Send the result
+                bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
             }
         } else {
             // Should not happen if axios doesn't throw for non-2xx
             console.error(`AML check POST unexpected status: ${response.status} for address ${walletAddress}`);
+            bot.deleteMessage(chatId, processingMsg.message_id).catch(err => console.error('Error deleting message:', err));
             bot.sendMessage(chatId, `Ошибка AML проверки (Статус: ${response.status}). Попробуйте позже.`);
         }
     } catch (error) {
