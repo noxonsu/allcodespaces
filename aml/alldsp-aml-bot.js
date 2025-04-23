@@ -17,12 +17,22 @@ if (!process.env.AML_API_KEY) {
     console.error('AML check functionality will not work properly.');
 }
 
+// SafeExchange API authentication
+if (!process.env.EXCHANGE_API_LOGIN || !process.env.EXCHANGE_API_KEY) {
+    console.error('Error: EXCHANGE_API_LOGIN or EXCHANGE_API_KEY environment variables are not set.');
+    console.error('Exchange rate functionality will not work properly.');
+    process.exit(1);
+}
+
 // Bot configuration
 const BOT_TOKEN = process.env.BOT_TOKEN;
-const API_URL = 'https://abcex.io/api/v1/rates';
+// Updated API configuration
+const EXCHANGE_API_URL = 'https://safexchange.pro/api/userapi/v1';
+const EXCHANGE_API_LOGIN = process.env.EXCHANGE_API_LOGIN;
+const EXCHANGE_API_KEY = process.env.EXCHANGE_API_KEY;
 const AML_API_KEY = process.env.AML_API_KEY;
-// Validate API key
 
+// Validate AML API key
 if (!AML_API_KEY) {
     console.error('Error: AML_API_KEY is not set. Please check your environment variables.');
     process.exit(1);
@@ -35,6 +45,10 @@ const AML_API_URL = 'https://core.tr.energy/api/aml/check';
 const USDT_RUB_COMMISSION = 1.0; // +1% for USDT → RUB
 const RUB_USDT_COMMISSION = -0.8; // -0.8% for RUB → USDT
 
+// Hardcoded direction IDs for the exchange pairs (set these to match your exchange's direction IDs)
+const USDT_RUB_DIRECTION_ID = 1; // Replace with your actual direction ID for USDT→RUB
+const RUB_USDT_DIRECTION_ID = 2; // Replace with your actual direction ID for RUB→USDT
+
 // Initialize bot
 const bot = new TelegramBot(BOT_TOKEN, { polling: true });
 
@@ -46,27 +60,95 @@ bot.setMyCommands([])
 // Cache for exchange rates
 let ratesCache = { timestamp: 0, data: null };
 
+// Updated function to fetch exchange rates from SafeExchange API
 async function fetchExchangeRates() {
     const currentTime = Date.now() / 1000; // Convert to seconds
+    console.log('[fetchExchangeRates] Checking cache...');
 
     // Update rates if cache is older than 60 seconds
     if (currentTime - ratesCache.timestamp > 60 || !ratesCache.data) {
+        console.log('[fetchExchangeRates] Cache miss or expired. Fetching new rates...');
         try {
-            const response = await axios.get(API_URL);
+            // Get all exchange directions
+            console.log(`[fetchExchangeRates] POST ${EXCHANGE_API_URL}/get_directions`);
+            const response = await axios.post(`${EXCHANGE_API_URL}/get_directions`, {}, {
+                headers: {
+                    'API-LOGIN': EXCHANGE_API_LOGIN,
+                    'API-KEY': EXCHANGE_API_KEY,
+                    'Content-Type': 'application/json'
+                }
+            });
+            console.log(`[fetchExchangeRates] /get_directions status: ${response.status}`);
+
             if (response.status === 200) {
+                const directions = response.data;
+                console.log(`[fetchExchangeRates] Received ${directions?.length || 0} directions.`);
+                
+                // Get detailed information for USDT/RUB direction
+                console.log(`[fetchExchangeRates] POST ${EXCHANGE_API_URL}/get_direction for ID ${USDT_RUB_DIRECTION_ID}`);
+                const usdtRubResponse = await axios.post(`${EXCHANGE_API_URL}/get_direction`, {
+                    direction_id: USDT_RUB_DIRECTION_ID
+                }, {
+                    headers: {
+                        'API-LOGIN': EXCHANGE_API_LOGIN,
+                        'API-KEY': EXCHANGE_API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log(`[fetchExchangeRates] /get_direction USDT/RUB status: ${usdtRubResponse.status}`);
+                
+                // Get detailed information for RUB/USDT direction
+                console.log(`[fetchExchangeRates] POST ${EXCHANGE_API_URL}/get_direction for ID ${RUB_USDT_DIRECTION_ID}`);
+                const rubUsdtResponse = await axios.post(`${EXCHANGE_API_URL}/get_direction`, {
+                    direction_id: RUB_USDT_DIRECTION_ID
+                }, {
+                    headers: {
+                        'API-LOGIN': EXCHANGE_API_LOGIN,
+                        'API-KEY': EXCHANGE_API_KEY,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                console.log(`[fetchExchangeRates] /get_direction RUB/USDT status: ${rubUsdtResponse.status}`);
+                
+                // Format the data to match our requirements
+                const formattedData = [
+                    {
+                        pair: 'USDT/RUB',
+                        rate: parseFloat(usdtRubResponse.data.course_give),
+                        usdtRubData: usdtRubResponse.data
+                    },
+                    {
+                        pair: 'RUB/USDT', 
+                        rate: parseFloat(rubUsdtResponse.data.course_give),
+                        rubUsdtData: rubUsdtResponse.data
+                    }
+                ];
+                
                 ratesCache = {
                     timestamp: currentTime,
-                    data: response.data
+                    data: formattedData
                 };
-                return response.data;
+                
+                console.log('[fetchExchangeRates] Exchange rates updated successfully in cache.');
+                return formattedData;
             } else {
-                console.error(`Failed to fetch rates: ${response.status}`);
-                return ratesCache.data;
+                console.error(`[fetchExchangeRates] Failed to fetch rates: ${response.status}`);
+                return ratesCache.data; // Return stale data if available
             }
         } catch (error) {
-            console.error(`Error fetching rates: ${error.message}`);
-            return ratesCache.data;
+            console.error(`[fetchExchangeRates] Error fetching rates: ${error.message}`);
+            if (error.response) {
+                console.error('[fetchExchangeRates] API response error status:', error.response.status);
+                console.error('[fetchExchangeRates] API response error data:', JSON.stringify(error.response.data));
+            } else if (error.request) {
+                 console.error('[fetchExchangeRates] API request error:', error.request);
+            } else {
+                 console.error('[fetchExchangeRates] General error:', error);
+            }
+            return ratesCache.data; // Return stale data if available
         }
+    } else {
+        console.log('[fetchExchangeRates] Cache hit. Returning cached rates.');
     }
     return ratesCache.data;
 }
@@ -81,96 +163,200 @@ function calculateRate(amount, direction, rate, commission) {
     }
 }
 
+// Updated calculation function that can use the calculator API
+async function calculateExchangeAmount(direction, amount, calcAction) {
+    console.log(`[calculateExchangeAmount] Calculating for direction: ${direction}, amount: ${amount}, action: ${calcAction}`);
+    try {
+        const directionId = direction === 'USDT_RUB' ? USDT_RUB_DIRECTION_ID : RUB_USDT_DIRECTION_ID;
+        console.log(`[calculateExchangeAmount] Using direction ID: ${directionId}`);
+        
+        const requestPayload = {
+            direction_id: directionId,
+            calc_amount: amount,
+            calc_action: calcAction
+        };
+        const requestHeaders = {
+            'API-LOGIN': EXCHANGE_API_LOGIN,
+            'API-KEY': EXCHANGE_API_KEY,
+            'Content-Type': 'application/json'
+        };
+
+        console.log(`[calculateExchangeAmount] POST ${EXCHANGE_API_URL}/get_calc with payload:`, JSON.stringify(requestPayload));
+        const response = await axios.post(`${EXCHANGE_API_URL}/get_calc`, requestPayload, { headers: requestHeaders });
+        
+        console.log(`[calculateExchangeAmount] /get_calc status: ${response.status}`);
+        console.log(`[calculateExchangeAmount] /get_calc response data:`, JSON.stringify(response.data));
+
+        if (response.status === 200) {
+            console.log('[calculateExchangeAmount] Calculation successful.');
+            return response.data;
+        } else {
+            console.error(`[calculateExchangeAmount] Failed to calculate exchange: ${response.status}`);
+            return null;
+        }
+    } catch (error) {
+        console.error(`[calculateExchangeAmount] Error calculating exchange: ${error.message}`);
+        if (error.response) {
+            console.error('[calculateExchangeAmount] API response error status:', error.response.status);
+            console.error('[calculateExchangeAmount] API response error data:', JSON.stringify(error.response.data));
+        } else if (error.request) {
+             console.error('[calculateExchangeAmount] API request error:', error.request);
+        } else {
+             console.error('[calculateExchangeAmount] General error:', error);
+        }
+        return null;
+    }
+}
+
 // Handle /USDT_RUB command
 bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const rates = await fetchExchangeRates();
-
-    if (!rates) {
-        bot.sendMessage(chatId, 'Failed to fetch exchange rates. Please try again later.');
-        return;
-    }
-
-    // Find USDT to RUB rate
-    const rateData = rates.find(r => r.pair === 'USDT/RUB');
-    if (!rateData) {
-        bot.sendMessage(chatId, 'USDT/RUB rate not available.');
-        return;
-    }
-
-    const rate = parseFloat(rateData.rate);
-    const commission = USDT_RUB_COMMISSION; // +1% commission for USDT → RUB
-
-    let response;
-    if (!match[1]) {
-        // Show only rate
-        response = `USDT → RUB Rate: ${rate.toFixed(2)} RUB\n` +
-                   `Commission: +${commission}% (fixed)\n` +
-                   `Last updated: ${new Date().toISOString()}`;
-    } else {
-        try {
-            const amount = parseFloat(match[1]);
-            if (amount <= 0) throw new Error('Amount must be positive');
-
-            const result = calculateRate(amount, 'USDT_RUB', rate, commission);
+    
+    try {
+        let response;
+        const amount = match[1] ? parseFloat(match[1]) : null;
+        
+        if (!amount) {
+            // Just show the current rate
+            const rates = await fetchExchangeRates();
+            if (!rates) {
+                bot.sendMessage(chatId, 'Failed to fetch exchange rates. Please try again later.');
+                return;
+            }
+            
+            const rateData = rates.find(r => r.pair === 'USDT/RUB');
+            if (!rateData) {
+                bot.sendMessage(chatId, 'USDT/RUB rate not available.');
+                return;
+            }
+            
+            const rate = parseFloat(rateData.rate);
+            response = `USDT → RUB Rate: ${rate.toFixed(2)} RUB\n` +
+                       `Commission: +${USDT_RUB_COMMISSION}% (fixed)\n` +
+                       `Last updated: ${new Date().toISOString()}`;
+        } else {
+            // Calculate conversion
+            if (amount <= 0) {
+                bot.sendMessage(chatId, 'Please provide a valid amount. Example: /USDT_RUB 100');
+                return;
+            }
+            
+            // Use the API calculator
+            const calcResult = await calculateExchangeAmount('USDT_RUB', amount, 1); // 1 = amount in USDT
+            
+            if (!calcResult) {
+                bot.sendMessage(chatId, 'Failed to calculate exchange. Please try again later.');
+                return;
+            }
+            
             response = `USDT → RUB Conversion\n` +
                        `Amount: ${amount.toFixed(2)} USDT\n` +
-                       `Rate: ${rate.toFixed(2)} RUB\n` +
-                       `Commission: +${commission}% (fixed)\n` +
-                       `Result: ${result.toFixed(2)} RUB\n` +
+                       `Rate: ${calcResult.course_give.toFixed(2)} RUB\n` +
+                       `Commission: ${calcResult.com_give}\n` +
+                       `Result: ${calcResult.sum_get.toFixed(2)} RUB\n` +
                        `Last updated: ${new Date().toISOString()}`;
-        } catch (error) {
-            response = 'Please provide a valid amount. Example: /USDT_RUB 100';
         }
+        
+        bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    } catch (error) {
+        console.error('Error in USDT_RUB command:', error);
+        bot.sendMessage(chatId, 'An error occurred while processing your request. Please try again later.');
     }
-
-    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
 });
 
 // Handle /RUB_USDT command
 bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const rates = await fetchExchangeRates();
+    const userId = msg.from.id;
+    const commandText = msg.text;
+    console.log(`[/RUB_USDT] Received command: "${commandText}" from user ${userId}`);
+    
+    try {
+        let responseText; // Renamed from 'response' to avoid confusion with API response
+        const amountStr = match[1];
+        const amount = amountStr ? parseFloat(amountStr) : null;
+        console.log(`[/RUB_USDT] Parsed amount: ${amount}`);
+        
+        if (amount === null) {
+            console.log('[/RUB_USDT] No amount provided. Fetching current rate.');
+            // Just show the current rate
+            const rates = await fetchExchangeRates();
+            if (!rates) {
+                console.error('[/RUB_USDT] Failed to fetch rates for display.');
+                bot.sendMessage(chatId, 'Failed to fetch exchange rates. Please try again later.');
+                return;
+            }
+            console.log('[/RUB_USDT] Rates fetched successfully for display.');
+            
+            const rateData = rates.find(r => r.pair === 'RUB/USDT');
+            if (!rateData || !rateData.rate) {
+                 console.error('[/RUB_USDT] RUB/USDT rate data not found or invalid in fetched rates:', rateData);
+                bot.sendMessage(chatId, 'RUB/USDT rate not available.');
+                return;
+            }
+            
+            const rate = parseFloat(rateData.rate);
+             if (isNaN(rate) || rate === 0) {
+                console.error(`[/RUB_USDT] Invalid rate value for RUB/USDT: ${rateData.rate}`);
+                bot.sendMessage(chatId, 'RUB/USDT rate is currently invalid. Please try again later.');
+                return;
+            }
+            console.log(`[/RUB_USDT] Found rate: ${rate}`);
+            responseText = `RUB → USDT Rate: ${(1/rate).toFixed(6)} USDT\n` +
+                           `Commission: ${RUB_USDT_COMMISSION}% (fixed)\n` + // Note: This commission might not reflect the API's calculation
+                           `Last updated: ${new Date(ratesCache.timestamp * 0).toISOString()}`; // Use cache timestamp
+        } else {
+            console.log(`[/RUB_USDT] Amount provided: ${amount}. Calculating conversion.`);
+            // Calculate conversion
+            if (amount <= 0) {
+                console.log('[/RUB_USDT] Invalid amount provided (<= 0).');
+                bot.sendMessage(chatId, 'Please provide a valid positive amount. Example: /RUB_USDT 1000');
+                return;
+            }
+            
+            // Use the API calculator
+            console.log('[/RUB_USDT] Calling calculateExchangeAmount...');
+            const calcResult = await calculateExchangeAmount('RUB_USDT', amount, 1); // 1 = amount in RUB
+            
+            if (!calcResult) {
+                console.error('[/RUB_USDT] calculateExchangeAmount returned null.');
+                bot.sendMessage(chatId, 'Failed to calculate exchange. Please try again later.');
+                return;
+            }
+            console.log('[/RUB_USDT] Calculation result received:', JSON.stringify(calcResult));
 
-    if (!rates) {
-        bot.sendMessage(chatId, 'Failed to fetch exchange rates. Please try again later.');
-        return;
-    }
-
-    // Find RUB to USDT rate (inverse of USDT/RUB)
-    const rateData = rates.find(r => r.pair === 'USDT/RUB');
-    if (!rateData) {
-        bot.sendMessage(chatId, 'RUB/USDT rate not available.');
-        return;
-    }
-
-    const rate = parseFloat(rateData.rate);
-    const commission = RUB_USDT_COMMISSION; // -0.8% commission for RUB → USDT
-
-    let response;
-    if (!match[1]) {
-        // Show only rate
-        response = `RUB → USDT Rate: ${(1/rate).toFixed(6)} USDT\n` +
-                   `Commission: ${commission}% (fixed)\n` +
-                   `Last updated: ${new Date().toISOString()}`;
-    } else {
-        try {
-            const amount = parseFloat(match[1]);
-            if (amount <= 0) throw new Error('Amount must be positive');
-
-            const result = calculateRate(amount, 'RUB_USDT', rate, commission);
-            response = `RUB → USDT Conversion\n` +
-                       `Amount: ${amount.toFixed(2)} RUB\n` +
-                       `Rate: ${(1/rate).toFixed(6)} USDT\n` +
-                       `Commission: ${commission}% (fixed)\n` +
-                       `Result: ${result.toFixed(2)} USDT\n` +
-                       `Last updated: ${new Date().toISOString()}`;
-        } catch (error) {
-            response = 'Please provide a valid amount. Example: /RUB_USDT 1000';
+            if (isNaN(calcResult.course_give) || calcResult.course_give === 0) {
+                 console.error(`[/RUB_USDT] Invalid course_give in calculation result: ${calcResult.course_give}`);
+                 bot.sendMessage(chatId, 'Calculation resulted in an invalid rate. Please try again later.');
+                 return;
+            }
+            
+            responseText = `RUB → USDT Conversion\n` +
+                           `Amount: ${amount.toFixed(2)} RUB\n` +
+                           `Rate: ${(1/calcResult.course_give).toFixed(6)} USDT\n` + // Using the rate from calculation
+                           `Commission: ${calcResult.com_give || 'N/A'}\n` + // Using commission from calculation
+                           `Result: ${calcResult.sum_get.toFixed(2)} USDT\n` +
+                           `Last updated: ${new Date().toISOString()}`; // Use current time for calculation result
         }
-    }
+        
+        console.log(`[/RUB_USDT] Sending response to chat ${chatId}: ${responseText}`);
+        bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
+        console.log('[/RUB_USDT] Response sent successfully.');
 
-    bot.sendMessage(chatId, response, { parse_mode: 'Markdown' });
+    } catch (error) {
+        console.error(`[/RUB_USDT] Error processing command "${commandText}" for user ${userId}:`, error);
+        // Check if it's an Axios error to log specific details
+        if (axios.isAxiosError(error)) {
+            if (error.response) {
+                console.error('[/RUB_USDT] API Error Status:', error.response.status);
+                console.error('[/RUB_USDT] API Error Data:', JSON.stringify(error.response.data));
+            } else if (error.request) {
+                console.error('[/RUB_USDT] API Request Error:', error.request);
+            }
+        }
+        // Send a generic error message to the user
+        bot.sendMessage(chatId, 'An error occurred while processing your request. Please try again later or contact support if the issue persists.');
+    }
 });
 
 // --- Helper Functions ---
