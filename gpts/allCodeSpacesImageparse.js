@@ -77,7 +77,8 @@ if (process.env.MODEL) setModel(process.env.MODEL);
 // --- Helper Functions ---
 
 function escapeMarkdown(text) {
-    return text.replace(/[_[\]()~`>#|{}.!-]/g, '\\$&');
+    // Escape all MarkdownV2 reserved characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
+    return text.replace(/[_[\]()~`>#+\-=|{}.!]/g, '\\$&');
 }
 
 function formatReferralLink(botUsername, referralCode) {
@@ -89,12 +90,7 @@ async function sendAndLogResponse(chatId, assistantText) {
     try {
         await bot.sendChatAction(chatId, 'typing');
         
-        // First apply Markdown escaping
         let escapedText = escapeMarkdown(assistantText);
-        
-        // Then fix the referral links after escaping
-        // This replaces "?start" followed by digits with "?start=" followed by the same digits
-        escapedText = escapedText.replace(/\?start(\d+)/g, '?start\\=\\$1');
         
         // Отправляем сообщение в Telegram
         await bot.sendMessage(chatId, escapedText, { parse_mode: 'MarkdownV2' });
