@@ -242,20 +242,16 @@ async function handleUsdtRubCommand(bot, chatId, amount) {
         }
 
         const rateData = rates.USDT_RUB;
-        const displayRate = rateData.rate.toFixed(2); // How many RUB for 1 USDT
+        const displayRate = rateData.rate.toFixed(2);
 
         if (amount === null) {
-            // Just show the current rate - remove timestamp and commission (ориентировочно)
-             responseText = `*USDT → RUB*\n\n` +
+            responseText = `*USDT → RUB*\n\n` +
                            `Текущий курс: *1 USDT ≈ ${displayRate} RUB*`;
-                           // Комиссия (ориентировочно) удалена
         } else {
-             // Validate amount
             if (amount <= 0) {
                 bot.sendMessage(chatId, 'Пожалуйста, укажите положительную сумму. Пример: `/USDT_RUB 100`');
                 return;
             }
-            // Calculate conversion using live rate and commission
             const calcResult = await calculateExchangeAmount('USDT_RUB', amount);
 
             if (!calcResult) {
@@ -263,17 +259,14 @@ async function handleUsdtRubCommand(bot, chatId, amount) {
                 return;
             }
 
-            // Use the live USDT/RUB rate for display consistency
             const calculatedRateDisplay = parseFloat(rateData.rate).toFixed(2);
             const resultAmount = parseFloat(calcResult.sum_get).toFixed(2);
-            // Комиссия: ... строка удалена
-            // Removed fallbackNotice
 
             responseText = `*Конвертация USDT → RUB*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} USDT\n` +
                            `Курс: *1 USDT ≈ ${calculatedRateDisplay} RUB*\n` +
                            `Получаете: *${resultAmount} RUB*\n` +
-                           `_Расчет актуален на момент запроса._`; // Removed fallback notice
+                           `_Расчет актуален на момент запроса._`;
         }
         bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
 
@@ -302,22 +295,17 @@ async function handleRubUsdtCommand(bot, chatId, amount) {
             return;
         }
 
-        // Use the USDT_RUB rate for display
         const rateData = rates.USDT_RUB;
-        const displayRate = rateData.rate.toFixed(2); // How many RUB for 1 USDT
+        const displayRate = rateData.rate.toFixed(2);
 
         if (amount === null) {
-            // Show the current rate in USDT -> RUB format - remove timestamp and commission (ориентировочно)
-             responseText = `*RUB → USDT*\n\n` +
+            responseText = `*RUB → USDT*\n\n` +
                            `Текущий курс: *1 USDT ≈ ${displayRate} RUB*`;
-                           // Комиссия (ориентировочно) удалена
         } else {
-            // Validate amount
             if (amount <= 0) {
                 bot.sendMessage(chatId, 'Пожалуйста, укажите положительную сумму. Пример: `/RUB_USDT 10000`');
                 return;
             }
-             // Calculate conversion using live rate and commission
             const calcResult = await calculateExchangeAmount('RUB_USDT', amount);
 
             if (!calcResult) {
@@ -325,17 +313,14 @@ async function handleRubUsdtCommand(bot, chatId, amount) {
                 return;
             }
 
-            // Use the live USDT/RUB rate for display consistency
             const calculatedRateDisplay = parseFloat(rateData.rate).toFixed(2);
             const resultAmount = parseFloat(calcResult.sum_get).toFixed(2);
-            // Комиссия: ... строка удалена
-            // Removed fallbackNotice
 
             responseText = `*Конвертация RUB → USDT*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} RUB\n` +
                            `Курс: *1 USDT ≈ ${calculatedRateDisplay} RUB*\n` +
                            `Получаете: *${resultAmount} USDT*\n` +
-                           `_Расчет актуален на момент запроса._`; // Removed fallback notice
+                           `_Расчет актуален на момент запроса._`;
         }
 
         bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
