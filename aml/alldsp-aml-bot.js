@@ -233,23 +233,82 @@ function formatReportMessage(reportData, walletAddress) {
 
 // --- Bot Command Handlers ---
 
+// Add strict validation patterns as constants at the top of the file
+const WALLET_VALIDATION = {
+    TRON: {
+        pattern: /^T[123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{33}$/,
+        length: 34,
+        example: 'T...'
+    },
+    BTC: {
+        // Bitcoin address formats:
+        // Legacy: 1... (26-35 chars)
+        // P2SH: 3... (26-35 chars)
+        // Bech32: bc1... (42 chars for native SegWit)
+        pattern: /^(bc1[02-9ac-hj-np-z]{39}|[13][a-km-zA-HJ-NP-Z1-9]{25,34})$/,
+        minLength: 26,
+        maxLength: 42,
+        example: '1... или 3... или bc1...'
+    }
+};
+
+// Helper function to validate wallet address
+function validateWalletAddress(address) {
+    if (!address || typeof address !== 'string') {
+        return { isValid: false, type: null, error: 'Адрес не указан или имеет неверный формат' };
+    }
+
+    // Remove any whitespace
+    address = address.trim();
+
+    // Check TRON address
+    if (address.startsWith('T')) {
+        if (address.length !== WALLET_VALIDATION.TRON.length) {
+            return { isValid: false, type: null, error: `TRON адрес должен содержать ${WALLET_VALIDATION.TRON.length} символов` };
+        }
+        if (WALLET_VALIDATION.TRON.pattern.test(address)) {
+            return { isValid: true, type: 'tron', error: null };
+        }
+    }
+    
+    // Check Bitcoin address
+    if (address.startsWith('1') || address.startsWith('3') || address.startsWith('bc1')) {
+        if (address.length < WALLET_VALIDATION.BTC.minLength || address.length > WALLET_VALIDATION.BTC.maxLength) {
+            return { isValid: false, type: null, error: `Bitcoin адрес должен содержать от ${WALLET_VALIDATION.BTC.minLength} до ${WALLET_VALIDATION.BTC.maxLength} символов` };
+        }
+        if (WALLET_VALIDATION.BTC.pattern.test(address)) {
+            return { isValid: true, type: 'btc', error: null };
+        }
+    }
+
+    return { 
+        isValid: false, 
+        type: null, 
+        error: 'Неверный формат адреса. Поддерживаются:\n' +
+              `• TRON адреса (начинаются с T, ${WALLET_VALIDATION.TRON.length} символов)\n` +
+              `• Bitcoin адреса (начинаются с 1, 3 или bc1, ${WALLET_VALIDATION.BTC.minLength}-${WALLET_VALIDATION.BTC.maxLength} символов)`
+    };
+}
+
 // Handle /aml command
 bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
-    const walletAddress = match[1];
+    const walletAddress = match?.[1]?.trim();
 
     // Check if wallet address is provided
     if (!walletAddress) {
-        bot.sendMessage(chatId, 'Пожалуйста, укажите адрес кошелька (TRON или Bitcoin). Пример: /aml T... или /aml 1...');
+        bot.sendMessage(chatId, 'Пожалуйста, укажите адрес кошелька (TRON или Bitcoin).\n\n' +
+                              'Примеры:\n' +
+                              `• TRON: /aml ${WALLET_VALIDATION.TRON.example}\n` +
+                              `• BTC: /aml ${WALLET_VALIDATION.BTC.example}`, 
+            { parse_mode: 'Markdown' });
         return;
     }
 
-    // Basic TRON and Bitcoin address format validation
-    const tronRegex = /^T[1-9A-HJ-NP-Za-km-z]{33}$/;
-    const bitcoinRegex = /^(bc1|[13])[a-zA-HJ-NP-Z0-9]{25,39}$/;
-
-    if (!tronRegex.test(walletAddress) && !bitcoinRegex.test(walletAddress)) {
-        bot.sendMessage(chatId, 'Ошибка: Неверный формат адреса кошелька. Поддерживаются адреса TRON (начинаются с "T" и содержат 34 символа) и Bitcoin (начинаются с "1", "3" или "bc1" и содержат 25-39 символов).');
+    // Validate wallet address
+    const validation = validateWalletAddress(walletAddress);
+    if (!validation.isValid) {
+        bot.sendMessage(chatId, `❌ ${validation.error}`);
         return;
     }
 
@@ -270,7 +329,7 @@ bot.onText(/\/aml(?:\s+(.+))?/, async (msg, match) => {
             { parse_mode: 'Markdown' }
         );
 
-        let blockchainType = tronRegex.test(walletAddress) ? 'tron' : 'btc';
+        let blockchainType = validation.type;
         const requestData = {
             address: walletAddress,
             blockchain: blockchainType
