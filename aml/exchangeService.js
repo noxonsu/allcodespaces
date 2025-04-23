@@ -2,7 +2,11 @@
 const axios = require('axios');
 const config = require('./config'); // Import shared configuration
 
-// Cache variable removed
+// Re-add cache for rates but with a shorter lifespan
+// Structure: { timestamp: number, data: object | null }
+let ratesCache = { timestamp: 0, data: null };
+// Refresh interval in seconds
+const RATES_REFRESH_INTERVAL = 60; // Refresh every 60 seconds
 
 /**
  * Parses a commission string (e.g., "+1.0%", "-0.8%") into a calculation factor.
@@ -64,18 +68,27 @@ async function fetchDirectionDetails(directionId) {
 }
 
 /**
- * Fetches the current exchange rate for USDT/RUB directly from the API.
+ * Fetches or returns cached exchange rate for USDT/RUB.
+ * Refreshes cache if it's older than RATES_REFRESH_INTERVAL seconds.
  * @returns {Promise<object|null>} - The rate data { USDT_RUB: { rate: number, rawData: object } } or null on failure.
  */
 async function getExchangeRates() {
-    console.log('[ExchangeService] getExchangeRates: Fetching current USDT/RUB rate from API...');
+    const currentTime = Date.now() / 1000; // Current time in seconds
+    
+    // Check if cache is valid (less than 60 seconds old and contains data)
+    if (currentTime - ratesCache.timestamp < RATES_REFRESH_INTERVAL && ratesCache.data && ratesCache.data.USDT_RUB) {
+        console.log(`[ExchangeService] Using cached rate (${Math.round(currentTime - ratesCache.timestamp)}s old)`);
+        return ratesCache.data;
+    }
+    
+    console.log('[ExchangeService] Fetching fresh USDT/RUB rate from API...');
     try {
-        // Always fetch USDT -> RUB direction details
+        // Fetch USDT -> RUB direction details
         const usdtRubData = await fetchDirectionDetails(config.USDT_RUB_DIRECTION_ID);
 
         if (!usdtRubData || !usdtRubData.data) { // Check inner data object
             console.error('[ExchangeService] Failed to fetch USDT/RUB direction details or data is missing.');
-            return null;
+            return ratesCache.data && ratesCache.data.USDT_RUB ? ratesCache.data : null; // Return existing cache if available
         }
 
         // Log the raw value before parsing
@@ -88,10 +101,10 @@ async function getExchangeRates() {
         // Validate the parsed rate strictly
         if (isNaN(parsedRate) || parsedRate <= 0) {
             console.error(`[ExchangeService] Fetched invalid USDT/RUB rate (NaN or <=0): ${parsedRate}. Raw value was: ${rawCourseGive}.`);
-            return null;
+            return ratesCache.data && ratesCache.data.USDT_RUB ? ratesCache.data : null; // Return existing cache if available
         }
 
-        // Return only the necessary rate data, no timestamp or cache structure
+        // Update cache
         const formattedData = {
             USDT_RUB: {
                 pair: 'USDT/RUB',
@@ -99,17 +112,24 @@ async function getExchangeRates() {
                 rawData: usdtRubData.data
             }
         };
-        console.log('[ExchangeService] USDT/RUB exchange rate fetched successfully.');
+        
+        ratesCache = {
+            timestamp: currentTime,
+            data: formattedData
+        };
+        
+        console.log(`[ExchangeService] USDT/RUB exchange rate updated and cached at ${new Date(currentTime * 1000).toISOString()}`);
         return formattedData;
 
     } catch (error) {
         console.error(`[ExchangeService] Error fetching rates from API: ${error.message}`);
-        return null;
+        // Return existing cache if available, otherwise null
+        return ratesCache.data && ratesCache.data.USDT_RUB ? ratesCache.data : null;
     }
 }
 
 /**
- * Calculates exchange amount using the fetched rate and configured commission.
+ * Calculates exchange amount using the fetched/cached rate and configured commission.
  * @param {'USDT_RUB' | 'RUB_USDT'} direction - The direction key.
  * @param {number} amount - The amount to convert.
  * @returns {Promise<object|null>} - The calculation result or null on error.
