@@ -211,23 +211,12 @@ async function handleUsdtRubCommand(bot, chatId, amount, commissionString = null
         // Calculate the rate with commission applied
         const adjustedDisplayRate = (liveRate * commissionFactor).toFixed(2);
         
-        // Commission display info
-        let commissionInfo = '';
-        if (commissionString) {
-            const parsedPercentage = (commissionFactor - 1) * 100;
-            if (Math.abs(parsedPercentage) > 0.001) { // Avoid showing 0% if factor was exactly 1
-                if (parsedPercentage > 0) {
-                    commissionInfo = `\n*+${parsedPercentage.toFixed(2)}%* к курсу`;
-                } else {
-                    commissionInfo = `\n*${parsedPercentage.toFixed(2)}%* к курсу`;
-                }
-            }
-        }
+        // Commission info display removed as requested
 
         if (amount === null) {
-            // Just show the current rate with commission if provided
+            // Just show the current rate with commission applied but without explaining the commission
             responseText = `*USDT → RUB*\n\n` +
-                          `Текущий курс: *1 USDT ≈ ${adjustedDisplayRate} RUB*${commissionInfo}`;
+                          `Текущий курс: *1 USDT ≈ ${adjustedDisplayRate} RUB*`;
         } else {
              // Validate amount
             if (amount <= 0) {
@@ -247,7 +236,7 @@ async function handleUsdtRubCommand(bot, chatId, amount, commissionString = null
 
             responseText = `*Конвертация USDT → RUB*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} USDT\n` +
-                           `Курс: *1 USDT ≈ ${adjustedDisplayRate} RUB*${commissionInfo}\n` +
+                           `Курс: *1 USDT ≈ ${adjustedDisplayRate} RUB*\n` +
                            `Получаете: *${resultAmount} RUB*\n\n` +
                            `_Расчет актуален на момент запроса._`;
         }
@@ -284,27 +273,15 @@ async function handleRubUsdtCommand(bot, chatId, amount, commissionString = null
         
         // Parse commission string if provided
         const commissionFactor = parseCommission(commissionString);
-        // For RUB_USDT, the adjusted display rate considers the commission differently
-        // We still show the base rate but apply commission to the final amount
+        // For RUB_USDT, we still use the base rate for display
         const displayRate = liveRate.toFixed(2);
         
-        // Commission display info
-        let commissionInfo = '';
-        if (commissionString) {
-            const parsedPercentage = (commissionFactor - 1) * 100;
-            if (Math.abs(parsedPercentage) > 0.001) { // Avoid showing 0% if factor was exactly 1
-                if (parsedPercentage > 0) {
-                    commissionInfo = `\n*+${parsedPercentage.toFixed(2)}%* к сумме`;
-                } else {
-                    commissionInfo = `\n*${parsedPercentage.toFixed(2)}%* к сумме`;
-                }
-            }
-        }
+        // Commission info display removed as requested
 
         if (amount === null) {
-            // Show the current rate with commission info if provided
+            // Show the current rate without commission info
              responseText = `*RUB → USDT*\n\n` +
-                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*${commissionInfo}`;
+                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*`;
         } else {
             // Validate amount
             if (amount <= 0) {
@@ -324,7 +301,7 @@ async function handleRubUsdtCommand(bot, chatId, amount, commissionString = null
 
             responseText = `*Конвертация RUB → USDT*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} RUB\n` +
-                           `Курс: *1 USDT ≈ ${displayRate} RUB*${commissionInfo}\n` +
+                           `Курс: *1 USDT ≈ ${displayRate} RUB*\n` +
                            `Получаете: *${resultAmount} USDT*\n\n` +
                            `_Расчет актуален на момент запроса._`;
         }

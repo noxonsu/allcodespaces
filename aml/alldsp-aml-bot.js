@@ -1,18 +1,31 @@
-require('dotenv-vault').config();
+try {
+    require('dotenv-vault').config();
 
-// Добавьте этот блок для проверки среды
-if (process.env.DOTENV_KEY) {
-    console.log(`Using environment key: ${process.env.DOTENV_KEY}`);
-    // Ключ обычно содержит имя среды, например: dotenv://:key_.../vault/.env.vault?environment=development
-    // Вы можете попытаться извлечь имя среды из ключа, если это необходимо
-    const match = process.env.DOTENV_KEY.match(/environment=([^&]+)/);
-    if (match && match[1]) {
-        console.log(`Detected environment: ${match[1]}`);
+    // Добавьте этот блок для проверки среды
+    if (process.env.DOTENV_KEY) {
+        console.log(`Using environment key: ${process.env.DOTENV_KEY}`);
+        // Ключ обычно содержит имя среды, например: dotenv://:key_.../vault/.env.vault?environment=development
+        // Вы можете попытаться извлечь имя среды из ключа, если это необходимо
+        const match = process.env.DOTENV_KEY.match(/environment=([^&]+)/);
+        if (match && match[1]) {
+            console.log(`Detected environment: ${match[1]}`);
+        } else {
+            console.log('Could not automatically detect environment name from DOTENV_KEY.');
+        }
     } else {
-        console.log('Could not automatically detect environment name from DOTENV_KEY.');
+        console.log('DOTENV_KEY is not set. Loading default .env file (likely development environment).');
     }
-} else {
-    console.log('DOTENV_KEY is not set. Loading default .env file (likely development environment).');
+} catch (error) {
+    console.error('Failed to load dotenv-vault:', error.message);
+    console.log('Continuing without environment variables from dotenv-vault...');
+    
+    // Try fallback to regular dotenv if available
+    try {
+        require('dotenv').config();
+        console.log('Successfully loaded environment variables using dotenv.');
+    } catch (e) {
+        console.log('dotenv also not available. Running with system environment variables only.');
+    }
 }
 
 const TelegramBot = require('node-telegram-bot-api');
