@@ -44,8 +44,8 @@ const AML_CHECK_URL = `${AML_BASE_URL}/check`;         // Specific endpoint for 
 
 // --- Exchange Directions ---
 // !! IMPORTANT !! These IDs MUST match the actual IDs on your SafeExchange platform.
-const USDT_RUB_DIRECTION_ID = 1; // Replace with your actual direction ID for USDT->RUB
-const RUB_USDT_DIRECTION_ID = 1; // Replace with your actual direction ID for RUB->USDT
+const USDT_RUB_DIRECTION_ID = 1377; // Replace with your actual direction ID for USDT->RUB
+const RUB_USDT_DIRECTION_ID = 1331; // Replace with your actual direction ID for RUB->USDT
 
 // --- Hardcoded Commissions (Only for Rate Display) ---
 // Note: Actual calculation uses the commission returned by the exchange API.

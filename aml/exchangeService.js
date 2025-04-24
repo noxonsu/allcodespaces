@@ -2,12 +2,6 @@
 const axios = require('axios');
 const config = require('./config'); // Import shared configuration
 
-// Re-add cache for rates but with a shorter lifespan
-// Structure: { timestamp: number, data: object | null }
-let ratesCache = { timestamp: 0, data: null };
-// Refresh interval in seconds
-const RATES_REFRESH_INTERVAL = 60; // Refresh every 60 seconds
-
 /**
  * Parses a commission string (e.g., "+1.0%", "-0.8%") into a calculation factor.
  * @param {string|null|undefined} commissionString - The commission string from command or null/undefined.
@@ -48,11 +42,29 @@ async function fetchDirectionDetails(directionId) {
                 }
             }
         );
-        console.log(`[ExchangeService] /get_direction ID ${directionId} status: ${response.status}`);
-        if (response.status === 200 && response.data) {
-            return response.data;
+        
+        console.log(`[ExchangeService] /get_direction ID ${directionId}  status: ${response.status} `);
+        if (response.status === 200 && response.data && response.data.data) { // Ensure inner data object exists
+            // Log the raw value before parsing
+            const rawCourseGive = response.data.data.course_give;
+            console.log(`[ExchangeService] Raw course_give from API for ID ${directionId}: ${rawCourseGive} (Type: ${typeof rawCourseGive}) ${response.data.data.url}`);
+
+            const parsedRate = parseFloat(rawCourseGive);
+            console.log(`[ExchangeService] Parsed rate for ID ${directionId}: ${parsedRate}`);
+
+            // Validate the parsed rate strictly
+            if (isNaN(parsedRate) || parsedRate <= 0) {
+                console.error(`[ExchangeService] Fetched invalid rate (NaN or <=0) for ID ${directionId}: ${parsedRate}. Raw value was: ${rawCourseGive}.`);
+                return null; // Return null if rate is invalid
+            }
+
+            // Return the necessary data including the parsed rate
+            return {
+                rate: parsedRate,
+                rawData: response.data.data // Return the inner data object
+            };
         } else {
-            console.error(`[ExchangeService] Failed to get details for direction ${directionId}: Status ${response.status}`);
+            console.error(`[ExchangeService] Failed to get valid details for direction ${directionId}: Status ${response.status}, Data: ${JSON.stringify(response.data)}`);
             return null;
         }
     } catch (error) {
@@ -66,122 +78,33 @@ async function fetchDirectionDetails(directionId) {
 }
 
 /**
- * Fetches or returns cached exchange rate for USDT/RUB.
- * Refreshes cache if it's older than RATES_REFRESH_INTERVAL seconds.
- * @returns {Promise<object|null>} - The rate data { USDT_RUB: { rate: number, rawData: object } } or null on failure.
+ * Fetches available currencies from SafeExchange API.
+ * @returns {Promise<object|null>} - The currencies data or null on error.
  */
-async function getExchangeRates() {
-    const currentTime = Date.now() / 1000; // Current time in seconds
-    
-    // Check if cache is valid (less than 60 seconds old and contains data)
-    if (currentTime - ratesCache.timestamp < RATES_REFRESH_INTERVAL && ratesCache.data && ratesCache.data.USDT_RUB) {
-        console.log(`[ExchangeService] Using cached rate (${Math.round(currentTime - ratesCache.timestamp)}s old)`);
-        return ratesCache.data;
-    }
-    
-    console.log('[ExchangeService] Fetching fresh USDT/RUB rate from API...');
+async function getDirectionCurrencies() {
     try {
-        // Fetch USDT -> RUB direction details
-        const usdtRubData = await fetchDirectionDetails(config.USDT_RUB_DIRECTION_ID);
-
-        if (!usdtRubData || !usdtRubData.data) { // Check inner data object
-            console.error('[ExchangeService] Failed to fetch USDT/RUB direction details or data is missing.');
-            return ratesCache.data && ratesCache.data.USDT_RUB ? ratesCache.data : null; // Return existing cache if available
-        }
-
-        // Log the raw value before parsing
-        const rawCourseGive = usdtRubData.data.course_give;
-        console.log(`[ExchangeService] Raw course_give from API: ${rawCourseGive} (Type: ${typeof rawCourseGive})`);
-
-        const parsedRate = parseFloat(rawCourseGive);
-        console.log(`[ExchangeService] Parsed rate: ${parsedRate}`);
-
-        // Validate the parsed rate strictly
-        if (isNaN(parsedRate) || parsedRate <= 0) {
-            console.error(`[ExchangeService] Fetched invalid USDT/RUB rate (NaN or <=0): ${parsedRate}. Raw value was: ${rawCourseGive}.`);
-            return ratesCache.data && ratesCache.data.USDT_RUB ? ratesCache.data : null; // Return existing cache if available
-        }
-
-        // Update cache
-        const formattedData = {
-            USDT_RUB: {
-                pair: 'USDT/RUB',
-                rate: parsedRate,
-                rawData: usdtRubData.data
+        const response = await axios.post(`${config.EXCHANGE_API_URL}/get_directions`,
+            {},
+            {
+                headers: {
+                    'API-LOGIN': config.EXCHANGE_API_LOGIN,
+                    'API-KEY': config.EXCHANGE_API_KEY,
+                    'Content-Type': 'application/json'
+                }
             }
-        };
+        );
         
-        ratesCache = {
-            timestamp: currentTime,
-            data: formattedData
-        };
-        
-        console.log(`[ExchangeService] USDT/RUB exchange rate updated and cached at ${new Date(currentTime * 1000).toISOString()}`);
-        return formattedData;
-
+        console.log(`[ExchangeService] /get_directions status: ${response.status}`);
+        if (response.status === 200 && response.data) {
+            console.log('[ExchangeService] Available currencies:', response.data);
+            return response.data;
+        }
+        return null;
     } catch (error) {
-        console.error(`[ExchangeService] Error fetching rates from API: ${error.message}`);
-        // Return existing cache if available, otherwise null
-        return ratesCache.data && ratesCache.data.USDT_RUB ? ratesCache.data : null;
-    }
-}
-
-/**
- * Calculation using live rate, applying provided commission factor. Synchronous.
- * @param {'USDT_RUB' | 'RUB_USDT'} direction - The direction key.
- * @param {number} amount - The amount to convert.
- * @param {number} usdtRubRate - The live USDT/RUB rate fetched from API.
- * @param {number} commissionFactor - The commission factor (e.g., 1.01 for +1%, 0.99 for -1%).
- * @returns {object|null} - Calculation result or null if rate is invalid.
- */
-function calculateWithLiveRate(direction, amount, usdtRubRate, commissionFactor) {
-    // Direction should already be uppercase
-    console.log(`[ExchangeService] Performing live rate calculation for ${direction} with commission factor ${commissionFactor}`);
-
-    if (!(usdtRubRate > 0)) { // Check if rate is valid positive number
-        console.error('[ExchangeService] Invalid live USDT_RUB rate (<=0 or NaN) provided for calculation.');
+        console.error('[ExchangeService] Error fetching currencies:', error.message);
         return null;
     }
-    // Ensure commissionFactor is a valid number, default to 1 if not
-    if (typeof commissionFactor !== 'number' || isNaN(commissionFactor)) {
-        console.warn(`[ExchangeService] Invalid commissionFactor received: ${commissionFactor}. Defaulting to 1.`);
-        commissionFactor = 1;
-    }
-
-
-    let result = null;
-
-    if (direction === 'USDT_RUB') {
-        // Calculate USDT -> RUB using live rate and commission factor
-        const baseConvertedAmount = amount * usdtRubRate; // Base RUB amount
-        const finalAmount = baseConvertedAmount * commissionFactor; // Apply commission
-
-        console.log(`[ExchangeService] USDT_RUB Live Calc: Base=${baseConvertedAmount.toFixed(2)}, CommFactor=${commissionFactor}, Final=${finalAmount.toFixed(2)}`);
-
-        result = {
-            sum_get: finalAmount.toFixed(2), // Final RUB amount after commission
-            course_give: usdtRubRate.toString(), // Live rate (RUB per USDT)
-            // com_give removed - commission is now dynamic per request
-        };
-    }
-    else if (direction === 'RUB_USDT') {
-        // Convert RUB to USDT using the live USDT_RUB rate and apply commission factor
-        const baseConvertedAmount = amount / usdtRubRate; // Base USDT amount
-        const finalAmount = baseConvertedAmount * commissionFactor; // Apply commission
-
-        console.log(`[ExchangeService] RUB_USDT Live Calc: Base=${baseConvertedAmount.toFixed(6)}, CommFactor=${commissionFactor}, Final=${finalAmount.toFixed(2)}`);
-
-        result = {
-            sum_get: finalAmount.toFixed(2), // Final USDT amount after commission
-            course_give: (1 / usdtRubRate).toFixed(6), // Live inverse rate for display (USDT per RUB)
-            // com_give removed - commission is now dynamic per request
-        };
-    }
-
-    console.log('[ExchangeService] Live calculation result (commission applied):', result);
-    return result;
 }
-
 
 /**
  * Handles the /USDT_RUB command logic.
@@ -193,30 +116,32 @@ function calculateWithLiveRate(direction, amount, usdtRubRate, commissionFactor)
 async function handleUsdtRubCommand(bot, chatId, amount, commissionString = null) {
     try {
         let responseText;
-        // Always fetch the latest rate
-        const rates = await getExchangeRates();
+        const rateDetails = await fetchDirectionDetails(config.USDT_RUB_DIRECTION_ID);
 
-        // Check if rate fetch was successful and rate is valid
-        if (!rates || !rates.USDT_RUB || !(rates.USDT_RUB.rate > 0)) {
+        if (!rateDetails || !(rateDetails.rate > 0)) {
             console.error('[ExchangeService] handleUsdtRubCommand: Failed to fetch or invalid live USDT_RUB rate.');
             bot.sendMessage(chatId, 'Не удалось получить актуальный курс USDT/RUB. Пожалуйста, проверьте позже.');
             return;
         }
 
-        const rateData = rates.USDT_RUB;
-        const liveRate = rateData.rate;
-        
-        // Parse commission string if provided
+        const liveRate = rateDetails.rate; // RUB per USDT
         const commissionFactor = parseCommission(commissionString);
-        // Calculate the rate with commission applied
-        const adjustedDisplayRate = (liveRate * commissionFactor).toFixed(2);
-        
-        // Commission info display removed as requested
+        const adjustedRate = liveRate * commissionFactor;
+        const commissionPercent = (commissionFactor - 1) * 100;
+        const commissionSign = commissionPercent >= 0 ? '+' : '';
+        const commissionDisplay = commissionString ? ` ${commissionSign}${commissionPercent.toFixed(2)}%` : '';
+
+        console.log(`[ExchangeService] USDT_RUB: LiveRate=${liveRate}, CommissionFactor=${commissionFactor}, AdjustedRate=${adjustedRate}, Amount=${amount}`);
 
         if (amount === null) {
-            // Just show the current rate with commission applied but without explaining the commission
+            // Just show the current rate, including commission adjustment if provided
             responseText = `*USDT → RUB*\n\n` +
-                          `Текущий курс: *1 USDT ≈ ${adjustedDisplayRate} RUB*`;
+                          `Базовый курс: *1 USDT ≈ ${liveRate.toFixed(2)} RUB*\n`;
+            if (commissionDisplay) {
+                 responseText += `Курс с учетом ${commissionDisplay}: *1 USDT ≈ ${adjustedRate.toFixed(2)} RUB*`;
+            } else {
+                 responseText += `Текущий курс: *1 USDT ≈ ${liveRate.toFixed(2)} RUB*`;
+            }
         } else {
              // Validate amount
             if (amount <= 0) {
@@ -224,20 +149,14 @@ async function handleUsdtRubCommand(bot, chatId, amount, commissionString = null
                 return;
             }
 
-            // Calculate conversion using live rate and parsed commission factor
-            const calcResult = calculateWithLiveRate('USDT_RUB', amount, liveRate, commissionFactor);
-
-            if (!calcResult) {
-                bot.sendMessage(chatId, 'Не удалось рассчитать обмен по текущему курсу. Попробуйте позже.');
-                return;
-            }
-
-            const resultAmount = parseFloat(calcResult.sum_get).toFixed(2);
+            // Calculate final amount: amount * adjustedRate
+            const finalAmount = amount * adjustedRate;
+            console.log(`[ExchangeService] USDT_RUB Calculation: ${amount} USDT * ${adjustedRate.toFixed(4)} (Adjusted Rate) = ${finalAmount.toFixed(2)} RUB`);
 
             responseText = `*Конвертация USDT → RUB*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} USDT\n` +
-                           `Курс: *1 USDT ≈ ${adjustedDisplayRate} RUB*\n` +
-                           `Получаете: *${resultAmount} RUB*\n\n` +
+                           `Курс: 1 USDT ≈ ${liveRate.toFixed(2)} RUB${commissionDisplay ? ` (${commissionSign}${commissionPercent.toFixed(2)}%) ≈ *${adjustedRate.toFixed(2)} RUB*` : ''}\n` +
+                           `Получаете: *${finalAmount.toFixed(2)} RUB*\n\n` +
                            `_Расчет актуален на момент запроса._`;
         }
         bot.sendMessage(chatId, responseText, { parse_mode: 'Markdown' });
@@ -258,30 +177,32 @@ async function handleUsdtRubCommand(bot, chatId, amount, commissionString = null
 async function handleRubUsdtCommand(bot, chatId, amount, commissionString = null) {
      try {
         let responseText;
-        // Always fetch the latest rate
-        const rates = await getExchangeRates();
+        const rateDetails = await fetchDirectionDetails(config.RUB_USDT_DIRECTION_ID);
 
-        // Check if rate fetch was successful and rate is valid
-        if (!rates || !rates.USDT_RUB || !(rates.USDT_RUB.rate > 0)) {
-            console.error('[ExchangeService] handleRubUsdtCommand: Failed to fetch or invalid live USDT_RUB rate.');
+        if (!rateDetails || !(rateDetails.rate > 0)) {
+            console.error('[ExchangeService] handleRubUsdtCommand: Failed to fetch or invalid live RUB_USDT rate.');
             bot.sendMessage(chatId, 'Не удалось получить актуальный курс обмена. Попробуйте позже.');
             return;
         }
 
-        const rateData = rates.USDT_RUB;
-        const liveRate = rateData.rate; // USDT/RUB rate
-        
-        // Parse commission string if provided
+        const liveRate = rateDetails.rate; // RUB per USDT
         const commissionFactor = parseCommission(commissionString);
-        // For RUB_USDT, we still use the base rate for display
-        const displayRate = liveRate.toFixed(2);
-        
-        // Commission info display removed as requested
+        const adjustedRate = liveRate * commissionFactor; // Adjusted RUB per USDT
+        const commissionPercent = (commissionFactor - 1) * 100;
+        const commissionSign = commissionPercent >= 0 ? '+' : '';
+        const commissionDisplay = commissionString ? ` ${commissionSign}${commissionPercent.toFixed(2)}%` : '';
+
+        console.log(`[ExchangeService] RUB_USDT: LiveRate=${liveRate}, CommissionFactor=${commissionFactor}, AdjustedRate=${adjustedRate}, Amount=${amount}`);
 
         if (amount === null) {
-            // Show the current rate without commission info
-             responseText = `*RUB → USDT*\n\n` +
-                           `Текущий курс: *1 USDT ≈ ${displayRate} RUB*`;
+             // Just show the current rate, including commission adjustment if provided
+            responseText = `*RUB → USDT*\n\n` +
+                          `Базовый курс: *1 USDT ≈ ${liveRate.toFixed(2)} RUB*\n`;
+            if (commissionDisplay) {
+                 responseText += `Курс с учетом ${commissionDisplay}: *1 USDT ≈ ${adjustedRate.toFixed(2)} RUB*`;
+            } else {
+                 responseText += `Текущий курс: *1 USDT ≈ ${liveRate.toFixed(2)} RUB*`;
+            }
         } else {
             // Validate amount
             if (amount <= 0) {
@@ -289,20 +210,20 @@ async function handleRubUsdtCommand(bot, chatId, amount, commissionString = null
                 return;
             }
 
-             // Calculate conversion using live rate and parsed commission factor
-            const calcResult = calculateWithLiveRate('RUB_USDT', amount, liveRate, commissionFactor);
-
-            if (!calcResult) {
-                bot.sendMessage(chatId, 'Не удалось рассчитать обмен по текущему курсу. Попробуйте позже.');
-                return;
+            // Calculate final amount: amount / adjustedRate
+            if (adjustedRate <= 0) {
+                 console.error(`[ExchangeService] RUB_USDT Calculation Error: Adjusted rate is zero or negative (${adjustedRate}). Cannot divide.`);
+                 bot.sendMessage(chatId, 'Не удалось рассчитать обмен из-за некорректного курса. Попробуйте позже.');
+                 return;
             }
+            const finalAmount = amount / adjustedRate;
+            console.log(`[ExchangeService] RUB_USDT Calculation: ${amount} RUB / ${adjustedRate.toFixed(4)} (Adjusted Rate) = ${finalAmount.toFixed(6)} USDT`);
 
-            const resultAmount = parseFloat(calcResult.sum_get).toFixed(2);
 
             responseText = `*Конвертация RUB → USDT*\n\n` +
                            `Отдаете: ${amount.toFixed(2)} RUB\n` +
-                           `Курс: *1 USDT ≈ ${displayRate} RUB*\n` +
-                           `Получаете: *${resultAmount} USDT*\n\n` +
+                           `Курс: 1 USDT ≈ ${liveRate.toFixed(2)} RUB${commissionDisplay ? ` (${commissionSign}${commissionPercent.toFixed(2)}%) ≈ *${adjustedRate.toFixed(2)} RUB*` : ''}\n` +
+                           `Получаете: *${finalAmount.toFixed(2)} USDT*\n\n` + // Show final USDT with 2 decimal places
                            `_Расчет актуален на момент запроса._`;
         }
 
@@ -315,7 +236,7 @@ async function handleRubUsdtCommand(bot, chatId, amount, commissionString = null
 }
 
 module.exports = {
-    getExchangeRates,
     handleUsdtRubCommand,
     handleRubUsdtCommand,
+    getDirectionCurrencies // Keep this export
 };

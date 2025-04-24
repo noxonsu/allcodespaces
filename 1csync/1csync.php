@@ -209,7 +209,7 @@ function cpu_run_csv_batch() {
     }
 
     // Обрабатываем пакет строк
-    while (($row = fgetcsv($handle, 0, ",")) !== FALSE && $rows_in_this_batch < CPU_BATCH_SIZE) {
+    while (($row = fgetcsv($handle, 0, ";")) !== FALSE && $rows_in_this_batch < CPU_BATCH_SIZE) {
         $current_row_index = $processed_rows + $rows_in_this_batch; // Индекс текущей строки данных (0-based)
         $rows_in_this_batch++;
         $results['processed_in_run'] = $rows_in_this_batch; // Обновляем счетчик для лога
@@ -433,8 +433,8 @@ function cpu_count_csv_rows($filepath) {
         return false;
     }
     // Пропускаем заголовок
-    fgetcsv($handle, 0, ",");
-    while (($row = fgetcsv($handle, 0, ",")) !== FALSE) {
+    fgetcsv($handle, 0, ";");
+    while (($row = fgetcsv($handle, 0, ";")) !== FALSE) {
         // Проверяем, что строка не пустая (состоит не только из разделителей или пустых значений)
         if (count(array_filter($row, function($value) { return $value !== ''; })) > 0) {
              $count++;

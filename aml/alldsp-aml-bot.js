@@ -38,6 +38,15 @@ console.log('Bot starting...');
 // --- Bot Initialization ---
 const bot = new TelegramBot(config.BOT_TOKEN, { polling: true });
 
+// Check available currencies at startup
+exchangeService.getDirectionCurrencies()
+    .then(currencies => {
+        console.log('Available currencies:', currencies);
+    })
+    .catch(error => {
+        console.error('Error fetching currencies:', error);
+    });
+
 // --- Clear and Set Bot Commands (Optional but good practice) ---
 const botCommands = [
     { command: 'start', description: 'Показать приветственное сообщение и помощь' },
@@ -57,17 +66,28 @@ bot.setMyCommands(botCommands)
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
     // Escaped characters for MarkdownV2: '.', '-', '(', ')', '!', '+', '%'
+    // Updated help text based on commission logic clarification
     const helpText = `*🤖 Добро пожаловать в Crypto Exchange Bot\\!*
 
 *Доступные команды:*
+
+*Обмен USDT на RUB:*
 • \`/usdt_rub\` \\- Текущий курс USDT → RUB
-• \`/usdt_rub \\-0\\.5%\` \\- Курс USDT → RUB со скидкой 0\\.5%
-• \`/usdt_rub 100\` \\- Рассчитать 100 USDT в RUB
+• \`/usdt_rub \\-0\\.5%\` \\- Курс USDT → RUB со скидкой 0\\.5% (вы получите меньше RUB)
+• \`/usdt_rub \\+1%\` \\- Курс USDT → RUB с наценкой 1% (вы получите больше RUB)
+• \`/usdt_rub 100\` \\- Рассчитать 100 USDT в RUB по базовому курсу
 • \`/usdt_rub 100 \\-0\\.5%\` \\- Рассчитать 100 USDT в RUB со скидкой 0\\.5%
+• \`/usdt_rub 100 \\+1%\` \\- Рассчитать 100 USDT в RUB с наценкой 1%
+
+*Обмен RUB на USDT:*
 • \`/rub_usdt\` \\- Текущий курс RUB → USDT
-• \`/rub_usdt \\+1%\` \\- Курс RUB → USDT с бонусом 1%
-• \`/rub_usdt 10000\` \\- Рассчитать 10000 RUB в USDT
-• \`/rub_usdt 10000 \\+1%\` \\- Рассчитать 10000 RUB в USDT с бонусом 1%
+• \`/rub_usdt \\+1%\` \\- Курс RUB → USDT с наценкой 1% (клиенту потребуется больше RUB за USDT)
+• \`/rub_usdt \\-1%\` \\- Курс RUB → USDT со скидкой 1% (клиенту потребуется меньше RUB за USDT)
+• \`/rub_usdt 10000\` \\- Рассчитать 10000 RUB в USDT по базовому курсу
+• \`/rub_usdt 10000 \\+1%\` \\- Рассчитать 10000 RUB в USDT с наценкой 1%
+• \`/rub_usdt 10000 \\-1%\` \\- Рассчитать 10000 RUB в USDT со скидкой 1%
+
+*AML Проверка:*
 • \`/aml T\\.\\.\\. \` \\- Проверить TRON адрес
 • \`/aml 1\\.\\.\\.\` или \`/aml 3\\.\\.\\.\` или \`/aml bc1\\.\\.\\.\` \\- Проверить Bitcoin адрес
 • \`/amls\` \\- Показать историю проверок
