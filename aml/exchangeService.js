@@ -46,8 +46,11 @@ async function fetchDirectionDetails(directionId) {
         console.log(`[ExchangeService] /get_direction ID ${directionId}  status: ${response.status} `);
         if (response.status === 200 && response.data && response.data.data) { // Ensure inner data object exists
             // Log the raw value before parsing
-            const rawCourseGive = response.data.data.course_give;
-            console.log(`[ExchangeService] Raw course_give from API for ID ${directionId}: ${rawCourseGive} (Type: ${typeof rawCourseGive}) ${response.data.data.url}`);
+            let rawCourseGive;
+            
+            rawCourseGive = response.data.data.course_give;
+
+            console.log(`[ExchangeService] Raw course from API for ID ${directionId}: ${rawCourseGive} (Type: ${typeof rawCourseGive}) ${response.data.data.url}`);
 
             const parsedRate = parseFloat(rawCourseGive);
             console.log(`[ExchangeService] Parsed rate for ID ${directionId}: ${parsedRate}`);
@@ -136,7 +139,7 @@ async function handleUsdtRubCommand(bot, chatId, amount, commissionString = null
         if (amount === null) {
             // Just show the current rate, including commission adjustment if provided
             responseText = `*USDT → RUB*\n\n` +
-                          `Базовый курс: *1 USDT ≈ ${liveRate.toFixed(2)} RUB*\n`;
+                          ``;
             if (commissionDisplay) {
                  responseText += `Курс с учетом ${commissionDisplay}: *1 USDT ≈ ${adjustedRate.toFixed(2)} RUB*`;
             } else {
