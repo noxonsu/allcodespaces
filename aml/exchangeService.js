@@ -31,26 +31,44 @@ function parseCommission(commissionString) {
  */
 async function fetchDirectionDetails(directionId) {
     console.log(`[ExchangeService] Fetching details for direction ID: ${directionId}`);
+    const apiUrl = `${config.EXCHANGE_API_URL}/get_direction`;
+    // Prepare data for form-urlencoded format
+    const requestData = new URLSearchParams();
+    requestData.append('direction_id', directionId);
+
+    const headers = {
+        'API-LOGIN': config.EXCHANGE_API_LOGIN,
+        'API-KEY': config.EXCHANGE_API_KEY,
+        // Change Content-Type for form data
+        'Content-Type': 'application/x-www-form-urlencoded'
+    };
+
+    // Construct and log the curl command for form data
+    const headersString = Object.entries(headers)
+        .map(([key, value]) => `-H '${key}: ${value}'`)
+        .join(' ');
+    // Use -d for form data
+    const dataString = requestData.toString();
+    const curlCommand = `curl -X POST ${apiUrl} ${headersString} -k -d '${dataString}'`;
+    console.log(`[ExchangeService] Equivalent curl command: ${curlCommand}`);
+
     try {
-        const response = await axios.post(`${config.EXCHANGE_API_URL}/get_direction`,
-            { direction_id: directionId },
-            {
-                headers: {
-                    'API-LOGIN': config.EXCHANGE_API_LOGIN,
-                    'API-KEY': config.EXCHANGE_API_KEY,
-                    'Content-Type': 'application/json'
-                }
-            }
-        );
-        
+        // Send data as URLSearchParams, axios will handle encoding
+        const response = await axios.post(apiUrl, requestData, { headers });
+
         console.log(`[ExchangeService] /get_direction ID ${directionId}  status: ${response.status} `);
         if (response.status === 200 && response.data && response.data.data) { // Ensure inner data object exists
             // Log the raw value before parsing
             let rawCourseGive;
-            
-            rawCourseGive = response.data.data.course_give;
+            // Check if course_give is 1, if so, use course_get instead
+            if (response.data.data.course_give == 1) { // Using == for potential type coercion if needed, though === is safer if types are guaranteed
+                rawCourseGive = response.data.data.course_get;
+                console.log(`[ExchangeService] course_give was 1 for ID ${directionId}, using course_get instead.`);
+            } else {
+                rawCourseGive = response.data.data.course_give;
+            }
 
-            console.log(`[ExchangeService] Raw course from API for ID ${directionId}: ${rawCourseGive} (Type: ${typeof rawCourseGive}) ${response.data.data.url}`);
+            console.log(`[ExchangeService] Raw course value used for ID ${directionId}: ${rawCourseGive} (Type: ${typeof rawCourseGive}) URL: ${response.data.data.url}`);
 
             const parsedRate = parseFloat(rawCourseGive);
             console.log(`[ExchangeService] Parsed rate for ID ${directionId}: ${parsedRate}`);
@@ -200,7 +218,7 @@ async function handleRubUsdtCommand(bot, chatId, amount, commissionString = null
         if (amount === null) {
              // Just show the current rate, including commission adjustment if provided
             responseText = `*RUB → USDT*\n\n` +
-                          `Базовый курс: *1 USDT ≈ ${liveRate.toFixed(2)} RUB*\n`;
+                          ``;
             if (commissionDisplay) {
                  responseText += `Курс с учетом ${commissionDisplay}: *1 USDT ≈ ${adjustedRate.toFixed(2)} RUB*`;
             } else {
