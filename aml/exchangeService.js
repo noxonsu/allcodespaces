@@ -4,6 +4,7 @@ const config = require('./config'); // Import shared configuration
 
 /**
  * Parses a commission string (e.g., "+1.0%", "-0.8%") into a calculation factor.
+ * Handles both '.' and ',' as decimal separators.
  * @param {string|null|undefined} commissionString - The commission string from command or null/undefined.
  * @returns {number} - The factor to multiply the base amount by. Defaults to 1.
  */
@@ -11,7 +12,9 @@ function parseCommission(commissionString) {
     // Default to 1 (no commission) if input is not a string or is empty
     if (typeof commissionString !== 'string' || commissionString.trim() === '') return 1;
     try {
-        const percentage = parseFloat(commissionString.replace('%', ''));
+        // Replace comma with period for float parsing
+        const cleanedString = commissionString.replace(',', '.').replace('%', '');
+        const percentage = parseFloat(cleanedString);
         if (isNaN(percentage)) return 1; // Return 1 if parsing fails
 
         // +X% means user gets X% more (bonus), factor = 1 + (X/100)
