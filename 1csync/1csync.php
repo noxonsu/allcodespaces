@@ -356,7 +356,7 @@ function cpu_run_csv_batch() {
                 update_field(CPU_PRICE_ACF_KEY, $price, $post_id);
                 update_field(CPU_STOCK_ACF_KEY, $stock, $post_id);
 
-                // Считаем строку обработанной успешно, если не было исключения
+                // Считаем ст року обработанной успешно, если не было исключения
                 $results['updated']++;
 
                 // Лог успешного обновления можно раскомментировать при необходимости
@@ -549,13 +549,13 @@ function cpu_render_admin_page() {
 
          <hr>
          <h2><?php _e('Информация о настройках', 'csv-product-updater'); ?></h2>
-         <p><strong><?php _e('Важно:', 'csv-product-updater'); ?></strong> <?php _e('Убедитесь, что указанные ниже ключи полей ACF соответствуют вашей настройке!', 'csv-product-updater'); ?></p>
+         <p><strong><?php _e('Важно:', 'csv-product-updater'); ?></strong></p>
          <ul>
               <li><?php printf(__('Поиск будет производиться по типу поста: %s', 'csv-product-updater'), '<code>' . esc_html(CPU_POST_TYPES) . '</code>'); ?></li>
               <li><?php printf(__('Поле ACF для поиска артикула (SKU): %s (используется поиск LIKE)', 'csv-product-updater'), '<code>' . esc_html(CPU_SKU_ACF_KEY) . '</code>'); ?></li>
-              <li><?php printf(__('Поле ACF для обновления цены: %s', 'csv-product-updater'), '<code>' . esc_html(CPU_PRICE_ACF_KEY) . '</code>'); ?> <strong style="color:red;"> &lt;-- <?php _e('ПРОВЕРЬТЕ ЭТОТ КЛЮЧ!', 'csv-product-updater'); ?></strong></li>
-               <li><?php printf(__('Поле ACF для обновления остатка: %s', 'csv-product-updater'), '<code>' . esc_html(CPU_STOCK_ACF_KEY) . '</code>'); ?> <strong style="color:red;"> &lt;-- <?php _e('ПРОВЕРЬТЕ ЭТОТ КЛЮЧ!', 'csv-product-updater'); ?></strong></li>
-               <li><?php _e('Поиск также будет выполнен по Заголовку поста, если не найден по Артикулу.', 'csv-product-updater'); ?></li>
+              <li><?php printf(__('Поле ACF для обновления цены: %s', 'csv-product-updater'), '<code>' . esc_html(CPU_PRICE_ACF_KEY) . '</code>'); ?> </li>
+               <li><?php printf(__('Поле ACF для обновления остатка: %s', 'csv-product-updater'), '<code>' . esc_html(CPU_STOCK_ACF_KEY) . '</code>'); ?> </li>
+               
                <li><?php printf(__('Размер пакета обработки (строк за раз): %d', 'csv-product-updater'), CPU_BATCH_SIZE); ?></li>
          </ul>
           <p><em><?php _e('Эти настройки заданы в коде плагина (константы в начале файла).', 'csv-product-updater'); ?></em></p>
