@@ -100,13 +100,13 @@ _Результаты AML проверки кэшируются на сторо�
 });
 
 // Handle /USDT_RUB command
-// Updated regex to handle three cases:
+// Updated regex to handle three cases and allow comma or period in commission
 // 1. /USDT_RUB (no params)
-// 2. /USDT_RUB +1% (commission only)
-// 3. /USDT_RUB 100 +1% (amount and commission)
-bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*\.?\d+%))?|\/USDT_RUB\s+([+-]?\d*\.?\d+%)/i, (msg, match) => {
+// 2. /USDT_RUB +1% or +1,5% (commission only)
+// 3. /USDT_RUB 100 +1% or 100 +1,5% (amount and commission)
+bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/USDT_RUB\s+([+-]?\d*[.,]?\d+%)/i, (msg, match) => {
     const chatId = msg.chat.id;
-    
+
     // If third group matches, it's the "commission only" format
     if (match[3]) {
         const amount = null; // No amount specified
@@ -115,7 +115,7 @@ bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*\.?\d+%))?|\/USDT_RUB\s+
         exchangeService.handleUsdtRubCommand(bot, chatId, amount, commissionString);
         return;
     }
-    
+
     // Regular format with optional amount and commission
     const amount = match[1] ? parseFloat(match[1]) : null;
     const commissionString = match[2] ? match[2].trim() : null;
@@ -124,10 +124,10 @@ bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*\.?\d+%))?|\/USDT_RUB\s+
 });
 
 // Handle /RUB_USDT command
-// Updated regex similarly to /USDT_RUB
-bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*\.?\d+%))?|\/RUB_USDT\s+([+-]?\d*\.?\d+%)/i, (msg, match) => {
+// Updated regex similarly to /USDT_RUB to allow comma or period in commission
+bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/RUB_USDT\s+([+-]?\d*[.,]?\d+%)/i, (msg, match) => {
     const chatId = msg.chat.id;
-    
+
     // If third group matches, it's the "commission only" format
     if (match[3]) {
         const amount = null; // No amount specified
@@ -136,7 +136,7 @@ bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*\.?\d+%))?|\/RUB_USDT\s+
         exchangeService.handleRubUsdtCommand(bot, chatId, amount, commissionString);
         return;
     }
-    
+
     // Regular format with optional amount and commission
     const amount = match[1] ? parseFloat(match[1]) : null;
     const commissionString = match[2] ? match[2].trim() : null;
