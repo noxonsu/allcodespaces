@@ -1,39 +1,31 @@
 <?php
 /**
- * Plugin Name: Database Product Updater (for Details CPT) - Background Processing
- * Description: Обновляет цену и наличие для постов типа "Запчасти" (details) из таблицы `piceandstocks` по артикулу. Использует ACF поля. Обработка в фоновом режиме.
- * Version: 2.0
+ * Plugin Name: CSV to Database Updater (priceandstocks) - Background Processing
+ * Description: Загружает CSV файл (Артикул, Описание, Остаток, Цена) и обновляет/добавляет данные в таблицу `priceandstocks` с использованием REPLACE INTO. Обработка в фоновом режиме.
+ * Version: 3.2
  * Author: Noxon
- * Text Domain: db-product-updater
+ * Text Domain: csv-to-db-updater
  * Domain Path: /languages
  */
 
 defined('ABSPATH') or die('No script kiddies please!');
 
 // --- НАСТРОЙКИ ---
-// Имя таблицы в базе данных WordPress
-define('CPU_DB_TABLE_NAME', 'piceandstocks'); // <--- Убедитесь, что имя таблицы верное
-
-// --- НАСТРОЙКИ ДЛЯ CPT 'details' И ACF ---
-// Тип поста для поиска (из вашего functions.php)
-define('CPU_POST_TYPES', 'details');
-// Ключ поля ACF для артикула (проверьте точное имя поля в ACF).
-define('CPU_SKU_ACF_KEY', 'artikul');
-// !!! ВАЖНО: Укажите ТОЧНЫЙ ключ поля ACF для ЦЕНЫ !!!
-define('CPU_PRICE_ACF_KEY', 'price'); // <--- ЗАМЕНИТЕ 'price', ЕСЛИ КЛЮЧ ДРУГОЙ
-// !!! ВАЖНО: Укажите ТОЧНЫЙ ключ поля ACF для ОСТАТКА !!!
-define('CPU_STOCK_ACF_KEY', 'stock'); // <--- ЗАМЕНИТЕ 'stock', ЕСЛИ КЛЮЧ ДРУГОЙ
+// Имя таблицы в базе данных WordPress (без префикса)
+define('CPU_DB_TABLE_NAME', 'priceandstocks'); // <--- Убедитесь, что имя таблицы верное
+// Путь к файлу CSV по умолчанию относительно папки uploads (используется как fallback, но основной механизм - загрузка)
+// define('CPU_DEFAULT_CSV_FILENAME', 'product-updates.csv'); // Не используется активно, но можно оставить для справки
 
 // --- НАСТРОЙКИ ФОНОВОЙ ОБРАБОТКИ ---
 // Ключи для хранения состояния в опциях WordPress
-define('CPU_OPTION_STATUS', 'cpu_db_import_status'); // 'idle', 'pending', 'running', 'complete', 'error'
-// define('CPU_OPTION_FILEPATH', 'cpu_import_filepath'); // Больше не используется
-define('CPU_OPTION_TOTAL_ROWS', 'cpu_db_import_total_rows');
-define('CPU_OPTION_PROCESSED_ROWS', 'cpu_db_import_processed_rows');
-define('CPU_OPTION_RESULTS', 'cpu_db_import_results');
-define('CPU_OPTION_SKIPPED_EMPTY_SKU', 'cpu_db_skipped_empty_sku'); // Новая опция
-// define('CPU_BATCH_SIZE', 1000); // Убрано, обрабатываем все сразу для маленькой таблицы
-define('CPU_CRON_HOOK', 'cpu_run_db_process_hook'); // Имя хука для WP-Cron
+define('CPU_OPTION_STATUS', 'cpu_csv_to_db_status'); // 'idle', 'pending', 'running', 'complete', 'error'
+define('CPU_OPTION_FILEPATH', 'cpu_csv_to_db_filepath'); // Путь к загруженному файлу
+define('CPU_OPTION_TOTAL_ROWS', 'cpu_csv_to_db_total_rows');
+define('CPU_OPTION_PROCESSED_ROWS', 'cpu_csv_to_db_processed_rows');
+define('CPU_OPTION_RESULTS', 'cpu_csv_to_db_results');
+define('CPU_OPTION_SKIPPED_EMPTY_SKU', 'cpu_csv_to_db_skipped_empty_sku');
+define('CPU_BATCH_SIZE', 500); // Сколько строк CSV обрабатывать за один запуск WP-Cron
+define('CPU_CRON_HOOK', 'cpu_run_csv_to_db_batch_hook'); // Имя хука для WP-Cron
 // --- КОНЕЦ НАСТРОЕК ---
 
 // --- Удалена функция cpu_get_default_csv_path() ---
@@ -43,17 +35,17 @@ define('CPU_CRON_HOOK', 'cpu_run_db_process_hook'); // Имя хука для WP
  */
 function cpu_register_admin_page() {
     add_options_page(
-        __('DB Details Update', 'db-product-updater'),
-        __('DB Details Update', 'db-product-updater'),
+        __('CSV to DB Update', 'csv-to-db-updater'),
+        __('CSV to DB Update', 'csv-to-db-updater'),
         'manage_options',
-        'db-product-updater', // Изменен slug страницы
+        'csv-to-db-updater', // Slug страницы
         'cpu_render_admin_page'
     );
 }
 add_action('admin_menu', 'cpu_register_admin_page');
 
 /**
- * Обработка отправки формы - ЗАПУСК ФОНОВОГО ПРОЦЕССА ИЗ БД.
+ * Обработка отправки формы - ЗАПУСК ФОНОВОГО ПРОЦЕССА ИЗ CSV В БД.
  */
 function cpu_handle_form_submission() {
     // Проверяем nonce и права доступа
@@ -61,235 +53,273 @@ function cpu_handle_form_submission() {
        return;
     }
     if (!current_user_can('manage_options')) {
-       wp_die(__('У вас нет прав для выполнения этой операции.', 'db-product-updater'));
+       wp_die(__('У вас нет прав для выполнения этой операции.', 'csv-to-db-updater'));
     }
 
-    $redirect_url = admin_url('options-general.php?page=db-product-updater'); // Обновлен slug
+    $redirect_url = admin_url('options-general.php?page=csv-to-db-updater'); // Обновлен slug
 
     // Проверяем, не идет ли уже обработка
     $current_status = get_option(CPU_OPTION_STATUS, 'idle');
     if ($current_status === 'running' || $current_status === 'pending') {
-        add_settings_error('cpu_messages', 'cpu_already_running', __('Ошибка: Предыдущая обработка еще не завершена. Дождитесь ее окончания.', 'db-product-updater'), 'error');
+        add_settings_error('cpu_messages', 'cpu_already_running', __('Ошибка: Предыдущая обработка еще не завершена. Дождитесь ее окончания.', 'csv-to-db-updater'), 'error');
         wp_redirect($redirect_url);
         exit;
     }
 
-    // Обработка ЗАПУСКА ОБНОВЛЕНИЯ ИЗ БД
-    if (isset($_POST['cpu_start_db_update'])) {
-        global $wpdb;
-        $table_name = $wpdb->prefix . CPU_DB_TABLE_NAME; // Добавляем префикс WordPress
+    // Обработка ЗАГРУЗКИ CSV и ЗАПУСКА ОБНОВЛЕНИЯ БД
+    if (isset($_POST['cpu_upload_and_process']) && isset($_FILES['csv_file_upload'])) {
+        if ($_FILES['csv_file_upload']['error'] === UPLOAD_ERR_OK) {
+            $uploaded_file = $_FILES['csv_file_upload'];
+            $file_type = wp_check_filetype($uploaded_file['name']);
 
-        // Проверяем существование таблицы (базовая проверка)
-        // Для MySQL: SHOW TABLES LIKE 'table_name'
-        // Для $wpdb: $wpdb->get_var("SHOW TABLES LIKE '$table_name'") == $table_name
-        if ($wpdb->get_var($wpdb->prepare("SHOW TABLES LIKE %s", $table_name)) != $table_name) {
-             add_settings_error('cpu_messages', 'cpu_table_not_found', sprintf(__('Ошибка: Таблица `%s` не найдена в базе данных.', 'db-product-updater'), esc_html($table_name)), 'error');
-             wp_redirect($redirect_url);
-             exit;
-        }
+            if (strtolower($file_type['ext']) === 'csv') {
+                // Перемещаем файл в безопасное место
+                $upload_dir = wp_upload_dir();
+                // Создаем подпапку для импортов, если ее нет
+                $imports_dir = trailingslashit($upload_dir['basedir']) . 'csv-imports';
+                if (!wp_mkdir_p($imports_dir)) {
+                     add_settings_error('cpu_messages', 'cpu_mkdir_error', __('Ошибка: Не удалось создать директорию для импорта.', 'csv-to-db-updater'), 'error');
+                     wp_redirect($redirect_url);
+                     exit;
+                }
 
-        // Считаем общее количество строк в таблице
-        $total_rows = (int) $wpdb->get_var("SELECT COUNT(*) FROM `$table_name`");
+                $new_filename = uniqid('cpu_import_', true) . '.csv';
+                $persistent_filepath = $imports_dir . '/' . $new_filename;
 
-        if ($total_rows === 0) {
-             add_settings_error('cpu_messages', 'cpu_table_empty', sprintf(__('Таблица `%s` пуста. Нет данных для обработки.', 'db-product-updater'), esc_html($table_name)), 'warning');
+                if (move_uploaded_file($uploaded_file['tmp_name'], $persistent_filepath)) {
+                    // Файл успешно перемещен, готовимся к фоновой обработке
+                    $total_rows = cpu_count_csv_rows($persistent_filepath); // Функция для подсчета строк данных
+
+                    if ($total_rows === false) {
+                         add_settings_error('cpu_messages', 'cpu_file_error', __('Ошибка: Не удалось прочитать файл для подсчета строк.', 'csv-to-db-updater'), 'error');
+                         wp_delete_file($persistent_filepath); // Удаляем файл
+                    } elseif ($total_rows === 0) {
+                         add_settings_error('cpu_messages', 'cpu_file_empty', __('Ошибка: Загруженный CSV файл пуст или не содержит данных с непустым артикулом после заголовка.', 'csv-to-db-updater'), 'error');
+                         wp_delete_file($persistent_filepath); // Удаляем файл
+                    } else {
+                        // Очищаем предыдущие запланированные задачи (на всякий случай)
+                        wp_clear_scheduled_hook(CPU_CRON_HOOK);
+
+                        // Сохраняем состояние для фоновой задачи
+                        update_option(CPU_OPTION_STATUS, 'pending'); // Статус "ожидает запуска"
+                        update_option(CPU_OPTION_FILEPATH, $persistent_filepath); // Сохраняем путь к ЗАГРУЖЕННОМУ файлу
+                        update_option(CPU_OPTION_TOTAL_ROWS, $total_rows);
+                        update_option(CPU_OPTION_PROCESSED_ROWS, 0);
+                        update_option(CPU_OPTION_SKIPPED_EMPTY_SKU, 0); // Сбрасываем счетчик пустых SKU
+                        update_option(CPU_OPTION_RESULTS, [
+                            'total_rows' => $total_rows, // Общее количество строк данных в CSV
+                            'processed_in_run' => 0, // Сколько обработано в текущем запуске (для лога)
+                            'updated' => 0, // Сколько строк успешно добавлено/обновлено в БД
+                            'skipped_invalid_data' => 0, // Для ошибок БД или неверных данных в строке
+                            'errors' => []
+                        ]); // Сбрасываем результаты
+
+                        // Планируем первый запуск WP-Cron немедленно
+                        wp_schedule_single_event(time(), CPU_CRON_HOOK);
+
+                        add_settings_error('cpu_messages', 'cpu_process_scheduled', sprintf(__('Файл загружен (%d строк данных с артикулом). Обработка запущена в фоновом режиме.', 'csv-to-db-updater'), $total_rows), 'info');
+                    }
+
+                } else {
+                    add_settings_error('cpu_messages', 'cpu_move_error', __('Ошибка: Не удалось переместить загруженный файл.', 'csv-to-db-updater'), 'error');
+                }
+
+            } else {
+                add_settings_error('cpu_messages', 'cpu_file_error', __('Ошибка: Пожалуйста, загрузите файл в формате CSV.', 'csv-to-db-updater'), 'error');
+            }
+        } elseif ($_FILES['csv_file_upload']['error'] !== UPLOAD_ERR_NO_FILE) {
+            add_settings_error('cpu_messages', 'cpu_upload_error', __('Ошибка загрузки файла: ', 'csv-to-db-updater') . $_FILES['csv_file_upload']['error'], 'error');
         } else {
-            // Очищаем предыдущие запланированные задачи (на всякий случай)
-            wp_clear_scheduled_hook(CPU_CRON_HOOK);
-
-            // Сохраняем состояние для фоновой задачи
-            update_option(CPU_OPTION_STATUS, 'pending'); // Статус "ожидает запуска"
-            // update_option(CPU_OPTION_FILEPATH, ''); // Больше не используется
-            update_option(CPU_OPTION_TOTAL_ROWS, $total_rows);
-            update_option(CPU_OPTION_PROCESSED_ROWS, 0);
-            update_option(CPU_OPTION_SKIPPED_EMPTY_SKU, 0); // Сбрасываем счетчик пустых SKU
-            update_option(CPU_OPTION_RESULTS, [
-                'total_rows' => $total_rows, // Общее количество строк в таблице
-                'processed_in_run' => 0, // Сколько обработано (будет равно total_rows после одного запуска)
-                'updated' => 0,
-                'skipped_not_found' => 0,
-                'skipped_invalid_data' => 0, // Может использоваться для ошибок обновления ACF
-                'errors' => []
-            ]); // Сбрасываем результаты
-
-            // Планируем ОДИН запуск WP-Cron немедленно
-            wp_schedule_single_event(time(), CPU_CRON_HOOK);
-
-            add_settings_error('cpu_messages', 'cpu_process_scheduled', sprintf(__('Найдено %d строк в таблице `%s`. Обработка запущена в фоновом режиме.', 'db-product-updater'), $total_rows, esc_html($table_name)), 'info');
+             add_settings_error('cpu_messages', 'cpu_no_file_to_process', __('Не выбран файл для загрузки.', 'csv-to-db-updater'), 'warning');
         }
         wp_redirect($redirect_url);
         exit;
     }
+    // Если не было загрузки или другой кнопки, просто возвращаемся
 }
 add_action('admin_init', 'cpu_handle_form_submission');
 
 /**
  * Хук для WP-Cron.
  */
-add_action(CPU_CRON_HOOK, 'cpu_process_db_table');
+add_action(CPU_CRON_HOOK, 'cpu_run_csv_to_db_batch');
 
 /**
- * Функция, выполняющая обработку данных из таблицы БД.
+ * Функция, выполняющая один шаг фоновой обработки CSV в БД.
  */
-function cpu_process_db_table() {
+function cpu_run_csv_to_db_batch() {
     global $wpdb;
     $table_name = $wpdb->prefix . CPU_DB_TABLE_NAME;
 
-    // Получаем текущие значения (хотя для одного запуска они будут 0)
+    // Получаем путь к ЗАГРУЖЕННОМУ файлу из опций
+    $filepath = get_option(CPU_OPTION_FILEPATH);
     $total_rows = (int) get_option(CPU_OPTION_TOTAL_ROWS, 0);
-    // $processed_rows = (int) get_option(CPU_OPTION_PROCESSED_ROWS, 0); // Не нужен для одного прохода
+    $processed_rows = (int) get_option(CPU_OPTION_PROCESSED_ROWS, 0);
     $results = get_option(CPU_OPTION_RESULTS, []);
-    $skipped_empty_sku = 0; // Локальный счетчик
+    $skipped_empty_sku = (int) get_option(CPU_OPTION_SKIPPED_EMPTY_SKU, 0); // Получаем текущее значение
 
-    // Проверяем базовые условия
-    if ($total_rows === 0) {
+    // Проверяем базовые условия для продолжения
+    if (empty($filepath) || !file_exists($filepath) || $processed_rows >= $total_rows) {
+        // Нечего обрабатывать или уже завершено
         update_option(CPU_OPTION_STATUS, 'idle'); // Сбрасываем статус
-        wp_clear_scheduled_hook(CPU_CRON_HOOK);
+        wp_clear_scheduled_hook(CPU_CRON_HOOK); // Убираем крон задачу
+        // Опционально: удалить файл
+        // if (!empty($filepath) && file_exists($filepath)) { wp_delete_file($filepath); }
+        // update_option(CPU_OPTION_FILEPATH, '');
         return;
     }
 
     // Устанавливаем статус "в процессе"
     update_option(CPU_OPTION_STATUS, 'running');
 
-    @set_time_limit(300); // Увеличиваем лимит времени
-    wp_defer_term_counting(true);
-    wp_defer_comment_counting(true);
-    wp_suspend_cache_invalidation(true);
+    @set_time_limit(300); // Увеличиваем лимит времени для этого скрипта
 
-    $post_types = explode(',', CPU_POST_TYPES);
-    $post_types = array_map('trim', $post_types);
+    $rows_in_this_batch = 0;
+    $handle = fopen($filepath, "r"); // Открываем ЗАГРУЖЕННЫЙ файл
 
-    // Получаем ВСЕ строки из таблицы
-    $db_rows = $wpdb->get_results($wpdb->prepare("SELECT sku, price, stock FROM `$table_name`"));
-
-    if ($db_rows === null) { // Проверка на ошибку SQL
-        $results['errors'][] = sprintf(__('Критическая ошибка: Не удалось получить данные из таблицы `%s`. Ошибка WPDB: %s', 'db-product-updater'), esc_html($table_name), esc_html($wpdb->last_error));
+    if ($handle === FALSE) {
+        $results['errors'][] = __('Критическая ошибка: Не удалось открыть CSV файл для обработки в фоновом режиме.', 'csv-to-db-updater');
         update_option(CPU_OPTION_RESULTS, $results);
         update_option(CPU_OPTION_STATUS, 'error');
         wp_clear_scheduled_hook(CPU_CRON_HOOK);
-        wp_defer_term_counting(false);
-        wp_defer_comment_counting(false);
-        wp_suspend_cache_invalidation(false);
+        // Не удаляем файл, чтобы можно было посмотреть
         return;
     }
 
-    $processed_count = 0; // Счетчик обработанных строк в этом запуске
+    // Пропускаем заголовок и уже обработанные строки
+    for ($i = 0; $i <= $processed_rows; $i++) { // <= пропустить processed_rows + заголовок
+        if (feof($handle)) break;
+        fgets($handle); // Читаем строку, чтобы сдвинуть указатель
+    }
 
-    // Обрабатываем строки
-    foreach ($db_rows as $index => $row) {
-        $processed_count++;
-        $current_row_index = $index; // Индекс текущей строки (0-based)
+    // Обрабатываем пакет строк
+    while (($row = fgetcsv($handle, 0, ";")) !== FALSE && $rows_in_this_batch < CPU_BATCH_SIZE) {
+        $current_row_index = $processed_rows + $rows_in_this_batch; // Индекс текущей строки данных (0-based)
+        $rows_in_this_batch++;
+        $results['processed_in_run'] = $rows_in_this_batch; // Обновляем счетчик для лога этого запуска
 
-        // --- Логика обработки ОДНОЙ строки из БД ---
+        // --- Логика обработки ОДНОЙ строки CSV для записи в БД ---
+        // Ожидаемый формат: Артикул (sku), Описание (ignored), Остаток (stock), Цена (price)
+        if (count($row) < 4) { // Проверяем наличие как минимум 4 колонок
+            $results['skipped_invalid_data']++;
+            $results['errors'][] = sprintf(__('Строка %d (CSV): Недостаточно колонок (%d). Ожидалось как минимум 4.', 'csv-to-db-updater'), $current_row_index + 2, count($row)); // +1 за 0-based, +1 за заголовок
+            continue;
+        }
 
-        // Извлекаем данные из строки БД
-        $sku = isset($row->sku) ? trim($row->sku) : '';
-        $price_raw = isset($row->price) ? trim($row->price) : '';
-        $stock_raw = isset($row->stock) ? trim($row->stock) : ''; // stock уже должен быть int из БД
+        // Извлекаем данные из строки
+        $sku = isset($row[0]) ? trim($row[0]) : '';
+        // $description = isset($row[1]) ? trim($row[1]) : ''; // Описание игнорируется
+        $stock_raw = isset($row[2]) ? trim($row[2]) : '';
+        $price_raw = isset($row[3]) ? trim($row[3]) : ''; // Цена теперь в 4-й колонке (индекс 3)
 
         // Проверяем наличие SKU
         if (empty($sku)) {
-            $skipped_empty_sku++;
+            $skipped_empty_sku++; // Увеличиваем общий счетчик пропущенных пустых SKU
             // Не логируем каждую пустую строку индивидуально
             continue;
         }
 
-        // --- Поиск поста ТОЛЬКО по артикулу (ACF поле) ---
-        $post_id = null;
-        $found_by = '';
+        // Очистка и подготовка данных
+        $price = preg_replace('/[^\d,\.]/', '', $price_raw); // Удаляем все кроме цифр, запятых, точек
+        $price = str_replace(',', '.', $price); // Заменяем запятую на точку для float/decimal
+        $price = floatval($price); // Или использовать number_format для DECIMAL
 
-        // Используем LIKE для поиска по артикулу
-        $args_sku = [
-            'post_type' => $post_types,
-            'post_status' => 'any', // Искать во всех статусах
-            'posts_per_page' => 1, // Нам нужен только один пост
-            'meta_query' => [
-                [
-                    'key' => CPU_SKU_ACF_KEY,
-                    'value' => $sku,
-                    'compare' => 'LIKE', // Ищем по частичному совпадению, если нужно точное, измените на '='
-                ],
-            ],
-            'fields' => 'ids', // Получаем только ID
-            'suppress_filters' => true,
-            'cache_results' => false,
-            'update_post_meta_cache' => false,
-            'update_post_term_cache' => false,
+        $stock = !empty($stock_raw) ? intval(preg_replace('/[^\d]/', '', $stock_raw)) : 0; // Удаляем все нецифровое перед intval
+
+        // Используем $wpdb->replace()
+        // Требует, чтобы таблица имела PRIMARY KEY или UNIQUE индекс на 'sku'
+        $data_to_replace = [
+            'sku'   => $sku,
+            'price' => $price, // Убедитесь, что тип колонки price в БД совместим (DECIMAL, FLOAT, VARCHAR)
+            'stock' => $stock, // Убедитесь, что тип колонки stock в БД - INT
         ];
-        $found_posts_sku = get_posts($args_sku);
+        $format = [
+            '%s', // sku - строка
+            '%f', // price - float (или %s если VARCHAR, или %d если DECIMAL без дробной части)
+            '%d'  // stock - integer
+        ];
 
-        if (!empty($found_posts_sku)) {
-            $post_id = $found_posts_sku[0];
-            $found_by = 'ACF Key LIKE (' . CPU_SKU_ACF_KEY . ')';
+        $replace_result = $wpdb->replace($table_name, $data_to_replace, $format);
+
+        if ($replace_result === false) {
+            // Ошибка при выполнении REPLACE
+            $results['skipped_invalid_data']++;
+            $results['errors'][] = sprintf(
+                __('Строка %d (CSV): Ошибка при обновлении/вставке в БД для SKU "%s". Ошибка WPDB: %s', 'csv-to-db-updater'),
+                $current_row_index + 2,
+                esc_html($sku),
+                esc_html($wpdb->last_error)
+            );
         } else {
-             // Поиск по имени убран, так как в таблице нет имени
-             $results['skipped_not_found']++;
-             // Лог "не найдено" можно раскомментировать
-             // $results['errors'][] = sprintf(__('Строка %d (БД): Пост не найден по Артикулу (LIKE) "%s".', 'db-product-updater'), $current_row_index + 1, esc_html($sku));
-             continue; // Переходим к следующей строке БД
-        }
-
-
-        // --- Обновление метаданных ACF, если пост найден ---
-        if ($post_id) {
-            try {
-                // Очистка и подготовка цены (из varchar)
-                $price = preg_replace('/[^\d,\.]/', '', $price_raw);
-                $price = str_replace(',', '.', $price);
-                $price = floatval($price);
-
-                // Очистка и подготовка остатка (из int)
-                // Если stock из БД может быть не числом, добавить очистку
-                $stock = intval($stock_raw); // Прямое преобразование, т.к. тип int(11)
-
-                // Обновляем мета-поля ACF
-                update_field(CPU_PRICE_ACF_KEY, $price, $post_id);
-                update_field(CPU_STOCK_ACF_KEY, $stock, $post_id);
-
-                $results['updated']++;
-
-                // Лог успешного обновления (опционально)
-                // $edit_link = admin_url('post.php?post=' . $post_id . '&action=edit');
-                // $results['errors'][] = sprintf(
-                //     __('Строка %d (БД): Обновлен пост "%s" (ID: %d). Артикул: %s. Цена: %s, Остаток: %d. <a href="%s" target="_blank">Ред.</a>', 'db-product-updater'),
-                //     $current_row_index + 1, esc_html(get_the_title($post_id)), $post_id, esc_html($sku), wc_price($price), $stock, esc_url($edit_link)
-                // );
-
-            } catch (Exception $e) {
-                 $results['skipped_invalid_data']++; // Считаем ошибку обновления как invalid_data
-                 $results['errors'][] = sprintf(__('Строка %d (БД) (Пост ID: %d, Артикул: %s): Исключение при обновлении ACF полей - %s', 'db-product-updater'), $current_row_index + 1, $post_id, esc_html($sku), $e->getMessage());
-            }
+            // Успешно добавлено (1) или обновлено (2). Иногда может вернуть 0, если данные не изменились.
+            // Считаем любой неотрицательный результат успехом.
+            $results['updated']++;
+            // Лог успеха можно раскомментировать для отладки
+            // $results['errors'][] = sprintf(__('Строка %d (CSV): Успешно обработан SKU "%s". Цена: %s, Остаток: %d. (Результат REPLACE: %s)', 'csv-to-db-updater'), $current_row_index + 2, esc_html($sku), $price, $stock, $replace_result);
         }
         // --- Конец логики обработки ОДНОЙ строки ---
 
-    } // end foreach db_rows
+    } // end while batch
 
-    // Обновляем итоговые значения
-    update_option(CPU_OPTION_PROCESSED_ROWS, $processed_count);
-    update_option(CPU_OPTION_SKIPPED_EMPTY_SKU, $skipped_empty_sku);
-    $results['processed_in_run'] = $processed_count; // Сколько всего обработано
+    fclose($handle);
 
-    // Завершение
-    update_option(CPU_OPTION_STATUS, 'complete');
-    $results['errors'][] = sprintf(__('Обработка таблицы `%s` успешно завершена.', 'db-product-updater'), esc_html($table_name));
-    if ($skipped_empty_sku > 0) {
-        $results['errors'][] = sprintf(__('Пропущено строк с пустым артикулом (SKU): %d', 'db-product-updater'), $skipped_empty_sku);
+    // Обновляем общее количество обработанных строк и счетчик пустых SKU
+    $new_processed_count = $processed_rows + $rows_in_this_batch;
+    update_option(CPU_OPTION_PROCESSED_ROWS, $new_processed_count);
+    update_option(CPU_OPTION_SKIPPED_EMPTY_SKU, $skipped_empty_sku); // Сохраняем обновленный счетчик
+    update_option(CPU_OPTION_RESULTS, $results); // Сохраняем обновленные результаты
+
+    // Проверяем, завершена ли обработка
+    if ($new_processed_count >= $total_rows) {
+        // Завершено
+        update_option(CPU_OPTION_STATUS, 'complete');
+        $results['errors'][] = __('Обработка CSV файла и обновление БД успешно завершены.', 'csv-to-db-updater');
+        if ($skipped_empty_sku > 0) {
+            $results['errors'][] = sprintf(__('Пропущено строк CSV с пустым артикулом (SKU): %d', 'csv-to-db-updater'), $skipped_empty_sku);
+        }
+        update_option(CPU_OPTION_RESULTS, $results);
+        wp_clear_scheduled_hook(CPU_CRON_HOOK); // Убираем крон задачу
+        // Опционально: удалить файл
+        // if (file_exists($filepath)) { wp_delete_file($filepath); }
+        // update_option(CPU_OPTION_FILEPATH, '');
+    } else {
+        // Еще есть строки, планируем следующий запуск
+        wp_schedule_single_event(time() + 1, CPU_CRON_HOOK); // Небольшая задержка
+        update_option(CPU_OPTION_STATUS, 'running'); // Убедимся, что статус все еще running
     }
-    update_option(CPU_OPTION_RESULTS, $results);
-    wp_clear_scheduled_hook(CPU_CRON_HOOK); // Убираем крон задачу (на всякий случай)
-
-    wp_defer_term_counting(false);
-    wp_defer_comment_counting(false);
-    wp_suspend_cache_invalidation(false);
-    wp_cache_flush();
 }
 
 
-// --- Удалена функция cpu_count_csv_rows() ---
+/**
+ * Вспомогательная функция для подсчета строк данных в CSV (пропускает заголовок).
+ * Считает только строки, где первый столбец (SKU) не пустой.
+ * @param string $filepath
+ * @return int|false
+ */
+function cpu_count_csv_rows($filepath) {
+    if (!file_exists($filepath) || !is_readable($filepath)) {
+        return false;
+    }
+    $count = 0;
+    $handle = fopen($filepath, "r");
+    if ($handle === FALSE) {
+        return false;
+    }
+    // Пропускаем заголовок
+    fgetcsv($handle, 0, ";");
+    while (($row = fgetcsv($handle, 0, ";")) !== FALSE) {
+        // Считаем только строки с непустым SKU в первой колонке
+        if (isset($row[0]) && trim($row[0]) !== '') {
+             $count++;
+        }
+    }
+    fclose($handle);
+    return $count;
+}
 
 
 /**
- * Отображение страницы настроек - Адаптировано под БД.
+ * Отображение страницы настроек - Адаптировано под CSV в БД.
  */
 function cpu_render_admin_page() {
     $status = get_option(CPU_OPTION_STATUS, 'idle');
@@ -302,37 +332,34 @@ function cpu_render_admin_page() {
 
     ?>
     <div class="wrap">
-        <h1><?php printf(__('Обновление Запчастей (details) из таблицы `%s`', 'db-product-updater'), esc_html($table_name)); ?></h1>
+        <h1><?php printf(__('Обновление таблицы `%s` из CSV', 'csv-to-db-updater'), esc_html($table_name)); ?></h1>
 
         <?php settings_errors('cpu_messages'); // Показываем ошибки/сообщения ?>
 
         <?php // Отображение статуса и прогресса ?>
         <div id="cpu-status-area" style="margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; background: #f9f9f9;">
-            <h3><?php _e('Статус обработки', 'db-product-updater'); ?></h3>
+            <h3><?php esc_html_e('Статус обработки', 'csv-to-db-updater'); ?></h3>
             <div id="cpu-status-message">
                 <?php
                 if ($is_processing) {
-                    _e('Идет обработка...', 'db-product-updater');
-                    // Прогресс для одного запуска не так информативен, но оставим
+                   esc_html_e('Идет обработка CSV файла...', 'csv-to-db-updater');
                     if ($total > 0) {
-                        // Показываем 0 / total пока не завершится
-                        printf(' (%d / %d)', $status === 'running' ? $processed : 0, $total);
+                        printf(' (%d / %d)', $processed, $total);
                     }
                 } elseif ($status === 'complete') {
-                    _e('Обработка завершена.', 'db-product-updater');
+                   esc_html_e('Обработка завершена.', 'csv-to-db-updater');
                 } elseif ($status === 'error') {
-                    _е('Произошла ошибка во время обработки. См. лог ниже.', 'db-product-updater');
+                   esc_html_e('Произошла ошибка во время обработки. См. лог ниже.', 'csv-to-db-updater');
                 } else {
-                    _е('Нет активных задач. Вы можете запустить обновление.', 'db-product-updater');
-                    
+                   esc_html_e('Нет активных задач. Вы можете загрузить CSV файл.', 'csv-to-db-updater');
                 }
-                ?>
+                ?> 
             </div>
-            <?php // Прогресс бар можно оставить, он покажет 0% или 100% ?>
+            <?php // Прогресс бар ?>
             <?php if ($is_processing || $status === 'complete'): ?>
                 <div id="cpu-progress-bar-container" style="margin-top: 10px; height: 20px; background: #eee; border-radius: 5px; overflow: hidden; border: 1px solid #ddd;">
-                    <div id="cpu-progress-bar" style="width: <?php echo ($status === 'complete') ? 100 : (($total > 0 && $status === 'running') ? round(($processed / $total) * 100) : 0); ?>%; height: 100%; background: #4caf50; transition: width 0.5s ease; text-align: center; color: white; font-weight: bold; line-height: 20px;">
-                         <?php echo ($status === 'complete') ? 100 : (($total > 0 && $status === 'running') ? round(($processed / $total) * 100) : 0); ?>%
+                    <div id="cpu-progress-bar" style="width: <?php echo ($total > 0) ? round(($processed / $total) * 100) : ($status === 'complete' ? 100 : 0); ?>%; height: 100%; background: #4caf50; transition: width 0.5s ease; text-align: center; color: white; font-weight: bold; line-height: 20px;">
+                         <?php echo ($total > 0) ? round(($processed / $total) * 100) : ($status === 'complete' ? 100 : 0); ?>%
                     </div>
                 </div>
             <?php endif; ?>
@@ -342,16 +369,15 @@ function cpu_render_admin_page() {
         <?php if ($status === 'complete' || $status === 'error'): ?>
              <?php if (!empty($results)): ?>
                 <div id="message" class="notice notice-<?php echo ($status === 'error' ? 'error' : 'info'); ?> is-dismissible" style="margin-top: 20px;">
-                    <p><strong><?php _е('Результаты последней обработки:', 'db-product-updater'); ?></strong></p>
+                    <p><strong><?php esc_html_e('Результаты последней обработки:', 'csv-to-db-updater'); ?></strong></p>
                     <ul>
-                        <li><?php printf(__('Всего строк в таблице `%s`: %d', 'db-product-updater'), esc_html($table_name), $results['total_rows']); ?></li>
-                        <li><?php printf(__('Обработано строк: %d', 'db-product-updater'), $processed); ?></li>
-                        <li><?php printf(__('Пропущено строк с пустым артикулом: %d', 'db-product-updater'), $skipped_empty); ?></li>
-                        <li><?php printf(__('Найдено и обновлено постов: %d', 'db-product-updater'), $results['updated']); ?></li>
-                        <li><?php printf(__('Постов не найдено по артикулу (пропущено): %d', 'db-product-updater'), $results['skipped_not_found']); ?></li>
-                        <li><?php printf(__('Ошибок обновления ACF (пропущено): %d', 'db-product-updater'), $results['skipped_invalid_data']); ?></li>
+                        <li><?php printf(__('Всего строк данных в CSV (с непустым SKU): %d', 'csv-to-db-updater'), $results['total_rows']); ?></li>
+                        <li><?php printf(__('Обработано строк CSV: %d', 'csv-to-db-updater'), $processed); ?></li>
+                        <li><?php printf(__('Пропущено строк CSV с пустым артикулом: %d', 'csv-to-db-updater'), $skipped_empty); ?></li>
+                        <li><?php printf(__('Строк успешно добавлено/обновлено в БД: %d', 'csv-to-db-updater'), $results['updated']); ?></li>
+                        <li><?php printf(__('Строк с ошибками (БД или неверные данные): %d', 'csv-to-db-updater'), $results['skipped_invalid_data']); ?></li>
                         <?php if (!empty($results['errors'])) : ?>
-                             <li style="margin-top: 10px;"><strong><?php _е('Лог обработки / Ошибки / Предупреждения:', 'db-product-updater'); ?></strong>
+                             <li style="margin-top: 10px;"><strong><?php esc_html_e('Лог обработки / Ошибки / Предупреждения:', 'csv-to-db-updater'); ?></strong>
                                  <ul style="list-style: disc; margin-left: 20px; max-height: 300px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: #f0f0f0; font-size: 0.9em; line-height: 1.4;">
                                      <?php foreach ($results['errors'] as $error) : ?>
                                          <li><?php echo wp_kses_post($error); // Используем wp_kses_post для безопасности ?></li>
@@ -362,14 +388,9 @@ function cpu_render_admin_page() {
                     </ul>
                 </div>
                 <?php
-                // Сброс статуса после отображения, чтобы можно было запустить снова
+                // Сброс статуса после отображения
                 // if (!$is_processing) {
                 //     update_option(CPU_OPTION_STATUS, 'idle');
-                //     // Можно очистить результаты, если не нужно их хранить
-                //     // update_option(CPU_OPTION_RESULTS, []);
-                //     // update_option(CPU_OPTION_PROCESSED_ROWS, 0);
-                //     // update_option(CPU_OPTION_TOTAL_ROWS, 0);
-                //     // update_option(CPU_OPTION_SKIPPED_EMPTY_SKU, 0);
                 // }
                 ?>
              <?php endif; ?>
@@ -378,32 +399,33 @@ function cpu_render_admin_page() {
 
         <hr>
 
-        <h2><?php _е('Запустить обновление из базы данных', 'db-product-updater'); ?></h2>
-        <p><?php printf(__('Нажмите кнопку ниже, чтобы запустить процесс обновления цен и остатков для постов типа "%s" из таблицы `%s`.', 'db-product-updater'), esc_html(CPU_POST_TYPES), esc_html($table_name)); ?></p>
-        <p><?php _е('Поиск постов будет осуществляться по полю ACF артикула.', 'db-product-updater'); ?></p>
+        <h2><?php esc_html_e('Загрузить и обработать новый CSV файл', 'csv-to-db-updater'); ?></h2>
+        <p><?php printf(__('Выберите CSV файл для загрузки. Формат: Артикул; Описание; Остаток; Цена (разделитель - точка с запятой ";"). Первая строка должна быть заголовком (она будет проигнорирована). Данные будут добавлены или обновлены в таблице `%s`. Колонка "Описание" будет проигнорирована.', 'csv-to-db-updater'), esc_html($table_name)); ?></p>
         <?php // Блокируем форму, если идет обработка ?>
-        <form method="post" action="options-general.php?page=db-product-updater" <?php if ($is_processing) echo ' style="opacity: 0.5; pointer-events: none;"'; ?>>
+        <form method="post" action="options-general.php?page=csv-to-db-updater" enctype="multipart/form-data" <?php if ($is_processing) echo ' style="opacity: 0.5; pointer-events: none;"'; ?>>
             <?php wp_nonce_field('cpu_update_action', 'cpu_nonce'); ?>
-            <?php submit_button(__('Запустить обновление из БД', 'db-product-updater'), 'primary', 'cpu_start_db_update', false, ($is_processing) ? ['disabled' => true] : null); ?>
+             <input type="hidden" name="action" value="upload_and_process">
+            <p>
+                <label for="csv_file_upload"><?php esc_html_e('Выберите CSV файл:', 'csv-to-db-updater'); ?></label>
+                <input type="file" id="csv_file_upload" name="csv_file_upload" accept=".csv" required <?php if ($is_processing) echo ' disabled'; ?>>
+            </p>
+            <?php submit_button(__('Загрузить и запустить обработку', 'csv-to-db-updater'), 'primary', 'cpu_upload_and_process', false, ($is_processing) ? ['disabled' => true] : null); ?>
              <?php if ($is_processing): ?>
-                 <p style="color: orange; font-weight: bold;"><em><?php _е('Пожалуйста, подождите завершения текущей обработки.', 'db-product-updater'); ?></em></p>
+                 <p style="color: orange; font-weight: bold;"><em><?php esc_html_e('Пожалуйста, подождите завершения текущей обработки перед загрузкой нового файла.', 'csv-to-db-updater'); ?></em></p>
              <?php endif; ?>
         </form>
 
          <hr>
-         <h2><?php _е('Информация о настройках', 'db-product-updater'); ?></h2>
-         <p><strong><?php _е('Важно:', 'db-product-updater'); ?></strong></p>
+         <h2><?php esc_html_e('Информация о настройках', 'csv-to-db-updater'); ?></h2>
+         <p><strong><?php esc_html_e('Важно:', 'csv-to-db-updater'); ?></strong></p>
          <ul>
-              <li><?php printf(__('Обновление идет из таблицы БД: %s', 'db-product-updater'), '<code>' . esc_html($table_name) . '</code>'); ?></li>
-              <li><?php printf(__('Поиск будет производиться по типу поста: %s', 'db-product-updater'), '<code>' . esc_html(CPU_POST_TYPES) . '</code>'); ?></li>
-              <li><?php printf(__('Поле ACF для поиска артикула (SKU): %s (используется поиск LIKE)', 'db-product-updater'), '<code>' . esc_html(CPU_SKU_ACF_KEY) . '</code>'); ?></li>
-              <li><?php printf(__('Поле ACF для обновления цены: %s', 'db-product-updater'), '<code>' . esc_html(CPU_PRICE_ACF_KEY) . '</code>'); ?> </li>
-               <li><?php printf(__('Поле ACF для обновления остатка: %s', 'db-product-updater'), '<code>' . esc_html(CPU_STOCK_ACF_KEY) . '</code>'); ?> </li>
-               <li><?php _е('Строки с пустым значением в колонке `sku` будут пропущены.', 'db-product-updater'); ?></li>
-               <?php /* <li><?php printf(__('Размер пакета обработки (строк за раз): %d', 'db-product-updater'), CPU_BATCH_SIZE); ?></li> */ ?>
-               <li><?php _е('Обработка выполняется за один проход (оптимизировано для небольших таблиц).', 'db-product-updater'); ?></li>
+              <li><?php printf(__('Обновление идет в таблицу БД: %s', 'csv-to-db-updater'), '<code>' . esc_html($table_name) . '</code>'); ?></li>
+              <li><?php _e('Метод обновления: <code>$wpdb->replace()</code> (требует PRIMARY или UNIQUE ключ на колонке `sku`).', 'csv-to-db-updater'); ?></li>
+              <li><?php _e('Ожидаемые колонки в CSV (разделитель ";"): <code>sku</code> (Артикул), <code>description</code> (Описание - игнорируется), <code>stock</code> (Остаток), <code>price</code> (Цена).', 'csv-to-db-updater'); ?></li>
+              <li><?php _e('Строки с пустым значением в колонке `sku` будут пропущены.', 'csv-to-db-updater'); ?></li>
+              <li><?php printf(__('Размер пакета обработки (строк CSV за раз): %d', 'csv-to-db-updater'), CPU_BATCH_SIZE); ?></li>
          </ul>
-          <p><em><?php _е('Эти настройки заданы в коде плагина (константы в начале файла).', 'db-product-updater'); ?></em></p>
+          <p><em><?php _e('Эти настройки заданы в коде плагина (константы в начале файла).', 'csv-to-db-updater'); ?></em></p>
 
     </div>
     <?php
@@ -415,7 +437,6 @@ function cpu_render_admin_page() {
 
 /**
  * Добавляет JavaScript для опроса статуса.
- * (Незначительные изменения для адаптации сообщений)
  */
 function cpu_add_ajax_script() {
     $ajax_nonce = wp_create_nonce("cpu_ajax_nonce");
@@ -427,7 +448,7 @@ function cpu_add_ajax_script() {
             var cpu_status_message = $('#cpu-status-message');
             var cpu_progress_bar_container = $('#cpu-progress-bar-container');
             var cpu_progress_bar = $('#cpu-progress-bar');
-            var cpu_form = $('form[method="post"]'); // Находим форму запуска
+            var cpu_form = $('form[method="post"][enctype="multipart/form-data"]'); // Находим форму загрузки
             var initial_check_done = false;
 
             function cpu_check_status() {
@@ -447,17 +468,16 @@ function cpu_add_ajax_script() {
                             var is_still_processing = (data.status === 'running' || data.status === 'pending');
 
                             if (is_still_processing) {
-                                message = '<?php echo esc_js(__('Идет обработка...', 'db-product-updater')); ?>';
+                                message = '<?php echo esc_js(__('Идет обработка CSV файла...', 'csv-to-db-updater')); ?>';
                                 if (data.total > 0) {
-                                    // Показываем 0 / total пока не завершится
-                                    message += ' (' + (data.status === 'running' ? data.processed : 0) + ' / ' + data.total + ')';
-                                    progress_percent = (data.status === 'running' && data.total > 0) ? Math.round((data.processed / data.total) * 100) : 0;
+                                    message += ' (' + data.processed + ' / ' + data.total + ')';
+                                    progress_percent = Math.round((data.processed / data.total) * 100);
                                 }
                                 if (cpu_progress_bar.length) {
                                     cpu_progress_bar.css('width', progress_percent + '%').text(progress_percent + '%');
                                 }
                                 cpu_form.css({ 'opacity': '0.5', 'pointer-events': 'none' });
-                                cpu_form.find('input[type="submit"], button').prop('disabled', true);
+                                cpu_form.find('input, button').prop('disabled', true);
 
                             } else {
                                 clearInterval(cpu_interval_id);
@@ -466,13 +486,14 @@ function cpu_add_ajax_script() {
                                 }, 1500);
 
                                 if (data.status === 'complete') {
-                                    message = '<?php echo esc_js(__('Обработка завершена. Перезагрузка страницы...', 'db-product-updater')); ?>';
+                                    message = '<?php echo esc_js(__('Обработка завершена. Перезагрузка страницы...', 'csv-to-db-updater')); ?>';
                                     progress_percent = 100;
                                 } else if (data.status === 'error') {
-                                    message = '<?php echo esc_js(__('Произошла ошибка. Перезагрузка страницы...', 'db-product-updater')); ?>';
+                                    message = '<?php echo esc_js(__('Произошла ошибка. Перезагрузка страницы...', 'csv-to-db-updater')); ?>';
                                     progress_percent = (data.total > 0) ? Math.round((data.processed / data.total) * 100) : 0; // Оставляем прогресс на момент ошибки
                                 } else {
-                                     message = '<?php echo esc_js(__('Статус изменился. Перезагрузка страницы...', 'db-product-updater')); ?>';
+                                     message = '<?php echo esc_js(__('Статус изменился. Перезагрузка страницы...', 'csv-to-db-updater')); ?>';
+                                     progress_percent = (data.total > 0) ? Math.round((data.processed / data.total) * 100) : 0; // Показываем прогресс на момент смены статуса
                                 }
                                 if (cpu_progress_bar.length) {
                                      cpu_progress_bar.css('width', progress_percent + '%').text(progress_percent + '%');
@@ -483,13 +504,13 @@ function cpu_add_ajax_script() {
 
                         } else {
                             console.error('AJAX Error:', response.data);
-                            cpu_status_message.text('<?php echo esc_js(__('Ошибка обновления статуса (AJAX).', 'db-product-updater')); ?>');
+                            cpu_status_message.text('<?php echo esc_js(__('Ошибка обновления статуса (AJAX).', 'csv-to-db-updater')); ?>');
                         }
                         initial_check_done = true;
                     },
                     error: function(jqXHR, textStatus, errorThrown) {
                         console.error('AJAX Request Failed:', textStatus, errorThrown);
-                        cpu_status_message.text('<?php echo esc_js(__('Ошибка сети при обновлении статуса.', 'db-product-updater')); ?>');
+                        cpu_status_message.text('<?php echo esc_js(__('Ошибка сети при обновлении статуса.', 'csv-to-db-updater')); ?>');
                         initial_check_done = true;
                     }
                 });
@@ -510,24 +531,24 @@ function cpu_ajax_get_progress() {
     check_ajax_referer('cpu_ajax_nonce', '_ajax_nonce');
 
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(__('У вас нет прав.', 'db-product-updater'), 403);
+        wp_send_json_error(__('У вас нет прав.', 'csv-to-db-updater'), 403);
     }
 
     $status = get_option(CPU_OPTION_STATUS, 'idle');
     $processed = (int) get_option(CPU_OPTION_PROCESSED_ROWS, 0);
     $total = (int) get_option(CPU_OPTION_TOTAL_ROWS, 0);
-    $skipped_empty = (int) get_option(CPU_OPTION_SKIPPED_EMPTY_SKU, 0); // Добавлено
+    $skipped_empty = (int) get_option(CPU_OPTION_SKIPPED_EMPTY_SKU, 0);
 
     wp_send_json_success([
         'status' => $status,
         'processed' => $processed,
         'total' => $total,
-        'skipped_empty' => $skipped_empty, // Добавлено
+        'skipped_empty' => $skipped_empty,
     ]);
 }
 add_action('wp_ajax_cpu_ajax_get_progress', 'cpu_ajax_get_progress');
 
 
-// --- Старая функция cpu_process_csv_file() удалена ---
+// --- Старые функции удалены ---
 
 ?>

@@ -29,11 +29,67 @@ try {
 }
 
 const TelegramBot = require('node-telegram-bot-api');
+const fs = require('fs'); // Import the file system module
+const path = require('path'); // Import path module
 const config = require('./config');
 const exchangeService = require('./exchangeService');
 const amlService = require('./amlService');
 
 console.log('Bot starting...');
+
+// --- Load Allowed Users (Usernames) ---
+const allowedUsersFilePath = path.join(__dirname, 'allowedusers.txt');
+let allowedUsernames = new Set(); // Changed variable name
+
+try {
+    const fileContent = fs.readFileSync(allowedUsersFilePath, 'utf8');
+    allowedUsernames = new Set(
+        fileContent
+            .split('\n') // Split by newline
+            .map(username => username.trim().replace(/^@/, '')) // Trim and remove leading @
+            .filter(username => username) // Remove empty lines
+    );
+    if (allowedUsernames.size > 0) {
+        console.log(`Loaded ${allowedUsernames.size} allowed usernames from ${allowedUsersFilePath}`);
+    } else {
+        console.warn(`WARN: ${allowedUsersFilePath} is empty or contains no valid usernames. No user restrictions applied.`);
+    }
+} catch (error) {
+    if (error.code === 'ENOENT') {
+        console.warn(`WARN: ${allowedUsersFilePath} not found. No user restrictions applied.`);
+    } else {
+        console.error(`FATAL ERROR: Could not read ${allowedUsersFilePath}:`, error);
+        process.exit(1); // Exit on other read errors
+    }
+}
+
+// Helper function to check if user is allowed by username
+const isUserAllowed = (username) => {
+    // If the set is empty (file not found or empty), allow everyone who has a username
+    if (allowedUsernames.size === 0) {
+        return !!username; // Allow only if username exists when file is empty/missing
+    }
+    // If username is missing, deny access when restrictions are active
+    if (!username) {
+        return false;
+    }
+    // Check against the set (case-insensitive comparison is safer for usernames)
+    return allowedUsernames.has(username.toLowerCase());
+};
+
+// Helper function to get clean username and log unauthorized access
+const checkAuthorization = (msg) => {
+    const userId = msg.from.id; // Keep ID for logging
+    const username = msg.from.username;
+    const cleanUsername = username ? username.replace(/^@/, '').toLowerCase() : null; // Clean and lowercase
+
+    if (!isUserAllowed(cleanUsername)) {
+        console.log(`Ignoring command from unauthorized user: ID=${userId}, Username=${username || 'N/A'}`);
+        return false; // Indicate user is not authorized
+    }
+    // Return the clean username for logging authorized requests if needed
+    return cleanUsername || 'authorized_no_username';
+};
 
 // --- Bot Initialization ---
 const bot = new TelegramBot(config.BOT_TOKEN, { polling: true });
@@ -65,6 +121,9 @@ bot.setMyCommands(botCommands)
 // Handle /start command
 bot.onText(/\/start/, (msg) => {
     const chatId = msg.chat.id;
+    const authorizedUsername = checkAuthorization(msg);
+    if (!authorizedUsername) return; // Check authorization
+
     // Escaped characters for MarkdownV2: '.', '-', '(', ')', '!', '+', '%'
     // Updated help text based on commission logic clarification
     const helpText = `*🤖 Добро пожаловать в Crypto Exchange Bot\\!*
@@ -106,12 +165,14 @@ _Результаты AML проверки кэшируются на сторо�
 // 3. /USDT_RUB 100 +1% or 100 +1,5% (amount and commission)
 bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/USDT_RUB\s+([+-]?\d*[.,]?\d+%)/i, (msg, match) => {
     const chatId = msg.chat.id;
+    const authorizedUsername = checkAuthorization(msg);
+    if (!authorizedUsername) return; // Check authorization
 
     // If third group matches, it's the "commission only" format
     if (match[3]) {
         const amount = null; // No amount specified
         const commissionString = match[3].trim();
-        console.log(`[/USDT_RUB command] User: ${msg.from.username || msg.from.id}, Amount: ${amount}, Commission: ${commissionString}`);
+        console.log(`[/USDT_RUB command] User: ${msg.from.id} (${authorizedUsername}), Amount: ${amount}, Commission: ${commissionString}`);
         exchangeService.handleUsdtRubCommand(bot, chatId, amount, commissionString);
         return;
     }
@@ -119,7 +180,7 @@ bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/USDT_RUB\
     // Regular format with optional amount and commission
     const amount = match[1] ? parseFloat(match[1]) : null;
     const commissionString = match[2] ? match[2].trim() : null;
-    console.log(`[/USDT_RUB command] User: ${msg.from.username || msg.from.id}, Amount: ${amount}, Commission: ${commissionString}`);
+    console.log(`[/USDT_RUB command] User: ${msg.from.id} (${authorizedUsername}), Amount: ${amount}, Commission: ${commissionString}`);
     exchangeService.handleUsdtRubCommand(bot, chatId, amount, commissionString);
 });
 
@@ -127,12 +188,14 @@ bot.onText(/\/USDT_RUB(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/USDT_RUB\
 // Updated regex similarly to /USDT_RUB to allow comma or period in commission
 bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/RUB_USDT\s+([+-]?\d*[.,]?\d+%)/i, (msg, match) => {
     const chatId = msg.chat.id;
+    const authorizedUsername = checkAuthorization(msg);
+    if (!authorizedUsername) return; // Check authorization
 
     // If third group matches, it's the "commission only" format
     if (match[3]) {
         const amount = null; // No amount specified
         const commissionString = match[3].trim();
-        console.log(`[/RUB_USDT command] User: ${msg.from.username || msg.from.id}, Amount: ${amount}, Commission: ${commissionString}`);
+        console.log(`[/RUB_USDT command] User: ${msg.from.id} (${authorizedUsername}), Amount: ${amount}, Commission: ${commissionString}`);
         exchangeService.handleRubUsdtCommand(bot, chatId, amount, commissionString);
         return;
     }
@@ -140,23 +203,29 @@ bot.onText(/\/RUB_USDT(?:\s+(\d+\.?\d*))?(?:\s*([+-]?\d*[.,]?\d+%))?|\/RUB_USDT\
     // Regular format with optional amount and commission
     const amount = match[1] ? parseFloat(match[1]) : null;
     const commissionString = match[2] ? match[2].trim() : null;
-    console.log(`[/RUB_USDT command] User: ${msg.from.username || msg.from.id}, Amount: ${amount}, Commission: ${commissionString}`);
+    console.log(`[/RUB_USDT command] User: ${msg.from.id} (${authorizedUsername}), Amount: ${amount}, Commission: ${commissionString}`);
     exchangeService.handleRubUsdtCommand(bot, chatId, amount, commissionString);
 });
 
 // Handle /aml command
 bot.onText(/\/aml(?:\s+(.+))?/, (msg, match) => {
     const chatId = msg.chat.id;
+    const authorizedUsername = checkAuthorization(msg);
+    if (!authorizedUsername) return; // Check authorization
+
     // match[1] contains the address or could be undefined
     const walletAddress = match?.[1]?.trim();
-    console.log(`[/aml command] User: ${msg.from.username || msg.from.id}, Address: ${walletAddress}`);
+    console.log(`[/aml command] User: ${msg.from.id} (${authorizedUsername}), Address: ${walletAddress}`);
     amlService.handleAmlCommand(bot, chatId, walletAddress);
 });
 
 // Handle /amls command
 bot.onText(/\/amls/, (msg) => {
     const chatId = msg.chat.id;
-    console.log(`[/amls command] User: ${msg.from.username || msg.from.id}`);
+    const authorizedUsername = checkAuthorization(msg);
+    if (!authorizedUsername) return; // Check authorization
+
+    console.log(`[/amls command] User: ${msg.from.id} (${authorizedUsername})`);
     amlService.handleAmlsCommand(bot, chatId);
 });
 
