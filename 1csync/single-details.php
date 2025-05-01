@@ -126,23 +126,84 @@ if (!empty($artikul)) {
 ?>
 
 <div class="over">
-    <?php if (!empty($artikul)): ?>
-        Артикул: <?php echo esc_html($artikul); ?><br>
-    <?php endif; ?>
 
-    <?php if (!is_null($price)): // Выводим цену, только если она была найдена и валидна ?>
-        Цена с НДС: <?php echo esc_html($price); ?> руб.<br> <?php // Добавил "руб." для ясности ?>
-    <?php endif; ?>
 
-    <?php if (!is_null($stock)): // Выводим остаток, только если он был найден и валиден ?>
-        Остаток: <?php echo esc_html($stock); ?> шт.<br>
-    <?php endif; ?>
+<?php
+// ...existing code...
 
-    <?php if (empty($artikul) && is_null($price) && is_null($stock)): // Сообщение, если ничего не найдено ?>
-         <!-- <p>Информация о товаре недоступна.</p> --> <?php // Можно добавить сообщение или оставить пустым ?>
-    <?php endif; ?>
-</div>
-                                       
+$artikul = get_field('artikul'); // Получаем артикул товара
+ 
+//echo "==".$artikul."==";
+$current_price = null;
+$current_stock = null;
+
+// Путь к последнему загруженному CSV файлу из опций плагина
+$csv_filepath = get_option('cpu_csv_to_db_filepath');
+
+if (!empty($artikul) && !empty($csv_filepath) && file_exists($csv_filepath)) {
+    // Подготавливаем варианты артикула для поиска
+    $artikul_original = $artikul;
+    $artikul_alternative = $artikul;
+
+    // Если артикул начинается с '0' и имеет больше одного символа,
+    // создаем версию без ведущих нулей
+    if (strpos($artikul_original, '0') === 0 && strlen($artikul_original) > 1) {
+        $artikul_alternative = ltrim($artikul_original, '0');
+    }
+
+    // Открываем файл
+    if (($handle = fopen($csv_filepath, "r")) !== FALSE) {
+        // Пропускаем заголовок
+        fgetcsv($handle, 0, ";");
+        
+        // Ищем строку с нужным SKU
+        while (($row = fgetcsv($handle, 0, ";")) !== FALSE) {
+            $row_sku = trim($row[0]);
+            // Проверяем оба варианта артикула
+		
+            if (isset($row[0]) && ($row_sku === $artikul_original || $row_sku === $artikul_alternative)) {
+                // Нашли нужную строку
+                $current_stock = isset($row[2]) ? intval(preg_replace('/[^\d]/', '', trim($row[2]))) : 0;
+                $price_raw = isset($row[3]) ? trim($row[3]) : '';
+                $current_price = preg_replace('/[^\d,\.]/', '', $price_raw);
+                $current_price = str_replace(',', '.', $current_price);
+                $current_price = floatval($current_price);
+                break;
+            }
+        }
+        fclose($handle);
+    }
+}
+
+// Выводим результат
+
+// Determine if price and stock should be displayed based on conditions
+// Price is valid if it's not null and greater than 0
+$display_price = !is_null($current_price) && $current_price > 0;
+// Stock is valid if it's not null and greater than 0
+$display_stock = !is_null($current_stock) && $current_stock > 0;
+
+// Always display the article number if it exists
+if (!empty($artikul)): ?>
+    <div class="artikul-info">Артикул: <?php echo esc_html($artikul); ?></div>
+<?php endif; ?>
+
+<?php // Only display the price/stock container if there's something to show (either price or stock)
+if ($display_price || $display_stock): ?>
+    <div class="price-stock-info">
+        <?php // Display price info only if price is valid
+        if ($display_price): ?>
+            <div class="price">Цена с НДС: <?php echo number_format($current_price, 2, ',', ' '); ?> руб.</div>
+        <?php endif; ?>
+
+        <?php // Display stock info only if stock is valid and greater than 0
+        if ($display_stock): ?>
+            <div class="stock">Остаток: <?php echo (int)$current_stock; ?> шт.</div>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
+
+</div>                                    
                                         
                                         <div class="over">
                                             <a class="backward" href="/">Обратно</a>
