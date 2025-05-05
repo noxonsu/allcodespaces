@@ -8,6 +8,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
     <link rel="icon" type="image/svg+xml" href="<?php echo get_template_directory_uri(); ?>/src/assets/icons/favicon.svg">
     <link rel="prefetch" href="<?php echo get_template_directory_uri(); ?>/src/assets/icons/pause.svg" as="image">
+    <link rel="preload" href="<?php echo get_template_directory_uri(); ?>/src/assets/images/hero-bg.jpg" as="image">
+    <link rel="preload" href="<?php echo get_template_directory_uri(); ?>/src/assets/images/bags.png" as="image">
+    <link rel="preload" href="<?php echo get_template_directory_uri(); ?>/src/assets/images/bags-mob.png" as="image">
     <meta name="theme-url" content="<?php echo get_template_directory_uri(); ?>">
     <?php wp_head(); ?>
     <title><?php bloginfo('name'); ?> | <?php wp_title(); ?></title>

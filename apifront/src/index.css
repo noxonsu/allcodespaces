@@ -1,0 +1,106 @@
+body {
+    font-family: sans-serif;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+nav {
+    background-color: #eee;
+    padding: 1em;
+    margin-bottom: 1em;
+}
+
+nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    gap: 1em;
+}
+
+.container {
+    padding: 1em;
+}
+
+.category-menu {
+    margin-bottom: 1em;
+    border: 1px solid #ccc;
+    padding: 0.5em;
+}
+
+.category-menu ul {
+    list-style: none;
+    padding-left: 1em;
+}
+
+.service-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 1em;
+}
+
+.service-card {
+    border: 1px solid #ddd;
+    padding: 1em;
+}
+
+.service-card h3 {
+    margin-top: 0;
+}
+
+.filters {
+    border: 1px solid #ccc;
+    padding: 1em;
+    margin-bottom: 1em;
+}
+
+.order-form,
+.payment-info,
+.orders-table {
+    margin-top: 1em;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th,
+td {
+    border: 1px solid #ddd;
+    padding: 0.5em;
+    text-align: left;
+}
+
+button {
+    padding: 0.5em 1em;
+    cursor: pointer;
+    margin-right: 5px; /* Added some margin */
+}
+
+input[type="text"],
+input[type="number"],
+select {
+    padding: 0.5em;
+    margin-bottom: 0.5em;
+    /* Adjusted width for better alignment with labels */
+    /* width: calc(100% - 1.2em); */
+    box-sizing: border-box;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.2em;
+}
+
+/* Basic responsiveness */
+@media (max-width: 600px) {
+    nav ul {
+        flex-direction: column;
+    }
+
+    .service-list {
+        grid-template-columns: 1fr;
+    }
+}

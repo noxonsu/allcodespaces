@@ -4,10 +4,10 @@ function himpartners_enqueue() {
     wp_enqueue_style('bootstrap', get_template_directory_uri() . '/src/styles/bootstrap.css');
     wp_enqueue_style('style', get_template_directory_uri() . '/src/styles/style.css');
     wp_enqueue_style('index', get_template_directory_uri() . '/src/styles/index.css');
-    wp_enqueue_script('wavesurfer', get_template_directory_uri() . '/src/scripts/wavesurfer.js', array(), false, true);
+    // wp_enqueue_script('wavesurfer', get_template_directory_uri() . '/src/scripts/wavesurfer.js', array(), false, true); // Removed
     wp_enqueue_script('swiper', get_template_directory_uri() . '/src/scripts/swiper.js', array(), false, true);
     wp_enqueue_script('header', get_template_directory_uri() . '/src/scripts/header.js', array(), false, true);
-    wp_enqueue_script('index', get_template_directory_uri() . '/src/scripts/index.js', array(), false, true);
+    wp_enqueue_script('index', get_template_directory_uri() . '/src/scripts/index.js', array('swiper'), false, true); // Added swiper dependency for safety
 }
 
 
