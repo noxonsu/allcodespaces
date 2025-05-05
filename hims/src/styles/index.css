@@ -5,6 +5,7 @@
     background-position: center;
     background-size: cover;
     overflow: hidden;
+	background-color: #4b4b4b;
 }
 
 .him-banner__granuls {
@@ -28,7 +29,7 @@
 .him-banner__text-green,
 .him-banner__text-yellow {
     border-radius: 6px;
-    padding: 2px 10px;
+    padding: 2px 8px;
     width: fit-content;
 }
 
@@ -97,7 +98,7 @@
     max-width: 40px;
     max-height: 40px;
     border-radius: 100px;
-    border: 1.5px solid var(--green);
+    border: 2px solid var(--green);
     text-align: center;
     display: flex;
     align-items: center;
@@ -849,7 +850,7 @@
     }
 
     .him-banner__text h1 {
-        font-size: 20px !important;
+        font-size: 24px !important;
     }
 
     .him-reputation__info .feather-right {
@@ -935,12 +936,12 @@
     .him-banner__bags {right: 0;}
 
     .him-banner__text-letto {
-        padding: 10px;
+        padding: 20px;
     }
 
     .him-banner__text-letto p {
-        font-size: 12px;
-        line-height: 16px;
+        font-size: 16px;
+        line-height: 20px;
     }
 
     .him-exhibition__info,
