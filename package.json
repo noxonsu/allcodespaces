@@ -17,5 +17,15 @@
     "@vitejs/plugin-react": "^4.4.1",
     "dotenv-vault": "^1.26.2",
     "vite": "^6.3.5"
-  }
+  },
+  "name": "allcodespaces",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }
