@@ -163,6 +163,11 @@ ${amoAuthCodeUsed ? 'Попытка использовать AMO_AUTH_CODE из 
 }
 
 async function checkGoogleCredentials() {
+    // This check is relevant if any module uses Google Sheets API
+    if (!config.SPREADSHEET_ID_GT2AMO && !config.SPREADSHEET_ID_AMO2GT) {
+        console.log('Google Sheets IDs (SPREADSHEET_ID_GT2AMO, SPREADSHEET_ID_AMO2GT) не сконфигурированы в .env, пропускаем проверку Google credentials.');
+        return true; // Allow to proceed if no sheets are configured
+    }
     try {
         const auth = new google.auth.GoogleAuth({
             keyFile: config.GOOGLE_KEY_FILE, // Use from config
@@ -177,12 +182,11 @@ async function checkGoogleCredentials() {
         console.error(`
 --------------------------------------------------------------------
 ОШИБКА ДОСТУПА К Google Sheets!
-
-Проверьте файл mycity2_key.json:
+Проверьте файл ${config.GOOGLE_KEY_FILE}:
 1. Убедитесь что файл существует
 2. Проверьте права доступа файла
 3. Проверьте валидность JSON данных
-4. Убедитесь что сервисный аккаунт имеет доступ к таблицам
+4. Убедитесь что сервисный аккаунт имеет доступ к таблицам (ID: ${config.SPREADSHEET_ID_GT2AMO || config.SPREADSHEET_ID_AMO2GT || 'не указан'})
 --------------------------------------------------------------------
 `);
         console.error('❌ Ошибка Google credentials:', error.message);
@@ -297,22 +301,45 @@ async function fetchAndVerifyLeads(accessToken) {
 }
 
 async function main() {
-    const [amoTokens] = await Promise.all([ // checkAmoAccess now returns tokens
+    const [amoTokens] = await Promise.all([ 
         checkAmoAccess(),
-        checkGoogleCredentials()
+        checkGoogleCredentials() 
     ]);
 
+    let currentAccessToken = null;
     if (amoTokens && amoTokens.access_token) {
-        await fetchAndVerifyLeads(amoTokens.access_token); // Call the new function
+        currentAccessToken = amoTokens.access_token;
+        if (config.SPREADSHEET_ID_AMO2GT) {
+            await fetchAndVerifyLeads(currentAccessToken); 
+        } else {
+            console.log("SPREADSHEET_ID_AMO2GT не сконфигурирован, пропускаем fetchAndVerifyLeads.");
+        }
     } else {
-        console.error('Не удалось получить AmoCRM токены, пропуск fetchAndVerifyLeads.');
+        console.error('Не удалось получить AmoCRM OAuth токены, пропуск операций, зависящих от OAuth (например, fetchAndVerifyLeads).');
     }
 
-    // Start Task 1: AMO CRM to Google Sheets webhook listener
-    startAmoWebhookListener();
-
-    // Start Task 2: Google Sheets to AMO CRM sync
-    startGoogleSheetSync();
+    // Start Task: AMO CRM Webhook to Google Sheets (amo2gtables.js)
+    if (config.SPREADSHEET_ID_AMO2GT) {
+        console.log("Запуск слушателя вебхуков AmoCRM (для записи в Google Sheet)...");
+        startAmoWebhookListener(); 
+    } else {
+        console.log("SPREADSHEET_ID_AMO2GT не сконфигурирован, слушатель вебхуков AmoCRM (amo2gtables) не будет запущен.");
+    }
+    
+    // Start Task: Google Sheets to AMO CRM sync (gtables2amo.js)
+    if (config.SPREADSHEET_ID_GT2AMO) { 
+        if (currentAccessToken) {
+            console.log("Запуск синхронизации Google Sheet в AmoCRM (gtables2amo) с использованием OAuth токена...");
+            startGoogleSheetSync(currentAccessToken); 
+        } else if (config.AMO_TOKEN) {
+            console.warn("Запуск синхронизации Google Sheet в AmoCRM (gtables2amo) с использованием AMO_TOKEN из .env (OAuth токен не доступен).");
+            startGoogleSheetSync(null); // Pass null to indicate it should use fallback
+        } else {
+            console.error("SPREADSHEET_ID_GT2AMO сконфигурирован, но нет доступного токена AmoCRM (ни OAuth, ни AMO_TOKEN), синхронизация Google Sheet в AmoCRM (gtables2amo) не будет запущена.");
+        }
+    } else {
+        console.log("SPREADSHEET_ID_GT2AMO не сконфигурирован, синхронизация Google Sheet в AmoCRM (gtables2amo) не будет запущена.");
+    }
 }
 
 main().catch((error) => console.error('Main error:', error.message));

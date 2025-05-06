@@ -23,38 +23,46 @@ const DEFAULT_SHEET_NAME = process.env.SHEET_NAME || 'Sheet1';
 const AMO_DOMAIN = process.env.AMO_DOMAIN;
 const AMO_INTEGRATION_ID = process.env.AMO_INTEGRATION_ID;
 const AMO_SECRET_KEY = process.env.AMO_SECRET_KEY;
-const AMO_AUTH_CODE = process.env.AMO_AUTH_CODE; // For initial token acquisition
-const AMO_REDIRECT_URI = process.env.AMO_REDIRECT_URI; // Load this
+const AMO_AUTH_CODE = process.env.AMO_AUTH_CODE; 
+const AMO_REDIRECT_URI = process.env.AMO_REDIRECT_URI;
 const AMO_TOKENS_PATH = path.join(__dirname, 'amo_tokens.json');
-const AMO_API_URL_BASE = `${AMO_DOMAIN}/api/v4`; // Corrected: Use AMO_DOMAIN directly as it includes protocol
-const AMO_TOKEN = process.env.AMO_TOKEN; // For gtables2amo.js, if still used separately
+const AMO_API_URL_BASE = `${AMO_DOMAIN}/api/v4`;
 
-// Custom Fields for gtables2amo.js
-const AMO_CUSTOM_FIELDS = {
-    request_amount: parseInt(process.env.AMO_FIELD_REQUEST_AMOUNT) || 188879,    // Сумма запроса
-    request_currency: parseInt(process.env.AMO_FIELD_REQUEST_CURRENCY) || 188929, // Валюта запроса
-    receive_currency: parseInt(process.env.AMO_FIELD_RECEIVE_CURRENCY) || 188875, // Валюта получения
-    commission: parseInt(process.env.AMO_FIELD_COMMISSION) || 262053,            // Комиссия %
-    deal_amount: parseInt(process.env.AMO_FIELD_DEAL_AMOUNT) || 188871,         // Сумма сделки
-    exchange_rate: parseInt(process.env.AMO_FIELD_EXCHANGE_RATE) || 264459,     // Курс
-    payment_link: 835906                                  // Ссылка на оплату (ID: 835906)
+// Map internal script keys to EXACT AmoCRM Custom Field Names
+// These names will be used to look up field_id and enums dynamically.
+// **IMPORTANT**: You MUST update these string values to match your AmoCRM field names precisely.
+const AMO_CUSTOM_FIELD_NAMES = {
+    amount_issued: process.env.AMO_CF_NAME_AMOUNT_ISSUED || "Сумма выдана",
+    currency: process.env.AMO_CF_NAME_CURRENCY || "Валюта",
+    withdrawal_account: process.env.AMO_CF_NAME_WITHDRAWAL_ACCOUNT || "Счет списания",
+    withdrawal_date: process.env.AMO_CF_NAME_WITHDRAWAL_DATE || "Дата списания",
+    administrator: process.env.AMO_CF_NAME_ADMINISTRATOR || "Администратор",
+    card: process.env.AMO_CF_NAME_CARD || "Карта",
+    paid_service: process.env.AMO_CF_NAME_PAID_SERVICE || "Оплаченный сервис",
+    email: process.env.AMO_CF_NAME_EMAIL || "Почта", // Common name for email field
+    payment_term: process.env.AMO_CF_NAME_PAYMENT_TERM || "Срок оплаты",
+    status: process.env.AMO_CF_NAME_STATUS || "Статус",
 };
 
 // Check for essential environment variables
 const requiredEnvVars = {
-    SPREADSHEET_ID_AMO2GT,
-    SPREADSHEET_ID_GT2AMO,
     AMO_DOMAIN,
     AMO_INTEGRATION_ID,
     AMO_SECRET_KEY,
-    AMO_REDIRECT_URI, // Add to required check
-    // AMO_TOKEN might be required if gtables2amo.js is active and uses it.
+    AMO_REDIRECT_URI,
 };
+
+if (process.env.SPREADSHEET_ID_AMO2GT) {
+    requiredEnvVars.SPREADSHEET_ID_AMO2GT = process.env.SPREADSHEET_ID_AMO2GT;
+}
+if (process.env.SPREADSHEET_ID_GT2AMO) {
+    requiredEnvVars.SPREADSHEET_ID_GT2AMO = process.env.SPREADSHEET_ID_GT2AMO;
+}
 
 let missingVar = false;
 for (const [key, value] of Object.entries(requiredEnvVars)) {
-    if (!value) {
-        console.error(`Критическая ошибка: Переменная окружения ${key} не установлена в файле .env`);
+    if (requiredEnvVars[key] !== undefined && !value) {
+        console.error(`Критическая ошибка: Переменная окружения ${key} не установлена в файле .env, но требуется для активных модулей.`);
         missingVar = true;
     }
 }
@@ -63,12 +71,10 @@ if (missingVar) {
     process.exit(1);
 }
 
-// Check if AMO_API_URL_BASE is valid
-if (!AMO_DOMAIN) {
+if (!AMO_DOMAIN) { 
     console.error(`Критическая ошибка: AMO_DOMAIN не установлен, не удается сформировать AMO_API_URL_BASE.`);
     process.exit(1);
 }
-
 
 module.exports = {
     NAMEPROMPT,
@@ -81,9 +87,8 @@ module.exports = {
     AMO_INTEGRATION_ID,
     AMO_SECRET_KEY,
     AMO_AUTH_CODE,
-    AMO_REDIRECT_URI, // Export this
+    AMO_REDIRECT_URI,
     AMO_TOKENS_PATH,
     AMO_API_URL_BASE,
-    AMO_TOKEN,
-    AMO_CUSTOM_FIELDS,
+    AMO_CUSTOM_FIELD_NAMES, // Export the new name mappings
 };
