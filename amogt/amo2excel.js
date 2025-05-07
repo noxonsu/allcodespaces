@@ -1,58 +1,12 @@
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
-const { google } = require('googleapis');
+// const { google } = require('googleapis'); // googleapis is now used via driveUtils
 const config = require('./config');
+const { getDriveService, downloadFileFromDrive } = require('./driveUtils'); // Import shared functions
 
-async function getDriveService() {
-    if (!fs.existsSync(config.GOOGLE_KEY_FILE)) {
-        console.error(`Google Key File not found at ${config.GOOGLE_KEY_FILE}. Cannot authenticate with Google Drive.`);
-        throw new Error(`Google Key File not found at ${config.GOOGLE_KEY_FILE}`);
-    }
-    const auth = new google.auth.GoogleAuth({
-        keyFile: config.GOOGLE_KEY_FILE,
-        scopes: config.GOOGLE_SCOPES,
-    });
-    const authClient = await auth.getClient();
-    return google.drive({ version: 'v3', auth: authClient });
-}
-
-async function downloadFileFromDrive(drive, fileId) {
-    try {
-        console.log(`Attempting to get metadata for file from Google Drive with ID: ${fileId}`);
-        const fileMetadata = await drive.files.get({
-            fileId: fileId,
-            fields: 'mimeType, name, modifiedTime', // Request mimeType, name, and modifiedTime
-        });
-        console.log(`File ${fileId} metadata: MIME Type = ${fileMetadata.data.mimeType}, Name = ${fileMetadata.data.name}, Modified Time = ${fileMetadata.data.modifiedTime}`);
-
-        let response;
-        if (fileMetadata.data.mimeType === 'application/vnd.google-apps.spreadsheet') {
-            console.log(`File ${fileId} is a Google Sheet. Exporting as .xlsx...`);
-            response = await drive.files.export({
-                fileId: fileId,
-                mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            }, { responseType: 'arraybuffer' });
-            console.log(`Google Sheet ${fileId} exported successfully as .xlsx.`);
-        } else {
-            console.log(`File ${fileId} is not a Google Sheet (MIME Type: ${fileMetadata.data.mimeType}). Attempting direct download...`);
-            response = await drive.files.get({
-                fileId: fileId,
-                alt: 'media',
-            }, { responseType: 'arraybuffer' });
-            console.log(`File ${fileId} downloaded successfully from Google Drive.`);
-        }
-        return Buffer.from(response.data);
-    } catch (error) {
-        if (error.code === 404) {
-            console.log(`File with ID ${fileId} not found on Google Drive.`);
-            return null; // File not found
-        }
-        console.error(`Error downloading/exporting file ${fileId} from Google Drive:`, error.message);
-        if (error.errors) console.error('Google API Errors:', error.errors);
-        throw error; // Re-throw other errors
-    }
-}
+// Removed getDriveService() function - now imported
+// Removed downloadFileFromDrive() function - now imported
 
 async function uploadFileToDrive(drive, fileId, buffer, fileName) {
     try {
@@ -107,7 +61,7 @@ async function pushToExcelSheet(dealNumber, paymentLink) {
         const fileId = config.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL;
         const excelFileName = `amo_output_${fileId}.xlsx`; 
 
-        const fileBuffer = await downloadFileFromDrive(drive, fileId);
+        const fileBuffer = await downloadFileFromDrive(drive, fileId, 'amo2excel'); // Pass context
 
         let jsonData; // Will hold our sheet data as an array of arrays
 
