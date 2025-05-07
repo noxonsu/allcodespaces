@@ -14,7 +14,7 @@ const NAMEPROMPT = process.env.NAMEPROMPT || '';
 
 // Google Drive / API
 const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/drive']; // Scope for Google Drive
-const GOOGLE_KEY_FILE = path.join(__dirname, 'mycity2_key.json'); // Service account key file
+const GOOGLE_KEY_FILE = path.join(__dirname, 'my-project-1337-458418-4b4c595d74d5.json'); // Service account key file
 const GOOGLE_DRIVE_FILE_ID_AMO2EXCEL = process.env.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL;
 const GOOGLE_DRIVE_FILE_ID_EXCEL2AMO = process.env.GOOGLE_DRIVE_FILE_ID_EXCEL2AMO;
 const DEFAULT_SHEET_NAME = process.env.SHEET_NAME || 'Sheet1'; // Remains for Excel sheet name within the file
