@@ -6,7 +6,8 @@ const fs = require('fs');
 const path = require('path');
 const FormData = require('form-data');
 const { sanitizeString, validateChatId, logChat } = require('./utilities');
-const { CHAT_HISTORIES_DIR, USER_DATA_DIR, NAMEPROMPT, MAX_HISTORY } = require('./config');
+const config = require('./config');
+const { CHAT_HISTORIES_DIR, USER_DATA_DIR, NAMEPROMPT, MAX_HISTORY } = config;
 
 // --- Configuration & State ---
 let systemMessage;
@@ -68,15 +69,17 @@ function getRateLimit(chatId) {
 
 function loadUserData(chatId) {
     const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
+    const defaultUserData = { longMemory: '', lastLongMemoryUpdate: 0, isPaid: false };
     if (fs.existsSync(userFilePath)) {
         try {
-            return JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
+            const data = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
+            return { ...defaultUserData, ...data };
         } catch (error) {
             console.error(`Ошибка чтения данных пользователя для чата ${chatId}:`, error);
-            return { longMemory: '', lastLongMemoryUpdate: 0 };
+            return { ...defaultUserData };
         }
     }
-    return { longMemory: '', lastLongMemoryUpdate: 0 };
+    return { ...defaultUserData };
 }
 
 function saveUserData(chatId, userData) {
@@ -89,7 +92,7 @@ function saveUserData(chatId, userData) {
 }
 
 function loadChatHistoryFromFile(chatId) {
-    const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
+    const chatLogPath = path.join(config.getChatHistoriesDir(), `chat_${chatId}.log`);
     const history = [];
 
     if (!fs.existsSync(chatLogPath)) {
@@ -135,7 +138,12 @@ function loadChatHistoryFromFile(chatId) {
     }
 
     console.debug(`[История чата ${chatId}] Загружено ${history.length} сообщений`);
-    return history.slice(-MAX_HISTORY);
+    return history.slice(-config.getMaxHistory());
+}
+
+function getUserMessageCount(chatId) {
+    const history = loadChatHistoryFromFile(chatId);
+    return history.filter(entry => entry.role === 'user').length;
 }
 
 async function updateLongMemory(chatId) {
@@ -509,5 +517,8 @@ module.exports = {
     callOpenAI,
     callDeepSeek,
     transcribeAudio,
-    updateLongMemory
+    updateLongMemory,
+    loadUserData, // Ensure loadUserData is exported if it wasn't already implicitly
+    saveUserData, // Ensure saveUserData is exported
+    getUserMessageCount
 };

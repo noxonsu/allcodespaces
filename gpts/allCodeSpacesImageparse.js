@@ -3,7 +3,20 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
-const { NAMEPROMPT, USER_DATA_DIR, CHAT_HISTORIES_DIR } = require('./config');
+
+// Log NAMEPROMPT early to see what .env file will be targeted
+const NAMEPROMPT_FROM_ENV = process.env.NAMEPROMPT || 'calories';
+console.log(`[Debug] NAMEPROMPT for .env file: ${NAMEPROMPT_FROM_ENV}`);
+const envFilePath = path.join(__dirname, `.env.${NAMEPROMPT_FROM_ENV}`);
+console.log(`[Debug] Attempting to load .env file from: ${envFilePath}`);
+
+const config = require('./config'); // Import config first
+const { NAMEPROMPT, USER_DATA_DIR, CHAT_HISTORIES_DIR, FREE_MESSAGE_LIMIT } = config;
+
+// Log FREE_MESSAGE_LIMIT from config right after import
+console.log(`[Debug] FREE_MESSAGE_LIMIT from config.js: ${FREE_MESSAGE_LIMIT}`);
+console.log(`[Debug] Raw process.env.FREE_MESSAGE_LIMIT before dotenv.config: ${process.env.FREE_MESSAGE_LIMIT}`);
+
 const {
     sanitizeString,
     validateChatId,
@@ -18,14 +31,33 @@ const {
     setDeepSeekKey,
     setModel,
     callLLM,
-    transcribeAudio
+    transcribeAudio,
+    loadUserData,
+    saveUserData,
+    getUserMessageCount
 } = require('./openai');
 
 // --- Configuration ---
-const result = dotenv.config({ path: path.join(__dirname, `.env.${NAMEPROMPT}`) });
+const result = dotenv.config({ path: envFilePath }); // Use the already determined envFilePath
 if (result.error) {
     console.error(`Ошибка загрузки файла .env.${NAMEPROMPT}:`, result.error);
-    process.exit(1);
+    // process.exit(1); // Commenting out exit on error for debugging purposes
+} else {
+    console.log(`[Debug] Successfully loaded .env file: ${envFilePath}`);
+    // Re-check FREE_MESSAGE_LIMIT from process.env AFTER dotenv.config has run
+    console.log(`[Debug] Raw process.env.FREE_MESSAGE_LIMIT after dotenv.config: ${process.env.FREE_MESSAGE_LIMIT}`);
+    // If config needs to be re-evaluated based on new .env values, you might need to reload or re-calculate it.
+    // However, config.js already reads from process.env, so its values should be correct if dotenv worked.
+    // Forcing a re-read from the config module to be sure:
+    delete require.cache[require.resolve('./config')]; // Clear cache for config module
+    const reloadedConfig = require('./config');
+    console.log(`[Debug] FREE_MESSAGE_LIMIT from reloaded config.js after dotenv: ${reloadedConfig.FREE_MESSAGE_LIMIT}`);
+    // Update the destructured FREE_MESSAGE_LIMIT if it changed
+    if (FREE_MESSAGE_LIMIT !== reloadedConfig.FREE_MESSAGE_LIMIT) {
+        console.log(`[Debug] FREE_MESSAGE_LIMIT updated after dotenv load from ${FREE_MESSAGE_LIMIT} to ${reloadedConfig.FREE_MESSAGE_LIMIT}`);
+        // It's tricky to re-assign to a const, so it's better if config.js is structured to always provide the latest
+        // For this debug, we'll just log. In a real scenario, ensure config always reflects current env.
+    }
 }
 
 // Ensure directories exist
@@ -41,6 +73,9 @@ if (!token) {
 
 const openaiApiKey = process.env.OPENAI_API_KEY;
 const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
+const ACTIVATION_CODE = process.env.ACTIVATION_CODE; // e.g., "KEY-SOMEKEY123"
+const PAYMENT_URL_TEMPLATE = process.env.PAYMENT_URL_TEMPLATE || 'https://noxon.wpmix.net/counter.php?tome=1&msg={NAMEPROMPT}_{chatid}&cal=1';
+
 if (!openaiApiKey && !deepseekApiKey) {
     console.error(`Ошибка: Ни OPENAI_API_KEY, ни DEEPSEEK_API_KEY не определены в файле .env.${NAMEPROMPT}`);
     process.exit(1);
@@ -75,6 +110,50 @@ if (deepseekApiKey) setDeepSeekKey(deepseekApiKey);
 if (process.env.MODEL) setModel(process.env.MODEL);
 
 // --- Helper Functions ---
+
+async function checkPaymentStatusAndPrompt(chatId) {
+    const userData = loadUserData(chatId);
+    if (userData.isPaid) {
+        return true;
+    }
+    
+    // Get fresh FREE_MESSAGE_LIMIT from reloaded config
+    const reloadedConfig = require('./config');
+    if (reloadedConfig.FREE_MESSAGE_LIMIT === null) { // null means unlimited
+        return true;
+    }
+
+    const userMessageCount = getUserMessageCount(chatId);
+
+    if (userMessageCount >= reloadedConfig.FREE_MESSAGE_LIMIT) {
+        const paymentUrl = PAYMENT_URL_TEMPLATE
+            .replace('{NAMEPROMPT}', NAMEPROMPT)
+            .replace('{chatid}', chatId.toString());
+
+        const messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ.`);
+        
+        try {
+            await bot.sendMessage(chatId, messageText, {
+                parse_mode: 'MarkdownV2',
+                reply_markup: {
+                    inline_keyboard: [
+                        [{ text: "Купить", url: paymentUrl }]
+                    ]
+                }
+            });
+            logChat(chatId, {
+                event: 'payment_prompted',
+                limit: reloadedConfig.FREE_MESSAGE_LIMIT,
+                current_count: userMessageCount,
+                url: paymentUrl
+            }, 'system');
+        } catch (error) {
+            console.error(`Error sending payment prompt to ${chatId}:`, error);
+        }
+        return false; // User needs to pay
+    }
+    return true; // User can proceed
+}
 
 function escapeMarkdown(text) {
     // Escape all MarkdownV2 reserved characters: _ * [ ] ( ) ~ ` > # + - = | { } . !
@@ -273,7 +352,8 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         let isNewUser = false;
         if (fs.existsSync(userFilePath)) {
             try {
-                userData = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
+                const existingData = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
+                userData = { ...loadUserData(chatId), ...existingData }; // Ensure defaults like isPaid are loaded
                 if (startParam && startParam !== userData.startParameter) {
                     userData.lastStartParam = startParam;
                     console.info(`[Start ${chatId}] Чат перезапущен с новым параметром: ${startParam}`);
@@ -299,6 +379,8 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 languageCode: msg.from?.language_code || null,
                 longMemory: '',
                 lastLongMemoryUpdate: 0,
+                isPaid: userData.isPaid || false, // Preserve isPaid status if user existed before
+                providedName: userData.providedName || null, // Preserve providedName
                 lastRestartTime: new Date().toISOString()
             };
             console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
@@ -360,6 +442,27 @@ bot.on('message', async (msg) => {
 
     try {
         console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}`);
+
+        // Handle activation code input
+        if (ACTIVATION_CODE && userText.startsWith('KEY-')) {
+            if (userText === ACTIVATION_CODE) {
+                const userData = loadUserData(chatId);
+                userData.isPaid = true;
+                saveUserData(chatId, userData);
+                await bot.sendMessage(chatId, escapeMarkdown("Activation successful! You can now use the bot without limits."), { parse_mode: 'MarkdownV2' });
+                logChat(chatId, { event: 'activation_success', code_entered: userText }, 'system');
+            } else {
+                await bot.sendMessage(chatId, escapeMarkdown("Invalid activation code."), { parse_mode: 'MarkdownV2' });
+                logChat(chatId, { event: 'activation_failed', code_entered: userText }, 'system');
+            }
+            return; // Stop further processing for this message
+        }
+
+        const canProceed = await checkPaymentStatusAndPrompt(chatId);
+        if (!canProceed) {
+            return;
+        }
+
         await bot.sendChatAction(chatId, 'typing');
 
         const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
@@ -430,6 +533,11 @@ bot.on('photo', async (msg) => {
     }
 
     try {
+        const canProceed = await checkPaymentStatusAndPrompt(chatId);
+        if (!canProceed) {
+            return;
+        }
+
         console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
         await bot.sendChatAction(chatId, 'upload_photo');
         
@@ -469,15 +577,20 @@ bot.on('voice', async (msg) => {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) return;
 
-    const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
-    if (!fs.existsSync(userDataPath)) {
-        console.info(`[Голос ${chatId}] Файл данных пользователя не найден при обработке голоса. Предлагаем /start.`);
-        await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой голосовых сообщений.');
-        logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_voice' }, 'system');
-        return;
-    }
-
     try {
+        const canProceed = await checkPaymentStatusAndPrompt(chatId);
+        if (!canProceed) {
+            return;
+        }
+
+        const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
+        if (!fs.existsSync(userDataPath)) {
+            console.info(`[Голос ${chatId}] Файл данных пользователя не найден при обработке голоса. Предлагаем /start.`);
+            await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой голосовых сообщений.');
+            logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_voice' }, 'system');
+            return;
+        }
+
         console.info(`[Голос ${chatId}] Получено голосовое сообщение.`);
         await bot.sendChatAction(chatId, 'typing');
         const userMessageContent = await processVoice(msg);
