@@ -1,0 +1,1 @@
+Не удалось инициализировать Google Sheets: The caller does not have permission. Данные не будут сохранены в таблицу.

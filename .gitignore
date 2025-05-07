@@ -78,3 +78,4 @@ whisper_streaming_input.py
 .flaskenv*
 !.env.project
 !.env.vault
+mycity2_key.json
