@@ -273,10 +273,20 @@ async function syncFromExcelSheet() {
     }
 }
 
+// Добавить глобальную переменную для хранения ID таймера
+let syncIntervalId = null;
+
 async function startExcelSheetSync(accessToken) {
     if (!config.GOOGLE_DRIVE_FILE_ID_EXCEL2AMO) {
         console.log('[Excel2Amo] Excel (Drive) to AmoCRM sync not starting: GOOGLE_DRIVE_FILE_ID_EXCEL2AMO not configured.');
         return;
+    }
+    
+    // Если таймер уже существует, очистить его перед созданием нового
+    if (syncIntervalId !== null) {
+        console.log('[Excel2Amo] Clearing existing sync interval timer');
+        clearInterval(syncIntervalId);
+        syncIntervalId = null;
     }
 
     if (accessToken) {
@@ -298,7 +308,9 @@ async function startExcelSheetSync(accessToken) {
     
     console.log('[Excel2Amo] Initial check of Excel Sheet (from Drive) for new rows to sync to AmoCRM...');
     await syncFromExcelSheet(); 
-    setInterval(async () => {
+    
+    // Сохраняем ID нового таймера
+    syncIntervalId = setInterval(async () => {
         console.log('[Excel2Amo] Periodically checking Excel Sheet (from Drive) for new rows to sync to AmoCRM...');
         await syncFromExcelSheet();
     }, 1 * 60 * 1000); // Interval remains 1 minute

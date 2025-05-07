@@ -168,16 +168,62 @@ async function handleAmoWebhook(dealData) {
     }
 }
 
+let mainLoopIntervalId = null; // To keep track of the interval
+
 function startAmoWebhookListener() {
     if (!config.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL) {
-        console.log('AmoCRM Webhook Listener (for Excel on Drive) not fully started: GOOGLE_DRIVE_FILE_ID_AMO2EXCEL not configured.');
+        console.log('[WebhookListener] AmoCRM Webhook Listener (for Excel on Drive) not started: GOOGLE_DRIVE_FILE_ID_AMO2EXCEL not configured.');
         return;
     }
-    console.log('Conceptual: Listening for AMO CRM webhooks to push to Excel on Google Drive...');
+    console.log('[WebhookListener] Conceptual: Listening for AMO CRM webhooks to push to Excel on Google Drive...');
+    
+    if (mainLoopIntervalId) {
+        console.log('[WebhookListener] Clearing existing periodic check interval.');
+        clearInterval(mainLoopIntervalId);
+        mainLoopIntervalId = null;
+    }
+
+    console.log('[WebhookListener] Starting new periodic check (every 1 minute).');
+    mainLoopIntervalId = setInterval(async () => {
+        console.log('[WebhookListener] Performing periodic check...');
+        try {
+            // Example periodic task: ensure Drive service is accessible.
+            // Replace or extend this with actual periodic tasks needed for your webhook listener.
+            // If this task encounters a critical issue, it should throw an error.
+            const drive = await getDriveService();
+            if (!drive) {
+                // This scenario should ideally be covered by getDriveService throwing an error if it fails.
+                throw new Error("Failed to get Drive service in periodic check (returned null/undefined).");
+            }
+            console.log('[WebhookListener] Periodic check: Drive service accessible.');
+
+            // Add any other periodic tasks here.
+            // For instance, checking a queue, re-validating connections, etc.
+
+        } catch (error) {
+            console.error(`[CRITICAL ERROR in WebhookListener periodic check] ${error.message}`);
+            console.error("Stack trace for critical error:", error.stack);
+            console.error("[WebhookListener] Exiting script due to critical error in periodic check.");
+            if (mainLoopIntervalId) {
+                clearInterval(mainLoopIntervalId); // Attempt to clear interval before exiting
+            }
+            process.exit(1);
+        }
+    }, 60 * 1000); // 60 * 1000 milliseconds = 1 minute
+}
+
+// Optional: Add a function to gracefully stop the loop if needed from elsewhere
+function stopAmoWebhookListenerLoop() {
+    if (mainLoopIntervalId) {
+        clearInterval(mainLoopIntervalId);
+        mainLoopIntervalId = null;
+        console.log('[WebhookListener] Periodic check loop stopped.');
+    }
 }
 
 module.exports = {
     startAmoWebhookListener,
+    stopAmoWebhookListenerLoop, // Export if you need to control the loop externally
     handleAmoWebhook,
     pushToExcelSheet
 };
