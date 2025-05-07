@@ -7,6 +7,7 @@ const config = require('./config');
 const { startAmoWebhookListener, pushToExcelSheet } = require('./amo2excel'); 
 const { startExcelSheetSync } = require('./excel2amo'); // Assuming this function performs a single sync cycle
 const fsPromises = require('fs').promises; 
+const fetch = require('node-fetch')
 
 function getAuthUrl() {
     return `https://www.amocrm.ru/oauth?client_id=${config.AMO_INTEGRATION_ID}&mode=popup`;
