@@ -12,12 +12,12 @@ if (dotenvResult.error) {
 // General
 const NAMEPROMPT = process.env.NAMEPROMPT || '';
 
-// Google Sheets
-const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
-const GOOGLE_KEY_FILE = path.join(__dirname, 'mycity2_key.json');
-const SPREADSHEET_ID_AMO2GT = process.env.SPREADSHEET_ID_AMO2GT;
-const SPREADSHEET_ID_GT2AMO = process.env.SPREADSHEET_ID_GT2AMO;
-const DEFAULT_SHEET_NAME = process.env.SHEET_NAME || 'Sheet1';
+// Google Drive / API
+const GOOGLE_SCOPES = ['https://www.googleapis.com/auth/drive']; // Scope for Google Drive
+const GOOGLE_KEY_FILE = path.join(__dirname, 'mycity2_key.json'); // Service account key file
+const GOOGLE_DRIVE_FILE_ID_AMO2EXCEL = process.env.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL;
+const GOOGLE_DRIVE_FILE_ID_EXCEL2AMO = process.env.GOOGLE_DRIVE_FILE_ID_EXCEL2AMO;
+const DEFAULT_SHEET_NAME = process.env.SHEET_NAME || 'Sheet1'; // Remains for Excel sheet name within the file
 
 // AMO CRM
 const AMO_DOMAIN = process.env.AMO_DOMAIN;
@@ -50,19 +50,20 @@ const requiredEnvVars = {
     AMO_INTEGRATION_ID,
     AMO_SECRET_KEY,
     AMO_REDIRECT_URI,
+    // GOOGLE_KEY_FILE is implicitly required if Drive IDs are used, checked by fs.existsSync in modules
 };
 
-if (process.env.SPREADSHEET_ID_AMO2GT) {
-    requiredEnvVars.SPREADSHEET_ID_AMO2GT = process.env.SPREADSHEET_ID_AMO2GT;
+if (process.env.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL) {
+    requiredEnvVars.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL = GOOGLE_DRIVE_FILE_ID_AMO2EXCEL;
 }
-if (process.env.SPREADSHEET_ID_GT2AMO) {
-    requiredEnvVars.SPREADSHEET_ID_GT2AMO = process.env.SPREADSHEET_ID_GT2AMO;
+if (process.env.GOOGLE_DRIVE_FILE_ID_EXCEL2AMO) {
+    requiredEnvVars.GOOGLE_DRIVE_FILE_ID_EXCEL2AMO = GOOGLE_DRIVE_FILE_ID_EXCEL2AMO;
 }
 
 let missingVar = false;
 for (const [key, value] of Object.entries(requiredEnvVars)) {
-    if (requiredEnvVars[key] !== undefined && !value) {
-        console.error(`Критическая ошибка: Переменная окружения ${key} не установлена в файле .env, но требуется для активных модулей.`);
+    if (process.env[key] !== undefined && !value) { // Check if it was defined in .env but resolved to falsy
+        console.error(`Критическая ошибка: Переменная окружения ${key} указана в .env, но ее значение не удалось определить или она пуста.`);
         missingVar = true;
     }
 }
@@ -80,8 +81,8 @@ module.exports = {
     NAMEPROMPT,
     GOOGLE_SCOPES,
     GOOGLE_KEY_FILE,
-    SPREADSHEET_ID_AMO2GT,
-    SPREADSHEET_ID_GT2AMO,
+    GOOGLE_DRIVE_FILE_ID_AMO2EXCEL,
+    GOOGLE_DRIVE_FILE_ID_EXCEL2AMO,
     DEFAULT_SHEET_NAME,
     AMO_DOMAIN,
     AMO_INTEGRATION_ID,
@@ -90,5 +91,5 @@ module.exports = {
     AMO_REDIRECT_URI,
     AMO_TOKENS_PATH,
     AMO_API_URL_BASE,
-    AMO_CUSTOM_FIELD_NAMES, // Export the new name mappings
+    AMO_CUSTOM_FIELD_NAMES,
 };

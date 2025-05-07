@@ -79,3 +79,4 @@ whisper_streaming_input.py
 !.env.project
 !.env.vault
 mycity2_key.json
+mempool/*

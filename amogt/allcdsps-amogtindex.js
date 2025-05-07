@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 const path = require('path'); 
-const { google } = require('googleapis');
+// XLSX is still needed by amo2excel.js and excel2amo.js, but not directly here for Drive ops
+// const XLSX = require('xlsx'); 
+const fs = require('fs'); // Used for checking GOOGLE_KEY_FILE existence
 const config = require('./config'); 
-const { startAmoWebhookListener, pushToGoogleSheet } = require('./amo2gtables'); // Import pushToGoogleSheet
-const { startGoogleSheetSync } = require('./gtables2amo');
-const fs = require('fs').promises; 
-
-// dotenv.config is now handled in config.js
-// const TOKENS_PATH = path.join(__dirname, 'amo_tokens.json'); // Now from config.AMO_TOKENS_PATH
+const { startAmoWebhookListener, pushToExcelSheet } = require('./amo2excel'); 
+const { startExcelSheetSync } = require('./excel2amo'); // Assuming this function performs a single sync cycle
+const fsPromises = require('fs').promises; 
 
 function getAuthUrl() {
     return `https://www.amocrm.ru/oauth?client_id=${config.AMO_INTEGRATION_ID}&mode=popup`;
@@ -74,13 +73,13 @@ async function refreshTokens(refreshToken) {
 
 async function saveTokens(tokens) {
     console.log('Saving tokens to:', config.AMO_TOKENS_PATH);
-    await fs.writeFile(config.AMO_TOKENS_PATH, JSON.stringify(tokens, null, 2));
+    await fsPromises.writeFile(config.AMO_TOKENS_PATH, JSON.stringify(tokens, null, 2)); // Changed fs to fsPromises
 }
 
 async function loadTokens() {
     try {
         console.log('Attempting to load tokens from:', config.AMO_TOKENS_PATH);
-        const data = await fs.readFile(config.AMO_TOKENS_PATH, 'utf8');
+        const data = await fsPromises.readFile(config.AMO_TOKENS_PATH, 'utf8'); // Changed fs to fsPromises
         console.log('Tokens loaded successfully.');
         return JSON.parse(data);
     } catch (error) {
@@ -162,47 +161,26 @@ ${amoAuthCodeUsed ? 'Попытка использовать AMO_AUTH_CODE из 
     process.exit(1);
 }
 
-async function checkGoogleCredentials() {
-    // This check is relevant if any module uses Google Sheets API
-    if (!config.SPREADSHEET_ID_GT2AMO && !config.SPREADSHEET_ID_AMO2GT) {
-        console.log('Google Sheets IDs (SPREADSHEET_ID_GT2AMO, SPREADSHEET_ID_AMO2GT) не сконфигурированы в .env, пропускаем проверку Google credentials.');
-        return true; // Allow to proceed if no sheets are configured
-    }
-    try {
-        const auth = new google.auth.GoogleAuth({
-            keyFile: config.GOOGLE_KEY_FILE, // Use from config
-            scopes: config.GOOGLE_SCOPES     // Use from config
-        });
-
-        // Try to initialize the credentials
-        await auth.getClient();
-        console.log('✅ Google credentials подтверждены');
-        return true;
-    } catch (error) {
-        console.error(`
---------------------------------------------------------------------
-ОШИБКА ДОСТУПА К Google Sheets!
-Проверьте файл ${config.GOOGLE_KEY_FILE}:
-1. Убедитесь что файл существует
-2. Проверьте права доступа файла
-3. Проверьте валидность JSON данных
-4. Убедитесь что сервисный аккаунт имеет доступ к таблицам (ID: ${config.SPREADSHEET_ID_GT2AMO || config.SPREADSHEET_ID_AMO2GT || 'не указан'})
---------------------------------------------------------------------
-`);
-        console.error('❌ Ошибка Google credentials:', error.message);
-        process.exit(1);
-    }
-}
-
 async function fetchAndVerifyLeads(accessToken) {
-    console.log('\n--- Проверка последних сделок в AmoCRM и Google Sheet ---');
+    console.log('\n--- Проверка последних сделок в AmoCRM и Excel Sheet на Google Drive ---');
     if (!accessToken) {
         console.error('Нет accessToken для получения сделок AmoCRM.');
         return;
     }
+    if (!config.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL) {
+        console.log('GOOGLE_DRIVE_FILE_ID_AMO2EXCEL не сконфигурирован, пропускаем fetchAndVerifyLeads.');
+        return;
+    }
+    if (!config.DEFAULT_SHEET_NAME) {
+        console.log('DEFAULT_SHEET_NAME не сконфигурирован, пропускаем fetchAndVerifyLeads.');
+        return;
+    }
+     if (!fs.existsSync(config.GOOGLE_KEY_FILE)) {
+        console.log(`Файл ключа Google (${config.GOOGLE_KEY_FILE}) не найден, пропускаем fetchAndVerifyLeads.`);
+        return;
+    }
 
     try {
-        // 1. Fetch latest 5 leads from AmoCRM
         const leadsUrl = `${config.AMO_DOMAIN}/api/v4/leads?limit=5&order[created_at]=desc&with=contacts`;
         console.log(`Fetching leads from: ${leadsUrl}`);
         const amoResponse = await fetch(leadsUrl, {
@@ -222,23 +200,18 @@ async function fetchAndVerifyLeads(accessToken) {
         }
         console.log(`Получено ${leads.length} последних сделок из AmoCRM.`);
 
-        // 2. Authenticate Google Sheets (only if needed)
-        let sheetsService = null;
-        let sheetValues = [];
-        let googleAuthAttempted = false;
-
-        // 3. Process and compare
+        // The logic for reading Excel is now inside pushToExcelSheet, which handles Drive download.
+        // We just iterate through leads and call pushToExcelSheet.
+        // The check for existing deal numbers will happen within pushToExcelSheet after downloading the file.
+        
         for (const lead of leads) {
-            console.log(`\nProcessing Lead ID: ${lead.id} (Name: ${lead.name}, Created: ${new Date(lead.created_at * 1000).toLocaleString()})`);
+            console.log(`\nProcessing Lead ID: ${lead.id} (Name: ${lead.name}, Created: ${new Date(lead.created_at * 1000).toLocaleString()}) for fetchAndVerifyLeads`);
             
             let paymentLinkValue = null;
-            const targetCustomFieldName = "Ссылка на оплату";
+            const targetCustomFieldName = "Ссылка на оплату"; 
 
             if (lead.custom_fields_values && lead.custom_fields_values.length > 0) {
-                console.log("  Custom Fields:");
                 lead.custom_fields_values.forEach(cf => {
-                    const cfValues = cf.values.map(v => v.value).join(', ');
-                    console.log(`    - ${cf.field_name} (ID: ${cf.field_id}): ${cfValues}`);
                     if (cf.field_name === targetCustomFieldName && cf.values.length > 0 && cf.values[0].value) {
                         const tempLink = String(cf.values[0].value).trim();
                         if (tempLink !== '') {
@@ -246,53 +219,20 @@ async function fetchAndVerifyLeads(accessToken) {
                         }
                     }
                 });
-            } else {
-                console.log("  No custom fields for this lead.");
             }
 
             if (!paymentLinkValue) {
-                console.log(`  Пропускаем лид ID ${lead.id}: отсутствует или пустое значение для кастомного поля '${targetCustomFieldName}'.`);
-                continue; // Skip to the next lead
-            }
-
-            // If we reach here, the lead has "Ссылка на оплату". Now check Google Sheet.
-            // Authenticate and read sheet only once if needed
-            if (!googleAuthAttempted) {
-                googleAuthAttempted = true;
-                try {
-                    const googleAuth = new google.auth.GoogleAuth({
-                        keyFile: config.GOOGLE_KEY_FILE,
-                        scopes: config.GOOGLE_SCOPES
-                    });
-                    const authClient = await googleAuth.getClient();
-                    sheetsService = google.sheets({ version: 'v4', auth: authClient });
-
-                    console.log(`Чтение данных из Google Sheet ID: ${config.SPREADSHEET_ID_AMO2GT}, Лист: ${config.DEFAULT_SHEET_NAME}`);
-                    const sheetResponse = await sheetsService.spreadsheets.values.get({
-                        spreadsheetId: config.SPREADSHEET_ID_AMO2GT,
-                        range: `${config.DEFAULT_SHEET_NAME}!A:A`,
-                    });
-                    sheetValues = sheetResponse.data.values ? sheetResponse.data.values.flat() : [];
-                    console.log(`Найдено ${sheetValues.length} записей в столбце A листа ${config.DEFAULT_SHEET_NAME}.`);
-                } catch (sheetError) {
-                    console.error(`Ошибка чтения из Google Sheet (${config.SPREADSHEET_ID_AMO2GT}): ${sheetError.message}`);
-                    console.log("Проверка в Google Sheet будет пропущена для всех последующих подходящих лидов из-за этой ошибки.");
-                    sheetsService = null; // Ensure we don't try to use it if auth/read failed
-                }
+                console.log(`  Пропускаем лид ID ${lead.id} в fetchAndVerifyLeads: отсутствует или пустое значение для '${targetCustomFieldName}'.`);
+                continue; 
             }
             
-            if (sheetsService) { // Proceed only if Google Sheet interaction is possible
-                const leadIdStr = String(lead.id);
-                if (sheetValues.includes(leadIdStr)) {
-                    console.log(`  ✅ Lead ID ${leadIdStr} НАЙДЕН в Google Sheet (${config.SPREADSHEET_ID_AMO2GT}, Лист: ${config.DEFAULT_SHEET_NAME}, столбец A).`);
-                } else {
-                    console.log(`  ❌ Lead ID ${leadIdStr} НЕ НАЙДЕН в Google Sheet (${config.SPREADSHEET_ID_AMO2GT}, Лист: ${config.DEFAULT_SHEET_NAME}, столбец A). Добавляем...`);
-                    // Call pushToGoogleSheet to add the lead
-                    await pushToGoogleSheet(leadIdStr, paymentLinkValue);
-                }
-            }
+            const leadIdStr = String(lead.id);
+            // pushToExcelSheet will handle download, check, append, and upload to Drive.
+            // It will internally log if the lead is found or added.
+            console.log(`  Передача лида ID ${leadIdStr} в pushToExcelSheet для проверки и возможного добавления в Excel на Drive.`);
+            await pushToExcelSheet(leadIdStr, paymentLinkValue); 
         }
-        console.log('--- Проверка завершена ---');
+        console.log('--- Проверка последних сделок (fetchAndVerifyLeads) завершена ---');
 
     } catch (error) {
         console.error('Ошибка в функции fetchAndVerifyLeads:', error.message);
@@ -301,45 +241,65 @@ async function fetchAndVerifyLeads(accessToken) {
 }
 
 async function main() {
-    const [amoTokens] = await Promise.all([ 
-        checkAmoAccess(),
-        checkGoogleCredentials() 
-    ]);
+    console.log(`[main] Initial value of config.DEFAULT_SHEET_NAME: "${config.DEFAULT_SHEET_NAME}"`);
 
-    let currentAccessToken = null;
-    if (amoTokens && amoTokens.access_token) {
-        currentAccessToken = amoTokens.access_token;
-        if (config.SPREADSHEET_ID_AMO2GT) {
-            await fetchAndVerifyLeads(currentAccessToken); 
-        } else {
-            console.log("SPREADSHEET_ID_AMO2GT не сконфигурирован, пропускаем fetchAndVerifyLeads.");
-        }
-    } else {
-        console.error('Не удалось получить AmoCRM OAuth токены, пропуск операций, зависящих от OAuth (например, fetchAndVerifyLeads).');
-    }
+    // The main loop for continuous operation
+    while (true) {
+        console.log(`\n--- Starting new cycle at ${new Date().toISOString()} ---`);
+        let currentAccessToken = null;
 
-    // Start Task: AMO CRM Webhook to Google Sheets (amo2gtables.js)
-    if (config.SPREADSHEET_ID_AMO2GT) {
-        console.log("Запуск слушателя вебхуков AmoCRM (для записи в Google Sheet)...");
-        startAmoWebhookListener(); 
-    } else {
-        console.log("SPREADSHEET_ID_AMO2GT не сконфигурирован, слушатель вебхуков AmoCRM (amo2gtables) не будет запущен.");
-    }
-    
-    // Start Task: Google Sheets to AMO CRM sync (gtables2amo.js)
-    if (config.SPREADSHEET_ID_GT2AMO) { 
-        if (currentAccessToken) {
-            console.log("Запуск синхронизации Google Sheet в AmoCRM (gtables2amo) с использованием OAuth токена...");
-            startGoogleSheetSync(currentAccessToken); 
-        } else if (config.AMO_TOKEN) {
-            console.warn("Запуск синхронизации Google Sheet в AmoCRM (gtables2amo) с использованием AMO_TOKEN из .env (OAuth токен не доступен).");
-            startGoogleSheetSync(null); // Pass null to indicate it should use fallback
-        } else {
-            console.error("SPREADSHEET_ID_GT2AMO сконфигурирован, но нет доступного токена AmoCRM (ни OAuth, ни AMO_TOKEN), синхронизация Google Sheet в AmoCRM (gtables2amo) не будет запущена.");
+        try {
+            // Step 1: Authenticate with AmoCRM and get tokens
+            const amoTokens = await checkAmoAccess(); // This function handles token loading, initial fetch, and refresh. It will exit(1) on auth failure.
+
+            if (amoTokens && amoTokens.access_token) {
+                currentAccessToken = amoTokens.access_token;
+                console.log("AmoCRM access confirmed for this cycle.");
+
+                // Step 2: AmoCRM -> Excel Sync (fetchAndVerifyLeads)
+                if (config.GOOGLE_DRIVE_FILE_ID_AMO2EXCEL && config.DEFAULT_SHEET_NAME && fs.existsSync(config.GOOGLE_KEY_FILE)) {
+                    console.log("Running: AmoCRM -> Excel Sync (fetchAndVerifyLeads)");
+                    await fetchAndVerifyLeads(currentAccessToken);
+                } else {
+                    console.log("Prerequisites for AmoCRM -> Excel Sync (fetchAndVerifyLeads) not met, skipping this part.");
+                }
+            } else {
+                // This case should ideally not be reached if checkAmoAccess exits on failure.
+                // But as a safeguard:
+                console.error('Could not obtain AmoCRM OAuth tokens for this cycle. Skipping API-dependent operations.');
+            }
+
+            // Step 3: Excel -> AmoCRM Sync (excel2amo.js logic)
+            // This part uses currentAccessToken obtained above, or falls back to AMO_TOKEN if configured and OAuth failed.
+            if (config.GOOGLE_DRIVE_FILE_ID_EXCEL2AMO && config.DEFAULT_SHEET_NAME && fs.existsSync(config.GOOGLE_KEY_FILE)) {
+                if (currentAccessToken) {
+                    console.log("Running: Excel -> AmoCRM Sync (excel2amo) with current OAuth token...");
+                    await startExcelSheetSync(currentAccessToken); // IMPORTANT: Assumes startExcelSheetSync performs a single sync operation and returns.
+                } else if (config.AMO_TOKEN) { 
+                    // Fallback if OAuth token wasn't available for some reason but a direct token is.
+                    console.warn("Running: Excel -> AmoCRM Sync (excel2amo) with AMO_TOKEN from .env (OAuth token not available for this part of the cycle)...");
+                    await startExcelSheetSync(null); // Pass null to indicate usage of AMO_TOKEN as per previous logic.
+                } else {
+                    console.error("No AmoCRM token (OAuth or direct) available for Excel -> AmoCRM Sync, skipping this part.");
+                }
+            } else {
+                console.log("Prerequisites for Excel -> AmoCRM Sync (excel2amo) not met, skipping this part.");
+            }
+
+        } catch (error) {
+            // Errors from checkAmoAccess (if it doesn't exit), fetchAndVerifyLeads, or startExcelSheetSync
+            console.error(`Error during operational cycle: ${error.message}`, error.stack);
+            // The loop will continue after the delay, unless checkAmoAccess caused process.exit().
         }
-    } else {
-        console.log("SPREADSHEET_ID_GT2AMO не сконфигурирован, синхронизация Google Sheet в AmoCRM (gtables2amo) не будет запущена.");
+
+        console.log(`--- Cycle finished at ${new Date().toISOString()}. Waiting for 30 seconds before the next cycle. ---`);
+        await new Promise(resolve => setTimeout(resolve, 30000)); // 30-second delay
     }
 }
 
-main().catch((error) => console.error('Main error:', error.message));
+main().catch((error) => {
+    // This catches errors if main itself throws an unhandled exception, 
+    // or if checkAmoAccess calls process.exit, this might not be reached for that specific error.
+    console.error('Critical error in main execution loop:', error.message, error.stack);
+    process.exit(1); // Exit if the main loop itself fails critically
+});

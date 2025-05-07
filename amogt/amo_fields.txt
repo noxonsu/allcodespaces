@@ -1,0 +1,1420 @@
+{
+  "_total_items": 47,
+  "_page": 1,
+  "_page_count": 1,
+  "_links": {
+    "self": {
+      "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields?page=1&limit=250"
+    }
+  },
+  "_embedded": {
+    "custom_fields": [
+      {
+        "id": 188637,
+        "name": "utm_content",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "UTM_CONTENT",
+        "sort": 530,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188637?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188639,
+        "name": "utm_medium",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "UTM_MEDIUM",
+        "sort": 531,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188639?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188641,
+        "name": "utm_campaign",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "UTM_CAMPAIGN",
+        "sort": 532,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188641?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188643,
+        "name": "utm_source",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "UTM_SOURCE",
+        "sort": 533,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188643?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188645,
+        "name": "utm_term",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "UTM_TERM",
+        "sort": 534,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188645?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188647,
+        "name": "utm_referrer",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "UTM_REFERRER",
+        "sort": 535,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188647?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188649,
+        "name": "roistat",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "ROISTAT",
+        "sort": 536,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188649?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188651,
+        "name": "referrer",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "REFERRER",
+        "sort": 537,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188651?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188653,
+        "name": "openstat_service",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "OPENSTAT_SERVICE",
+        "sort": 538,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188653?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188655,
+        "name": "openstat_campaign",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "OPENSTAT_CAMPAIGN",
+        "sort": 539,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188655?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188657,
+        "name": "openstat_ad",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "OPENSTAT_AD",
+        "sort": 540,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188657?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188659,
+        "name": "openstat_source",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "OPENSTAT_SOURCE",
+        "sort": 541,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188659?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188661,
+        "name": "from",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "FROM",
+        "sort": 542,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188661?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188663,
+        "name": "gclientid",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "GCLIENTID",
+        "sort": 543,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188663?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188665,
+        "name": "_ym_uid",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "_YM_UID",
+        "sort": 544,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188665?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188667,
+        "name": "_ym_counter",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "_YM_COUNTER",
+        "sort": 545,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188667?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188669,
+        "name": "gclid",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "GCLID",
+        "sort": 546,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188669?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188671,
+        "name": "yclid",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "YCLID",
+        "sort": 547,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188671?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188673,
+        "name": "fbclid",
+        "type": "tracking_data",
+        "account_id": 31962534,
+        "code": "FBCLID",
+        "sort": 548,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": "statistic",
+        "required_statuses": [],
+        "is_deletable": false,
+        "is_predefined": true,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188673?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188871,
+        "name": "Сумма сделки",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 513,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188871?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188875,
+        "name": "Валюта получения",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 504,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 105747,
+            "value": "RUB",
+            "sort": 500
+          },
+          {
+            "id": 105749,
+            "value": "USD",
+            "sort": 1
+          },
+          {
+            "id": 105751,
+            "value": "EUR",
+            "sort": 2
+          },
+          {
+            "id": 105753,
+            "value": "KZT",
+            "sort": 3
+          },
+          {
+            "id": 105755,
+            "value": "GBP",
+            "sort": 4
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188875?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188877,
+        "name": "Счет прихода",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 514,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 105757,
+            "value": "Счет 1",
+            "sort": 500
+          },
+          {
+            "id": 105759,
+            "value": "Счет 2",
+            "sort": 1
+          },
+          {
+            "id": 105761,
+            "value": "Счет 3",
+            "sort": 2
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188877?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188879,
+        "name": "Сумма запроса",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 502,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188879?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 188929,
+        "name": "Валюта запроса",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 503,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 105781,
+            "value": "USD",
+            "sort": 500
+          },
+          {
+            "id": 105783,
+            "value": "EUR",
+            "sort": 1
+          },
+          {
+            "id": 105785,
+            "value": "KZT",
+            "sort": 2
+          },
+          {
+            "id": 105787,
+            "value": "RUB",
+            "sort": 3
+          },
+          {
+            "id": 105789,
+            "value": "GBP",
+            "sort": 4
+          },
+          {
+            "id": 515825,
+            "value": "TL",
+            "sort": 5
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/188929?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 189087,
+        "name": "Отправленная сумма",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 506,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/189087?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 189089,
+        "name": "Промокод",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 510,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/189089?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 262053,
+        "name": "Комиссия %",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 509,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/262053?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 263413,
+        "name": "##Мы клиенту[count:3][open]",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 501,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/263413?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 263415,
+        "name": "##Клиент нам[count:3]",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 505,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/263415?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 264459,
+        "name": "Курс",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 511,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/264459?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 364695,
+        "name": "Валюта отпр.суммы",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 507,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 211761,
+            "value": "USD",
+            "sort": 500
+          },
+          {
+            "id": 211763,
+            "value": "EUR",
+            "sort": 1
+          },
+          {
+            "id": 211765,
+            "value": "KZT",
+            "sort": 2
+          },
+          {
+            "id": 211767,
+            "value": "RUB",
+            "sort": 3
+          },
+          {
+            "id": 211769,
+            "value": "GBP",
+            "sort": 4
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/364695?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 364747,
+        "name": "Валюта выдачи",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 508,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 211789,
+            "value": "RUB",
+            "sort": 500
+          },
+          {
+            "id": 211791,
+            "value": "USD",
+            "sort": 1
+          },
+          {
+            "id": 211793,
+            "value": "EUR",
+            "sort": 2
+          },
+          {
+            "id": 211795,
+            "value": "KZT",
+            "sort": 3
+          },
+          {
+            "id": 211797,
+            "value": "GBP",
+            "sort": 4
+          },
+          {
+            "id": 515827,
+            "value": "TL",
+            "sort": 5
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/364747?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 793895,
+        "name": "Доплата",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 512,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/793895?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 831109,
+        "name": "Страховка",
+        "type": "checkbox",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 515,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/831109?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 831111,
+        "name": "Размер страховки",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 516,
+        "is_api_only": true,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/831111?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835904,
+        "name": "Номер сделки",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 517,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835904?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835906,
+        "name": "Ссылка на оплату",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 518,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835906?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835908,
+        "name": "Сумма выдана",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 519,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835908?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835910,
+        "name": "Валюта",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 520,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 824268,
+            "value": "USD",
+            "sort": 500
+          },
+          {
+            "id": 824270,
+            "value": "EUR",
+            "sort": 1
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835910?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835912,
+        "name": "Счет списания",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 521,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 824272,
+            "value": "Вариант 1",
+            "sort": 500
+          },
+          {
+            "id": 824274,
+            "value": "Вариант 2",
+            "sort": 1
+          },
+          {
+            "id": 824276,
+            "value": "Mastercard Prepaid",
+            "sort": 2
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835912?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835914,
+        "name": "Дата списания",
+        "type": "date",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 522,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835914?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835916,
+        "name": "Администратор",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 523,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 824278,
+            "value": "Вариант1",
+            "sort": 500
+          },
+          {
+            "id": 824280,
+            "value": "Вариант2",
+            "sort": 1
+          },
+          {
+            "id": 824282,
+            "value": "Бот",
+            "sort": 2
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835916?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835918,
+        "name": "Карта",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 524,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835918?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835920,
+        "name": "Оплаченный сервис",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 525,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835920?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835922,
+        "name": "Почта",
+        "type": "text",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 526,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835922?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835924,
+        "name": "Срок оплаты",
+        "type": "numeric",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 527,
+        "is_api_only": false,
+        "enums": null,
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835924?page=1&limit=250"
+          }
+        }
+      },
+      {
+        "id": 835926,
+        "name": "Статус",
+        "type": "select",
+        "account_id": 31962534,
+        "code": null,
+        "sort": 529,
+        "is_api_only": false,
+        "enums": [
+          {
+            "id": 824284,
+            "value": "Выполнено",
+            "sort": 500
+          },
+          {
+            "id": 824286,
+            "value": "ОШИБКА!",
+            "sort": 1
+          }
+        ],
+        "group_id": null,
+        "required_statuses": [],
+        "is_deletable": true,
+        "is_predefined": false,
+        "entity_type": "leads",
+        "tracking_callback": null,
+        "remind": null,
+        "triggers": [],
+        "currency": null,
+        "hidden_statuses": [],
+        "chained_lists": null,
+        "_links": {
+          "self": {
+            "href": "https://dilersalmar.amocrm.ru/api/v4/leads/custom_fields/835926?page=1&limit=250"
+          }
+        }
+      }
+    ]
+  }
+}
