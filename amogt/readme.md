@@ -24,7 +24,7 @@ npm install axios dotenv xlsx express googleapis # express если исполь
 ### 2. Настройка Google Drive API и Excel Файлов
 Для работы с Excel Таблицами на Google Drive нужны `GOOGLE_DRIVE_FILE_ID_AMO2EXCEL`, `GOOGLE_DRIVE_FILE_ID_EXCEL2AMO`, `SHEET_NAME` и файл ключей сервисного аккаунта `mycity2_key.json`.
 
-#### А. Настройка Google Drive API и получение `mycity2_key.json`
+#### А. Настройка Google Drive API и получение `key.json`
 1.  Перейдите в [Google Cloud Console](https://console.cloud.google.com/).
 2.  Создайте новый проект или выберите существующий.
 3.  Включите **Google Drive API**:
