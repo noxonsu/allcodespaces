@@ -4,7 +4,7 @@ require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/driveutils.php';
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
-$hideSensetiveData = true; // Added to hide sensitive data in logs
+$hideSensetiveData = false; // Added to hide sensitive data in logs
 // Глобальная переменная для хранения определений пользовательских полей AmoCRM
 $amoCustomFieldsDefinitions = null;
 $currentAccessToken = null;
@@ -153,7 +153,8 @@ function updateAmoDeal($dealNumber, $data) {
     logMessage("[AmoDeal] Начало обновления сделки $dealNumber. Данные: " . $dataLog);
 
     // Check cache first using $dealNumber (from Excel)
-    if (in_array(trim((string)$dealNumber), $blockedDealNumbersCache)) {
+    // Skip check for deal number 17243700
+    if ($dealNumber !== '17243700' && in_array(trim((string)$dealNumber), $blockedDealNumbersCache)) {
         logMessage("[AmoDeal] Сделка с номером $dealNumber заблокирована для обновления (найдена в кэше по номеру). Пропускаем API запрос.");
         return false; 
     }
@@ -279,29 +280,45 @@ function updateAmoDeal($dealNumber, $data) {
                 return;
             }
             
+            // Trim sheetValue once at the beginning if it's a string
+            if (is_string($sheetValue)) {
+                $sheetValue = trim($sheetValue);
+            }
+
+            // Universal pre-check for empty values after trimming. Skip silently.
+            if ($sheetValue === null || $sheetValue === '') {
+                return;
+            }
+
+            // Specific handling for currency: convert to uppercase after ensuring it's not empty.
+            if ($internalFieldName === 'currency' && is_string($sheetValue)) {
+                // $sheetValue is already trimmed and confirmed non-empty here.
+                $sheetValue = strtoupper($sheetValue);
+            }
+            
             $fieldId = $fieldDefinition['id'];
-            $valuePayload = ['value' => $sheetValue];
+            // Default payload. $sheetValue is trimmed, non-empty, and uppercased if currency.
+            $valuePayload = ['value' => $sheetValue]; 
             
             if (in_array($fieldDefinition['type'], ['select', 'multiselect', 'radiobutton'])) {
-                if ($sheetValue !== null && trim((string)$sheetValue) !== '') {
-                    $enumFound = false;
-                    if (!empty($fieldDefinition['enums'])) {
-                        foreach ($fieldDefinition['enums'] as $enum) {
-                            if (strtolower(trim((string)$enum['value'])) === strtolower(trim((string)$sheetValue))) {
-                                $valuePayload = ['enum_id' => $enum['id']];
-                                $enumFound = true;
-                                break;
-                            }
+                // $sheetValue is already prepared (trimmed, non-empty, uppercased if currency)
+                $enumFound = false;
+                if (!empty($fieldDefinition['enums'])) {
+                    foreach ($fieldDefinition['enums'] as $enum) {
+                        // Compare consistently (e.g., both lowercased)
+                        if (strtolower((string)$enum['value']) === strtolower((string)$sheetValue)) {
+                            $valuePayload = ['enum_id' => $enum['id']];
+                            $enumFound = true;
+                            break;
                         }
                     }
-                    if (!$enumFound) {
-                        logMessage("[AmoDeal] Предупреждение: не найдено enum для поля \"$amoFieldName\" (ID: $fieldId) значение \"$sheetValue\" для сделки $dealNumber. Пропускаем.");
-                        return;
-                    }
-                } else {
+                }
+                if (!$enumFound) {
+                    logMessage("[AmoDeal] Предупреждение: не найдено enum для поля \"$amoFieldName\" (ID: $fieldId) значение \"$sheetValue\" для сделки $dealNumber. Пропускаем.");
                     return;
                 }
             } elseif ($fieldDefinition['type'] === 'date' || $internalFieldName === 'withdrawal_date') {
+                // $sheetValue is already trimmed and non-empty.
                 $timestampValue = null;
                 if (is_string($sheetValue) && !preg_match('/^\d+$/', $sheetValue)) {
                     $parsedDate = strtotime($sheetValue);
@@ -313,14 +330,16 @@ function updateAmoDeal($dealNumber, $data) {
                 }
                 
                 if ($timestampValue === null) {
-                    logMessage("[AmoDeal] Предупреждение: недопустимая дата для \"$amoFieldName\" для сделки $dealNumber. Пропускаем.");
+                    logMessage("[AmoDeal] Предупреждение: недопустимая дата \"$sheetValue\" для \"$amoFieldName\" для сделки $dealNumber. Пропускаем.");
                     return;
                 }
                 $valuePayload = ['value' => $timestampValue];
-            } elseif ($fieldDefinition['type'] === 'numeric' || $internalFieldName === 'amount_issued') {
-                $numValue = null; // Initialize as null
+            } elseif ($fieldDefinition['type'] === 'numeric' || $internalFieldName === 'amount_issued' || ($internalFieldName === 'card' && $fieldDefinition['type'] === 'numeric')) {
+                // $sheetValue is already trimmed and non-empty.
+                // This block handles 'amount_issued' and 'card' if its Amo field type is 'numeric'.
+                $numValue = null; 
                 if (is_string($sheetValue)) {
-                    $cleanedString = str_replace(',', '.', trim($sheetValue));
+                    $cleanedString = str_replace(',', '.', $sheetValue); 
                     if (is_numeric($cleanedString)) {
                         $numValue = (float)$cleanedString;
                     }
@@ -328,25 +347,26 @@ function updateAmoDeal($dealNumber, $data) {
                     $numValue = (float)$sheetValue;
                 }
                 
-                // Check if conversion resulted in a valid float, or if it's NaN
                 if ($numValue === null || is_nan($numValue)) {
+                    // This warning now only triggers for *actually* non-numeric, non-empty strings.
                     logMessage("[AmoDeal] Предупреждение: не числовое значение \"$sheetValue\" для \"$amoFieldName\" для сделки $dealNumber. Пропускаем.");
                     return;
                 }
                 $valuePayload = ['value' => $numValue];
-            } elseif ($sheetValue === null || trim((string)$sheetValue) === '') {
-                return;
-            }
+            } 
+            // The initial check `($sheetValue === null || $sheetValue === '')` handles general empty cases.
+            // If field type is text and not 'currency', it uses the default $valuePayload with trimmed, non-empty $sheetValue.
             
-            if (array_key_exists('value', $valuePayload) && 
-                ($valuePayload['value'] === null || $valuePayload['value'] === '' || trim((string)$valuePayload['value']) === '') && 
-                $valuePayload['value'] !== 0) {
-                return;
-            }
+            // Redundant checks for empty payload values are removed as the top check handles it.
+            // if (array_key_exists('value', $valuePayload) && 
+            //     ($valuePayload['value'] === null || (is_string($valuePayload['value']) && trim($valuePayload['value']) === '')) && 
+            //     $valuePayload['value'] !== 0 && $valuePayload['value'] !== 0.0) {
+            //     return;
+            // }
             
-            if (array_key_exists('enum_id', $valuePayload) && $valuePayload['enum_id'] === null) {
-                return;
-            }
+            // if (array_key_exists('enum_id', $valuePayload) && $valuePayload['enum_id'] === null) {
+            //     return;
+            // }
             
             $customFieldsPayload[] = ['field_id' => $fieldId, 'values' => [$valuePayload]];
         };
