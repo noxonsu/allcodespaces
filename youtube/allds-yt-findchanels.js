@@ -39,7 +39,7 @@ const SHORTS_THRESHOLD = parseFloat(process.env.SHORTS_THRESHOLD) || 0.7; // Е�
 const VIDEOS_TO_CHECK_FOR_FILTERS = parseInt(process.env.VIDEOS_TO_CHECK_FOR_FILTERS) || 10; // Количество последних видео для проверки
 
 // --- Новая переменная для пропуска анализа видео ---
-const SKIP_VIDEO_ANALYSIS = process.env.SKIP_VIDEO_ANALYSIS === 'true';
+const SKIP_VIDEO_ANALYSIS = process.env.SKIP_VIDEO_ANALYSIS === 'false' ? false : true;
 // --- Конец новой переменной ---
 
 // --- Новые переменные для WhatsApp ---
@@ -47,8 +47,8 @@ const EXTRACT_WHATSAPP_NUMBERS = process.env.EXTRACT_WHATSAPP_NUMBERS === 'true'
 const WHATSAPP_COLUMN_NAME = process.env.WHATSAPP_COLUMN_NAME || "Телефон";
 // --- Конец новых переменных для WhatsApp ---
 
-// Файл для хранения ID уже проанализированных каналов
-const ANALYZED_CHANNELS_FILE = 'analysed.txt';
+// Файл для хранения ID уже проанализированных каналов - ТЕПЕРЬ БУДЕТ ДИНАМИЧЕСКИМ
+// const ANALYZED_CHANNELS_FILE = 'analysed.txt'; // Удаляем или комментируем эту строку
 let previouslyAnalyzedChannelIds = new Set();
 
 // Регулярное выражение для поиска ссылок Telegram
@@ -74,6 +74,12 @@ const SHEET_HEADERS_SUFFIX = [
 // with SHEET_HEADERS_SUFFIX to form the final list of headers.
 const SHEET_HEADERS = SHEET_HEADERS_BASE.concat(SHEET_HEADERS_SUFFIX);
 
+// Новая функция для генерации имени файла analysed.txt на основе запроса
+function getAnalyzedChannelsFilePath(query) {
+    // Простое преобразование: нижний регистр, замена пробелов на подчеркивания, удаление не-буквенно-цифровых символов (кроме _)
+    const sanitizedQuery = query.toLowerCase();
+    return `analysed_${sanitizedQuery || 'default'}.txt`;
+}
 
 function extractTelegramLinks(text) {
     if (!text) return [];
@@ -341,7 +347,7 @@ function loadPreviouslyAnalyzedIds(filePath) {
         previouslyAnalyzedChannelIds = new Set(ids);
         console.log(`Загружено ${previouslyAnalyzedChannelIds.size} ID ранее проанализированных каналов из ${filePath}`);
     } else {
-        console.log(`Файл ${filePath} не найден. Список ранее проанализированных каналов пуст.`);
+        console.log(`Файл ${filePath} не найден. Список ранее проанализированных каналов для текущего запроса пуст.`);
     }
 }
 
@@ -353,6 +359,20 @@ function saveAnalyzedChannelId(channelId, filePath) {
     }
 }
 
+async function isDuplicateInSheet(sheets, spreadsheetId, sheetTitle, channelUrl) {
+    try {
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: `${sheetTitle}!B:B`, // Assuming column B contains channel URLs
+        });
+        const existingUrls = response.data.values?.flat() || [];
+        return existingUrls.includes(channelUrl);
+    } catch (error) {
+        console.error(`Ошибка при проверке дубликатов в листе "${sheetTitle}":`, error.message);
+        return false; // Assume no duplicate if an error occurs
+    }
+}
+
 async function findChannelsAndTelegramLinks() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const logFile = `youtube_channels_${timestamp}.txt`;
@@ -361,7 +381,11 @@ async function findChannelsAndTelegramLinks() {
         fs.appendFileSync(logFile, text + '\n');
     };
 
+    // Определяем имя файла analysed.txt для текущего запроса
+    const currentAnalyzedChannelsFile = getAnalyzedChannelsFilePath(SEARCH_QUERY);
+
     writeLog(`--- Начало скрипта ---`);
+    writeLog(`Используемый файл для проанализированных ID: ${currentAnalyzedChannelsFile}`);
     writeLog(`Конфигурация SKIP_VIDEO_ANALYSIS: ${SKIP_VIDEO_ANALYSIS} (true = пропускать анализ видео)`);
     writeLog(`Конфигурация EXTRACT_WHATSAPP_NUMBERS: ${EXTRACT_WHATSAPP_NUMBERS}`);
     writeLog(`Конфигурация MIN_SUBSCRIBER_COUNT: ${MIN_SUBSCRIBER_COUNT}`);
@@ -372,7 +396,7 @@ async function findChannelsAndTelegramLinks() {
     writeLog(`Конфигурация TARGET_LANGUAGE: ${TARGET_LANGUAGE}`);
 
 
-    loadPreviouslyAnalyzedIds(ANALYZED_CHANNELS_FILE);
+    loadPreviouslyAnalyzedIds(currentAnalyzedChannelsFile);
 
     if (!API_KEY) {
         console.error("Ошибка: API ключ не найден в .env файле");
@@ -406,6 +430,7 @@ async function findChannelsAndTelegramLinks() {
     let estimatedQuotaUsed = 0;
     let channelsWithTelegram = 0;
     let totalChannelsProcessedDetailed = 0; // Каналов, прошедших детальную обработку (новые)
+    let channelsAttemptedVideoAnalysis = 0; // Новый счетчик
 
     try {
         // 1. Поиск каналов напрямую
@@ -512,7 +537,7 @@ async function findChannelsAndTelegramLinks() {
                 // Фильтр 1: Язык канала
                 if (!await isTargetLanguageChannel(channel)) {
                     writeLog(`\nПропущен канал не на целевом языке (${TARGET_LANGUAGE}): ${channel.snippet.title} (ID: ${channel.id})`);
-                    saveAnalyzedChannelId(channel.id, ANALYZED_CHANNELS_FILE);
+                    saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                     continue;
                 }
 
@@ -520,7 +545,7 @@ async function findChannelsAndTelegramLinks() {
                 const subscriberCount = parseInt(channel.statistics?.subscriberCount || 0);
                 if (subscriberCount < MIN_SUBSCRIBER_COUNT || subscriberCount > MAX_SUBSCRIBER_COUNT) {
                     writeLog(`\nПропущен канал по количеству подписчиков (${subscriberCount}): ${channel.snippet.title} (ID: ${channel.id}). Требования: ${MIN_SUBSCRIBER_COUNT}-${MAX_SUBSCRIBER_COUNT === Infinity ? 'Infinity' : MAX_SUBSCRIBER_COUNT}`);
-                    saveAnalyzedChannelId(channel.id, ANALYZED_CHANNELS_FILE);
+                    saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                     continue;
                 }
                 
@@ -548,24 +573,25 @@ async function findChannelsAndTelegramLinks() {
                     avgDurationStr = 'Н/Д (анализ пропущен)';
                 } else {
                     // Фильтр 3, 4, 5: Шортсы, возраст видео, длительность видео
+                    channelsAttemptedVideoAnalysis++; // Увеличиваем счетчик здесь
                     videoCriteria = await checkChannelVideosCriteria(channel.id);
                     estimatedQuotaUsed += videoCriteria.estimatedQuotaUsed;
 
                     if (videoCriteria.isLikelyShortsChannel && SHORTS_THRESHOLD > 0 && SHORTS_THRESHOLD <=1) { 
                         writeLog(`\nПропущен шортс-канал: ${channel.snippet.title} (ID: ${channel.id})`);
-                        saveAnalyzedChannelId(channel.id, ANALYZED_CHANNELS_FILE);
+                        saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                         continue;
                     }
 
                     if (MAX_VIDEO_AGE_DAYS > 0 && !videoCriteria.meetsVideoAgeCriteria) {
                         writeLog(`\nПропущен канал из-за отсутствия недавних видео (старше ${MAX_VIDEO_AGE_DAYS} дней): ${channel.snippet.title} (ID: ${channel.id})`);
-                        saveAnalyzedChannelId(channel.id, ANALYZED_CHANNELS_FILE);
+                        saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                         continue;
                     }
 
                     if (MIN_VIDEO_DURATION_MINUTES > 0 && !videoCriteria.meetsVideoDurationCriteria) {
                         writeLog(`\nПропущен канал из-за отсутствия длинных видео (короче ${MIN_VIDEO_DURATION_MINUTES} мин): ${channel.snippet.title} (ID: ${channel.id})`);
-                        saveAnalyzedChannelId(channel.id, ANALYZED_CHANNELS_FILE);
+                        saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                         continue;
                     }
                     shortsPercStr = `${(videoCriteria.shortsPercentage * 100).toFixed(0)}% из ${videoCriteria.videosCheckedCount} видео`;
@@ -623,34 +649,41 @@ async function findChannelsAndTelegramLinks() {
                     writeLog('=====================================');
 
                     if (sheetsClient && SPREADSHEET_ID) {
-                        const dataRowBase = [
-                            channelTitle,
-                            channelUrl,
-                            subscriberCount,
-                            channelDescription,
-                            tgLinksStr,
-                        ];
-                        
-                        let dataRow = [...dataRowBase];
+                        const channelUrl = `https://www.youtube.com/channel/${channel.id}`;
+                        const isDuplicate = await isDuplicateInSheet(sheetsClient, SPREADSHEET_ID, sheetTitle, channelUrl);
 
-                        if (EXTRACT_WHATSAPP_NUMBERS) {
-                            dataRow.push(whatsAppNumbersStr);
+                        if (isDuplicate) {
+                            writeLog(`Дубль: Канал уже существует в таблице. Пропущен: ${channel.snippet.title} (URL: ${channelUrl})`);
+                        } else {
+                            const dataRowBase = [
+                                channelTitle,
+                                channelUrl,
+                                subscriberCount,
+                                channelDescription,
+                                tgLinksStr,
+                            ];
+
+                            let dataRow = [...dataRowBase];
+
+                            if (EXTRACT_WHATSAPP_NUMBERS) {
+                                dataRow.push(whatsAppNumbersStr);
+                            }
+
+                            const dataRowSuffix = [
+                                dateAdded,
+                                shortsPercStr, // Uses pre-calculated shortsPercStr
+                                videoCriteria.videoFrequencyStr, // Uses value from actual or default videoCriteria
+                                avgDurationStr, // Uses pre-calculated avgDurationStr
+                                statusMessage, // Статус
+                            ];
+                            dataRow = dataRow.concat(dataRowSuffix);
+
+                            await appendDataToSheet(sheetsClient, SPREADSHEET_ID, sheetTitle, dataRow);
                         }
-
-                        const dataRowSuffix = [
-                            dateAdded,
-                            shortsPercStr, // Uses pre-calculated shortsPercStr
-                            videoCriteria.videoFrequencyStr, // Uses value from actual or default videoCriteria
-                            avgDurationStr, // Uses pre-calculated avgDurationStr
-                            statusMessage, // Статус
-                        ];
-                        dataRow = dataRow.concat(dataRowSuffix);
-                        
-                        await appendDataToSheet(sheetsClient, SPREADSHEET_ID, sheetTitle, dataRow);
                     }
                 }
                 // Сохраняем ID канала как проанализированный, даже если не было ссылок на Telegram, но он прошел все фильтры
-                saveAnalyzedChannelId(channel.id, ANALYZED_CHANNELS_FILE);
+                saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
             }
 
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -660,10 +693,29 @@ async function findChannelsAndTelegramLinks() {
         writeLog(`\n=== Итоги ===`);
         writeLog(`Всего найдено каналов API поиска: ${totalResultsFromSearchAPI} (просмотрено ${totalChannelsFetchedFromSearchAPI} результатов)`);
         writeLog(`Собрано НОВЫХ уникальных ID из поиска для детального анализа: ${newChannelIdsToAnalyzeSet.size}`);
-        writeLog(`Прошло детальный анализ (новые каналы, обработанные в этом запуске): ${totalChannelsProcessedDetailed} из ${newChannelIdsToAnalyzeSet.size}`);
+        writeLog(`Обработано новых каналов (получены детали, применены фильтры): ${totalChannelsProcessedDetailed} из ${newChannelIdsToAnalyzeSet.size}`);
+        
+        if (SKIP_VIDEO_ANALYSIS) {
+            writeLog(`Анализ видео был пропущен для всех каналов согласно конфигурации.`);
+        } else {
+            writeLog(`Выполнен анализ видео для ${channelsAttemptedVideoAnalysis} каналов (прошедших предварительные фильтры).`);
+        }
+        
         writeLog(`Каналов с Telegram ссылками (после всех фильтров, из новых): ${channelsWithTelegram}`);
         writeLog(`Статус поиска API: ${searchComplete ? 'Обработаны все доступные по API каналы' : 'Достигнут установленный лимит MAX_CHANNELS_TO_PROCESS для НОВЫХ каналов или поиск остановлен ранее'}`);
-        writeLog(`Использовано единиц квоты: ~${estimatedQuotaUsed}`);
+        
+        // Детализация квоты
+        let quotaBreakdown = `Оценка использования квоты (~${estimatedQuotaUsed} единиц):\n`;
+        quotaBreakdown += `  - Поиск каналов (youtube.search.list): ${searchApiPagesFetched} стр. * 100 = ${searchApiPagesFetched * 100}\n`;
+        const channelDetailBatches = Math.ceil(channelIdsToProcessArray.length / MAX_RESULTS_PER_PAGE);
+        quotaBreakdown += `  - Получение деталей каналов (youtube.channels.list): ${channelDetailBatches} пакет(ов) * 1 = ${channelDetailBatches * 1}\n`;
+        if (!SKIP_VIDEO_ANALYSIS && channelsAttemptedVideoAnalysis > 0) {
+            const videoAnalysisQuota = channelsAttemptedVideoAnalysis * 101; // Примерно 100 (search) + 1 (videos.list)
+            quotaBreakdown += `  - Анализ видео (youtube.search.list + youtube.videos.list): ${channelsAttemptedVideoAnalysis} каналов * ~101 = ~${videoAnalysisQuota}\n`;
+        } else if (SKIP_VIDEO_ANALYSIS) {
+            quotaBreakdown += `  - Анализ видео: пропущен (0 единиц)\n`;
+        }
+        writeLog(quotaBreakdown.trim());
         
         console.log(`\nРезультаты сохранены в файл: ${logFile}`);
 
