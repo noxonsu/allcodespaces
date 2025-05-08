@@ -32,7 +32,7 @@ const {
     setModel,
     callLLM,
     transcribeAudio,
-    loadUserData,
+    loadUserData, // Ensure loadUserData provides lastMessageTimestamp, defaulting to null
     saveUserData,
     getUserMessageCount
 } = require('./openai');
@@ -111,6 +111,42 @@ if (process.env.MODEL) setModel(process.env.MODEL);
 
 // --- Helper Functions ---
 
+async function handleNewDayLogicAndUpdateTimestamp(chatId) {
+    const userData = loadUserData(chatId); // Load fresh data each time
+    const now = new Date();
+    const lastMsgDateObj = userData.lastMessageTimestamp ? new Date(userData.lastMessageTimestamp) : null;
+    let isNewDay = false;
+    let newDayPrefixForLLM = "";
+
+    if (!lastMsgDateObj) {
+        // First message ever, or first since timestamp tracking began. Consider it a "new day" for context.
+        isNewDay = true;
+    } else {
+        // Compare dates in UTC
+        const lastDayUTC = new Date(lastMsgDateObj.getUTCFullYear(), lastMsgDateObj.getUTCMonth(), lastMsgDateObj.getUTCDate());
+        const currentDayUTC = new Date(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+
+        if (currentDayUTC.getTime() > lastDayUTC.getTime()) {
+            isNewDay = true;
+        }
+    }
+
+    // Update timestamp for this current interaction, regardless of new day status
+    userData.lastMessageTimestamp = now.getTime();
+    saveUserData(chatId, userData);
+
+    if (isNewDay) {
+        try {
+            await bot.sendMessage(chatId, "Настал новый день.");
+            logChat(chatId, { type: 'system_message', event: 'new_day_notification_sent', timestamp: now.toISOString() }, 'system');
+        } catch (error) {
+            console.error(`[New Day Logic ${chatId}] Error sending new day message:`, error);
+        }
+        newDayPrefixForLLM = "Настал новый день. "; // This prefix will be added to the LLM prompt
+    }
+    return newDayPrefixForLLM;
+}
+
 async function checkPaymentStatusAndPrompt(chatId) {
     const userData = loadUserData(chatId);
     if (userData.isPaid) {
@@ -130,14 +166,14 @@ async function checkPaymentStatusAndPrompt(chatId) {
             .replace('{NAMEPROMPT}', NAMEPROMPT)
             .replace('{chatid}', chatId.toString());
 
-        const messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ.`);
+        const messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ. Подсчет КБЖУ это 100% способ стать здоровее и улучшить свою или жизнь ребенка. Продолжим? 👍`);
         
         try {
             await bot.sendMessage(chatId, messageText, {
                 parse_mode: 'MarkdownV2',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: "Купить", url: paymentUrl }]
+                        [{ text: "Оплатить доступ", url: paymentUrl }]
                     ]
                 }
             });
@@ -379,11 +415,18 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 languageCode: msg.from?.language_code || null,
                 longMemory: '',
                 lastLongMemoryUpdate: 0,
-                isPaid: userData.isPaid || false, // Preserve isPaid status if user existed before
-                providedName: userData.providedName || null, // Preserve providedName
-                lastRestartTime: new Date().toISOString()
+                isPaid: userData.isPaid || false, 
+                providedName: userData.providedName || null, 
+                lastRestartTime: new Date().toISOString(),
+                lastMessageTimestamp: null // Initialize lastMessageTimestamp
             };
             console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
+        } else {
+            // Ensure existing users have this field, defaulting if not.
+            // loadUserData should ideally handle this default.
+            if (userData.lastMessageTimestamp === undefined) {
+                userData.lastMessageTimestamp = null;
+            }
         }
 
         fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
@@ -441,12 +484,13 @@ bot.on('message', async (msg) => {
     }
 
     try {
-        console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}`);
+        const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
+        console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}. NewDayPrefix: "${newDayPrefix}"`);
 
         // Handle activation code input
         if (ACTIVATION_CODE && userText.startsWith('KEY-')) {
             if (userText === ACTIVATION_CODE) {
-                const userData = loadUserData(chatId);
+                const userData = loadUserData(chatId); // Reload data as it might have been updated by handleNewDayLogic
                 userData.isPaid = true;
                 saveUserData(chatId, userData);
                 await bot.sendMessage(chatId, escapeMarkdown("Activation successful! You can now use the bot without limits."), { parse_mode: 'MarkdownV2' });
@@ -501,15 +545,17 @@ bot.on('message', async (msg) => {
                 console.error(`[Сообщение ${chatId}] Не удалось обновить данные пользователя с именем:`, err);
             }
 
+            const llmInputTextForName = newDayPrefix + `Пользователь только что сказал мне, что его зовут "${userText}". Подтверди это и продолжи разговор естественно.`;
             const assistantResponse = await callLLM(chatId, [{
                 type: 'input_text',
-                text: `Пользователь только что сказал мне, что его зовут "${userText}". Подтверди это и продолжи разговор естественно.`
+                text: llmInputTextForName
             }]);
             await sendAndLogResponse(chatId, assistantResponse);
             return;
         }
 
-        const userMessageContent = [{ type: 'input_text', text: userText }];
+        const llmInputTextRegular = newDayPrefix + userText;
+        const userMessageContent = [{ type: 'input_text', text: llmInputTextRegular }];
         const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
@@ -533,6 +579,9 @@ bot.on('photo', async (msg) => {
     }
 
     try {
+        const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
+        console.info(`[Фото ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
+
         const canProceed = await checkPaymentStatusAndPrompt(chatId);
         if (!canProceed) {
             return;
@@ -556,6 +605,20 @@ bot.on('photo', async (msg) => {
             console.error(`[Фото ${chatId}] Пустой результат обработки фото`);
             throw new Error("Ошибка обработки изображения: пустой результат");
         }
+
+        if (newDayPrefix) {
+            let textPartFound = false;
+            for (const part of userMessageContent) {
+                if (part.type === 'input_text') {
+                    part.text = newDayPrefix + (part.text || "");
+                    textPartFound = true;
+                    break;
+                }
+            }
+            if (!textPartFound) {
+                userMessageContent.unshift({ type: 'input_text', text: newDayPrefix.trim() });
+            }
+        }
         
         console.info(`[Фото ${chatId}] Вызываем OpenAI с моделью gpt-4-vision-preview`);
         const assistantText = await callLLM(chatId, userMessageContent);
@@ -578,6 +641,9 @@ bot.on('voice', async (msg) => {
     if (!validateChatId(chatId)) return;
 
     try {
+        const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
+        console.info(`[Голос ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
+
         const canProceed = await checkPaymentStatusAndPrompt(chatId);
         if (!canProceed) {
             return;
@@ -594,6 +660,15 @@ bot.on('voice', async (msg) => {
         console.info(`[Голос ${chatId}] Получено голосовое сообщение.`);
         await bot.sendChatAction(chatId, 'typing');
         const userMessageContent = await processVoice(msg);
+
+        if (newDayPrefix) {
+            if (userMessageContent.length > 0 && userMessageContent[0].type === 'input_text') {
+                userMessageContent[0].text = newDayPrefix + (userMessageContent[0].text || "");
+            } else { // Fallback if processVoice structure changes or is empty
+                userMessageContent.unshift({ type: 'input_text', text: newDayPrefix.trim() });
+            }
+        }
+
         const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
