@@ -510,7 +510,7 @@ bot.on('message', async (msg) => {
         await bot.sendChatAction(chatId, 'typing');
 
         const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
-        if (!fs.exists(userDataPath)) {
+        if (!fs.existsSync(userDataPath)) {  // Changed from fs.exists to fs.existsSync
             console.info(`[Message ${chatId}] User data file not found. Prompting /start.`);
             await bot.sendMessage(chatId, 'Please use the /start command to begin.');
             logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata' }, 'system');
