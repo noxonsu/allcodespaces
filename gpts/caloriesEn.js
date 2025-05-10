@@ -451,10 +451,10 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }, 'system');
 
         if (isNewUser) {
-            await bot.sendMessage(chatId, 'Добро пожаловать! Как вас зовут?');
+            await bot.sendMessage(chatId, 'Welcome! What is your name?');
             logChat(chatId, { type: 'system_message', text: 'Запрошено имя пользователя' }, 'system');
         } else {
-            await bot.sendMessage(chatId, 'С возвращением! Чем могу помочь сегодня?');
+            await bot.sendMessage(chatId, 'Welcome back!');
             logChat(chatId, { type: 'system_message', text: 'Отправлено приветствие "С возвращением"' }, 'system');
         }
     } catch (error) {
