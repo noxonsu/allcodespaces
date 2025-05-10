@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Log NAMEPROMPT early to see what .env file will be targeted
-const NAMEPROMPT_FROM_ENV = process.env.NAMEPROMPT || 'calories';
+const NAMEPROMPT_FROM_ENV = process.env.NAMEPROMPT || 'caloriesEn';
 console.log(`[Debug] NAMEPROMPT for .env file: ${NAMEPROMPT_FROM_ENV}`);
 const envFilePath = path.join(__dirname, `.env.${NAMEPROMPT_FROM_ENV}`);
 console.log(`[Debug] Attempting to load .env file from: ${envFilePath}`);
