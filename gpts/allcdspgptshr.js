@@ -21,9 +21,6 @@ const {
     sanitizeString,
     validateChatId,
     logChat,
-    validateImageResponse,
-    validateMimeTypeImg,
-    validateMimeTypeAudio
 } = require('./utilities');
 const {
     setSystemMessage,
@@ -31,7 +28,6 @@ const {
     setDeepSeekKey,
     setModel,
     callLLM,
-    transcribeAudio,
     loadUserData, // Ensure loadUserData provides lastMessageTimestamp, defaulting to null
     saveUserData,
     getUserMessageCount
@@ -239,136 +235,6 @@ async function sendErrorMessage(chatId, specificErrorMsg, context = 'обраб�
     }
 }
 
-// --- Message Processors ---
-
-async function processVoice(msg) {
-    const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в голосовом сообщении');
-
-    const caption = msg.caption ? sanitizeString(msg.caption) : '';
-    const voice = msg.voice;
-    if (!voice || !voice.file_id) throw new Error('Некорректные данные голосового сообщения');
-
-    console.info(`[Голос ${chatId}] Обработка голосового сообщения.`);
-    const file = await bot.getFile(voice.file_id);
-    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файло от Telegram');
-
-    const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
-    const mimeType = voice.mime_type;
-
-    if (!mimeType || !validateMimeTypeAudio(mimeType)) {
-        console.warn(`[Голос ${chatId}] Некорректный MIME тип аудио: ${mimeType}`);
-        throw new Error(`Неподдерживаемый формат аудио: ${mimeType || 'Unknown'}. Используйте MP3, OGG, WAV, M4A.`);
-    }
-
-    console.info(`[Голос ${chatId}] Транскрибация аудио с ${fileUrl} (MIME: ${mimeType})`);
-    const transcribedText = await transcribeAudio(fileUrl, 'ru');
-
-    const userMessageContent = [];
-    if (caption) userMessageContent.push({ type: 'input_text', text: caption });
-    userMessageContent.push({ type: 'input_text', text: transcribedText });
-
-    logChat(chatId, {
-        type: 'voice_received',
-        mimeType: mimeType,
-        duration: voice.duration,
-        fileSize: voice.file_size,
-        hasCaption: Boolean(caption),
-        transcribedTextLength: transcribedText.length,
-        timestamp: new Date(msg.date * 1000).toISOString()
-    }, 'event');
-
-    return userMessageContent;
-}
-
-async function processPhoto(msg) {
-    const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в фото сообщении');
-
-    console.info(`[Фото ${chatId}] Начало обработки фото сообщения.`);
-    
-    const caption = msg.caption ? sanitizeString(msg.caption) : '';
-    console.debug(`[Фото ${chatId}] Caption после санитизации: "${caption}"`);
-    
-    const photo = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1] : null;
-    if (!photo || !photo.file_id) {
-        console.error(`[Фото ${chatId}] Некорректные данные фото:`, JSON.stringify(msg.photo));
-        throw new Error('Некорректные данные фото в сообщении');
-    }
-    console.debug(`[Фото ${chatId}] Размер фото: ${photo.width}x${photo.height}, file_id: ${photo.file_id}`);
-
-    console.info(`[Фото ${chatId}] Получение информации о файле от Telegram API`);
-    const file = await bot.getFile(photo.file_id);
-    if (!file || !file.file_path) {
-        console.error(`[Фото ${chatId}] Не удалось получить файл:`, JSON.stringify(file));
-        throw new Error('Не удалось получить информацию о файле от Telegram');
-    }
-    console.debug(`[Фото ${chatId}] Получен путь к файлу: ${file.file_path}`);
-
-    const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
-    const fileExtension = path.extname(file.file_path).toLowerCase();
-    console.debug(`[Фото ${chatId}] Расширение файла: ${fileExtension}`);
-    
-    const mimeType = {
-        '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
-        '.gif': 'image/gif', '.webp': 'image/webp', '.bmp': 'image/bmp'
-    }[fileExtension];
-
-    if (!mimeType || !validateMimeTypeImg(mimeType)) {
-        console.warn(`[Фото ${chatId}] Неподдерживаемый тип изображения: ${fileExtension}`);
-        throw new Error(`Неподдерживаемый формат изображения (${fileExtension || 'Unknown'}). Используйте JPEG, PNG, GIF, WEBP, BMP.`);
-    }
-    console.debug(`[Фото ${chatId}] MIME тип: ${mimeType}`);
-
-    console.info(`[Фото ${chatId}] Загрузка изображения с ${fileUrl}`);
-    try {
-        const imageResponse = await axios.get(fileUrl, {
-            responseType: 'arraybuffer',
-            timeout: 30000,
-            maxContentLength: 15 * 1024 * 1024
-        });
-        
-        console.debug(`[Фото ${chatId}] Изображение загружено, размер: ${imageResponse.data.length} байт`);
-        validateImageResponse(imageResponse, 10 * 1024 * 1024);
-        
-        const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
-        // Не логируем содержимое base64, только его длину
-        console.debug(`[Фото ${chatId}] Изображение конвертировано в base64, длина: ${imageBase64.length} символов`);
-        
-        const imageUrl = `data:${mimeType};base64,${imageBase64}`;
-        if (imageUrl.length > 20 * 1024 * 1024 * 0.75) {
-            console.error(`[Фото ${chatId}] Изображение слишком большое после кодирования: ${imageUrl.length} байт`);
-            throw new Error('Закодированные данные изображения слишком велики.');
-        }
-
-        const userMessageContent = [];
-        if (caption) userMessageContent.push({ type: 'input_text', text: caption });
-        userMessageContent.push({ type: 'input_image', image_url: imageUrl });
-        
-        console.info(`[Фото ${chatId}] Подготовлено сообщение с ${userMessageContent.length} частями (текст: ${caption ? 'да' : 'нет'}, изображение: да)`);
-        // Модифицируем вывод структуры, чтобы избежать логирования base64
-        console.debug(`[Фото ${chatId}] Структура сообщения:`, JSON.stringify(userMessageContent.map(c => ({ 
-            type: c.type, 
-            hasContent: c.type === 'input_image' ? 'yes (data:image/... base64 data)' : (c.text ? 'yes' : 'no') 
-        }))));
-
-        logChat(chatId, {
-            type: 'photo_received',
-            mimeType: mimeType,
-            fileSize: photo.file_size,
-            width: photo.width,
-            height: photo.height,
-            hasCaption: Boolean(caption),
-            timestamp: new Date(msg.date * 1000).toISOString()
-        }, 'event');
-
-        return userMessageContent;
-    } catch (error) {
-        console.error(`[Фото ${chatId}] Ошибка при загрузке/обработке изображения:`, error.message);
-        throw error;
-    }
-}
-
 // --- Telegram Bot Event Handlers ---
 
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
@@ -469,7 +335,7 @@ bot.on('message', async (msg) => {
         console.error(`Некорректный chat ID в обработчике сообщений: ${msg.chat.id}`);
         return;
     }
-    if (msg.photo || msg.voice || (msg.text && msg.text.startsWith('/start'))) {
+    if (msg.text && msg.text.startsWith('/start')) {
         return;
     }
     if (!msg.text) {
@@ -560,119 +426,6 @@ bot.on('message', async (msg) => {
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки текстового сообщения');
-    }
-});
-
-bot.on('photo', async (msg) => {
-    const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) {
-        console.error(`[Фото] Некорректный chat ID: ${chatId}`);
-        return;
-    }
-
-    const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
-    if (!fs.existsSync(userDataPath)) {
-        console.info(`[Фото ${chatId}] Файл данных пользователя не найден при обработке фото. Предлагаем /start.`);
-        await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой фото.');
-        logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_photo' }, 'system');
-        return;
-    }
-
-    try {
-        const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
-        console.info(`[Фото ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
-
-        const canProceed = await checkPaymentStatusAndPrompt(chatId);
-        if (!canProceed) {
-            return;
-        }
-
-        console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
-        await bot.sendChatAction(chatId, 'upload_photo');
-        
-        // Временно сохраняем текущую модель и принудительно устанавливаем OpenAI для обработки фото
-        const currentModel = process.env.OPENAIMODEL;
-        console.info(`[Фото ${chatId}] Текущая модель: ${currentModel}, переключение на OpenAI для изображений`);
-        
-        // Принудительно устанавливаем дефолтную модель openai из env OPENAIMODEL 
-        setModel(process.env.OPENAIMODEL || 'gpt-4.1-mini');
-        
-        console.info(`[Фото ${chatId}] Вызываем processPhoto`);
-        const userMessageContent = await processPhoto(msg);
-        
-        console.info(`[Фото ${chatId}] Результат processPhoto: ${userMessageContent ? userMessageContent.length + ' элементов' : 'null'}`);
-        if (!userMessageContent || userMessageContent.length === 0) {
-            console.error(`[Фото ${chatId}] Пустой результат обработки фото`);
-            throw new Error("Ошибка обработки изображения: пустой результат");
-        }
-
-        if (newDayPrefix) {
-            let textPartFound = false;
-            for (const part of userMessageContent) {
-                if (part.type === 'input_text') {
-                    part.text = newDayPrefix + (part.text || "");
-                    textPartFound = true;
-                    break;
-                }
-            }
-            if (!textPartFound) {
-                userMessageContent.unshift({ type: 'input_text', text: newDayPrefix.trim() });
-            }
-        }
-        
-        console.info(`[Фото ${chatId}] Вызываем OpenAI с моделью gpt-4-vision-preview`);
-        const assistantText = await callLLM(chatId, userMessageContent);
-        
-        // Восстанавливаем исходную модель после обработки изображения
-        if (currentModel) {
-            console.info(`[Фото ${chatId}] Восстанавливаем исходную модель: ${currentModel}`);
-            setModel(currentModel);
-        }
-        
-        console.info(`[Фото ${chatId}] Получен ответ от LLM длиной ${assistantText ? assistantText.length : 0}`);
-        await sendAndLogResponse(chatId, assistantText);
-    } catch (error) {
-        await sendErrorMessage(chatId, error.message, 'обработки фото');
-    }
-});
-
-bot.on('voice', async (msg) => {
-    const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) return;
-
-    try {
-        const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
-        console.info(`[Голос ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
-
-        const canProceed = await checkPaymentStatusAndPrompt(chatId);
-        if (!canProceed) {
-            return;
-        }
-
-        const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
-        if (!fs.existsSync(userDataPath)) {
-            console.info(`[Голос ${chatId}] Файл данных пользователя не найден при обработке голоса. Предлагаем /start.`);
-            await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой голосовых сообщений.');
-            logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_voice' }, 'system');
-            return;
-        }
-
-        console.info(`[Голос ${chatId}] Получено голосовое сообщение.`);
-        await bot.sendChatAction(chatId, 'typing');
-        const userMessageContent = await processVoice(msg);
-
-        if (newDayPrefix) {
-            if (userMessageContent.length > 0 && userMessageContent[0].type === 'input_text') {
-                userMessageContent[0].text = newDayPrefix + (userMessageContent[0].text || "");
-            } else { // Fallback if processVoice structure changes or is empty
-                userMessageContent.unshift({ type: 'input_text', text: newDayPrefix.trim() });
-            }
-        }
-
-        const assistantText = await callLLM(chatId, userMessageContent);
-        await sendAndLogResponse(chatId, assistantText);
-    } catch (error) {
-        await sendErrorMessage(chatId, error.message, 'обработки голосового сообщения');
     }
 });
 
