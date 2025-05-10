@@ -40,7 +40,7 @@ const {
 // --- Configuration ---
 const result = dotenv.config({ path: envFilePath }); // Use the already determined envFilePath
 if (result.error) {
-    console.error(`Error loading .env.${NAMEPROMPT} file:`, result.error);
+    console.error(`Ошибка загрузки файла .env.${NAMEPROMPT}:`, result.error);
     // process.exit(1); // Commenting out exit on error for debugging purposes
 } else {
     console.log(`[Debug] Successfully loaded .env file: ${envFilePath}`);
@@ -67,7 +67,7 @@ fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
 // --- Initialize Bot ---
 const token = process.env.TELEGRAM_BOT_TOKEN;
 if (!token) {
-    console.error(`Error: TELEGRAM_BOT_TOKEN is not defined in .env.${NAMEPROMPT}`);
+    console.error(`Ошибка: TELEGRAM_BOT_TOKEN не определен в файле .env.${NAMEPROMPT}`);
     process.exit(1);
 }
 
@@ -77,7 +77,7 @@ const ACTIVATION_CODE = process.env.ACTIVATION_CODE; // e.g., "KEY-SOMEKEY123"
 const PAYMENT_URL_TEMPLATE = process.env.PAYMENT_URL_TEMPLATE || 'https://noxon.wpmix.net/counter.php?tome=1&msg={NAMEPROMPT}_{chatid}&cal=1';
 
 if (!openaiApiKey && !deepseekApiKey) {
-    console.error(`Error: Neither OPENAI_API_KEY nor DEEPSEEK_API_KEY are defined in .env.${NAMEPROMPT}`);
+    console.error(`Ошибка: Ни OPENAI_API_KEY, ни DEEPSEEK_API_KEY не определены в файле .env.${NAMEPROMPT}`);
     process.exit(1);
 }
 
@@ -89,17 +89,17 @@ try {
     const promptPath = path.join(__dirname, `.env.${NAMEPROMPT}_prompt`);
     if (fs.existsSync(promptPath)) {
         systemPromptContent = fs.readFileSync(promptPath, 'utf8').trim();
-        console.log(`System prompt loaded from ${promptPath}`);
+        console.log(`Системный промпт загружен из ${promptPath}`);
     } else {
         systemPromptContent = process.env.SYSTEM_PROMPT || systemPromptContent;
-        console.log(`System prompt loaded from environment variable or default.`);
+        console.log(`Системный промпт загружен из переменной окружения или по умолчанию.`);
     }
 
     if (!systemPromptContent) {
-        throw new Error('System prompt is empty or not defined after loading.');
+        throw new Error('Системный промпт пуст или не определен после загрузки.');
     }
 } catch (error) {
-    console.error('Error loading system prompt:', error);
+    console.error('Ошибка загрузки системного промпта:', error);
     process.exit(1);
 }
 
@@ -137,12 +137,12 @@ async function handleNewDayLogicAndUpdateTimestamp(chatId) {
 
     if (isNewDay) {
         try {
-            //await bot.sendMessage(chatId, "A new day has begun.");
+            //await bot.sendMessage(chatId, "Настал новый день.");
             logChat(chatId, { type: 'system_message', event: 'new_day_notification_sent', timestamp: now.toISOString() }, 'system');
         } catch (error) {
             console.error(`[New Day Logic ${chatId}] Error sending new day message:`, error);
         }
-        newDayPrefixForLLM = "A new day has begun. "; // This prefix will be added to the LLM prompt
+        newDayPrefixForLLM = "Настал новый день. "; // This prefix will be added to the LLM prompt
     }
     return newDayPrefixForLLM;
 }
@@ -166,14 +166,14 @@ async function checkPaymentStatusAndPrompt(chatId) {
             .replace('{NAMEPROMPT}', NAMEPROMPT)
             .replace('{chatid}', chatId.toString());
 
-        const messageText = escapeMarkdown(`You have used up your message limit (${reloadedConfig.FREE_MESSAGE_LIMIT}). To continue, please activate access. Counting calories and nutrients is a 100% way to become healthier and improve your life or your child's life. Shall we continue? 👍`);
+        const messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ. Подсчет КБЖУ это 100% способ стать здоровее и улучшить свою или жизнь ребенка. Продолжим? 👍`);
         
         try {
             await bot.sendMessage(chatId, messageText, {
                 parse_mode: 'MarkdownV2',
                 reply_markup: {
                     inline_keyboard: [
-                        [{ text: "Activate Access", url: paymentUrl }]
+                        [{ text: "Оплатить доступ", url: paymentUrl }]
                     ]
                 }
             });
@@ -222,12 +222,12 @@ async function sendAndLogResponse(chatId, assistantText) {
     }
 }
 
-async function sendErrorMessage(chatId, specificErrorMsg, context = 'processing your request') {
-    console.error(`Error during ${context} for chat ${chatId}:`, specificErrorMsg);
+async function sendErrorMessage(chatId, specificErrorMsg, context = 'обработки вашего запроса') {
+    console.error(`Ошибка во время ${context} для чата ${chatId}:`, specificErrorMsg);
     try {
         await bot.sendMessage(
             chatId,
-            `Sorry, there was a problem during ${context}. Please try again. If the error persists, try restarting the bot with /start command.`
+            `Извините, возникла проблема во время ${context}. Пожалуйста, повторите попытку. Если ошибка повторяется, попробуйте перезапустить бота командой /start.`
         );
         logChat(chatId, {
             error: `error_in_${context.replace(/\s+/g, '_')}`,
@@ -235,7 +235,7 @@ async function sendErrorMessage(chatId, specificErrorMsg, context = 'processing 
             timestamp: new Date().toISOString()
         }, 'error');
     } catch (sendError) {
-        console.error(`Failed to send error message to chat ${chatId}:`, sendError.message);
+        console.error(`Не удалось отправить сообщение об ошибке в чат ${chatId}:`, sendError.message);
     }
 }
 
@@ -243,25 +243,25 @@ async function sendErrorMessage(chatId, specificErrorMsg, context = 'processing 
 
 async function processVoice(msg) {
     const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) throw new Error('Invalid chat ID in voice message');
+    if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в голосовом сообщении');
 
     const caption = msg.caption ? sanitizeString(msg.caption) : '';
     const voice = msg.voice;
-    if (!voice || !voice.file_id) throw new Error('Invalid voice message data');
+    if (!voice || !voice.file_id) throw new Error('Некорректные данные голосового сообщения');
 
-    console.info(`[Voice ${chatId}] Processing voice message.`);
+    console.info(`[Голос ${chatId}] Обработка голосового сообщения.`);
     const file = await bot.getFile(voice.file_id);
-    if (!file || !file.file_path) throw new Error('Failed to get file info from Telegram');
+    if (!file || !file.file_path) throw new Error('Не удалось получить информацию о файло от Telegram');
 
     const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
     const mimeType = voice.mime_type;
 
     if (!mimeType || !validateMimeTypeAudio(mimeType)) {
-        console.warn(`[Voice ${chatId}] Invalid audio MIME type: ${mimeType}`);
-        throw new Error(`Unsupported audio format: ${mimeType || 'Unknown'}. Use MP3, OGG, WAV, M4A.`);
+        console.warn(`[Голос ${chatId}] Некорректный MIME тип аудио: ${mimeType}`);
+        throw new Error(`Неподдерживаемый формат аудио: ${mimeType || 'Unknown'}. Используйте MP3, OGG, WAV, M4A.`);
     }
 
-    console.info(`[Voice ${chatId}] Transcribing audio from ${fileUrl} (MIME: ${mimeType})`);
+    console.info(`[Голос ${chatId}] Транскрибация аудио с ${fileUrl} (MIME: ${mimeType})`);
     const transcribedText = await transcribeAudio(fileUrl, 'ru');
 
     const userMessageContent = [];
@@ -283,31 +283,31 @@ async function processVoice(msg) {
 
 async function processPhoto(msg) {
     const chatId = msg.chat.id;
-    if (!validateChatId(chatId)) throw new Error('Invalid chat ID in photo message');
+    if (!validateChatId(chatId)) throw new Error('Некорректный chat ID в фото сообщении');
 
-    console.info(`[Photo ${chatId}] Starting photo message processing.`);
+    console.info(`[Фото ${chatId}] Начало обработки фото сообщения.`);
     
     const caption = msg.caption ? sanitizeString(msg.caption) : '';
-    console.debug(`[Photo ${chatId}] Caption after sanitization: "${caption}"`);
+    console.debug(`[Фото ${chatId}] Caption после санитизации: "${caption}"`);
     
     const photo = msg.photo && msg.photo.length > 0 ? msg.photo[msg.photo.length - 1] : null;
     if (!photo || !photo.file_id) {
-        console.error(`[Photo ${chatId}] Invalid photo data:`, JSON.stringify(msg.photo));
-        throw new Error('Invalid photo data in message');
+        console.error(`[Фото ${chatId}] Некорректные данные фото:`, JSON.stringify(msg.photo));
+        throw new Error('Некорректные данные фото в сообщении');
     }
-    console.debug(`[Photo ${chatId}] Photo size: ${photo.width}x${photo.height}, file_id: ${photo.file_id}`);
+    console.debug(`[Фото ${chatId}] Размер фото: ${photo.width}x${photo.height}, file_id: ${photo.file_id}`);
 
-    console.info(`[Photo ${chatId}] Getting file info from Telegram API`);
+    console.info(`[Фото ${chatId}] Получение информации о файле от Telegram API`);
     const file = await bot.getFile(photo.file_id);
     if (!file || !file.file_path) {
-        console.error(`[Photo ${chatId}] Failed to get file:`, JSON.stringify(file));
-        throw new Error('Failed to get file info from Telegram');
+        console.error(`[Фото ${chatId}] Не удалось получить файл:`, JSON.stringify(file));
+        throw new Error('Не удалось получить информацию о файле от Telegram');
     }
-    console.debug(`[Photo ${chatId}] File path obtained: ${file.file_path}`);
+    console.debug(`[Фото ${chatId}] Получен путь к файлу: ${file.file_path}`);
 
     const fileUrl = `https://api.telegram.org/file/bot${token}/${file.file_path}`;
     const fileExtension = path.extname(file.file_path).toLowerCase();
-    console.debug(`[Photo ${chatId}] File extension: ${fileExtension}`);
+    console.debug(`[Фото ${chatId}] Расширение файла: ${fileExtension}`);
     
     const mimeType = {
         '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
@@ -315,12 +315,12 @@ async function processPhoto(msg) {
     }[fileExtension];
 
     if (!mimeType || !validateMimeTypeImg(mimeType)) {
-        console.warn(`[Photo ${chatId}] Unsupported image type: ${fileExtension}`);
-        throw new Error(`Unsupported image format (${fileExtension || 'Unknown'}). Use JPEG, PNG, GIF, WEBP, BMP.`);
+        console.warn(`[Фото ${chatId}] Неподдерживаемый тип изображения: ${fileExtension}`);
+        throw new Error(`Неподдерживаемый формат изображения (${fileExtension || 'Unknown'}). Используйте JPEG, PNG, GIF, WEBP, BMP.`);
     }
-    console.debug(`[Photo ${chatId}] MIME type: ${mimeType}`);
+    console.debug(`[Фото ${chatId}] MIME тип: ${mimeType}`);
 
-    console.info(`[Photo ${chatId}] Downloading image from ${fileUrl}`);
+    console.info(`[Фото ${chatId}] Загрузка изображения с ${fileUrl}`);
     try {
         const imageResponse = await axios.get(fileUrl, {
             responseType: 'arraybuffer',
@@ -328,26 +328,26 @@ async function processPhoto(msg) {
             maxContentLength: 15 * 1024 * 1024
         });
         
-        console.debug(`[Photo ${chatId}] Image downloaded, size: ${imageResponse.data.length} bytes`);
+        console.debug(`[Фото ${chatId}] Изображение загружено, размер: ${imageResponse.data.length} байт`);
         validateImageResponse(imageResponse, 10 * 1024 * 1024);
         
         const imageBase64 = Buffer.from(imageResponse.data).toString('base64');
         // Не логируем содержимое base64, только его длину
-        console.debug(`[Photo ${chatId}] Image converted to base64, length: ${imageBase64.length} characters`);
+        console.debug(`[Фото ${chatId}] Изображение конвертировано в base64, длина: ${imageBase64.length} символов`);
         
         const imageUrl = `data:${mimeType};base64,${imageBase64}`;
         if (imageUrl.length > 20 * 1024 * 1024 * 0.75) {
-            console.error(`[Photo ${chatId}] Image too large after encoding: ${imageUrl.length} bytes`);
-            throw new Error('Encoded image data too large.');
+            console.error(`[Фото ${chatId}] Изображение слишком большое после кодирования: ${imageUrl.length} байт`);
+            throw new Error('Закодированные данные изображения слишком велики.');
         }
 
         const userMessageContent = [];
         if (caption) userMessageContent.push({ type: 'input_text', text: caption });
         userMessageContent.push({ type: 'input_image', image_url: imageUrl });
         
-        console.info(`[Photo ${chatId}] Message prepared with ${userMessageContent.length} parts (text: ${caption ? 'yes' : 'no'}, image: yes)`);
+        console.info(`[Фото ${chatId}] Подготовлено сообщение с ${userMessageContent.length} частями (текст: ${caption ? 'да' : 'нет'}, изображение: да)`);
         // Модифицируем вывод структуры, чтобы избежать логирования base64
-        console.debug(`[Photo ${chatId}] Message structure:`, JSON.stringify(userMessageContent.map(c => ({ 
+        console.debug(`[Фото ${chatId}] Структура сообщения:`, JSON.stringify(userMessageContent.map(c => ({ 
             type: c.type, 
             hasContent: c.type === 'input_image' ? 'yes (data:image/... base64 data)' : (c.text ? 'yes' : 'no') 
         }))));
@@ -364,7 +364,7 @@ async function processPhoto(msg) {
 
         return userMessageContent;
     } catch (error) {
-        console.error(`[Photo ${chatId}] Error downloading/processing image:`, error.message);
+        console.error(`[Фото ${chatId}] Ошибка при загрузке/обработке изображения:`, error.message);
         throw error;
     }
 }
@@ -374,15 +374,15 @@ async function processPhoto(msg) {
 bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) {
-        console.error(`Invalid chat ID in /start: ${msg.chat.id}`);
+        console.error(`Некорректный chat ID в /start: ${msg.chat.id}`);
         return;
     }
-    console.info(`[Start ${chatId}] Received /start command.`);
+    console.info(`[Start ${chatId}] Получена команда /start.`);
 
     try {
         const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
         let startParam = match?.[1] ? sanitizeString(match[1]) : null;
-        const howPassed = startParam ? `via parameter: ${startParam}` : 'direct /start command';
+        const howPassed = startParam ? `через параметр: ${startParam}` : 'прямая команда /start';
 
         let userData = {};
         let isNewUser = false;
@@ -392,11 +392,11 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 userData = { ...loadUserData(chatId), ...existingData }; // Ensure defaults like isPaid are loaded
                 if (startParam && startParam !== userData.startParameter) {
                     userData.lastStartParam = startParam;
-                    console.info(`[Start ${chatId}] Chat restarted with new parameter: ${startParam}`);
+                    console.info(`[Start ${chatId}] Чат перезапущен с новым параметром: ${startParam}`);
                 }
                 userData.lastRestartTime = new Date().toISOString();
             } catch (parseError) {
-                console.error(`Error parsing user data for ${chatId}, resetting:`, parseError);
+                console.error(`Ошибка парсинга данных пользователя для ${chatId}, сброс:`, parseError);
                 isNewUser = true;
             }
         } else {
@@ -420,7 +420,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 lastRestartTime: new Date().toISOString(),
                 lastMessageTimestamp: null // Initialize lastMessageTimestamp
             };
-            console.info(`[Start ${chatId}] New user data recorded.`);
+            console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
         } else {
             // Ensure existing users have this field, defaulting if not.
             // loadUserData should ideally handle this default.
@@ -430,15 +430,15 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }
 
         fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
-        console.info(`[Start ${chatId}] User data saved.`);
+        console.info(`[Start ${chatId}] Данные пользователя сохранены.`);
 
         const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
         if (fs.existsSync(chatLogPath)) {
             try {
                 fs.unlinkSync(chatLogPath);
-                console.info(`[Start ${chatId}] Chat log cleared due to /start command.`);
+                console.info(`[Start ${chatId}] Лог чата очищен из-за команды /start.`);
             } catch (unlinkError) {
-                console.error(`Error deleting chat log for ${chatId}:`, unlinkError);
+                console.error(`Ошибка удаления лога чата для ${chatId}:`, unlinkError);
             }
         }
 
@@ -451,41 +451,41 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }, 'system');
 
         if (isNewUser) {
-            await bot.sendMessage(chatId, 'Welcome! What is your name?');
-            logChat(chatId, { type: 'system_message', text: 'Requested user name' }, 'system');
+            await bot.sendMessage(chatId, 'Добро пожаловать! Как вас зовут?');
+            logChat(chatId, { type: 'system_message', text: 'Запрошено имя пользователя' }, 'system');
         } else {
-            await bot.sendMessage(chatId, 'Welcome back! How can I help you today?');
-            logChat(chatId, { type: 'system_message', text: 'Sent welcome back greeting' }, 'system');
+            await bot.sendMessage(chatId, 'С возвращением! Чем могу помочь сегодня?');
+            logChat(chatId, { type: 'system_message', text: 'Отправлено приветствие "С возвращением"' }, 'system');
         }
     } catch (error) {
-        console.error(`Critical error processing /start for chat ${chatId}:`, error);
-        await sendErrorMessage(chatId, error.message, 'processing /start command');
+        console.error(`Критическая ошибка при обработке /start для чата ${chatId}:`, error);
+        await sendErrorMessage(chatId, error.message, 'обработки команды /start');
     }
 });
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) {
-        console.error(`Invalid chat ID in message handler: ${msg.chat.id}`);
+        console.error(`Некорректный chat ID в обработчике сообщений: ${msg.chat.id}`);
         return;
     }
     if (msg.photo || msg.voice || (msg.text && msg.text.startsWith('/start'))) {
         return;
     }
     if (!msg.text) {
-        console.info(`[Message ${chatId}] Ignoring non-text message (type: ${msg.document ? 'document' : msg.sticker ? 'sticker' : 'other'})`);
+        console.info(`[Сообщение ${chatId}] Игнорирование нетекстового сообщения (тип: ${msg.document ? 'document' : msg.sticker ? 'sticker' : 'other'})`);
         return;
     }
 
     const userText = sanitizeString(msg.text);
     if (!userText) {
-        console.info(`[Message ${chatId}] Ignoring empty text message after sanitization.`);
+        console.info(`[Сообщение ${chatId}] Игнорирование пустого текстового сообщения после очистки.`);
         return;
     }
 
     try {
         const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
-        console.info(`[Message ${chatId}] Processing text message. Length: ${userText.length}. NewDayPrefix: "${newDayPrefix}"`);
+        console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}. NewDayPrefix: "${newDayPrefix}"`);
 
         // Handle activation code input
         if (ACTIVATION_CODE && userText.startsWith('KEY-')) {
@@ -510,9 +510,9 @@ bot.on('message', async (msg) => {
         await bot.sendChatAction(chatId, 'typing');
 
         const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
-        if (!fs.existsSync(userDataPath)) {  // Changed from fs.exists to fs.existsSync
-            console.info(`[Message ${chatId}] User data file not found. Prompting /start.`);
-            await bot.sendMessage(chatId, 'Please use the /start command to begin.');
+        if (!fs.existsSync(userDataPath)) {
+            console.info(`[Сообщение ${chatId}] Файл данных пользователя не найден. Предлагаем /start.`);
+            await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start, чтобы начать.');
             logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata' }, 'system');
             return;
         }
@@ -522,16 +522,16 @@ bot.on('message', async (msg) => {
             const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
             if (userData.providedName) hasProvidedName = true;
         } catch (err) {
-            console.error(`[Message ${chatId}] Error reading user data for name check:`, err);
+            console.error(`[Сообщение ${chatId}] Ошибка чтения данных пользователя для проверки имени:`, err);
         }
 
         if (!hasProvidedName) {
-            console.info(`[Message ${chatId}] Processing message as name: "${userText}"`);
+            console.info(`[Сообщение ${chatId}] Обработка сообщения как имени: "${userText}"`);
             logChat(chatId, {
                 type: 'name_provided',
                 role: 'user',
                 name: userText,
-                content: [{ type: 'input_text', text: `User provided name: ${userText}` }],
+                content: [{ type: 'input_text', text: `Пользователь предоставил имя: ${userText}` }],
                 timestamp: new Date(msg.date * 1000).toISOString()
             }, 'user');
 
@@ -540,12 +540,12 @@ bot.on('message', async (msg) => {
                 userData.providedName = userText;
                 userData.nameLastUpdate = new Date().toISOString();
                 fs.writeFileSync(userDataPath, JSON.stringify(userData, null, 2));
-                console.info(`[Message ${chatId}] User name saved in user data.`);
+                console.info(`[Сообщение ${chatId}] Имя пользователя сохранено в данных пользователя.`);
             } catch (err) {
-                console.error(`[Message ${chatId}] Failed to update user data with name:`, err);
+                console.error(`[Сообщение ${chatId}] Не удалось обновить данные пользователя с именем:`, err);
             }
 
-            const llmInputTextForName = newDayPrefix + `User just told me their name is "${userText}". Acknowledge this and continue the conversation naturally.`;
+            const llmInputTextForName = newDayPrefix + `Пользователь только что сказал мне, что его зовут "${userText}". Подтверди это и продолжи разговор естественно.`;
             const assistantResponse = await callLLM(chatId, [{
                 type: 'input_text',
                 text: llmInputTextForName
@@ -559,51 +559,51 @@ bot.on('message', async (msg) => {
         const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
-        await sendErrorMessage(chatId, error.message, 'processing text message');
+        await sendErrorMessage(chatId, error.message, 'обработки текстового сообщения');
     }
 });
 
 bot.on('photo', async (msg) => {
     const chatId = msg.chat.id;
     if (!validateChatId(chatId)) {
-        console.error(`[Photo] Invalid chat ID: ${chatId}`);
+        console.error(`[Фото] Некорректный chat ID: ${chatId}`);
         return;
     }
 
     const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
     if (!fs.existsSync(userDataPath)) {
-        console.info(`[Photo ${chatId}] User data file not found during photo processing. Prompting /start.`);
-        await bot.sendMessage(chatId, 'Please use the /start command before sending photos.');
+        console.info(`[Фото ${chatId}] Файл данных пользователя не найден при обработке фото. Предлагаем /start.`);
+        await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой фото.');
         logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_photo' }, 'system');
         return;
     }
 
     try {
         const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
-        console.info(`[Photo ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
+        console.info(`[Фото ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
 
         const canProceed = await checkPaymentStatusAndPrompt(chatId);
         if (!canProceed) {
             return;
         }
 
-        console.info(`[Photo ${chatId}] Photo received from user.`);
+        console.info(`[Фото ${chatId}] Получено фото от пользователя.`);
         await bot.sendChatAction(chatId, 'upload_photo');
         
         // Временно сохраняем текущую модель и принудительно устанавливаем OpenAI для обработки фото
         const currentModel = process.env.OPENAIMODEL;
-        console.info(`[Photo ${chatId}] Current model: ${currentModel}, switching to OpenAI for images`);
+        console.info(`[Фото ${chatId}] Текущая модель: ${currentModel}, переключение на OpenAI для изображений`);
         
         // Принудительно устанавливаем дефолтную модель openai из env OPENAIMODEL 
         setModel(process.env.OPENAIMODEL || 'gpt-4.1-mini');
         
-        console.info(`[Photo ${chatId}] Calling processPhoto`);
+        console.info(`[Фото ${chatId}] Вызываем processPhoto`);
         const userMessageContent = await processPhoto(msg);
         
-        console.info(`[Photo ${chatId}] processPhoto result: ${userMessageContent ? userMessageContent.length + ' items' : 'null'}`);
+        console.info(`[Фото ${chatId}] Результат processPhoto: ${userMessageContent ? userMessageContent.length + ' элементов' : 'null'}`);
         if (!userMessageContent || userMessageContent.length === 0) {
-            console.error(`[Photo ${chatId}] Empty photo processing result`);
-            throw new Error("Image processing error: empty result");
+            console.error(`[Фото ${chatId}] Пустой результат обработки фото`);
+            throw new Error("Ошибка обработки изображения: пустой результат");
         }
 
         if (newDayPrefix) {
@@ -620,19 +620,19 @@ bot.on('photo', async (msg) => {
             }
         }
         
-        console.info(`[Photo ${chatId}] Calling OpenAI with model gpt-4-vision-preview`);
+        console.info(`[Фото ${chatId}] Вызываем OpenAI с моделью gpt-4-vision-preview`);
         const assistantText = await callLLM(chatId, userMessageContent);
         
         // Восстанавливаем исходную модель после обработки изображения
         if (currentModel) {
-            console.info(`[Photo ${chatId}] Restoring original model: ${currentModel}`);
+            console.info(`[Фото ${chatId}] Восстанавливаем исходную модель: ${currentModel}`);
             setModel(currentModel);
         }
         
-        console.info(`[Photo ${chatId}] Response from LLM received, length ${assistantText ? assistantText.length : 0}`);
+        console.info(`[Фото ${chatId}] Получен ответ от LLM длиной ${assistantText ? assistantText.length : 0}`);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
-        await sendErrorMessage(chatId, error.message, 'processing photo');
+        await sendErrorMessage(chatId, error.message, 'обработки фото');
     }
 });
 
@@ -642,7 +642,7 @@ bot.on('voice', async (msg) => {
 
     try {
         const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
-        console.info(`[Voice ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
+        console.info(`[Голос ${chatId}] NewDayPrefix: "${newDayPrefix}"`);
 
         const canProceed = await checkPaymentStatusAndPrompt(chatId);
         if (!canProceed) {
@@ -651,13 +651,13 @@ bot.on('voice', async (msg) => {
 
         const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
         if (!fs.existsSync(userDataPath)) {
-            console.info(`[Voice ${chatId}] User data file not found during voice processing. Prompting /start.`);
-            await bot.sendMessage(chatId, 'Please use the /start command before sending voice messages.');
+            console.info(`[Голос ${chatId}] Файл данных пользователя не найден при обработке голоса. Предлагаем /start.`);
+            await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start перед отправкой голосовых сообщений.');
             logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_voice' }, 'system');
             return;
         }
 
-        console.info(`[Voice ${chatId}] Voice message received.`);
+        console.info(`[Голос ${chatId}] Получено голосовое сообщение.`);
         await bot.sendChatAction(chatId, 'typing');
         const userMessageContent = await processVoice(msg);
 
@@ -672,34 +672,34 @@ bot.on('voice', async (msg) => {
         const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
     } catch (error) {
-        await sendErrorMessage(chatId, error.message, 'processing voice message');
+        await sendErrorMessage(chatId, error.message, 'обработки голосового сообщения');
     }
 });
 
 // --- Error Handlers ---
 bot.on('polling_error', (error) => {
-    console.error('Polling error:', error.code, '-', error.message);
+    console.error('Ошибка опроса (Polling):', error.code, '-', error.message);
 });
 
 bot.on('webhook_error', (error) => {
-    console.error('Webhook error:', error.code, '-', error.message);
+    console.error('Ошибка Webhook:', error.code, '-', error.message);
 });
 
 // --- Bot Start ---
-console.log('Bot configuration completed. Starting polling...');
+console.log('Конфигурация бота завершена. Запуск опроса...');
 
 process.on('SIGINT', () => {
-    console.log('Received SIGINT. Shutting down bot...');
+    console.log('Получен SIGINT. Завершение работы бота...');
     bot.stopPolling().then(() => {
-        console.log('Polling stopped.');
+        console.log('Опрос остановлен.');
         process.exit(0);
     });
 });
 
 process.on('SIGTERM', () => {
-    console.log('Received SIGTERM. Shutting down bot...');
+    console.log('Получен SIGTERM. Завершение работы бота...');
     bot.stopPolling().then(() => {
-        console.log('Polling stopped.');
+        console.log('Опрос остановлен.');
         process.exit(0);
     });
 });
