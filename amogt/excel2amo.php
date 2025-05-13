@@ -591,6 +591,8 @@ function syncFromExcelSheet($accessToken = null) {
         
         // Обрабатываем строки (пропускаем заголовок)
         for ($i = 1; $i < count($data); $i++) {
+            
+            
             $dealNumber = isset($data[$i][0]) ? trim((string)$data[$i][0]) : null;
             
             // Skip empty dealNumber without logging
