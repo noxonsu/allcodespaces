@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Log NAMEPROMPT early to see what .env file will be targeted
-const NAMEPROMPT_FROM_ENV = process.env.NAMEPROMPT || 'calories';
+const NAMEPROMPT_FROM_ENV = process.env.NAMEPROMPT || 'hr';
 console.log(`[Debug] NAMEPROMPT for .env file: ${NAMEPROMPT_FROM_ENV}`);
 const envFilePath = path.join(__dirname, `.env.${NAMEPROMPT_FROM_ENV}`);
 console.log(`[Debug] Attempting to load .env file from: ${envFilePath}`);
@@ -55,6 +55,11 @@ if (result.error) {
         // For this debug, we'll just log. In a real scenario, ensure config always reflects current env.
     }
 }
+
+// Follow-up message configuration
+const FOLLOW_UP_DELAY_MS = 2 * 60 * 1000; // 2 minutes for testing
+const VACANCY_CLOSED_TRIGGER_PHRASE = "К сожалению"; 
+const FOLLOW_UP_VACANCY_MESSAGE = "Давно ищите оффер?";
 
 // Ensure directories exist
 fs.mkdirSync(USER_DATA_DIR, { recursive: true });
@@ -258,12 +263,18 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 userData = { ...loadUserData(chatId), ...existingData }; // Ensure defaults like isPaid are loaded
                 if (startParam && startParam !== userData.startParameter) {
                     userData.lastStartParam = startParam;
+                    userData.startParameter = startParam; // Update current startParameter if new one provided
                     console.info(`[Start ${chatId}] Чат перезапущен с новым параметром: ${startParam}`);
+                } else if (startParam && startParam === userData.startParameter) {
+                    // Keep existing startParam if it's the same
+                } else if (!startParam) {
+                    // If /start is called without a param, don't nullify existing startParameter
+                    // userData.startParameter remains as is or null if never set
                 }
                 userData.lastRestartTime = new Date().toISOString();
             } catch (parseError) {
                 console.error(`Ошибка парсинга данных пользователя для ${chatId}, сброс:`, parseError);
-                isNewUser = true;
+                isNewUser = true; // Force new user setup on parse error
             }
         } else {
             isNewUser = true;
@@ -281,17 +292,26 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 languageCode: msg.from?.language_code || null,
                 longMemory: '',
                 lastLongMemoryUpdate: 0,
-                isPaid: userData.isPaid || false, 
-                providedName: userData.providedName || null, 
+                isPaid: false, // Default for new user
+                providedName: null, // Default for new user
                 lastRestartTime: new Date().toISOString(),
                 lastMessageTimestamp: null // Initialize lastMessageTimestamp
             };
             console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
         } else {
-            // Ensure existing users have this field, defaulting if not.
-            // loadUserData should ideally handle this default.
+            // Ensure existing users have necessary fields, loadUserData should handle defaults
             if (userData.lastMessageTimestamp === undefined) {
                 userData.lastMessageTimestamp = null;
+            }
+            if (userData.isPaid === undefined) {
+                userData.isPaid = false;
+            }
+            if (userData.providedName === undefined) {
+                userData.providedName = null;
+            }
+            // If startParam was provided with this /start command, update it
+            if (startParam) {
+                userData.startParameter = startParam;
             }
         }
 
@@ -313,16 +333,79 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
             event: 'start_command',
             howPassed: howPassed,
             isNewUser: isNewUser,
+            startParam: startParam,
             timestamp: new Date(msg.date * 1000).toISOString()
         }, 'system');
 
-        if (isNewUser) {
-            await bot.sendMessage(chatId, 'Добро пожаловать! Как вас зовут?');
-            logChat(chatId, { type: 'system_message', text: 'Запрошено имя пользователя' }, 'system');
-        } else {
-            await bot.sendMessage(chatId, 'С возвращением! Чем могу помочь сегодня?');
-            logChat(chatId, { type: 'system_message', text: 'Отправлено приветствие "С возвращением"' }, 'system');
+        // Removed hardcoded welcome messages. Proceed to LLM interaction.
+
+        const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
+
+        const canProceed = await checkPaymentStatusAndPrompt(chatId);
+        if (!canProceed) {
+            return; // Payment required, message already sent
         }
+
+        await bot.sendChatAction(chatId, 'typing');
+
+        let initialLLMInputText;
+        const currentData = loadUserData(chatId); // Load fresh data after potential updates
+
+        if (startParam) {
+            if (!currentData.providedName) {
+                // User started with a parameter, and name is not known. Treat param as name.
+                currentData.providedName = startParam;
+                currentData.nameLastUpdate = new Date().toISOString();
+                saveUserData(chatId, currentData);
+                logChat(chatId, {
+                    type: 'name_provided_via_start_param',
+                    role: 'system_inferred',
+                    name: startParam,
+                    content: `User started with parameter "${startParam}", inferred as name.`,
+                    timestamp: new Date().toISOString()
+                }, 'system');
+                initialLLMInputText = newDayPrefix + `Пользователь только что присоединился и представился как "${startParam}" через параметр запуска. Подтверди это и начни общение естественно.`;
+            } else {
+                // Name is known, startParam is a regular message.
+                initialLLMInputText = newDayPrefix + startParam;
+            }
+        } else {
+            // No startParam. LLM should initiate based on system prompt.
+            initialLLMInputText = newDayPrefix + "Пользователь только что запустил диалог командой /start. Пожалуйста, поприветствуй его согласно своей роли и системным инструкциям и начни общение.";
+        }
+
+        const assistantResponse = await callLLM(chatId, [{ type: 'input_text', text: initialLLMInputText }]);
+        await sendAndLogResponse(chatId, assistantResponse);
+
+        // Check for vacancy closed trigger and schedule follow-up
+        if (assistantResponse && assistantResponse.includes(VACANCY_CLOSED_TRIGGER_PHRASE)) {
+            console.info(`[Bot ${chatId} /start] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
+            logChat(chatId, { 
+                event: 'follow_up_scheduled_on_start', 
+                trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE,
+                follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
+                delay_ms: FOLLOW_UP_DELAY_MS
+            }, 'system');
+
+            setTimeout(async () => {
+                try {
+                    console.info(`[Bot ${chatId} /start] Sending scheduled follow-up message: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
+                    await sendAndLogResponse(chatId, FOLLOW_UP_VACANCY_MESSAGE);
+                    logChat(chatId, { 
+                        event: 'follow_up_sent_on_start', 
+                        message: FOLLOW_UP_VACANCY_MESSAGE 
+                    }, 'system');
+                } catch (error) {
+                    console.error(`[Bot ${chatId} /start] Error sending scheduled follow-up message:`, error);
+                    logChat(chatId, { 
+                        event: 'follow_up_send_error_on_start', 
+                        message: FOLLOW_UP_VACANCY_MESSAGE,
+                        error: error.message 
+                    }, 'error');
+                }
+            }, FOLLOW_UP_DELAY_MS);
+        }
+
     } catch (error) {
         console.error(`Критическая ошибка при обработке /start для чата ${chatId}:`, error);
         await sendErrorMessage(chatId, error.message, 'обработки команды /start');
@@ -424,6 +507,36 @@ bot.on('message', async (msg) => {
         const userMessageContent = [{ type: 'input_text', text: llmInputTextRegular }];
         const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
+
+        // Check for vacancy closed trigger and schedule follow-up
+        if (assistantText && assistantText.includes(VACANCY_CLOSED_TRIGGER_PHRASE)) {
+            console.info(`[Bot ${chatId}] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
+            logChat(chatId, { 
+                event: 'follow_up_scheduled', 
+                trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE,
+                follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
+                delay_ms: FOLLOW_UP_DELAY_MS
+            }, 'system');
+
+            setTimeout(async () => {
+                try {
+                    console.info(`[Bot ${chatId}] Sending scheduled follow-up message: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
+                    await sendAndLogResponse(chatId, FOLLOW_UP_VACANCY_MESSAGE);
+                    logChat(chatId, { 
+                        event: 'follow_up_sent', 
+                        message: FOLLOW_UP_VACANCY_MESSAGE 
+                    }, 'system');
+                } catch (error) {
+                    console.error(`[Bot ${chatId}] Error sending scheduled follow-up message:`, error);
+                    logChat(chatId, { 
+                        event: 'follow_up_send_error', 
+                        message: FOLLOW_UP_VACANCY_MESSAGE,
+                        error: error.message 
+                    }, 'error');
+                }
+            }, FOLLOW_UP_DELAY_MS);
+        }
+
     } catch (error) {
         await sendErrorMessage(chatId, error.message, 'обработки текстового сообщения');
     }

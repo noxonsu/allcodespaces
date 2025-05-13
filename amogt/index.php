@@ -280,85 +280,6 @@ function checkAmoAccess(): ?array
     return null;
 }
 
-/**
- * @throws Exception
- */
-function fetchAndVerifyLeads(string $accessToken): void
-{
-    logMessage('--- [AmoLeadSync] Проверка последних сделок в AmoCRM и Excel Sheet на Google Drive ---');
-    if (empty($accessToken)) {
-        logMessage('[AmoLeadSync] Нет accessToken для получения сделок AmoCRM.');
-        return;
-    }
-    if (!defined('GOOGLE_DRIVE_FILE_ID_AMO2EXCEL') || !GOOGLE_DRIVE_FILE_ID_AMO2EXCEL) {
-        logMessage('[AmoLeadSync] GOOGLE_DRIVE_FILE_ID_AMO2EXCEL не сконфигурирован, пропускаем fetchAndVerifyLeads.');
-        return;
-    }
-    if (!defined('DEFAULT_SHEET_NAME') || !DEFAULT_SHEET_NAME) {
-        logMessage('[AmoLeadSync] DEFAULT_SHEET_NAME не сконфигурирован, пропускаем fetchAndVerifyLeads.');
-        return;
-    }
-    if (!defined('GOOGLE_KEY_FILE') || !file_exists(GOOGLE_KEY_FILE)) {
-        logMessage('[AmoLeadSync] Файл ключа Google (' . (defined('GOOGLE_KEY_FILE') ? GOOGLE_KEY_FILE : 'N/A') . ') не найден, пропускаем fetchAndVerifyLeads.');
-        return;
-    }
-
-    try {
-        $leadsUrl = AMO_DOMAIN . '/api/v4/leads?limit=5&order[created_at]=desc&with=contacts';
-        logMessage("[AmoLeadSync] Fetching leads from: $leadsUrl");
-        $amoResponse = httpClient($leadsUrl, [
-            'headers' => ['Authorization: Bearer ' . $accessToken]
-        ]);
-
-        if ($amoResponse['statusCode'] >= 400) {
-            logMessage("[AmoLeadSync] Ошибка получения сделок из AmoCRM: {$amoResponse['statusCode']} {$amoResponse['body']}");
-            return;
-        }
-        $amoData = json_decode($amoResponse['body'], true);
-        $leads = $amoData['_embedded']['leads'] ?? [];
-
-        if (empty($leads)) {
-            logMessage('[AmoLeadSync] Не найдено сделок в AmoCRM.');
-            return;
-        }
-        logMessage("[AmoLeadSync] Получено " . count($leads) . " последних сделок из AmoCRM.");
-
-        foreach ($leads as $lead) {
-            logMessage("[AmoLeadSync] Processing Lead ID: {$lead['id']} (Name: {$lead['name']}, Created: " . date('Y-m-d H:i:s', $lead['created_at']) . ") for fetchAndVerifyLeads");
-
-            $paymentLinkValue = null;
-            $targetCustomFieldName = "Ссылка на оплату";
-
-            if (!empty($lead['custom_fields_values'])) {
-                foreach ($lead['custom_fields_values'] as $cf) {
-                    if (($cf['field_name'] ?? $cf['field_code']) === $targetCustomFieldName && !empty($cf['values']) && !empty($cf['values'][0]['value'])) {
-                        $tempLink = trim((string)$cf['values'][0]['value']);
-                        if ($tempLink !== '') {
-                            $paymentLinkValue = $tempLink;
-                            break; 
-                        }
-                    }
-                }
-            }
-
-            if (!$paymentLinkValue) {
-                logMessage("[AmoLeadSync]   Пропускаем лид ID {$lead['id']} в fetchAndVerifyLeads: отсутствует или пустое значение для '$targetCustomFieldName'.");
-                continue;
-            }
-
-            $leadIdStr = (string)$lead['id'];
-            logMessage("[AmoLeadSync]   Передача лида ID {$leadIdStr} в pushToExcelSheet для проверки и возможного добавления в Excel на Drive.");
-            // pushToExcelSheet is defined in amo2excel.php and handles Drive interaction
-            pushToExcelSheet($leadIdStr, $paymentLinkValue);
-        }
-        logMessage('--- [AmoLeadSync] Проверка последних сделок (fetchAndVerifyLeads) завершена ---');
-
-    } catch (Exception $error) {
-        logMessage('[AmoLeadSync] Ошибка в функции fetchAndVerifyLeads: ' . $error->getMessage());
-        logMessage($error->getTraceAsString());
-    }
-}
-
 function main(): void
 {
     logMessage('[Main] Initial value of config.DEFAULT_SHEET_NAME: "' . (defined('DEFAULT_SHEET_NAME') ? DEFAULT_SHEET_NAME : 'NOT SET') . '"');
@@ -372,18 +293,6 @@ function main(): void
         if ($amoTokens && !empty($amoTokens['access_token'])) {
             $currentAccessToken = $amoTokens['access_token'];
             logMessage("[Main] AmoCRM access confirmed.");
-
-            /*
-            if (defined('GOOGLE_DRIVE_FILE_ID_AMO2EXCEL') && GOOGLE_DRIVE_FILE_ID_AMO2EXCEL &&
-                defined('DEFAULT_SHEET_NAME') && DEFAULT_SHEET_NAME &&
-                defined('GOOGLE_KEY_FILE') && file_exists(GOOGLE_KEY_FILE)) {
-                logMessage("[Main] Running: AmoCRM -> Excel Sync (fetchAndVerifyLeads)");
-                fetchAndVerifyLeads($currentAccessToken);
-            } else {
-                logMessage("[Main] Prerequisites for AmoCRM -> Excel Sync (fetchAndVerifyLeads) not met, skipping this part.");
-            }
-            */
-            logMessage("[Main] AmoCRM -> Excel Sync (fetchAndVerifyLeads) is disabled in this version.");
 
         } else {
             logMessage('[Main] Could not obtain/verify AmoCRM OAuth tokens. Auth instructions should have been printed by checkAmoAccess(). Skipping API-dependent operations that require OAuth.');

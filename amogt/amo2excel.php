@@ -203,10 +203,10 @@ function handleAmoWebhook() {
         // Extract deal ID
         $dealId = isset($lead['id']) ? $lead['id'] : null;
 
-        // Extract payment URL from custom field (id=835906)
+        // Extract payment URL from custom field (id=752625)
         if (isset($lead['custom_fields'])) {
             foreach ($lead['custom_fields'] as $field) {
-                if ($field['id'] == '835906' && isset($field['values'][0]['value'])) {
+                if ($field['id'] == '752625' && isset($field['values'][0]['value'])) {
                     $paymentUrl = $field['values'][0]['value'];
                     break;
                 }

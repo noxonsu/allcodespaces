@@ -1,7 +1,11 @@
 <?php
 require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/config.php'; // Defines AMO_TOKEN, GOOGLE_DRIVE_FILE_ID_EXCEL2AMO etc.
 require_once __DIR__ . '/driveutils.php';
+require_once __DIR__ . '/logger.php'; // Include the logger
+
+// Define the specific log file for this script
+define('SCRIPT_LOG_FILE', __DIR__ . '/logs/excel2amo.log');
 
 use PhpOffice\PhpSpreadsheet\IOFactory;
 $hideSensetiveData = false; // Added to hide sensitive data in logs
@@ -159,6 +163,14 @@ function updateAmoDeal($dealNumber, $data) {
         return false; 
     }
     
+    // Add deal number to blocked list immediately after passing initial cache check,
+    // to ensure it's marked as "attempted" for this and future runs.
+    // This addresses the "only one attempt" requirement.
+    // The '17243700' deal is exempt from this blocking logic.
+    if ($dealNumber !== '17243700') {
+        addBlockedDealNumber($dealNumber);
+    }
+    
     $tokenToUse = $currentAccessToken ?: AMO_TOKEN;
     if (!$tokenToUse) {
         logMessage("[AmoDeal] Ошибка обновления сделки $dealNumber: токен API AmoCRM недоступен.");
@@ -211,14 +223,30 @@ function updateAmoDeal($dealNumber, $data) {
         // --- ЛОГИКА ПРОВЕРКИ СТАТУСА ---
         logMessage("[AmoDeal] Проверка текущего статуса сделки $dealNumber (ID: $dealId)...");
         $statusAmoFieldNameKey = 'status';
-        $statusAmoFieldName = $AMO_CUSTOM_FIELD_NAMES[$statusAmoFieldNameKey];
-        
+        // Corrected name for status field lookup from config, then potentially from workaround
+        $statusConfigName = $AMO_CUSTOM_FIELD_NAMES[$statusAmoFieldNameKey] ?? null;
+        $statusAmoFieldName = $statusConfigName; // Start with the name from config
+
+        // Apply workaround for status field name if needed
+        if ($statusConfigName) {
+            $correctedAmoFieldNamesForStatus = [
+                'Статус' => 'Статус оплаты ChatGPT' 
+            ];
+            if (isset($correctedAmoFieldNamesForStatus[$statusConfigName])) {
+                $statusAmoFieldName = $correctedAmoFieldNamesForStatus[$statusConfigName];
+                 if ($statusConfigName !== $statusAmoFieldName) {
+                    logMessage("[AmoDeal] Info: Adjusted AmoCRM field name for status check from '$statusConfigName' to '$statusAmoFieldName' (Deal: $dealNumber).");
+                 }
+            }
+        }
+
+
         if (!$statusAmoFieldName) {
-            logMessage("[AmoDeal] Предупреждение: имя поля AmoCRM для '$statusAmoFieldNameKey' не настроено. Проверка статуса пропущена.");
+            logMessage("[AmoDeal] Предупреждение: имя поля AmoCRM для '$statusAmoFieldNameKey' (ожидаемое: '$statusConfigName') не настроено или не скорректировано. Проверка статуса пропущена.");
         } else {
             $statusFieldDefinition = $amoCustomFieldsDefinitions[$statusAmoFieldName] ?? null;
             if (!$statusFieldDefinition) {
-                logMessage("[AmoDeal] Предупреждение: определение пользовательского поля '$statusAmoFieldName' не найдено. Проверка статуса пропущена.");
+                logMessage("[AmoDeal] Предупреждение: определение пользовательского поля '$statusAmoFieldName' (для ключа '$statusAmoFieldNameKey') не найдено. Проверка статуса пропущена.");
             } elseif (!empty($dealToUpdate['custom_fields_values'])) {
                 $statusFieldId = $statusFieldDefinition['id'];
                 $currentStatusCustomField = null;
@@ -250,7 +278,7 @@ function updateAmoDeal($dealNumber, $data) {
                 
                 if ($currentStatusStringValue !== null && $currentStatusStringValue !== "") {
                     logMessage("[AmoDeal] Текущий статус сделки $dealNumber (ID: $dealId) - \"$currentStatusStringValue\" (не пустой). Обновление из листа заблокировано.");
-                    addBlockedDealNumber($dealNumber); // Add $dealNumber (from Excel) to cache
+                    // The call to addBlockedDealNumber was here, it's now moved to the beginning of the function.
                     return false;
                 } else {
                     logMessage("[AmoDeal] Текущий статус сделки $dealNumber (ID: $dealId) пустой. Обновление из листа разрешено.");
@@ -269,6 +297,23 @@ function updateAmoDeal($dealNumber, $data) {
         // Функция для добавления пользовательского поля в payload
         $addCustomFieldIfValid = function($internalFieldName, $sheetValue) use ($dealNumber, $amoCustomFieldsDefinitions, $AMO_CUSTOM_FIELD_NAMES, $currentUnixTimestamp, &$customFieldsPayload) {
             $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalFieldName] ?? null;
+
+            // Temporary workaround for known field name mismatches from config.php
+            // Ideally, $AMO_CUSTOM_FIELD_NAMES in config.php should use the exact names from AmoCRM API.
+            if ($amoFieldName) { // Only apply correction if a name was found in config
+                $correctedAmoFieldNames = [
+                    'Валюта' => 'Валюта (выдано)',             // Expected API name for ID 637241
+                    'Почта' => 'Комментарий (для списания)', // Expected API name for ID 719899
+                    'Статус' => 'Статус оплаты ChatGPT'       // Expected API name for ID 752627
+                    // Add other known mismatches here if necessary
+                ];
+                if (isset($correctedAmoFieldNames[$amoFieldName])) {
+                    $originalAmoFieldName = $amoFieldName;
+                    $amoFieldName = $correctedAmoFieldNames[$amoFieldName];
+                    logMessage("[AmoDeal] Info: Adjusted AmoCRM field name from '$originalAmoFieldName' to '$amoFieldName' for internal key '$internalFieldName' (Deal: $dealNumber). Consider updating config.php.");
+                }
+            }
+            
             if (!$amoFieldName) {
                 logMessage("[AmoDeal] Предупреждение: нет имени поля AmoCRM для внутреннего ключа \"$internalFieldName\". Пропускаем для сделки $dealNumber.");
                 return;
@@ -291,84 +336,104 @@ function updateAmoDeal($dealNumber, $data) {
             }
 
             // Specific handling for currency: convert to uppercase after ensuring it's not empty.
+            // This is done before type-specific logic. Comparison for 'select' types is case-insensitive.
             if ($internalFieldName === 'currency' && is_string($sheetValue)) {
-                // $sheetValue is already trimmed and confirmed non-empty here.
                 $sheetValue = strtoupper($sheetValue);
             }
             
             $fieldId = $fieldDefinition['id'];
-            // Default payload. $sheetValue is trimmed, non-empty, and uppercased if currency.
-            $valuePayload = ['value' => $sheetValue]; 
+            $valuePayloadFragment = null; // This will hold the specific part like {'value': ...} or {'enum_id': ...}
             
-            if (in_array($fieldDefinition['type'], ['select', 'multiselect', 'radiobutton'])) {
-                // $sheetValue is already prepared (trimmed, non-empty, uppercased if currency)
-                $enumFound = false;
-                if (!empty($fieldDefinition['enums'])) {
-                    foreach ($fieldDefinition['enums'] as $enum) {
-                        // Compare consistently (e.g., both lowercased)
-                        if (strtolower((string)$enum['value']) === strtolower((string)$sheetValue)) {
-                            $valuePayload = ['enum_id' => $enum['id']];
-                            $enumFound = true;
-                            break;
+            // Type-specific processing based on $fieldDefinition['type']
+            switch ($fieldDefinition['type']) {
+                case 'select':
+                case 'multiselect':
+                case 'radiobutton':
+                    $enumFound = false;
+                    if (!empty($fieldDefinition['enums'])) {
+                        foreach ($fieldDefinition['enums'] as $enum) {
+                            // Compare consistently (e.g., both lowercased)
+                            if (strtolower((string)$enum['value']) === strtolower((string)$sheetValue)) {
+                                $valuePayloadFragment = ['enum_id' => $enum['id']];
+                                $enumFound = true;
+                                break;
+                            }
                         }
                     }
-                }
-                if (!$enumFound) {
-                    logMessage("[AmoDeal] Предупреждение: не найдено enum для поля \"$amoFieldName\" (ID: $fieldId) значение \"$sheetValue\" для сделки $dealNumber. Пропускаем.");
-                    return;
-                }
-            } elseif ($fieldDefinition['type'] === 'date' || $internalFieldName === 'withdrawal_date') {
-                // $sheetValue is already trimmed and non-empty.
-                $timestampValue = null;
-                if (is_string($sheetValue) && !preg_match('/^\d+$/', $sheetValue)) {
-                    $parsedDate = strtotime($sheetValue);
-                    $timestampValue = $parsedDate !== false ? $parsedDate : ($internalFieldName === 'withdrawal_date' ? $currentUnixTimestamp : null);
-                } elseif (is_numeric($sheetValue)) {
-                    $timestampValue = (int)$sheetValue;
-                } elseif ($internalFieldName === 'withdrawal_date') {
-                    $timestampValue = $currentUnixTimestamp;
-                }
-                
-                if ($timestampValue === null) {
-                    logMessage("[AmoDeal] Предупреждение: недопустимая дата \"$sheetValue\" для \"$amoFieldName\" для сделки $dealNumber. Пропускаем.");
-                    return;
-                }
-                $valuePayload = ['value' => $timestampValue];
-            } elseif ($fieldDefinition['type'] === 'numeric' || $internalFieldName === 'amount_issued' || ($internalFieldName === 'card' && $fieldDefinition['type'] === 'numeric')) {
-                // $sheetValue is already trimmed and non-empty.
-                // This block handles 'amount_issued' and 'card' if its Amo field type is 'numeric'.
-                $numValue = null; 
-                if (is_string($sheetValue)) {
-                    $cleanedString = str_replace(',', '.', $sheetValue); 
-                    if (is_numeric($cleanedString)) {
-                        $numValue = (float)$cleanedString;
+                    if (!$enumFound) {
+                        logMessage("[AmoDeal] Предупреждение: не найдено enum для поля \"$amoFieldName\" (ID: $fieldId, тип: {$fieldDefinition['type']}) значение \"$sheetValue\" для сделки $dealNumber. Пропускаем.");
+                        return;
                     }
-                } elseif (is_numeric($sheetValue)) {
-                    $numValue = (float)$sheetValue;
-                }
+                    break;
+
+                case 'date':
+                    $timestampValue = null;
+                    // Check if $sheetValue is a date string (not purely numeric)
+                    if (is_string($sheetValue) && !preg_match('/^\d+$/', $sheetValue)) {
+                        $parsedDate = strtotime($sheetValue);
+                        // For 'withdrawal_date', if parsing fails, default to currentUnixTimestamp.
+                        // For other 'date' fields, if parsing fails, $timestampValue remains null and an error is logged.
+                        $timestampValue = $parsedDate !== false ? $parsedDate : ($internalFieldName === 'withdrawal_date' ? $currentUnixTimestamp : null);
+                    } elseif (is_numeric($sheetValue)) { // If $sheetValue is already a timestamp or Excel numeric date
+                        $timestampValue = (int)$sheetValue;
+                    } elseif ($internalFieldName === 'withdrawal_date') { 
+                        // This specific fallback for withdrawal_date ensures it gets $currentUnixTimestamp
+                        // if $sheetValue was not a string to parse or a direct numeric timestamp initially
+                        // (e.g. if $currentUnixTimestamp was passed directly and is not caught by is_numeric if it's not simple int/float)
+                        // However, $currentUnixTimestamp is typically an integer, so is_numeric should catch it.
+                        // This line primarily handles the explicit call: addCustomFieldIfValid('withdrawal_date', $currentUnixTimestamp);
+                        $timestampValue = $currentUnixTimestamp;
+                    }
+                    
+                    if ($timestampValue === null) {
+                        logMessage("[AmoDeal] Предупреждение: недопустимая дата \"$sheetValue\" для \"$amoFieldName\" (ID: $fieldId, тип: date) для сделки $dealNumber. Пропускаем.");
+                        return;
+                    }
+                    $valuePayloadFragment = ['value' => $timestampValue];
+                    break;
+
+                case 'numeric':
+                    // This handles fields like 'payment_term' (ID 721463).
+                    // It would also handle 'amount_issued' or 'card' IF their AmoCRM field definition type were 'numeric'.
+                    $numValue = null; 
+                    if (is_string($sheetValue)) {
+                        $cleanedString = str_replace(',', '.', $sheetValue); 
+                        if (is_numeric($cleanedString)) {
+                            $numValue = (float)$cleanedString;
+                        }
+                    } elseif (is_numeric($sheetValue)) {
+                        $numValue = (float)$sheetValue;
+                    }
+                    
+                    if ($numValue === null || is_nan($numValue)) {
+                        logMessage("[AmoDeal] Предупреждение: не числовое значение \"$sheetValue\" для \"$amoFieldName\" (ID: $fieldId, тип: numeric) для сделки $dealNumber. Пропускаем.");
+                        return;
+                    }
+                    $valuePayloadFragment = ['value' => $numValue];
+                    break;
                 
-                if ($numValue === null || is_nan($numValue)) {
-                    // This warning now only triggers for *actually* non-numeric, non-empty strings.
-                    logMessage("[AmoDeal] Предупреждение: не числовое значение \"$sheetValue\" для \"$amoFieldName\" для сделки $dealNumber. Пропускаем.");
-                    return;
-                }
-                $valuePayload = ['value' => $numValue];
-            } 
-            // The initial check `($sheetValue === null || $sheetValue === '')` handles general empty cases.
-            // If field type is text and not 'currency', it uses the default $valuePayload with trimmed, non-empty $sheetValue.
+                case 'text':
+                case 'textarea':
+                case 'url':
+                // Add other text-like types here if they need explicit handling but should still result in a string value.
+                default: // Default handling for text-based fields or any types not explicitly cased above.
+                    // This correctly processes:
+                    // 'amount_issued' (e.g., ID 637237, type text) as string.
+                    // 'card' (e.g., ID 637413, type text) as string.
+                    // 'email' (e.g., ID 719899, type textarea) as string.
+                    // 'paid_service' (e.g., ID 637415, type text) as string.
+                    $valuePayloadFragment = ['value' => (string)$sheetValue]; // Ensure value is explicitly cast to string
+                    break;
+            }
             
-            // Redundant checks for empty payload values are removed as the top check handles it.
-            // if (array_key_exists('value', $valuePayload) && 
-            //     ($valuePayload['value'] === null || (is_string($valuePayload['value']) && trim($valuePayload['value']) === '')) && 
-            //     $valuePayload['value'] !== 0 && $valuePayload['value'] !== 0.0) {
-            //     return;
-            // }
+            // If $valuePayloadFragment is still null here, it means a case was not handled or an issue occurred.
+            // However, explicit returns within switch cases should prevent reaching here with null if processing failed.
+            if ($valuePayloadFragment === null) {
+                logMessage("[AmoDeal] Предупреждение: не удалось сформировать payload fragment для поля \"$amoFieldName\" (тип: {$fieldDefinition['type']}) со значением \"$sheetValue\" для сделки $dealNumber. Пропускаем (непредвиденный случай).");
+                return;
+            }
             
-            // if (array_key_exists('enum_id', $valuePayload) && $valuePayload['enum_id'] === null) {
-            //     return;
-            // }
-            
-            $customFieldsPayload[] = ['field_id' => $fieldId, 'values' => [$valuePayload]];
+            $customFieldsPayload[] = ['field_id' => $fieldId, 'values' => [$valuePayloadFragment]];
         };
         
         $addCustomFieldIfValid('amount_issued', $data['amount']);
