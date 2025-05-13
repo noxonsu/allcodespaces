@@ -468,13 +468,13 @@ async function callDeepSeek(chatId, userMessageContent) {
     }
 }
 
-async function transcribeAudio(audioUrlOrPath, language = 'ru') {
+async function transcribeAudio(audioUrlOrPath, language='en') {
     if (!openaiApiKey) {
         throw new Error('Ключ OpenAI API не установлен для транскрипции.');
     }
 
     const formData = new FormData();
-
+    //do noot use language for now 
     try {
         if (audioUrlOrPath.startsWith('http://') || audioUrlOrPath.startsWith('https://')) {
             console.info(`[Transcribe ${language}] Транскрибация из URL: ${audioUrlOrPath}`);
@@ -487,7 +487,7 @@ async function transcribeAudio(audioUrlOrPath, language = 'ru') {
         }
 
         formData.append('model', 'whisper-1');
-        if (language) formData.append('language', language);
+
         formData.append('response_format', 'text');
 
         const response = await axios.post(
