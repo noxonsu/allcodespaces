@@ -3,6 +3,7 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const path = require('path');
+const express = require('express');
 
 // Log NAMEPROMPT early to see what .env file will be targeted
 const NAMEPROMPT_FROM_ENV = process.env.NAMEPROMPT || 'hr';
@@ -57,9 +58,15 @@ if (result.error) {
 }
 
 // Follow-up message configuration
-const FOLLOW_UP_DELAY_MS = 2 * 60 * 1000; // 2 minutes for testing
-const VACANCY_CLOSED_TRIGGER_PHRASE = "К сожалению"; 
+const FOLLOW_UP_DELAY_MS = 30 * 1000; // 30 sec for testing
+const VACANCY_CLOSED_TRIGGER_PHRASE = "к сожалению"; 
 const FOLLOW_UP_VACANCY_MESSAGE = "Давно ищите оффер?";
+const STOP_DIALOG_MESSAGE = "человеку";
+
+// Admin and Server Configuration
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
+const BOT_SERVER_BASE_URL = process.env.BOT_SERVER_BASE_URL; // e.g., http://yourdomain.com or http://your_ip:15656
+const SERVER_PORT = 15656;
 
 // Ensure directories exist
 fs.mkdirSync(USER_DATA_DIR, { recursive: true });
@@ -109,6 +116,25 @@ setSystemMessage(systemPromptContent);
 if (openaiApiKey) setOpenAIKey(openaiApiKey);
 if (deepseekApiKey) setDeepSeekKey(deepseekApiKey);
 if (process.env.MODEL) setModel(process.env.MODEL);
+
+// --- Express Server for Logs ---
+if (ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL) {
+    const app = express();
+    
+    // Ensure CHAT_HISTORIES_DIR is absolute or resolve it correctly
+    const absoluteChatHistoriesDir = path.resolve(__dirname, CHAT_HISTORIES_DIR);
+    console.log(`[Express] Serving chat logs from: ${absoluteChatHistoriesDir}`);
+
+    app.use('/chatlogs', express.static(absoluteChatHistoriesDir));
+
+    app.listen(SERVER_PORT, () => {
+        console.log(`[Express] Server listening on port ${SERVER_PORT} for chat logs.`);
+        console.log(`[Express] Example log URL: ${BOT_SERVER_BASE_URL}/chatlogs/chat_<chatId>.log`);
+    });
+} else {
+    console.warn('[Express] ADMIN_TELEGRAM_ID or BOT_SERVER_BASE_URL not set. Chat log server and admin notifications for stopped dialogs will be disabled.');
+}
+
 
 // --- Helper Functions ---
 
@@ -248,75 +274,36 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         console.error(`Некорректный chat ID в /start: ${msg.chat.id}`);
         return;
     }
-    console.info(`[Start ${chatId}] Получена команда /start.`);
+    console.info(`[Start ${chatId}] Получена команда /start. Профиль будет пересоздан, история чата удалена.`);
 
     try {
         const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
         let startParam = match?.[1] ? sanitizeString(match[1]) : null;
         const howPassed = startParam ? `через параметр: ${startParam}` : 'прямая команда /start';
 
-        let userData = {};
-        let isNewUser = false;
-        if (fs.existsSync(userFilePath)) {
-            try {
-                const existingData = JSON.parse(fs.readFileSync(userFilePath, 'utf8'));
-                userData = { ...loadUserData(chatId), ...existingData }; // Ensure defaults like isPaid are loaded
-                if (startParam && startParam !== userData.startParameter) {
-                    userData.lastStartParam = startParam;
-                    userData.startParameter = startParam; // Update current startParameter if new one provided
-                    console.info(`[Start ${chatId}] Чат перезапущен с новым параметром: ${startParam}`);
-                } else if (startParam && startParam === userData.startParameter) {
-                    // Keep existing startParam if it's the same
-                } else if (!startParam) {
-                    // If /start is called without a param, don't nullify existing startParameter
-                    // userData.startParameter remains as is or null if never set
-                }
-                userData.lastRestartTime = new Date().toISOString();
-            } catch (parseError) {
-                console.error(`Ошибка парсинга данных пользователя для ${chatId}, сброс:`, parseError);
-                isNewUser = true; // Force new user setup on parse error
-            }
-        } else {
-            isNewUser = true;
-        }
-
-        if (isNewUser) {
-            userData = {
-                chatId: chatId.toString(),
-                firstVisit: new Date().toISOString(),
-                startParameter: startParam,
-                howPassed: howPassed,
-                username: msg.from?.username || null,
-                firstName: msg.from?.first_name || null,
-                lastName: msg.from?.last_name || null,
-                languageCode: msg.from?.language_code || null,
-                longMemory: '',
-                lastLongMemoryUpdate: 0,
-                isPaid: false, // Default for new user
-                providedName: null, // Default for new user
-                lastRestartTime: new Date().toISOString(),
-                lastMessageTimestamp: null // Initialize lastMessageTimestamp
-            };
-            console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
-        } else {
-            // Ensure existing users have necessary fields, loadUserData should handle defaults
-            if (userData.lastMessageTimestamp === undefined) {
-                userData.lastMessageTimestamp = null;
-            }
-            if (userData.isPaid === undefined) {
-                userData.isPaid = false;
-            }
-            if (userData.providedName === undefined) {
-                userData.providedName = null;
-            }
-            // If startParam was provided with this /start command, update it
-            if (startParam) {
-                userData.startParameter = startParam;
-            }
-        }
-
+        // Всегда пересоздаем профиль пользователя при команде /start
+        const userData = {
+            chatId: chatId.toString(),
+            firstVisit: new Date().toISOString(), // firstVisit обновляется, так как профиль пересоздается
+            startParameter: startParam,
+            howPassed: howPassed,
+            username: msg.from?.username || null,
+            firstName: msg.from?.first_name || null,
+            lastName: msg.from?.last_name || null,
+            languageCode: msg.from?.language_code || null,
+            longMemory: '',
+            lastLongMemoryUpdate: 0,
+            isPaid: false, // Сбрасываем isPaid при пересоздании профиля
+            providedName: null, // Сбрасываем providedName
+            lastRestartTime: new Date().toISOString(),
+            lastMessageTimestamp: null, // Инициализируем lastMessageTimestamp
+            followUpSent: false, // Initialize followUpSent flag
+            dialogStopped: false, // Initialize dialogStopped flag
+            pendingBotQuestion: null // Initialize pendingBotQuestion flag
+        };
+        
         fs.writeFileSync(userFilePath, JSON.stringify(userData, null, 2));
-        console.info(`[Start ${chatId}] Данные пользователя сохранены.`);
+        console.info(`[Start ${chatId}] Профиль пользователя пересоздан и сохранен.`);
 
         const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
         if (fs.existsSync(chatLogPath)) {
@@ -326,13 +313,14 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
             } catch (unlinkError) {
                 console.error(`Ошибка удаления лога чата для ${chatId}:`, unlinkError);
             }
+        } else {
+            console.info(`[Start ${chatId}] Лог чата не найден для удаления (возможно, это первый старт или предыдущий сброс).`);
         }
 
         logChat(chatId, {
             type: 'system_event',
-            event: 'start_command',
+            event: 'start_command_profile_recreated', // Изменено имя события
             howPassed: howPassed,
-            isNewUser: isNewUser,
             startParam: startParam,
             timestamp: new Date(msg.date * 1000).toISOString()
         }, 'system');
@@ -349,61 +337,107 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         await bot.sendChatAction(chatId, 'typing');
 
         let initialLLMInputText;
-        const currentData = loadUserData(chatId); // Load fresh data after potential updates
+        const currentData = loadUserData(chatId); // Load fresh (recreated) data
 
         if (startParam) {
-            if (!currentData.providedName) {
-                // User started with a parameter, and name is not known. Treat param as name.
-                currentData.providedName = startParam;
-                currentData.nameLastUpdate = new Date().toISOString();
-                saveUserData(chatId, currentData);
-                logChat(chatId, {
-                    type: 'name_provided_via_start_param',
-                    role: 'system_inferred',
-                    name: startParam,
-                    content: `User started with parameter "${startParam}", inferred as name.`,
-                    timestamp: new Date().toISOString()
-                }, 'system');
-                initialLLMInputText = newDayPrefix + `Пользователь только что присоединился и представился как "${startParam}" через параметр запуска. Подтверди это и начни общение естественно.`;
-            } else {
-                // Name is known, startParam is a regular message.
-                initialLLMInputText = newDayPrefix + startParam;
-            }
+            // Поскольку профиль пересоздан, providedName будет null
+            // Логика ниже обработает startParam как имя, если оно предоставлено
+            currentData.providedName = startParam; // Рассматриваем startParam как имя при пересоздании профиля
+            currentData.nameLastUpdate = new Date().toISOString();
+            saveUserData(chatId, currentData); // Сохраняем имя из startParam
+            logChat(chatId, {
+                type: 'name_provided_via_start_param',
+                role: 'system_inferred',
+                name: startParam,
+                content: `User started with parameter "${startParam}" after profile reset, inferred as name.`,
+                timestamp: new Date().toISOString()
+            }, 'system');
+            initialLLMInputText = newDayPrefix + `Пользователь только что присоединился (профиль пересоздан) и представился как "${startParam}" через параметр запуска. Подтверди это и начни общение естественно.`;
         } else {
             // No startParam. LLM should initiate based on system prompt.
-            initialLLMInputText = newDayPrefix + "Пользователь только что запустил диалог командой /start. Пожалуйста, поприветствуй его согласно своей роли и системным инструкциям и начни общение.";
+            initialLLMInputText = newDayPrefix + "Пользователь только что запустил диалог командой /start (профиль пересоздан). Пожалуйста, поприветствуй его согласно своей роли и системным инструкциям и начни общение.";
         }
 
         const assistantResponse = await callLLM(chatId, [{ type: 'input_text', text: initialLLMInputText }]);
         await sendAndLogResponse(chatId, assistantResponse);
 
-        // Check for vacancy closed trigger and schedule follow-up
-        if (assistantResponse && assistantResponse.includes(VACANCY_CLOSED_TRIGGER_PHRASE)) {
-            console.info(`[Bot ${chatId} /start] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
-            logChat(chatId, { 
-                event: 'follow_up_scheduled_on_start', 
-                trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE,
-                follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
-                delay_ms: FOLLOW_UP_DELAY_MS
+        // Check for STOP_DIALOG_MESSAGE first
+        if (assistantResponse && assistantResponse.includes(STOP_DIALOG_MESSAGE)) {
+            console.info(`[Bot ${chatId} /start] STOP_DIALOG_MESSAGE detected: "${STOP_DIALOG_MESSAGE}". Stopping dialog and notifying admin.`);
+            const currentData = loadUserData(chatId);
+            currentData.dialogStopped = true;
+            saveUserData(chatId, currentData);
+            logChat(chatId, {
+                event: 'dialog_stopped_by_llm_on_start',
+                trigger_phrase: STOP_DIALOG_MESSAGE,
+                admin_notified: !!(ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL)
             }, 'system');
 
-            setTimeout(async () => {
+            if (ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL) {
                 try {
-                    console.info(`[Bot ${chatId} /start] Sending scheduled follow-up message: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
-                    await sendAndLogResponse(chatId, FOLLOW_UP_VACANCY_MESSAGE);
-                    logChat(chatId, { 
-                        event: 'follow_up_sent_on_start', 
-                        message: FOLLOW_UP_VACANCY_MESSAGE 
-                    }, 'system');
-                } catch (error) {
-                    console.error(`[Bot ${chatId} /start] Error sending scheduled follow-up message:`, error);
-                    logChat(chatId, { 
-                        event: 'follow_up_send_error_on_start', 
-                        message: FOLLOW_UP_VACANCY_MESSAGE,
-                        error: error.message 
-                    }, 'error');
+                    const logFileName = `chat_${chatId}.log`;
+                    const logUrl = `${BOT_SERVER_BASE_URL}/chatlogs/${logFileName}`;
+                    await bot.sendMessage(ADMIN_TELEGRAM_ID, `Диалог с пользователем ${chatId} (начатый через /start) был остановлен LLM (фраза "${STOP_DIALOG_MESSAGE}").\nЛог: ${logUrl}`);
+                } catch (adminNotifyError) {
+                    console.error(`[Bot ${chatId} /start] Error notifying admin about stopped dialog:`, adminNotifyError);
                 }
-            }, FOLLOW_UP_DELAY_MS);
+            }
+            return; // Stop further processing, including follow-ups
+        }
+
+        // Check for vacancy closed trigger and schedule follow-up
+        if (assistantResponse && assistantResponse.includes(VACANCY_CLOSED_TRIGGER_PHRAЗE)) {
+            const currentUserData = loadUserData(chatId); // Load data to check followUpSent status
+            if (!currentUserData.followUpSent) {
+                console.info(`[Bot ${chatId} /start] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
+                logChat(chatId, { 
+                    event: 'follow_up_scheduled_on_start', 
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE,
+                    follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
+                    delay_ms: FOLLOW_UP_DELAY_MS
+                }, 'system');
+
+                setTimeout(async () => {
+                    try {
+                        // Re-check before sending, in case status changed or to avoid double send from other logic paths (though unlikely here)
+                        const freshUserData = loadUserData(chatId);
+                        if (freshUserData.followUpSent) {
+                            console.info(`[Bot ${chatId} /start] Follow-up already sent, skipping scheduled message.`);
+                            logChat(chatId, { event: 'follow_up_skipped_already_sent_on_start', message: FOLLOW_UP_VACANCY_MESSAGE }, 'system');
+                            return;
+                        }
+
+                        console.info(`[Bot ${chatId} /start] Sending scheduled follow-up message: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
+                        await sendAndLogResponse(chatId, FOLLOW_UP_VACANCY_MESSAGE);
+                        
+                        freshUserData.followUpSent = true;
+                        freshUserData.pendingBotQuestion = FOLLOW_UP_VACANCY_MESSAGE; // Set pending question
+                        saveUserData(chatId, freshUserData);
+
+                        logChat(chatId, { 
+                            event: 'follow_up_sent_on_start', 
+                            message: FOLLOW_UP_VACANCY_MESSAGE 
+                        }, 'system');
+                        logChat(chatId, {
+                            event: 'follow_up_context_set_on_start',
+                            question: FOLLOW_UP_VACANCY_MESSAGE
+                        }, 'system');
+                    } catch (error) {
+                        console.error(`[Bot ${chatId} /start] Error sending scheduled follow-up message:`, error);
+                        logChat(chatId, { 
+                            event: 'follow_up_send_error_on_start', 
+                            message: FOLLOW_UP_VACANCY_MESSAGE,
+                            error: error.message 
+                        }, 'error');
+                    }
+                }, FOLLOW_UP_DELAY_MS);
+            } else {
+                console.info(`[Bot ${chatId} /start] Vacancy closed message detected, but follow-up already sent. Skipping.`);
+                logChat(chatId, { 
+                    event: 'follow_up_skipped_already_sent_on_start_check', 
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE
+                }, 'system');
+            }
         }
 
     } catch (error) {
@@ -433,6 +467,13 @@ bot.on('message', async (msg) => {
     }
 
     try {
+        const userDataOnMessage = loadUserData(chatId); // Load user data at the beginning
+        if (userDataOnMessage.dialogStopped) {
+            console.info(`[Сообщение ${chatId}] Диалог ранее остановлен. Сообщение от пользователя игнорируется.`);
+            logChat(chatId, { event: 'user_messaged_after_dialog_stopped_ignored', user_text: userText }, 'system');
+            return; // Silently ignore the message
+        }
+
         const newDayPrefix = await handleNewDayLogicAndUpdateTimestamp(chatId);
         console.info(`[Сообщение ${chatId}] Обработка текстового сообщения. Длина: ${userText.length}. NewDayPrefix: "${newDayPrefix}"`);
 
@@ -474,67 +515,106 @@ bot.on('message', async (msg) => {
             console.error(`[Сообщение ${chatId}] Ошибка чтения данных пользователя для проверки имени:`, err);
         }
 
-        if (!hasProvidedName) {
-            console.info(`[Сообщение ${chatId}] Обработка сообщения как имени: "${userText}"`);
+        
+        let llmInputTextRegular = newDayPrefix + userText;
+        
+        // Check for and apply pending bot question context
+        let currentUserDataForContext = loadUserData(chatId);
+        if (currentUserDataForContext.pendingBotQuestion) {
+            const botQuestionContext = currentUserDataForContext.pendingBotQuestion;
+            const contextPrefix = `[Контекст предыдущего вопроса бота: ${botQuestionContext}] `;
+            llmInputTextRegular = newDayPrefix + contextPrefix + userText; // Add newDayPrefix, then context, then user text
+
             logChat(chatId, {
-                type: 'name_provided',
-                role: 'user',
-                name: userText,
-                content: [{ type: 'input_text', text: `Пользователь предоставил имя: ${userText}` }],
-                timestamp: new Date(msg.date * 1000).toISOString()
-            }, 'user');
-
-            try {
-                const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
-                userData.providedName = userText;
-                userData.nameLastUpdate = new Date().toISOString();
-                fs.writeFileSync(userDataPath, JSON.stringify(userData, null, 2));
-                console.info(`[Сообщение ${chatId}] Имя пользователя сохранено в данных пользователя.`);
-            } catch (err) {
-                console.error(`[Сообщение ${chatId}] Не удалось обновить данные пользователя с именем:`, err);
-            }
-
-            const llmInputTextForName = newDayPrefix + `Пользователь только что сказал мне, что его зовут "${userText}". Подтверди это и продолжи разговор естественно.`;
-            const assistantResponse = await callLLM(chatId, [{
-                type: 'input_text',
-                text: llmInputTextForName
-            }]);
-            await sendAndLogResponse(chatId, assistantResponse);
-            return;
+                event: 'user_reply_with_follow_up_context',
+                original_user_text: userText,
+                bot_question_context: botQuestionContext,
+            }, 'system');
+            
+            currentUserDataForContext.pendingBotQuestion = null; // Clear the flag
+            saveUserData(chatId, currentUserDataForContext); 
         }
-
-        const llmInputTextRegular = newDayPrefix + userText;
+        
         const userMessageContent = [{ type: 'input_text', text: llmInputTextRegular }];
         const assistantText = await callLLM(chatId, userMessageContent);
         await sendAndLogResponse(chatId, assistantText);
 
-        // Check for vacancy closed trigger and schedule follow-up
-        if (assistantText && assistantText.includes(VACANCY_CLOSED_TRIGGER_PHRASE)) {
-            console.info(`[Bot ${chatId}] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
-            logChat(chatId, { 
-                event: 'follow_up_scheduled', 
-                trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE,
-                follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
-                delay_ms: FOLLOW_UP_DELAY_MS
+        // Check for STOP_DIALOG_MESSAGE first
+        if (assistantText && assistantText.includes(STOP_DIALOG_MESSAGE)) {
+            console.info(`[Bot ${chatId}] STOP_DIALOG_MESSAGE detected: "${STOP_DIALOG_MESSAGE}". Stopping dialog and notifying admin.`);
+            const currentData = loadUserData(chatId); // Reload to be safe, though userDataOnMessage should be recent
+            currentData.dialogStopped = true;
+            saveUserData(chatId, currentData);
+            logChat(chatId, {
+                event: 'dialog_stopped_by_llm',
+                trigger_phrase: STOP_DIALOG_MESSAGE,
+                admin_notified: !!(ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL)
             }, 'system');
 
-            setTimeout(async () => {
+            if (ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL) {
                 try {
-                    console.info(`[Bot ${chatId}] Sending scheduled follow-up message: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
-                    await sendAndLogResponse(chatId, FOLLOW_UP_VACANCY_MESSAGE);
-                    logChat(chatId, { 
-                        event: 'follow_up_sent', 
-                        message: FOLLOW_UP_VACANCY_MESSAGE 
-                    }, 'system');
-                } catch (error) {
-                    console.error(`[Bot ${chatId}] Error sending scheduled follow-up message:`, error);
-                    logChat(chatId, { 
-                        event: 'follow_up_send_error', 
-                        message: FOLLOW_UP_VACANCY_MESSAGE,
-                        error: error.message 
-                    }, 'error');
+                    const logFileName = `chat_${chatId}.log`;
+                    const logUrl = `${BOT_SERVER_BASE_URL}/chatlogs/${logFileName}`; // Ensure this matches the Express route
+                    await bot.sendMessage(ADMIN_TELEGRAM_ID, `Диалог с пользователем ${chatId} был остановлен LLM (фраза "${STOP_DIALOG_MESSAGE}").\nЛог: ${logUrl}`);
+                } catch (adminNotifyError) {
+                    console.error(`[Bot ${chatId}] Error notifying admin about stopped dialog:`, adminNotifyError);
                 }
-            }, FOLLOW_UP_DELAY_MS);
+            }
+            return; // Stop further processing, including follow-ups
+        }
+
+        // Check for vacancy closed trigger and schedule follow-up
+        if (assistantText && assistantText.includes(VACANCY_CLOSED_TRIGGER_PHRAЗE)) {
+            const currentUserData = loadUserData(chatId); // Load data to check followUpSent status
+            if (!currentUserData.followUpSent) {
+                console.info(`[Bot ${chatId}] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
+                logChat(chatId, { 
+                    event: 'follow_up_scheduled', 
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE, // Corrected typo PHRAЗE to PHRASE
+                    follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
+                    delay_ms: FOLLOW_UP_DELAY_MS
+                }, 'system');
+
+                setTimeout(async () => {
+                    try {
+                        // Re-check before sending
+                        const freshUserData = loadUserData(chatId);
+                        if (freshUserData.followUpSent) {
+                            console.info(`[Bot ${chatId}] Follow-up already sent, skipping scheduled message.`);
+                            logChat(chatId, { event: 'follow_up_skipped_already_sent', message: FOLLOW_UP_VACANCY_MESSAGE }, 'system');
+                            return;
+                        }
+                        console.info(`[Bot ${chatId}] Sending scheduled follow-up message: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
+                        await sendAndLogResponse(chatId, FOLLOW_UP_VACANCY_MESSAGE);
+
+                        freshUserData.followUpSent = true;
+                        freshUserData.pendingBotQuestion = FOLLOW_UP_VACANCY_MESSAGE; // Set pending question
+                        saveUserData(chatId, freshUserData);
+
+                        logChat(chatId, { 
+                            event: 'follow_up_sent', 
+                            message: FOLLOW_UP_VACANCY_MESSAGE 
+                        }, 'system');
+                        logChat(chatId, {
+                            event: 'follow_up_context_set',
+                            question: FOLLOW_UP_VACANCY_MESSAGE
+                        }, 'system');
+                    } catch (error) {
+                        console.error(`[Bot ${chatId}] Error sending scheduled follow-up message:`, error);
+                        logChat(chatId, { 
+                            event: 'follow_up_send_error', 
+                            message: FOLLOW_UP_VACANCY_MESSAGE,
+                            error: error.message 
+                        }, 'error');
+                    }
+                }, FOLLOW_UP_DELAY_MS);
+            } else {
+                console.info(`[Bot ${chatId}] Vacancy closed message detected, but follow-up already sent. Skipping.`);
+                logChat(chatId, { 
+                    event: 'follow_up_skipped_already_sent_check', 
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE // Corrected typo PHRAЗE to PHRASE
+                }, 'system');
+            }
         }
 
     } catch (error) {
@@ -552,7 +632,14 @@ bot.on('webhook_error', (error) => {
 });
 
 // --- Bot Start ---
-console.log('Конфигурация бота завершена. Запуск опроса...');
+bot.getMe().then((me) => {
+    const botUsername = me.username;
+    console.log(`Конфигурация бота @${botUsername} завершена. Запуск опроса...`);
+    console.log(`Ссылка на бота: https://t.me/${botUsername}`);
+}).catch(err => {
+    console.error("Ошибка получения информации о боте для логирования ссылки:", err);
+    console.log('Конфигурация бота завершена (не удалось получить имя пользователя бота). Запуск опроса...');
+});
 
 process.on('SIGINT', () => {
     console.log('Получен SIGINT. Завершение работы бота...');
