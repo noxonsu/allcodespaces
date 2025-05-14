@@ -1,0 +1,4 @@
+<!-- filepath: /workspaces/allcodespaces/amogt/.htaccess -->
+<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env">
+    Require all denied
+</FilesMatch>

@@ -1,2 +1,3 @@
-test.php
-dashboard.php
+*.json
+.env
+.htaccess
