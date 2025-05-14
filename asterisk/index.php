@@ -1,10 +1,9 @@
 <?php
 
-// Enable error reporting
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+// Base configurations, env loading, and debugLog
+require_once __DIR__ . '/config.php';
 
-//show all errors 
+// Start session handling
 session_start();
 
 // Handle logout action
@@ -15,310 +14,75 @@ if (isset($_GET['logout'])) {
     exit;
 }
 
+// Autoloader for Composer packages
 require __DIR__ . '/vendor/autoload.php';
 
-try {
-    // This usage is correct for vlucas/phpdotenv
-    $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
-    $dotenv->load();
-} catch (Exception $e) {
-    die('Could not load .env file. Please ensure it exists and is readable. Error: ' . $e->getMessage());
-}
+// Google API helper functions
+require_once __DIR__ . '/google_helpers.php';
+
+// Authentication: checks if user is logged in, shows login form if not. Exits if login form is shown.
+require_once __DIR__ . '/auth.php';
+// If we reach here, user is authenticated. $_SESSION['user_fio'] and $_SESSION['user_role'] are set.
+
+// Data loading: operator config, call logs, initial filtering by medical center queue
+// Populates $operatorConfigData and $sessionsData
+require_once __DIR__ . '/data_loader.php';
+
+// Analysis helper functions
+require_once __DIR__ . '/analysis_helpers.php';
+
+// View helper functions
+require_once __DIR__ . '/view_helpers.php';
 
 
-// --- Google Sheets Configuration ---
-$googleSheetId = $_ENV['GOOGLE_SHEET_ID'] ?? null;
-if (!$googleSheetId) {
-    die('GOOGLE_SHEET_ID is not set in your .env file.');
-}
-$googleCredentialsPath = __DIR__ . '/my-project-1337-458418-4b4c595d74d5.json'; // Path to your service account JSON
-$operatorSheetName = 'Федоровка'; // As per your screenshot
-$passwordCell = $operatorSheetName . '!F2';
-$operatorDataRange = $operatorSheetName . '!A2:C'; // Start from row 2 to skip header
-
-// --- Google API Client Function ---
-function getGoogleServiceClient($credentialsPath) {
-    $client = new Google\Client();
-    $client->setApplicationName('Call Center Dashboard');
-    $client->setAuthConfig($credentialsPath);
-    $client->setScopes([Google\Service\Sheets::SPREADSHEETS_READONLY]);
-    return new Google\Service\Sheets($client);
-}
-
-function fetchFromGoogleSheet($service, $sheetId, $range) {
-    try {
-        $response = $service->spreadsheets_values->get($sheetId, $range);
-        return $response->getValues();
-    } catch (Exception $e) {
-        error_log('Google Sheets API Error fetching range ' . $range . ': ' . $e->getMessage());
-        return null;
-    }
-}
-
-// --- Password Protection ---
-$accessPassword = null;
-if (!isset($_SESSION['authenticated']) || !$_SESSION['authenticated']) {
-    try {
-        $service = getGoogleServiceClient($googleCredentialsPath);
-        $passwordData = fetchFromGoogleSheet($service, $googleSheetId, $passwordCell);
-        if ($passwordData && isset($passwordData[0][0])) {
-            $accessPassword = trim($passwordData[0][0]);
-        } else {
-            die("Could not fetch password from Google Sheet at cell " . $passwordCell . ". Check sheet and permissions.");
-        }
-    } catch (Exception $e) {
-        die("Error initializing Google Sheets service for password check: " . $e->getMessage());
-    }
-
-    $passwordError = '';
-    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['password'])) {
-        if (hash_equals($accessPassword, $_POST['password'])) { // Use hash_equals for timing attack resistance
-            $_SESSION['authenticated'] = true;
-            header("Location: " . $_SERVER['PHP_SELF']); // Redirect to clear POST data
-            exit;
-        } else {
-            $passwordError = "Неверный пароль.";
-        }
-    }
-
-    // Display password form
-    ?>
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8"><title>Вход</title>
-        <link rel="stylesheet" href="dashboard.css">
-        <style>
-            body { display: flex; justify-content: center; align-items: center; height: 100vh; }
-            .login-form { padding: 20px; border: 1px solid #ccc; background: #fff; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
-            .login-form input { margin-bottom: 10px; padding: 8px; width: 200px; }
-            .login-form button { padding: 10px 15px; }
-            .error { color: red; margin-bottom: 10px; }
-        </style>
-    </head>
-    <body>
-        <div class="login-form">
-            <h2>Введите пароль для доступа</h2>
-            <form method="POST" action="">
-                <?php if ($passwordError): ?><p class="error"><?php echo $passwordError; ?></p><?php endif; ?>
-                <input type="password" name="password" placeholder="Пароль" required><br>
-                <button type="submit">Войти</button>
-            </form>
-        </div>
-    </body>
-    </html>
-    <?php
-    exit; // Stop further script execution
-}
-
-
-// --- Fetch Operator Config from Google Sheets (if authenticated) ---
-$operatorConfigData = [];
-try {
-    $service = getGoogleServiceClient($googleCredentialsPath);
-    $sheetData = fetchFromGoogleSheet($service, $googleSheetId, $operatorDataRange);
-
-    if ($sheetData) {
-        foreach ($sheetData as $row) {
-            if (count($row) >= 3 && !empty(trim($row[0]))) { // Ensure FIO, Queue, Department exist and FIO is not empty
-                $operatorConfigData[] = [
-                    'fio' => trim($row[0]),
-                    'queue' => trim($row[1]),
-                    'department' => trim($row[2]),
-                ];
-            }
-        }
-    }
-} catch (Exception $e) {
-    // Log error but continue with empty or fallback data if needed
-    error_log("Error fetching operator data from Google Sheets: " . $e->getMessage());
-}
-
-
-if (empty($operatorConfigData)) {
-    // Fallback or error message if Google Sheets data retrieval fails or sheet is empty
-    $errorMessage = "Не удалось загрузить конфигурацию операторов из Google Sheets ({$operatorSheetName}) или таблица пуста. Фильтрация по операторам и отделам может быть неполной.";
-    echo "<p style='color:red; text-align:center;'>{$errorMessage}</p>";
-    error_log($errorMessage); // Log this error
-    // No fallback data will be used. The script will proceed with an empty $operatorConfigData.
-}
-
-// --- Fetch Call Logs from URL ---
-$callLogData = [];
-$callLogURL = 'https://sip.qazna24.kz/admin/dashboard/';
-
-// Debug function
-function debugLog($message) {
-    error_log("[DEBUG] " . $message);
-    echo "<script>console.log(\"[DEBUG] " . htmlspecialchars($message) . "\");</script>"; // Output to browser console
-}
-
-debugLog("Attempting to fetch call logs from: " . $callLogURL);
-
-try {
-    $ch = curl_init($callLogURL);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Skip SSL verification - use with caution!
-    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // Also skip hostname verification
-    $jsonContent = curl_exec($ch);
-
-    if (curl_errno($ch)) {
-        throw new Exception(curl_error($ch));
-    }
-
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    if ($httpCode != 200) {
-        throw new Exception("HTTP Error: " . $httpCode . " - " . $jsonContent); // Include response body in error message
-    }
-
-    curl_close($ch);
-
-    if ($jsonContent === false) {
-        throw new Exception('Failed to fetch data from URL.');
-    }
-
-    // Check if we have valid content
-    if (!empty($jsonContent)) {
-        $decodedData = json_decode($jsonContent, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            $jsonError = 'Error decoding JSON: ' . json_last_error_msg();
-            echo '<div class="error-message">' . $jsonError . '</div>';
-            error_log($jsonError); // Log JSON decoding error
-            debugLog($jsonError);
-        } else {
-            // Make sure the data is in the expected format (array of arrays)
-            if (!is_array($decodedData)) {
-                $formatError = 'JSON does not contain a valid JSON array';
-                echo '<div class="error-message">' . $formatError . '</div>';
-                error_log($formatError);
-                debugLog($formatError);
-            } elseif (!isset($decodedData['calls']) || !is_array($decodedData['calls'])) {
-                $formatError = 'JSON does not contain a "calls" key with an array value';
-                echo '<div class="error-message">' . $formatError . '</div>';
-                error_log($formatError);
-                debugLog($formatError);
-            }
-            elseif (count($decodedData['calls']) > 0 && !is_array($decodedData['calls'][0])) {
-                $formatError = 'JSON["calls"] does not contain a valid array of call records';
-                echo '<div class="error-message">' . $formatError . '</div>';
-                error_log($formatError); // Log format error
-                debugLog($formatError);
-            }
-            else {
-                $callLogData = $decodedData['calls'];
-                error_log("Successfully loaded " . count($callLogData) . " call records from URL");
-                debugLog("Successfully loaded " . count($callLogData) . " call records from URL");
-            }
-        }
-    } else {
-        $emptyFileError = 'Fetched JSON is empty';
-        echo '<div class="error-message">' . $emptyFileError . '</div>';
-        error_log($emptyFileError); // Log empty file error
-        debugLog($emptyFileError);
-    }
-} catch (Exception $e) {
-    $fetchError = 'Error fetching or processing JSON: ' . $e->getMessage();
-    echo '<div class="error-message">' . $fetchError . '</div>';
-    error_log($fetchError); // Log the error
-    debugLog($fetchError);
-}
-
-// --- End Fetch Call Logs from URL ---
-
-// --- Helper Functions ---
-function getUniqueValues($array, $key) {
-    $values = [];
-    foreach ($array as $item) {
-        if (isset($item[$key]) && !in_array($item[$key], $values)) {
-            $values[] = $item[$key];
-        }
-    }
-    sort($values);
-    return $values;
-}
-
-function formatDuration($seconds) {
-    $min = floor($seconds / 60);
-    $sec = $seconds % 60;
-    return sprintf('%02d:%02d', $min, $sec);
-}
-
-// --- Get Filter Values ---
-$selectedFio = isset($_GET['fio']) ? $_GET['fio'] : '';
-$selectedQueue = isset($_GET['queue']) ? $_GET['queue'] : '';
+// --- Get Filter Values from URL ---
+// $selectedQueue was removed from UI, but variable kept for consistency if logic depends on it (currently not)
+$selectedQueue = isset($_GET['queue']) ? $_GET['queue'] : ''; 
 $selectedDepartment = isset($_GET['department']) ? $_GET['department'] : '';
+$selectedFio = isset($_GET['fio_filter']) ? $_GET['fio_filter'] : '';
 
-// --- Populate Filter Options ---
-$fioOptions = getUniqueValues($operatorConfigData, 'fio');
-$departmentOptions = getUniqueValues($operatorConfigData, 'department');
-
-// Combine queues from operator config and call logs for a comprehensive list
-$queuesFromConfig = getUniqueValues($operatorConfigData, 'queue');
-$queuesFromCalls = getUniqueValues($callLogData, 'destination');
-$queueOptions = array_unique(array_merge($queuesFromConfig, $queuesFromCalls));
-sort($queueOptions);
-error_log("Filter options populated: FIOs=" . count($fioOptions) . ", Departments=" . count($departmentOptions) . ", Queues=" . count($queueOptions));
-error_log("Initial call log count: " . count($callLogData));
-
-
-// --- Filter Logic ---
-$filteredCalls = $callLogData;
-error_log("Selected filters: FIO='{$selectedFio}', Queue='{$selectedQueue}', Department='{$selectedDepartment}'");
-
-// Determine relevant queues based on FIO or Department selection
-$queuesToFilterBy = [];
-
-if ($selectedFio) {
+// --- Populate Filter Options for UI ---
+$fioDisplayOptions = [];
+$processedFiosForDropdown = [];
+if (!empty($operatorConfigData)) {
     foreach ($operatorConfigData as $op) {
-        if ($op['fio'] === $selectedFio) {
-            $queuesToFilterBy[] = $op['queue'];
+        if (isset($op['fio']) && !empty($op['fio']) && !in_array($op['fio'], $processedFiosForDropdown)) {
+            $displayText = $op['fio'];
+            if (isset($op['operator_extension']) && !empty($op['operator_extension'])) {
+                $displayText .= " (" . htmlspecialchars($op['operator_extension']) . ")";
+            }
+            $fioDisplayOptions[] = ['value' => htmlspecialchars($op['fio']), 'text' => htmlspecialchars($displayText)];
+            $processedFiosForDropdown[] = $op['fio'];
         }
     }
-    if (!empty($queuesToFilterBy)) {
-        $filteredCalls = array_filter($filteredCalls, function ($call) use ($queuesToFilterBy) {
-            return isset($call['destination']) && in_array($call['destination'], $queuesToFilterBy);
-        });
-        error_log("Filtered by FIO '{$selectedFio}'. Queues to filter by: " . implode(', ', $queuesToFilterBy) . ". Result count: " . count($filteredCalls));
-    } else {
-        // If FIO is selected but no queues found for them, show no calls for this specific filter
-         $filteredCalls = [];
-         error_log("No queues found for selected FIO '{$selectedFio}'. Result count: 0");
-    }
+    usort($fioDisplayOptions, function($a, $b) { return strcmp($a['text'], $b['text']); });
 }
-
-if ($selectedDepartment) {
-    $departmentQueues = [];
-    foreach ($operatorConfigData as $op) {
-        if ($op['department'] === $selectedDepartment) {
-            $departmentQueues[] = $op['queue'];
-        }
-    }
-     if (!empty($departmentQueues)) {
-        // If a FIO filter was already applied, filter within those results
-        // Otherwise, filter the main call list
-        $baseForDepartmentFilter = ($selectedFio && !empty($queuesToFilterBy)) ? $filteredCalls : $callLogData;
-        error_log("Base for department filter count: " . count($baseForDepartmentFilter));
-        
-        $filteredCalls = array_filter($baseForDepartmentFilter, function ($call) use ($departmentQueues) {
-            return isset($call['destination']) && in_array($call['destination'], $departmentQueues);
-        });
-        error_log("Filtered by Department '{$selectedDepartment}'. Queues to filter by: " . implode(', ', $departmentQueues) . ". Result count: " . count($filteredCalls));
-    } else {
-         // If Department is selected but no queues found for it
-        $filteredCalls = [];
-        error_log("No queues found for selected Department '{$selectedDepartment}'. Result count: 0");
-    }
-}
+$departmentOptions = getUniqueValues($operatorConfigData, 'department'); // from view_helpers.php
+error_log("Filter options populated: Departments=" . count($departmentOptions) . ", FIOs for dropdown=" . count($fioDisplayOptions));
 
 
-// Direct queue filter (applied last or if no FIO/Dept queue restrictions)
-if ($selectedQueue) {
-    $initialCountBeforeQueueFilter = count($filteredCalls);
-    $filteredCalls = array_filter($filteredCalls, function ($call) use ($selectedQueue) {
-        return isset($call['destination']) && $call['destination'] === $selectedQueue;
-    });
-    error_log("Filtered by Queue '{$selectedQueue}'. Initial count: {$initialCountBeforeQueueFilter}. Result count: " . count($filteredCalls));
-}
+// --- Generate and load analysed calls data ---
+// $sessionsData at this point is already filtered by configured medical center queues (from data_loader.php)
+$analysedCallsJsonPath = __DIR__ . '/calls_analysed.json'; 
+// generateAndGetAnalysedCallsData is from analysis_helpers.php, uses $analysisDir from config.php
+$analysedCallsData = generateAndGetAnalysedCallsData($sessionsData, $operatorConfigData, $analysisDir, $analysedCallsJsonPath);
+
+// Calculate summaries using functions from analysis_helpers.php
+$overallSummary = calculateOverallSummary($analysedCallsData);
+$departmentSummary = calculateSummaryByField($analysedCallsData, 'departments', $operatorConfigData);
+$operatorSummary = calculateSummaryByField($analysedCallsData, 'fios', $operatorConfigData); 
+error_log("Initial session count (after MC queue filtering, before detailed filters): " . count($sessionsData));
+
+
+// --- Apply detailed filters (Department, FIO) ---
+// This script will modify $filteredSessions based on $sessionsData and selected filters
+// $filteredSessions will be populated by filter_handler.php
+require_once __DIR__ . '/filter_handler.php';
+// $filteredSessions is now ready for display
+
+
+// getComment function is in view_helpers.php, uses $commentsDir from config.php
+// formatDuration function is in view_helpers.php
 
 ?>
 <!DOCTYPE html>
@@ -326,7 +90,7 @@ if ($selectedQueue) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Статистика Колл-Центра: <?php echo htmlspecialchars($operatorSheetName); ?></title>
+    <title>Статистика Колл-Центра: <?php echo htmlspecialchars($operatorSheetName); ?> (<?php echo htmlspecialchars($_SESSION['user_fio'] ?? 'Гость'); ?>)</title>
     <link rel="stylesheet" href="dashboard.css">
     <style>
         .logout-button {
@@ -344,36 +108,118 @@ if ($selectedQueue) {
         .logout-button:hover {
             background-color: #d32f2f;
         }
+        .comment-cell { max-width: 200px; overflow-wrap: break-word; }
+        .operator-attempts { font-size: 0.9em; list-style-type: none; padding-left: 0; }
+        .operator-attempts li { margin-bottom: 3px; }
+        .user-info {
+            position: absolute;
+            top: 10px;
+            right: 100px; /* Adjust as needed */
+            padding: 8px 15px;
+            font-size: 14px;
+            color: #333;
+        }
     </style>
 </head>
 <body>
+    <div class="user-info">
+        Пользователь: <?php echo htmlspecialchars($_SESSION['user_fio'] ?? ''); ?> (<?php echo htmlspecialchars($_SESSION['user_role'] ?? ''); ?>)
+    </div>
     <a href="?logout=true" class="logout-button">Выход</a>
     <div class="container">
         <h1>Статистика Колл-Центра: <?php echo htmlspecialchars($operatorSheetName); ?></h1>
 
+        <!-- START: Analysis Summary Section -->
+        <div class="analysis-summary">
+            <h2>Сводка по анализу звонков и сессий</h2>
+
+            <h3>Общая статистика сессий</h3>
+            <?php if (!empty($overallSummary)): ?>
+            <ul>
+                <li>Всего сессий: <?php echo $overallSummary['Всего сессий'] ?? 0; ?></li>
+                <li>Отвечено сессий: <?php echo $overallSummary['Отвечено сессий'] ?? 0; ?></li>
+                <li>Пропущено сессий: <?php echo $overallSummary['Пропущено сессий'] ?? 0; ?></li>
+                <hr>
+                <?php foreach ($overallSummary as $type => $count): ?>
+                <?php if (!in_array($type, ['Всего сессий', 'Отвечено сессий', 'Пропущено сессий'])): ?>
+                <li><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></li>
+                <?php endif; ?>
+                <?php endforeach; ?>
+            </ul>
+            <?php else: ?>
+            <p>Нет данных для общей сводки.</p>
+            <?php endif; ?>
+            
+            <h3>По отделам (на основе анализа)</h3>
+            <?php if (!empty($departmentSummary)): ?>
+            <?php foreach ($departmentSummary as $department => $counts): ?>
+                <h4>Отдел: <?php echo htmlspecialchars($department); ?></h4>
+                <ul>
+                    <?php 
+                    $totalDeptCalls = array_sum(array_values($counts)); // Sum all counts for the department
+                    if ($totalDeptCalls > 0) {
+                        $hasDataForDept = false;
+                        foreach ($counts as $type => $count): 
+                            if ($count > 0): 
+                                $hasDataForDept = true; ?>
+                                <li><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></li>
+                            <?php endif; 
+                        endforeach; 
+                        if (!$hasDataForDept) {
+                             echo "<li>Нет данных для анализа в этом отделе.</li>";
+                        }
+                    } else {
+                        echo "<li>Нет звонков для анализа в этом отделе.</li>";
+                    }
+                    ?>
+                </ul>
+            <?php endforeach; ?>
+            <?php else: ?>
+            <p>Нет данных для сводки по отделам.</p>
+            <?php endif; ?>
+
+            <h3>По операторам (ФИО, на основе анализа и связи с очередью)</h3>
+            <?php if (!empty($operatorSummary)): ?>
+            <?php foreach ($operatorSummary as $fio => $counts): ?>
+                <h4>Оператор: <?php echo htmlspecialchars($fio); ?></h4>
+                <ul>
+                     <?php 
+                    $hasAnyDataForFioDisplay = false; 
+
+                    if (isset($counts['Пропущено сессий оператором'])) {
+                        echo "<li>Пропущено сессий оператором: " . $counts['Пропущено сессий оператором'] . "</li>";
+                        if ($counts['Пропущено сессий оператором'] > 0) {
+                            $hasAnyDataForFioDisplay = true;
+                        }
+                    }
+
+                    $analysisDataExistsForFio = false;
+                    foreach ($counts as $type => $count) {
+                        if ($type !== 'Пропущено сессий оператором') {
+                            if ($count > 0) {
+                                echo "<li>" . htmlspecialchars($type) . ": " . $count . "</li>";
+                                $hasAnyDataForFioDisplay = true;
+                                $analysisDataExistsForFio = true;
+                            }
+                        }
+                    }
+                    
+                    if (!$hasAnyDataForFioDisplay && isset($counts['Пропущено сессий оператором']) && $counts['Пропущено сессий оператором'] == 0 && !$analysisDataExistsForFio) {
+                        echo "<li>Нет данных для анализа для этого оператора.</li>";
+                    } elseif (!$hasAnyDataForFioDisplay && (!isset($counts['Пропущено сессий оператором']) || $counts['Пропущено сессий оператором'] == 0) ) {
+                        echo "<li>Нет данных для анализа для этого оператора.</li>";
+                    }
+                    ?>
+                </ul>
+            <?php endforeach; ?>
+            <?php else: ?>
+            <p>Нет данных для сводки по операторам.</p>
+            <?php endif; ?>
+        </div>
+        <hr> 
+        <!-- END: Analysis Summary Section -->
+
         <form method="GET" action="index.php" class="filters">
-            <div class="filter-group">
-                <label for="fio-filter">ФИО Оператора:</label>
-                <select id="fio-filter" name="fio" onchange="this.form.submit()">
-                    <option value="">Все операторы</option>
-                    <?php foreach ($fioOptions as $fio): ?>
-                        <option value="<?php echo htmlspecialchars($fio); ?>" <?php echo ($selectedFio === $fio) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($fio); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="filter-group">
-                <label for="queue-filter">Очередь:</label>
-                <select id="queue-filter" name="queue" onchange="this.form.submit()">
-                    <option value="">Все очереди</option>
-                    <?php foreach ($queueOptions as $queue): ?>
-                        <option value="<?php echo htmlspecialchars($queue); ?>" <?php echo ($selectedQueue === $queue) ? 'selected' : ''; ?>>
-                            <?php echo htmlspecialchars($queue); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
             <div class="filter-group">
                 <label for="department-filter">Отдел:</label>
                 <select id="department-filter" name="department" onchange="this.form.submit()">
@@ -385,88 +231,153 @@ if ($selectedQueue) {
                     <?php endforeach; ?>
                 </select>
             </div>
+            <div class="filter-group">
+                <label for="fio-filter">Оператор (ФИО):</label>
+                <select id="fio-filter" name="fio_filter" onchange="this.form.submit()">
+                    <option value="">Все операторы</option>
+                    <?php foreach ($fioDisplayOptions as $fioOp): ?>
+                        <option value="<?php echo $fioOp['value']; ?>" <?php echo ($selectedFio === $fioOp['value']) ? 'selected' : ''; ?>>
+                            <?php echo $fioOp['text']; ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
             <noscript><button type="submit">Применить фильтры</button></noscript>
         </form>
 
         <table id="calls-table">
             <thead>
                 <tr>
-                    <th>Дата звонка</th>
-                    <th>Кто звонил (номер)</th>
-                    <th>Кто звонил (имя)</th>
-                    <th>Куда звонил (очередь)</th>
+                    <th>Дата сессии</th>
+                    <th>Номер звонящего</th>
+                    <th>Имя звонящего</th>
+                    <th>Очереди</th>
+                    <th>Оператор (ответил)</th>
+                    <th>Попытки операторам</th>
+                    <th>Статус сессии</th>
                     <th>Длительность (общая)</th>
                     <th>Длительность (тарифиц.)</th>
-                    <th>Статус</th>
                     <th>Запись</th>
                     <th>Транскрипция</th>
                     <th>Анализ звонка</th>
+                    <th>Комментарий</th>
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($filteredCalls)): ?>
+                <?php if (empty($filteredSessions)): ?>
                     <tr>
-                        <td colspan="10" style="text-align: center;">Нет данных для отображения по выбранным фильтрам.</td>
-                        <?php error_log("No data to display for current filters: FIO='{$selectedFio}', Queue='{$selectedQueue}', Department='{$selectedDepartment}'"); ?>
+                        <td colspan="13" style="text-align: center;">Нет данных для отображения по выбранным фильтрам.</td>
+                        <?php error_log("No data to display for current filters: Department='{$selectedDepartment}', FIO='{$selectedFio}'"); ?>
                     </tr>
                 <?php else: ?>
                     <?php 
-                    $displayedCallCount = 0;
-                    foreach ($filteredCalls as $call): 
-                        if (is_array($call) && isset($call['uniqueid'])): // Make sure each call is an array and has uniqueid
-                        $displayedCallCount++;
-                        $uniqueId = $call['uniqueid'];
-                        $transcriptionFileDiskPath = __DIR__ . '/transcriptions/' . $uniqueId . '.txt';
-                        $transcriptionFileWebPath = 'transcriptions/' . $uniqueId . '.txt';
-                        $analysisFileDiskPath = __DIR__ . '/analysis/' . $uniqueId . '.txt';
+                    $displayedSessionCount = 0;
+                    $extensionToFioDisplayNameMap = [];
+                    foreach ($operatorConfigData as $opc) {
+                        if (isset($opc['operator_extension']) && !empty($opc['operator_extension']) && isset($opc['fio'])) {
+                            $extensionToFioDisplayNameMap[$opc['operator_extension']] = $opc['fio'];
+                        }
+                    }
+
+                    foreach ($filteredSessions as $session): 
+                        if (is_array($session) && isset($session['session_master_id']) && isset($session['session_id_generated'])):
+                        $displayedSessionCount++;
+                        $sessionMasterId = $session['session_master_id'];
+                        $sessionIdGenerated = $session['session_id_generated'];
+                        
+                        $transcriptionFileDiskPath = $transcriptionsDir . '/' . $sessionMasterId . '.txt'; // $transcriptionsDir from config.php
+                        $analysisFileDiskPath = $analysisDir . '/' . $sessionMasterId . '.txt'; // $analysisDir from config.php
+                        
+                        $transcriptionExists = file_exists($transcriptionFileDiskPath) && filesize($transcriptionFileDiskPath) > 0;
+                        $analysisExists = file_exists($analysisFileDiskPath) && filesize($analysisFileDiskPath) > 0;
+                        // getComment uses $commentsDir from config.php (made global in view_helpers.php or passed)
+                        $commentContent = getComment($sessionIdGenerated, $commentsDir); 
                     ?>
                         <tr>
-                            <td><?php echo isset($call['calldate']) ? htmlspecialchars($call['calldate']) : 'N/A'; ?></td>
-                            <td><?php echo isset($call['callerid_num']) ? htmlspecialchars($call['callerid_num']) : 'N/A'; ?></td>
-                            <td><?php echo isset($call['callerid_name']) ? htmlspecialchars(str_replace('"', '', $call['callerid_name'])) : 'N/A'; ?></td>
-                            <td><?php echo isset($call['destination']) ? htmlspecialchars($call['destination']) : 'N/A'; ?></td>
-                            <td><?php echo isset($call['duration_total_sec']) ? formatDuration($call['duration_total_sec']) : '00:00'; ?></td>
-                            <td><?php echo isset($call['duration_billed_sec']) ? formatDuration($call['duration_billed_sec']) : '00:00'; ?></td>
-                            <td><?php echo isset($call['status']) ? htmlspecialchars($call['status']) : 'N/A'; ?></td>
+                            <td><?php echo isset($session['call_start_time']) ? htmlspecialchars($session['call_start_time']) : 'N/A'; ?></td>
+                            <td><?php echo isset($session['caller_number']) ? htmlspecialchars($session['caller_number']) : 'N/A'; ?></td>
+                            <td><?php echo isset($session['caller_name']) ? htmlspecialchars(str_replace('"', '', $session['caller_name'])) : 'N/A'; ?></td>
                             <td>
-                                <?php if (isset($call['download_url']) && !empty($call['download_url'])): ?>
-                                    <a href="<?php echo htmlspecialchars($call['download_url']); ?>" target="_blank">
-                                        <?php echo isset($call['recording_filename']) && !empty($call['recording_filename']) ? htmlspecialchars($call['recording_filename']) : 'Скачать'; ?>
-                                    </a>
+                                <?php 
+                                $queuesInvolved = [];
+                                if (isset($session['queue_legs_info']) && is_array($session['queue_legs_info'])) {
+                                    $queuesInvolved = array_unique(array_column($session['queue_legs_info'], 'queue_dst'));
+                                }
+                                echo !empty($queuesInvolved) ? htmlspecialchars(implode(', ', $queuesInvolved)) : 'N/A';
+                                ?>
+                            </td>
+                            <td><?php echo isset($session['answered_by_operator']) ? htmlspecialchars($session['answered_by_operator']) : 'N/A'; ?></td>
+                            <td>
+                                <?php if (isset($session['operator_attempts']) && !empty($session['operator_attempts'])): ?>
+                                <ul class="operator-attempts">
+                                    <?php foreach($session['operator_attempts'] as $attempt): ?>
+                                    <?php
+                                        $opDisplayAttempt = $attempt['operator_dst']; 
+                                        if (isset($extensionToFioDisplayNameMap[$attempt['operator_dst']])) {
+                                            $opDisplayAttempt = $extensionToFioDisplayNameMap[$attempt['operator_dst']] . " (" . $attempt['operator_dst'] . ")";
+                                        }
+                                    ?>
+                                    <li><?php echo htmlspecialchars($opDisplayAttempt . ': ' . $attempt['status'] . ' (' . formatDuration($attempt['duration_sec']) . ')'); ?></li>
+                                    <?php endforeach; ?>
+                                </ul>
+                                <?php else: echo 'N/A'; endif; ?>
+                            </td>
+                            <td>
+                                <?php 
+                                $status = isset($session['overall_status']) ? htmlspecialchars($session['overall_status']) : 'N/A';
+                                $missedStatuses = ['MISSED', 'NO ANSWER', 'FAILED'];
+                                if (in_array($session['overall_status'], $missedStatuses)) {
+                                    echo '<span style="color: red;">' . $status . '</span>';
+                                } else {
+                                    echo $status;
+                                }
+                                ?>
+                            </td>
+                            <td><?php echo isset($session['total_duration_sec_overall']) ? formatDuration($session['total_duration_sec_overall']) : '00:00'; ?></td>
+                            <td><?php echo isset($session['billed_duration_sec']) ? formatDuration($session['billed_duration_sec']) : '00:00'; ?></td>
+                            <td>
+                                <?php if (isset($session['download_url']) && !empty($session['download_url'])): ?>
+                                    <audio controls style="width: 200px;">
+                                        <source src="<?php echo htmlspecialchars($session['download_url']); ?>" type="audio/wav">
+                                        Ваш браузер не поддерживает элемент audio. <a href="<?php echo htmlspecialchars($session['download_url']); ?>">Скачать</a>
+                                    </audio>
+                                <?php elseif (isset($session['recording_file']) && !empty($session['recording_file'])): ?>
+                                    <?php echo htmlspecialchars($session['recording_file']); ?> (нет URL)
                                 <?php else: ?>
-                                    <?php echo isset($call['recording_filename']) && !empty($call['recording_filename']) ? htmlspecialchars($call['recording_filename']) : 'N/A'; ?>
+                                    N/A
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (file_exists($transcriptionFileDiskPath) && filesize($transcriptionFileDiskPath) > 0): ?>
-                                    <a href="<?php echo htmlspecialchars($transcriptionFileWebPath); ?>" target="_blank">Открыть</a>
+                                <?php if ($transcriptionExists): ?>
+                                    <a href="view_transcription.php?id=<?php echo urlencode($sessionMasterId); ?>" target="_blank">Открыть</a>
                                 <?php else: ?>
                                     Нет
                                 <?php endif; ?>
                             </td>
                             <td>
                                 <?php 
-                                if (file_exists($analysisFileDiskPath) && filesize($analysisFileDiskPath) > 0) {
+                                if ($analysisExists) {
                                     echo htmlspecialchars(file_get_contents($analysisFileDiskPath));
                                 } else {
                                     echo 'Нет';
                                 }
                                 ?>
                             </td>
+                            <td class="comment-cell">
+                                <?php echo $commentContent; ?>
+                                <br>
+                                <a href="edit_comment.php?session_id=<?php echo urlencode($sessionIdGenerated); ?>&caller_number=<?php echo urlencode($session['caller_number'] ?? ''); ?>" target="_blank" style="font-size:0.9em;">Редактировать</a>
+                            </td>
                         </tr>
                         <?php else: ?>
-                            <tr><td colspan="10" style="text-align: center;">Найден некорректный формат записи вызова или отсутствует uniqueid</td></tr>
-                            <?php error_log("Invalid call record format or missing uniqueid: " . print_r($call, true)); ?>
+                            <tr><td colspan="13" style="text-align: center;">Найден некорректный формат записи сессии или отсутствует session_master_id/session_id_generated</td></tr>
+                            <?php error_log("Invalid session record format or missing ID: " . print_r($session, true)); ?>
                         <?php endif; ?>
                     <?php endforeach; ?>
-                    <?php error_log("Displayed {$displayedCallCount} calls after filtering."); ?>
+                    <?php error_log("Displayed {$displayedSessionCount} sessions after filtering."); ?>
                 <?php endif; ?>
             </tbody>
         </table>
     </div>
-    <!-- dashboa rd.js is no longer strictly needed for filtering if using form submits.
-         It could be used for minor UI enhancements if desired, but core logic is PHP.
-    <script src="da shboard.js"></script> 
-    -->
 </body>
 </html>

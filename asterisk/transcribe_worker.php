@@ -186,7 +186,7 @@ foreach ($allCalls as $call) {
                 echo "  Analyzing call type for {$uniqueId}..." . PHP_EOL;
                 $userPrompt = str_replace('{transcription}', $transcribedText, $analysisUserPromptTemplate);
                 try {
-                    $analysisResponse = $client->chat()->completions()->create([
+                    $analysisResponse = $client->chat()->create([ // Corrected method call
                         'model' => $analysisModel,
                         'messages' => [
                             ['role' => 'system', 'content' => $analysisSystemPrompt],
