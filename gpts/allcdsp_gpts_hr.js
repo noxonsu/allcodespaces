@@ -386,13 +386,13 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
         }
 
         // Check for vacancy closed trigger and schedule follow-up
-        if (assistantResponse && assistantResponse.includes(VACANCY_CLOSED_TRIGGER_PHRAЗE)) {
+        if (assistantResponse && assistantResponse.includes(VACANCY_CLOSED_TRIGGER_PHRASE)) {
             const currentUserData = loadUserData(chatId); // Load data to check followUpSent status
             if (!currentUserData.followUpSent) {
                 console.info(`[Bot ${chatId} /start] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
                 logChat(chatId, { 
                     event: 'follow_up_scheduled_on_start', 
-                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE,
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE,
                     follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
                     delay_ms: FOLLOW_UP_DELAY_MS
                 }, 'system');
@@ -435,7 +435,7 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 console.info(`[Bot ${chatId} /start] Vacancy closed message detected, but follow-up already sent. Skipping.`);
                 logChat(chatId, { 
                     event: 'follow_up_skipped_already_sent_on_start_check', 
-                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE
                 }, 'system');
             }
         }
@@ -564,13 +564,13 @@ bot.on('message', async (msg) => {
         }
 
         // Check for vacancy closed trigger and schedule follow-up
-        if (assistantText && assistantText.includes(VACANCY_CLOSED_TRIGGER_PHRAЗE)) {
+        if (assistantText && assistantText.includes(VACANCY_CLOSED_TRIGGER_PHRASE)) {
             const currentUserData = loadUserData(chatId); // Load data to check followUpSent status
             if (!currentUserData.followUpSent) {
                 console.info(`[Bot ${chatId}] Vacancy closed message detected. Scheduling follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}" in ${FOLLOW_UP_DELAY_MS / 1000 / 60} minutes.`);
                 logChat(chatId, { 
                     event: 'follow_up_scheduled', 
-                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE, // Corrected typo PHRAЗE to PHRASE
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE,
                     follow_up_message: FOLLOW_UP_VACANCY_MESSAGE,
                     delay_ms: FOLLOW_UP_DELAY_MS
                 }, 'system');
@@ -612,7 +612,7 @@ bot.on('message', async (msg) => {
                 console.info(`[Bot ${chatId}] Vacancy closed message detected, but follow-up already sent. Skipping.`);
                 logChat(chatId, { 
                     event: 'follow_up_skipped_already_sent_check', 
-                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRAЗE // Corrected typo PHRAЗE to PHRASE
+                    trigger_phrase_detected: VACANCY_CLOSED_TRIGGER_PHRASE
                 }, 'system');
             }
         }
