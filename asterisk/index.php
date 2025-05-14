@@ -43,18 +43,27 @@ $selectedFio = isset($_GET['fio_filter']) ? $_GET['fio_filter'] : '';
 
 // --- Populate Filter Options for UI ---
 $fioDisplayOptions = [];
-$processedFiosForDropdown = [];
+$processedExtensionsForDropdown = []; // Use this to ensure unique extensions in dropdown values
 if (!empty($operatorConfigData)) {
     foreach ($operatorConfigData as $op) {
-        if (isset($op['fio']) && !empty($op['fio']) && !in_array($op['fio'], $processedFiosForDropdown)) {
-            $displayText = $op['fio'];
-            if (isset($op['operator_extension']) && !empty($op['operator_extension'])) {
-                $displayText .= " (" . htmlspecialchars($op['operator_extension']) . ")";
+        // We need an operator_extension to filter by number, and a FIO to display
+        if (isset($op['fio']) && !empty(trim($op['fio'])) && 
+            isset($op['operator_extension']) && !empty(trim($op['operator_extension'])) && 
+            trim($op['fio']) !== 'администратор') {
+            
+            $extension = trim($op['operator_extension']);
+            // Ensure each extension is added only once as a filter option
+            if (!in_array($extension, $processedExtensionsForDropdown)) {
+                $displayText = trim($op['fio']) . " (" . htmlspecialchars($extension) . ")";
+                $fioDisplayOptions[] = [
+                    'value' => htmlspecialchars($extension), // Value is now the extension
+                    'text' => htmlspecialchars($displayText)
+                ];
+                $processedExtensionsForDropdown[] = $extension;
             }
-            $fioDisplayOptions[] = ['value' => htmlspecialchars($op['fio']), 'text' => htmlspecialchars($displayText)];
-            $processedFiosForDropdown[] = $op['fio'];
         }
     }
+    // Sort by the display text
     usort($fioDisplayOptions, function($a, $b) { return strcmp($a['text'], $b['text']); });
 }
 $departmentOptions = getUniqueValues($operatorConfigData, 'department'); // from view_helpers.php
@@ -123,7 +132,10 @@ require_once __DIR__ . '/filter_handler.php';
 </head>
 <body>
     <div class="user-info">
-        Пользователь: <?php echo htmlspecialchars($_SESSION['user_fio'] ?? ''); ?> (<?php echo htmlspecialchars($_SESSION['user_role'] ?? ''); ?>)
+        Пользователь: <?php echo htmlspecialchars($_SESSION['user_fio'] ?? ''); ?>
+        <?php if (isset($_SESSION['user_fio']) && trim($_SESSION['user_fio']) !== 'администратор' && isset($_SESSION['user_role'])): ?>
+            (<?php echo htmlspecialchars($_SESSION['user_role']); ?>)
+        <?php endif; ?>
     </div>
     <a href="?logout=true" class="logout-button">Выход</a>
     <div class="container">
@@ -181,6 +193,7 @@ require_once __DIR__ . '/filter_handler.php';
             <h3>По операторам (ФИО, на основе анализа и связи с очередью)</h3>
             <?php if (!empty($operatorSummary)): ?>
             <?php foreach ($operatorSummary as $fio => $counts): ?>
+                <?php if (trim($fio) === 'администратор') continue; // Skip administrator from summary list ?>
                 <h4>Оператор: <?php echo htmlspecialchars($fio); ?></h4>
                 <ul>
                      <?php 
@@ -379,5 +392,26 @@ require_once __DIR__ . '/filter_handler.php';
             </tbody>
         </table>
     </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('trigger_worker_ajax.php')
+                .then(response => response.json())
+                .then(data => {
+                    console.log('Transcription worker trigger status:', data);
+                    // Optionally, display a non-intrusive message to the user or log more details
+                    if (data.status === 'triggered') {
+                        console.log('Transcription worker has been triggered in the background.');
+                    } else if (data.status === 'already_running') {
+                        console.log('Transcription worker is already running.');
+                    } else if (data.status === 'error') {
+                        console.error('Error triggering transcription worker:', data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error making AJAX call to trigger worker:', error);
+                });
+        });
+    </script>
 </body>
 </html>

@@ -1,5 +1,8 @@
 <?php
 
+// Ensure Composer's autoloader is loaded
+require_once __DIR__ . '/vendor/autoload.php';
+
 // Enable error reporting -- useful for all included files
 error_reporting(E_ALL);
 ini_set('display_errors', 1);

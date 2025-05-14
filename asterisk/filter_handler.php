@@ -46,49 +46,31 @@ if ($selectedDepartment) {
 }
 
 // Apply FIO filter (can be combined with Department filter or applied alone on the result of department filter)
-if ($selectedFio) {
-    $fioOperatorExtensions = [];
+if ($selectedFio) { // $selectedFio now holds an operator_extension
+    $fioOperatorExtension = $selectedFio; // The selected extension itself
+    // $fioMedicalCenterQueues is not strictly needed if we only filter by who answered,
+    // but it's harmless to keep its calculation for now in case of future logic adjustments.
     $fioMedicalCenterQueues = [];
     foreach ($operatorConfigData as $op) {
-        if (isset($op['fio']) && $op['fio'] === $selectedFio) {
-            if (isset($op['operator_extension']) && !empty($op['operator_extension']) && !in_array($op['operator_extension'], $fioOperatorExtensions)) {
-                $fioOperatorExtensions[] = $op['operator_extension'];
-            }
+        if (isset($op['operator_extension']) && $op['operator_extension'] === $fioOperatorExtension) {
             if (isset($op['queue_medical_center']) && !empty($op['queue_medical_center']) && !in_array($op['queue_medical_center'], $fioMedicalCenterQueues)) {
                 $fioMedicalCenterQueues[] = $op['queue_medical_center'];
             }
         }
     }
 
-    if (!empty($fioOperatorExtensions) || !empty($fioMedicalCenterQueues)) {
-        $filteredSessions = array_filter($filteredSessions, function ($session) use ($fioOperatorExtensions, $fioMedicalCenterQueues) {
-            if (isset($session['answered_by_operator']) && !empty($session['answered_by_operator']) && in_array($session['answered_by_operator'], $fioOperatorExtensions)) {
+    if (!empty($fioOperatorExtension)) { // We must have the extension to filter
+        $filteredSessions = array_filter($filteredSessions, function ($session) use ($fioOperatorExtension) {
+            // Only show sessions that were actually answered by the selected operator's extension.
+            if (isset($session['answered_by_operator']) && $session['answered_by_operator'] === $fioOperatorExtension) {
                 return true;
-            }
-            if (isset($session['operator_attempts']) && is_array($session['operator_attempts'])) {
-                foreach ($session['operator_attempts'] as $attempt) {
-                    if (in_array($attempt['operator_dst'], $fioOperatorExtensions) && $attempt['status'] !== 'ANSWERED') {
-                        return true;
-                    }
-                }
-            }
-            $overallMissedStatuses = ['MISSED', 'NO ANSWER', 'FAILED'];
-            if (in_array($session['overall_status'], $overallMissedStatuses) && 
-                (empty($session['answered_by_operator']) || !in_array($session['answered_by_operator'], $fioOperatorExtensions)) ) {
-                if (isset($session['queue_legs_info']) && is_array($session['queue_legs_info'])) {
-                    foreach ($session['queue_legs_info'] as $leg) {
-                        if (isset($leg['queue_dst']) && in_array($leg['queue_dst'], $fioMedicalCenterQueues)) {
-                            return true; 
-                        }
-                    }
-                }
             }
             return false;
         });
-        error_log("Filtered by FIO '{$selectedFio}'. Operator Exts: " . implode(', ', $fioOperatorExtensions) . ". MC Queues: " . implode(', ', $fioMedicalCenterQueues) . ". Result count: " . count($filteredSessions));
+        error_log("Filtered by FIO (Extension) '{$fioOperatorExtension}' for answered calls. Result count: " . count($filteredSessions));
     } else {
-        $filteredSessions = [];
-        error_log("No operator extensions or MC queues for FIO '{$selectedFio}'. Result count: 0");
+        // This case should ideally not be hit if $selectedFio is set.
+        error_log("No operator extension to filter by, though selectedFio was initially set to '{$selectedFio}'. Result count: " . count($filteredSessions));
     }
 }
 
