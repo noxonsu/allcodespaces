@@ -8,7 +8,7 @@ error_reporting(E_ALL);
 // Замените 'Europe/Moscow' на вашу актуальную временную зону.
 // Список: https://www.php.net/manual/en/timezones.php
 if (!date_default_timezone_set('Europe/Moscow')) { // Пример, замените на свою зону, например 'Asia/Almaty'
-    error_log("Failed to set default timezone.");
+    custom_log("Failed to set default timezone.");
 }
 
 // Конфигурация для извлечения CDR
@@ -70,8 +70,8 @@ if ($action === 'download') {
         exit;
     }
 
-    $filename_param = $_GET['file']; // PHP уже URL-декодировал параметр, %2B стало +
-    $recordingfile_basename = basename($filename_param); // Получаем только имя файла, отсекая путь (безопасность)
+    $filename_param = $_GET['file'];
+    $recordingfile_basename = basename($filename_param);
 
     // Проверка, что basename не вернул пустое значение или "."/".."
     if (empty($recordingfile_basename) || $recordingfile_basename === '.' || $recordingfile_basename === '..') {
@@ -83,8 +83,23 @@ if ($action === 'download') {
     
     $call_date_str_for_path = $_GET['cdate'];
 
+    // Validate date format
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/', $call_date_str_for_path)) {
+        header('Content-Type: application/json; charset=utf-8');
+        http_response_code(400);
+        echo json_encode([
+            '_error' => "Неверный формат даты. Ожидается YYYY-MM-DD или YYYY-MM-DD HH:MM:SS", 
+            'received_date' => htmlspecialchars($call_date_str_for_path)
+        ], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        exit;
+    }
+
     try {
         $date_obj = new DateTime($call_date_str_for_path);
+        // Проверка на валидность даты (например, 2023-02-31 не валидна)
+        if ($date_obj->format('Y-m-d H:i:s') === false) {
+            throw new Exception("Invalid date value");
+        }
         $year = $date_obj->format('Y');
         $month = $date_obj->format('m');
         $day = $date_obj->format('d');
@@ -146,7 +161,7 @@ if ($action === 'download') {
             $readfile_success = readfile($dest_file);
             
             if ($readfile_success === false) {
-                error_log("Ошибка чтения файла для отправки: " . $dest_file);
+                custom_log("Ошибка чтения файла для отправки: " . $dest_file);
                 // Заголовки уже могли быть отправлены, так что просто логируем
             }
             
@@ -244,23 +259,26 @@ if ($action === 'get_cdr_stats') {
         }
         $query .= " ORDER BY calldate DESC, uniqueid DESC ";
 
-        $limit_value = 200; // Значение по умолчанию
-        $apply_limit_clause = true;
-        
-        if ((isset($_GET['date_from']) || isset($_GET['date_to'])) && !(isset($_GET['limit_period']) && is_numeric($_GET['limit_period']) && (int)$_GET['limit_period'] > 0)) {
-            $apply_limit_clause = false; 
-        }
-        if (isset($_GET['limit_period']) && is_numeric($_GET['limit_period']) && (int)$_GET['limit_period'] > 0) {
-            $limit_value = (int)$_GET['limit_period'];
-            $apply_limit_clause = true;
-        } elseif (isset($_GET['limit']) && is_numeric($_GET['limit']) && (int)$_GET['limit'] > 0 && !isset($_GET['date_from']) && !isset($_GET['date_to'])) {
-            $limit_value = (int)$_GET['limit'];
-            $apply_limit_clause = true;
-        }
+        // Revised LIMIT logic:
+        // Default limit value
+        $limit_value = 200; 
 
-        if ($apply_limit_clause) {
-            $query .= " LIMIT " . $limit_value;
+        if (isset($_GET['limit_period']) && is_numeric($_GET['limit_period']) && (int)$_GET['limit_period'] > 0) {
+            // If limit_period is specified and valid, use it
+            $limit_value = (int)$_GET['limit_period'];
+        } elseif (isset($_GET['limit']) && is_numeric($_GET['limit']) && (int)$_GET['limit'] > 0 &&
+                  !(isset($_GET['date_from']) && !empty($_GET['date_from'])) && 
+                  !(isset($_GET['date_to']) && !empty($_GET['date_to']))) {
+            // If 'limit' is specified, valid, AND no date filters are active, use 'limit'.
+            // This preserves the original behavior where 'limit' is only used without date filters
+            // if 'limit_period' isn't overriding.
+            $limit_value = (int)$_GET['limit'];
         }
+        // Otherwise, the default $limit_value (200) will be used,
+        // including cases where date filters are active but limit_period is not set.
+
+        // Always apply the determined limit
+        $query .= " LIMIT " . $limit_value;
 
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
@@ -367,15 +385,17 @@ if ($action === 'get_cdr_stats') {
             }
         }
 
+        // Change this uasort from ascending to descending (newer dates first)
         uasort($pre_sessions, function ($a_val, $b_val) {
             $timeA_val = PHP_INT_MAX; $timeB_val = PHP_INT_MAX;
             if (!empty($a_val)) $timeA_val = strtotime($a_val[0]['calldate']);
             if (!empty($b_val)) $timeB_val = strtotime($b_val[0]['calldate']);
-            return $timeA_val - $timeB_val;
+            return $timeB_val - $timeA_val; // Changed from $timeA_val - $timeB_val for descending order
         });
 
+        // Change this usort from ascending to descending (newer dates first)
         usort($orphaned_legs, function ($a_val, $b_val) {
-            return strtotime($a_val['calldate']) - strtotime($b_val['calldate']);
+            return strtotime($b_val['calldate']) - strtotime($a_val['calldate']); // Changed for descending order
         });
 
         foreach ($orphaned_legs as $orphan_idx_val => $orphan_leg_val) {

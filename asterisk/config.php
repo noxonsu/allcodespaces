@@ -30,7 +30,7 @@ $ariPort = $_ENV['ARI_PORT'] ?? null;
 
 // Check ARI configuration
 if (!$ariUsername || !$ariPassword || !$ariHost || !$ariPort) {
-    error_log('Warning: One or more ARI configuration values are missing from .env file.');
+    custom_log('Warning: One or more ARI configuration values are missing from .env file.');
 }
 
 $googleCredentialsPath = __DIR__ . '/my-project-1337-458418-4b4c595d74d5.json'; // Path to your service account JSON
@@ -47,9 +47,22 @@ if (!is_dir($analysisDir)) mkdir($analysisDir, 0755, true);
 if (!is_dir($transcriptionsDir)) mkdir($transcriptionsDir, 0755, true);
 if (!is_dir($commentsDir)) mkdir($commentsDir, 0755, true);
 
+// Load DEBUG setting from .env
+$debug = isset($_ENV['DEBUG']) ? filter_var($_ENV['DEBUG'], FILTER_VALIDATE_BOOLEAN) : false;
+
+function custom_log($message) {
+    global $debug;
+    // Log to file
+    error_log($message . "\n", 3, __DIR__ . '/error.log'); // Corrected this line
+    // Log to browser only if debug is true
+    if ($debug) {
+        echo "<div style='color: red; background: #fff; padding: 5px; margin: 5px;'>" . htmlspecialchars($message) . "</div>";
+    }
+}
+
 // Debug function
 function debugLog($message) {
-    error_log("[DEBUG] " . $message);
+    custom_log("[DEBUG] " . $message);
     // Echoing to browser console can be problematic if headers are already sent or if output is not HTML.
     // Consider conditional echoing or removing it if it causes issues in non-HTML contexts.
     if (php_sapi_name() !== 'cli' && !headers_sent()) {

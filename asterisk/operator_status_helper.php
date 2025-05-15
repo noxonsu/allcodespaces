@@ -25,7 +25,7 @@ function getOperatorAriStatus(string $operatorExtension, string $ariUsername, st
     $response = curl_exec($ch);
 
     if (curl_errno($ch)) {
-        error_log("ARI cURL Error for ext $operatorExtension: " . curl_error($ch));
+        custom_log("ARI cURL Error for ext $operatorExtension: " . curl_error($ch));
         curl_close($ch);
         return 'error';
     }
@@ -34,14 +34,14 @@ function getOperatorAriStatus(string $operatorExtension, string $ariUsername, st
     curl_close($ch);
 
     if ($httpCode !== 200) {
-        error_log("ARI HTTP Error for ext $operatorExtension: Code $httpCode, Response: $response");
+        custom_log("ARI HTTP Error for ext $operatorExtension: Code $httpCode, Response: $response");
         return 'error';
     }
 
     $endpoints = json_decode($response, true);
 
     if (json_last_error() !== JSON_ERROR_NONE || !is_array($endpoints)) {
-        error_log("ARI JSON Decode Error for ext $operatorExtension: " . json_last_error_msg() . ", Raw: " . $response);
+        custom_log("ARI JSON Decode Error for ext $operatorExtension: " . json_last_error_msg() . ", Raw: " . $response);
         return 'error';
     }
 
@@ -62,7 +62,7 @@ function getOperatorAriStatus(string $operatorExtension, string $ariUsername, st
     }
 
     // If the specific extension was not found in the list
-    error_log("ARI: Extension $operatorExtension not found in endpoints list.");
+    custom_log("ARI: Extension $operatorExtension not found in endpoints list.");
     return 'offline'; 
 }
 

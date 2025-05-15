@@ -41,9 +41,9 @@ if (!isset($_SESSION['authenticated']) || !$_SESSION['authenticated']) {
                 $_SESSION['authenticated'] = true;
                 $_SESSION['user_fio'] = $user['fio'];
                 $userFioLower = strtolower($user['fio']);
-                error_log("Login check: User FIO lowercased: '" . $userFioLower . "', comparing with 'администратор'");
+                custom_log("Login check: User FIO lowercased: '" . $userFioLower . "', comparing with 'администратор'");
                 $_SESSION['user_role'] = ($userFioLower === 'администратор') ? 'admin' : 'operator'; 
-                error_log("Assigned role: " . $_SESSION['user_role'] . " for user " . $user['fio']);
+                custom_log("Assigned role: " . $_SESSION['user_role'] . " for user " . $user['fio']);
                 
                 header("Location: " . $_SERVER['PHP_SELF']); // Redirect to clear POST data
                 exit;

@@ -15,14 +15,14 @@ function logMessage($message, $type = 'INFO') {
             // Fallback or error if directory creation fails
             // For now, we'll let file_put_contents fail if dir is not writable/creatable
             // but ideally, this should be handled more robustly.
-            error_log("Failed to create log directory: $logDir"); // Log this specific error to default error log
+            custom_log("Failed to create log directory: $logDir"); // Log this specific error to default error log
         }
     }
 
     $dateTime = date('Y-m-d H:i:s');
     $logEntry = "[$dateTime][$type] $message" . PHP_EOL;
     
-    error_log($logEntry); // Continues to log to the general PHP error log as well
+    custom_log($logEntry); // Continues to log to the general PHP error log as well
     file_put_contents($logFilename, $logEntry, FILE_APPEND);
     
     // Output to browser with HTML formatting

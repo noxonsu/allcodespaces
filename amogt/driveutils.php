@@ -12,7 +12,7 @@ use Google\Service\Drive;
 function getDriveService() {
     try {
         if (!file_exists(GOOGLE_KEY_FILE)) {
-            error_log('[DriveUtils] Файл ключа сервисного аккаунта Google не найден: ' . GOOGLE_KEY_FILE);
+            custom_log('[DriveUtils] Файл ключа сервисного аккаунта Google не найден: ' . GOOGLE_KEY_FILE);
             return null;
         }
 
@@ -22,7 +22,7 @@ function getDriveService() {
         
         return new Drive($client);
     } catch (Exception $e) {
-        error_log('[DriveUtils] Ошибка при аутентификации с Google Drive: ' . $e->getMessage());
+        custom_log('[DriveUtils] Ошибка при аутентификации с Google Drive: ' . $e->getMessage());
         return null;
     }
 }
@@ -36,11 +36,11 @@ function getDriveService() {
  */
 function downloadFileFromDrive($drive, $fileId, $context = 'unknown') {
     try {  
-        error_log("[$context] Скачивание файла с Google Drive ID: $fileId");
+        custom_log("[$context] Скачивание файла с Google Drive ID: $fileId");
 
         // Получаем метаданные файла
         $file = $drive->files->get($fileId, ['fields' => 'id, name, mimeType, modifiedTime']);
-        error_log("[$context] Метаданные файла: " . json_encode([
+        custom_log("[$context] Метаданные файла: " . json_encode([
             'id' => $file->getId(),
             'name' => $file->getName(),
             'mimeType' => $file->getMimeType(),
@@ -51,10 +51,10 @@ function downloadFileFromDrive($drive, $fileId, $context = 'unknown') {
         $response = $drive->files->get($fileId, ['alt' => 'media']);
         $content = $response->getBody()->getContents();
         
-        error_log("[$context] Успешно скачан файл размером " . strlen($content) . " байт");
+        custom_log("[$context] Успешно скачан файл размером " . strlen($content) . " байт");
         return $content;
     } catch (Exception $e) {
-        error_log("[$context] Ошибка при скачивании файла с Google Drive: " . $e->getMessage());
+        custom_log("[$context] Ошибка при скачивании файла с Google Drive: " . $e->getMessage());
         return null;
     }
 }
@@ -69,7 +69,7 @@ function downloadFileFromDrive($drive, $fileId, $context = 'unknown') {
  */
 function uploadFileToDrive($drive, $fileId, $content, $fileName = null) {
     try {
-        error_log("Попытка загрузить/обновить файл на Google Drive с ID: $fileId" . 
+        custom_log("Попытка загрузить/обновить файл на Google Drive с ID: $fileId" . 
                  ($fileName ? ", название: $fileName" : ""));
         
         // Создаем временный файл для загрузки
@@ -92,10 +92,10 @@ function uploadFileToDrive($drive, $fileId, $content, $fileName = null) {
         // Удаляем временный файл
         unlink($tempFile);
         
-        error_log("Файл $fileId успешно загружен/обновлен на Google Drive.");
+        custom_log("Файл $fileId успешно загружен/обновлен на Google Drive.");
         return true;
     } catch (Exception $e) {
-        error_log("Ошибка загрузки файла $fileId на Google Drive: " . $e->getMessage());
+        custom_log("Ошибка загрузки файла $fileId на Google Drive: " . $e->getMessage());
         return false;
     }
 }

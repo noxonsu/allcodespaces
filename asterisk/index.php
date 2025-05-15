@@ -27,6 +27,8 @@ require_once __DIR__ . '/auth.php';
 // Populates $operatorConfigData and $sessionsData
 require_once __DIR__ . '/data_loader.php';
 
+
+
 // Analysis helper functions
 require_once __DIR__ . '/analysis_helpers.php';
 
@@ -45,8 +47,8 @@ $selectedDateFrom = isset($_GET['date_from']) && !empty($_GET['date_from']) ? $_
 $selectedDateTo = isset($_GET['date_to']) && !empty($_GET['date_to']) ? $_GET['date_to'] : $defaultDateTo;
 
 // Debug: Output the date parameters
-error_log("Selected Date From: " . $selectedDateFrom);
-error_log("Selected Date To: " . $selectedDateTo);
+custom_log("Selected Date From: " . $selectedDateFrom);
+custom_log("Selected Date To: " . $selectedDateTo);
 
 // $selectedQueue was removed from UI, but variable kept for consistency if logic depends on it (currently not)
 $selectedQueue = isset($_GET['queue']) ? $_GET['queue'] : ''; 
@@ -79,7 +81,7 @@ if (!empty($operatorConfigData)) {
     usort($fioDisplayOptions, function($a, $b) { return strcmp($a['text'], $b['text']); });
 }
 $departmentOptions = getUniqueValues($operatorConfigData, 'department'); // from view_helpers.php
-error_log("Filter options populated: Departments=" . count($departmentOptions) . ", FIOs for dropdown=" . count($fioDisplayOptions));
+custom_log("Filter options populated: Departments=" . count($departmentOptions) . ", FIOs for dropdown=" . count($fioDisplayOptions));
 
 
 // --- Generate and load analysed calls data ---
@@ -92,7 +94,7 @@ $analysedCallsData = generateAndGetAnalysedCallsData($sessionsData, $operatorCon
 $overallSummary = calculateOverallSummary($analysedCallsData);
 $departmentSummary = calculateSummaryByField($analysedCallsData, 'departments', $operatorConfigData);
 $operatorSummary = calculateSummaryByField($analysedCallsData, 'fios', $operatorConfigData); 
-error_log("Initial session count (after MC queue filtering, before detailed filters): " . count($sessionsData));
+custom_log("Initial session count (after MC queue filtering, before detailed filters): " . count($sessionsData));
 
 
 // --- Apply detailed filters (Department, FIO) ---
@@ -143,7 +145,7 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && !empt
                 break;
         }
     } else {
-        error_log("ARI configuration variables are not set in config.php");
+        custom_log("ARI configuration variables are not set in config.php");
         $operatorDisplayStatus = 'Статус (конф.)';
     }
 }
@@ -417,7 +419,7 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && !empt
                 <?php if (empty($filteredSessions)): ?>
                     <tr>
                         <td colspan="13" style="text-align: center;">Нет данных для отображения по выбранным фильтрам.</td>
-                        <?php error_log("No data to display for current filters: Department='{$selectedDepartment}', FIO='{$selectedFio}'"); ?>
+                        <?php custom_log("No data to display for current filters: Department='{$selectedDepartment}', FIO='{$selectedFio}'"); ?>
                     </tr>
                 <?php else: ?>
                     <?php 
@@ -523,10 +525,10 @@ if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && !empt
                         </tr>
                         <?php else: ?>
                             <tr><td colspan="14" style="text-align: center;">Найден некорректный формат записи сессии или отсутствует session_master_id/session_id_generated</td></tr>
-                            <?php error_log("Invalid session record format or missing ID: " . print_r($session, true)); ?>
+                            <?php custom_log("Invalid session record format or missing ID: " . print_r($session, true)); ?>
                         <?php endif; ?>
                     <?php endforeach; ?>
-                    <?php error_log("Displayed {$displayedSessionCount} sessions after filtering."); ?>
+                    <?php custom_log("Displayed {$displayedSessionCount} sessions after filtering."); ?>
                 <?php endif; ?>
             </tbody>
         </table>

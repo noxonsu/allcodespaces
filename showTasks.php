@@ -41,7 +41,7 @@ $sql = "SELECT
 $result = $db->query($sql);
 
 if ($result === false) {
-    die("<b>Ошибка SQL запроса!</b> Смотрите error_log сервера для деталей.<br>" . $db->error);
+    die("<b>Ошибка SQL запроса!</b> Смотрите custom_log сервера для деталей.<br>" . $db->error);
 }
 
 if ($result->num_rows > 0) {

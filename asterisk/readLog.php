@@ -1,10 +1,9 @@
 <?php
 
-error_log("Requesting CDR data from URL: " . $cdrRequestUrl);
 
 // Function to display Nginx error log entries
 function displayNginxErrorLog() {
-    $logFilePath = '/var/log/nginx/error.log'; // Path to your Nginx log file
+    $logFilePath = 'error.log'; // Path to your Nginx log file
     if (file_exists($logFilePath)) {
         $logContent = file_get_contents($logFilePath);
         $logEntries = explode(PHP_EOL, $logContent);

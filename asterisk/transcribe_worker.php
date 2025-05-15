@@ -95,23 +95,23 @@ $calls = [];
 if (file_exists($callsRawJsonPath)) {
     $callsRawJson = file_get_contents($callsRawJsonPath);
     if ($callsRawJson === false) {
-        error_log("transcribe_worker.php: Failed to read calls_raw.json.");
+        custom_log("transcribe_worker.php: Failed to read calls_raw.json.");
     } else {
         $calls = json_decode($callsRawJson, true);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            error_log("transcribe_worker.php: Error decoding calls_raw.json: " . json_last_error_msg());
+            custom_log("transcribe_worker.php: Error decoding calls_raw.json: " . json_last_error_msg());
             $calls = []; // Ensure $calls is empty to prevent further errors
         } elseif (!is_array($calls)) {
-            error_log("transcribe_worker.php: calls_raw.json does not contain a valid JSON array.");
+            custom_log("transcribe_worker.php: calls_raw.json does not contain a valid JSON array.");
             $calls = []; // Ensure $calls is empty
         }
     }
 } else {
-    error_log("transcribe_worker.php: calls_raw.json not found.");
+    custom_log("transcribe_worker.php: calls_raw.json not found.");
 }
 
 if (empty($calls)) {
-    error_log("transcribe_worker.php: No calls to process or error loading calls_raw.json. Exiting.");
+    custom_log("transcribe_worker.php: No calls to process or error loading calls_raw.json. Exiting.");
     flock($lock, LOCK_UN);
     fclose($lock);
     exit(0);

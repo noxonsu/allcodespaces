@@ -38,7 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $commentContent = $newComment;
         } else {
             $message = "Ошибка при сохранении комментария.";
-            error_log("Failed to write comment to: " . $commentFilePath);
+            custom_log("Failed to write comment to: " . $commentFilePath);
         }
     }
 }

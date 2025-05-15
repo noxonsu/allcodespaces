@@ -708,7 +708,7 @@ function startExcelSheetSync($accessToken = null) {
         return false;
     }
     
-    logMessage('[Excel2Amo] Первичная проверка Excel Sheet (с Drive) на наличие новых строк для синхронизации в AmoCRM...'); // Changed from error_log
+    logMessage('[Excel2Amo] Первичная проверка Excel Sheet (с Drive) на наличие новых строк для синхронизации в AmoCRM...'); // Changed from custom_log
     return syncFromExcelSheet($currentAccessToken);
 }
 

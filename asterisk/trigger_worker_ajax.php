@@ -27,7 +27,7 @@ try {
 
             $logMessage = date('Y-m-d H:i:s') . " - AJAX: No worker running, proceeding to include transcribe_worker.php.\n";
             file_put_contents($workerLogFile, $logMessage, FILE_APPEND);
-            error_log("AJAX: No worker running, proceeding to include transcribe_worker.php.");
+            custom_log("AJAX: No worker running, proceeding to include transcribe_worker.php.");
 
             // Start output buffering to capture any echos from the included script
             ob_start();
@@ -46,21 +46,21 @@ try {
             }
             
             $response = ['status' => 'worker_batch_completed', 'message' => 'Transcription worker processed a batch.'];
-            error_log("AJAX: transcribe_worker.php included and completed its batch processing.");
+            custom_log("AJAX: transcribe_worker.php included and completed its batch processing.");
 
         } else {
             // Flock failed, worker is likely running (lock held by another process).
             if ($lockCheckHandle) fclose($lockCheckHandle); // Ensure handle is closed
             $logMessage = date('Y-m-d H:i:s') . " - AJAX: Worker already running (lock held by another process).\n";
             file_put_contents($workerLogFile, $logMessage, FILE_APPEND);
-            error_log("AJAX: Background transcription worker appears to be running (lock held by another process).");
+            custom_log("AJAX: Background transcription worker appears to be running (lock held by another process).");
             $response = ['status' => 'already_running', 'message' => 'Transcription worker is already running.'];
         }
     } else {
         $errorMessage = "AJAX: Could not open/create lock file for checking: " . WORKER_LOCK_FILE;
         $logMessage = date('Y-m-d H:i:s') . " - " . $errorMessage . "\n";
         file_put_contents($workerLogFile, $logMessage, FILE_APPEND);
-        error_log($errorMessage);
+        custom_log($errorMessage);
         $response = ['status' => 'error', 'message' => 'Could not access lock file to check worker status.'];
     }
 } catch (Exception $e) {
@@ -68,7 +68,7 @@ try {
     $errorMessage = "AJAX: Error trying to trigger worker: " . $e->getMessage();
     $logMessage = date('Y-m-d H:i:s') . " - " . $errorMessage . "\n";
     file_put_contents($workerLogFile, $logMessage, FILE_APPEND);
-    error_log($errorMessage);
+    custom_log($errorMessage);
     $response = ['status' => 'error', 'message' => 'Exception: ' . $e->getMessage()];
 }
 

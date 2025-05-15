@@ -421,8 +421,8 @@ function import_categories($categories, $parent_id = 0, $db, $table_prefix) {
         $term_exists_result = $db->query("SELECT term_id FROM {$table_prefix}terms WHERE slug = '$slug'");
 
         if ($term_exists_result === false) {
-            error_log("Ошибка SQL при проверке существования категории '$category_name': " . $db->error);
-            echo "<b style='color:red'>Ошибка при проверке категории '$category_name'! Смотрите error_log сервера.</b><br>";
+            custom_log("Ошибка SQL при проверке существования категории '$category_name': " . $db->error);
+            echo "<b style='color:red'>Ошибка при проверке категории '$category_name'! Смотрите custom_log сервера.</b><br>";
             continue; // Переходим к следующей категории
         }
 
@@ -448,8 +448,8 @@ function import_categories($categories, $parent_id = 0, $db, $table_prefix) {
 
 
             } catch (Exception $e) {
-                error_log("Ошибка SQL при добавлении категории '$category_name': " . $e->getMessage() . " " . $db->error);
-                echo "<b style='color:red'>Ошибка при добавлении категории '$category_name'! Смотрите error_log сервера.</b><br>";
+                custom_log("Ошибка SQL при добавлении категории '$category_name': " . $e->getMessage() . " " . $db->error);
+                echo "<b style='color:red'>Ошибка при добавлении категории '$category_name'! Смотрите custom_log сервера.</b><br>";
                 continue; // Переходим к следующей категории
             }
 

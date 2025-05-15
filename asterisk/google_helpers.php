@@ -14,7 +14,7 @@ function fetchFromGoogleSheet($service, $sheetId, $range) {
         $response = $service->spreadsheets_values->get($sheetId, $range);
         return $response->getValues();
     } catch (Exception $e) {
-        error_log('Google Sheets API Error fetching range ' . $range . ': ' . $e->getMessage());
+        custom_log('Google Sheets API Error fetching range ' . $range . ': ' . $e->getMessage());
         return null;
     }
 }

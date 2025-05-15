@@ -4,8 +4,8 @@
 
 $filteredSessions = $sessionsData; // Start with sessions relevant to the configured queues (done in data_loader.php)
 
-error_log("Initial session count for detailed filtering: " . count($filteredSessions));
-error_log("Applying filters: Department='{$selectedDepartment}', FIO='{$selectedFio}'");
+custom_log("Initial session count for detailed filtering: " . count($filteredSessions));
+custom_log("Applying filters: Department='{$selectedDepartment}', FIO='{$selectedFio}'");
 
 
 // Apply Department filter
@@ -38,10 +38,10 @@ if ($selectedDepartment) {
             }
             return false;
         });
-        error_log("Filtered by Department '{$selectedDepartment}'. MC Queues: " . implode(', ', $departmentMedicalCenterQueues) . ". Operator Exts: " . implode(', ', $departmentOperatorExtensions) . ". Result count: " . count($filteredSessions));
+        custom_log("Filtered by Department '{$selectedDepartment}'. MC Queues: " . implode(', ', $departmentMedicalCenterQueues) . ". Operator Exts: " . implode(', ', $departmentOperatorExtensions) . ". Result count: " . count($filteredSessions));
     } else {
         $filteredSessions = []; 
-        error_log("No MC queues or operator extensions for Department '{$selectedDepartment}'. Result count: 0");
+        custom_log("No MC queues or operator extensions for Department '{$selectedDepartment}'. Result count: 0");
     }
 }
 
@@ -67,13 +67,13 @@ if ($selectedFio) { // $selectedFio now holds an operator_extension
             }
             return false;
         });
-        error_log("Filtered by FIO (Extension) '{$fioOperatorExtension}' for answered calls. Result count: " . count($filteredSessions));
+        custom_log("Filtered by FIO (Extension) '{$fioOperatorExtension}' for answered calls. Result count: " . count($filteredSessions));
     } else {
         // This case should ideally not be hit if $selectedFio is set.
-        error_log("No operator extension to filter by, though selectedFio was initially set to '{$selectedFio}'. Result count: " . count($filteredSessions));
+        custom_log("No operator extension to filter by, though selectedFio was initially set to '{$selectedFio}'. Result count: " . count($filteredSessions));
     }
 }
 
-error_log("Final filtered session count: " . count($filteredSessions));
+custom_log("Final filtered session count: " . count($filteredSessions));
 
 ?>
