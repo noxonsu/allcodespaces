@@ -1,4 +1,7 @@
 <?php
+
+define('SCRIPT_LOG_FILE', __DIR__ . '/logs/amo2us.log');
+//
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/driveutils.php';
@@ -6,7 +9,7 @@ require_once __DIR__ . '/logger.php';
 
 set_time_limit(40);
 
-// Google Sheets API classes
+// Google Shee df ts API classes
 use Google_Service_Sheets;
 use Google_Service_Sheets_ValueRange;
 use Google_Service_Sheets_BatchUpdateSpreadsheetRequest;
@@ -79,6 +82,26 @@ function pushToGoogleSheet($dealNumber, $paymentLink) {
     $driveService = getDriveService(); // Assuming this returns Google_Service_Drive
     if (!$driveService) {
         logError('Не удалось получить Google Drive сервис для pushToGoogleSheet');
+        return false;
+    }
+
+    $spreadsheetId = GOOGLE_DRIVE_FILE_ID_AMO2EXCEL;
+
+    // Verify that the file ID is for a Google Sheet
+    try {
+        $fileMetadata = $driveService->files->get($spreadsheetId, ['fields' => 'mimeType, name']);
+        $mimeType = $fileMetadata->getMimeType();
+        $fileName = $fileMetadata->getName();
+
+        if ($mimeType !== 'application/vnd.google-apps.spreadsheet') {
+            logError("Ошибка в pushToGoogleSheet: Файл '$fileName' (ID: $spreadsheetId) не является Google таблицей (MIME тип: $mimeType). Пожалуйста, убедитесь, что GOOGLE_DRIVE_FILE_ID_AMO2EXCEL указывает на Google Sheet.");
+            return false;
+        }
+        logDebug("[pushToGoogleSheet] Файл '$fileName' (ID: $spreadsheetId) подтвержден как Google Sheet (MIME тип: $mimeType).");
+
+    } catch (Exception $e) {
+        logError("Ошибка при проверке типа файла (ID: $spreadsheetId) через Google Drive API: " . $e->getMessage());
+        // logError("Trace: " . $e->getTraceAsString()); // Uncomment for detailed Drive API call debugging
         return false;
     }
     
@@ -177,6 +200,8 @@ function pushToGoogleSheet($dealNumber, $paymentLink) {
  * Обрабатывает входящие данные вебхука из AmoCRM
  */
 function handleAmoWebhook() {
+    
+
     header('HTTP/1.1 200 OK');
     header('Content-Type: application/json');
 
@@ -224,18 +249,18 @@ function handleAmoWebhook() {
             return;
         }
 
-        // GOOGLE_DRIVE_FILE_ID_AMO2EXCEL is now treated as SPREADSHEET_ID
+        // Check if Google Sheet ID is configured
         if (!GOOGLE_DRIVE_FILE_ID_AMO2EXCEL) {
-            logError("Skipping push to Google Sheet: GOOGLE_DRIVE_FILE_ID_AMO2EXCEL (Spreadsheet ID) not configured. Deal ID: $dealId");
+            logError("Skipping push to Google Sheet: GOOGLE_DRIVE_FILE_ID_AMO2EXCEL not configured. Deal ID: $dealId");
             echo json_encode(['status' => 'error', 'message' => 'Google Spreadsheet ID not configured']);
             return;
         }
 
         $result = pushToGoogleSheet($dealId, $paymentUrl);
 
-        if ($result) { 
+        if ($result) {
             if (!markDealAsProcessed($dealId)) {
-                logError("CRITICAL: Deal ID $dealId was processed for Google Sheet, but FAILED to be marked in " . PROCESSED_DEALS_FILE . ". Risk of future duplicate processing attempt!");
+                logError("CRITICAL: Deal ID $dealId was processed for Google Sheet, but FAILED to be marked in " . PROCESSED_DEALS_FILE);
             }
         }
 
@@ -254,7 +279,7 @@ function handleAmoWebhook() {
     }
 }
 
-// Если этот скрипт вызывается напрямую как вебхук-обработчик
-if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
+// Only run handleAmoWebhook if this file is called directly via HTTP
+if (php_sapi_name() !== 'cli' && basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
     handleAmoWebhook();
 }

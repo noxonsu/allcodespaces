@@ -141,6 +141,48 @@ function fetchAndProcessAmoCustomFieldDefinitions($accessToken = null) {
 }
 
 /**
+ * Fetches and saves pipeline information from AmoCRM
+ * @param string $accessToken Active access token
+ * @return bool Success status
+ */
+function fetchAndSavePipelineInfo($accessToken = null) {
+    $tokenToUse = $accessToken ?: AMO_TOKEN;
+    if (!$tokenToUse) {
+        logMessage("[Pipeline] Error: No API token available");
+        return false;
+    }
+
+    try {
+        $ch = curl_init(AMO_API_URL_BASE . '/leads/pipelines');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $tokenToUse
+        ]);
+        
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        
+        if ($httpCode !== 200) {
+            logMessage("[Pipeline] HTTP error $httpCode when fetching pipelines");
+            return false;
+        }
+        
+        // Save raw response to pipelines.json
+        if (file_put_contents(__DIR__ . '/pipelines.json', $response) === false) {
+            logMessage("[Pipeline] Failed to save pipelines.json");
+            return false;
+        }
+        
+        logMessage("[Pipeline] Successfully saved pipeline information to pipelines.json");
+        return true;
+    } catch (Exception $e) {
+        logMessage("[Pipeline] Error fetching pipeline info: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
  * Обновляет сделку в AmoCRM
  * @param string $dealNumber Номер сделки
  * @param array $data Данные для обновления
@@ -218,14 +260,12 @@ function updateAmoDeal($dealNumber, $data) {
         $dealId = $dealToUpdate['id']; // This is Amo's internal ID
         logMessage("[AmoDeal] Сделка $dealNumber найдена в AmoCRM (ID: $dealId)");
 
-        // The cache check for $dealId is removed from here as we now check $dealNumber earlier.
-        
         // --- ЛОГИКА ПРОВЕРКИ СТАТУСА ---
         logMessage("[AmoDeal] Проверка текущего статуса сделки $dealNumber (ID: $dealId)...");
         $statusAmoFieldNameKey = 'status';
         // Corrected name for status field lookup from config, then potentially from workaround
         $statusConfigName = $AMO_CUSTOM_FIELD_NAMES[$statusAmoFieldNameKey] ?? null;
-        $statusAmoFieldName = $statusConfigName; // Start with the name from config
+        $statusAmoFieldName = $statusConfigName;
 
         // Apply workaround for status field name if needed
         if ($statusConfigName) {
@@ -234,12 +274,11 @@ function updateAmoDeal($dealNumber, $data) {
             ];
             if (isset($correctedAmoFieldNamesForStatus[$statusConfigName])) {
                 $statusAmoFieldName = $correctedAmoFieldNamesForStatus[$statusConfigName];
-                 if ($statusConfigName !== $statusAmoFieldName) {
+                if ($statusConfigName !== $statusAmoFieldName) {
                     logMessage("[AmoDeal] Info: Adjusted AmoCRM field name for status check from '$statusConfigName' to '$statusAmoFieldName' (Deal: $dealNumber).");
-                 }
+                }
             }
         }
-
 
         if (!$statusAmoFieldName) {
             logMessage("[AmoDeal] Предупреждение: имя поля AmoCRM для '$statusAmoFieldNameKey' (ожидаемое: '$statusConfigName') не настроено или не скорректировано. Проверка статуса пропущена.");
@@ -281,14 +320,20 @@ function updateAmoDeal($dealNumber, $data) {
                     // The call to addBlockedDealNumber was here, it's now moved to the beginning of the function.
                     return false;
                 } else {
-                    logMessage("[AmoDeal] Текущий статус сделки $dealNumber (ID: $dealId) пустой. Обновление из листа разрешено.");
+                    logMessage("[AmoDeal] Текущий статус сделки $dealNumber (ID: $dealId) пустой. Обновление из листа и смена этапа разрешены.");
                 }
             } else {
                 logMessage("[AmoDeal] У сделки $dealNumber (ID: $dealId) нет custom_fields_values. Статус считается пустым.");
             }
         }
         // --- КОНЕЦ ЛОГИКИ ПРОВЕРКИ СТАТУСА ---
+
+        // --- STATUS UPDATE PREPARATION ---
+        // We'll set status to "Финальный Операторский" in the main pipeline
+        $mainPipelineId = 8824470; // ID of "Воронка" pipeline
+        $finalOperatorStatusId = 73606602; // ID of "Финальный Операторский" status
         
+        // Prepare the payload with pipeline_id and status_id
         $currentUnixTimestamp = time();
         $customFieldsPayload = [];
         
@@ -457,6 +502,8 @@ function updateAmoDeal($dealNumber, $data) {
         // Подготовка данных для обновления
         $updatePayload = json_encode([
             'id' => $dealId,
+            'pipeline_id' => $mainPipelineId,
+            'status_id' => $finalOperatorStatusId,
             'custom_fields_values' => $customFieldsPayload
         ]);
         
@@ -633,7 +680,7 @@ function startExcelSheetSync($accessToken = null) {
     global $currentAccessToken;
     
     logMessage('[Excel2Amo] Initializing blocked deals cache...'); 
-    loadBlockedDealNumbers(); // Load blocked deal NUMBERS at the start
+    loadBlockedDealNumbers();
 
     if (!GOOGLE_DRIVE_FILE_ID_EXCEL2AMO) {
         logMessage('[Excel2Amo] Excel (Drive) в AmoCRM синхронизация не запущена: GOOGLE_DRIVE_FILE_ID_EXCEL2AMO не настроен.');
@@ -642,6 +689,10 @@ function startExcelSheetSync($accessToken = null) {
     
     if ($accessToken) {
         $currentAccessToken = $accessToken;
+        // Comment out pipeline info fetching since we already know the IDs
+        // if (!fetchAndSavePipelineInfo($accessToken)) {
+        //     logMessage('[Excel2Amo] Warning: Failed to fetch pipeline information, but continuing...');
+        // }
         logMessage('[Excel2Amo] Запуск синхронизации Excel Sheet (с Drive) в AmoCRM с использованием предоставленного OAuth токена доступа...');
     } elseif (AMO_TOKEN) {
         $currentAccessToken = null; // будет использоваться AMO_TOKEN

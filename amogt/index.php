@@ -33,7 +33,6 @@ if (!ini_get('date.timezone')) {
 // Assume these files are in the same directory or adjust paths accordingly
 require_once __DIR__ . '/logger.php'; // Add this line before other requires
 require_once __DIR__ . '/config.php'; // Defines constants like AMO_DOMAIN, AMO_INTEGRATION_ID, etc.
-require_once __DIR__ . '/amo2excel.php'; // Defines pushToExcelSheet()
 require_once __DIR__ . '/excel2amo.php'; // Defines startExcelSheetSync()
 
 /**
