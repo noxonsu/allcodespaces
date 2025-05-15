@@ -4,10 +4,16 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-require __DIR__ . '/vendor/autoload.php';
+// Include Composer autoloader (missing in original code)
+require_once __DIR__ . '/vendor/autoload.php';
+
+// Set appropriate headers
+header('Content-Type: text/plain; charset=UTF-8');
 
 // --- Lock File Configuration ---
-define('WORKER_LOCK_FILE', __DIR__ . '/transcribe_worker.lock');
+if (!defined('WORKER_LOCK_FILE')) {
+    define('WORKER_LOCK_FILE', __DIR__ . '/transcribe_worker.lock');
+}
 // --- End Lock File Configuration ---
 
 // --- Attempt to acquire lock ---
@@ -81,6 +87,34 @@ $data = json_decode($jsonContent, true);
 
 if (json_last_error() !== JSON_ERROR_NONE || !isset($data['processed_logical_sessions']) || !is_array($data['processed_logical_sessions'])) {
     die("Error decoding {$callsJsonPath} or invalid format." . PHP_EOL);
+}
+
+$callsRawJsonPath = __DIR__ . '/calls_raw.json';
+$calls = [];
+
+if (file_exists($callsRawJsonPath)) {
+    $callsRawJson = file_get_contents($callsRawJsonPath);
+    if ($callsRawJson === false) {
+        error_log("transcribe_worker.php: Failed to read calls_raw.json.");
+    } else {
+        $calls = json_decode($callsRawJson, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            error_log("transcribe_worker.php: Error decoding calls_raw.json: " . json_last_error_msg());
+            $calls = []; // Ensure $calls is empty to prevent further errors
+        } elseif (!is_array($calls)) {
+            error_log("transcribe_worker.php: calls_raw.json does not contain a valid JSON array.");
+            $calls = []; // Ensure $calls is empty
+        }
+    }
+} else {
+    error_log("transcribe_worker.php: calls_raw.json not found.");
+}
+
+if (empty($calls)) {
+    error_log("transcribe_worker.php: No calls to process or error loading calls_raw.json. Exiting.");
+    flock($lock, LOCK_UN);
+    fclose($lock);
+    exit(0);
 }
 
 $allCalls = $data['processed_logical_sessions'];
@@ -223,7 +257,7 @@ foreach ($allCalls as $call) {
                 } else {
                     echo "  WARN: Received empty transcription for {$displayNameForLog}. Saving placeholder." . PHP_EOL;
                     file_put_contents($transcriptionFilePath, "[No transcription available or audio was silent]");
-                    $transcribedText = "[No transcription available or audio was silent]"; // Ensure this is set for analysis step
+                    $transcribedText = "[No transcription available or audio была silent]"; // Ensure this is set for analysis step
                 }
             }
 

@@ -21,6 +21,18 @@ $googleSheetId = $_ENV['GOOGLE_SHEET_ID'] ?? null;
 if (!$googleSheetId) {
     die('GOOGLE_SHEET_ID is not set in your .env file.');
 }
+
+// --- ARI Configuration ---
+$ariUsername = $_ENV['ARI_USERNAME'] ?? null;
+$ariPassword = $_ENV['ARI_PASSWORD'] ?? null;
+$ariHost = $_ENV['ARI_HOST'] ?? null;
+$ariPort = $_ENV['ARI_PORT'] ?? null;
+
+// Check ARI configuration
+if (!$ariUsername || !$ariPassword || !$ariHost || !$ariPort) {
+    error_log('Warning: One or more ARI configuration values are missing from .env file.');
+}
+
 $googleCredentialsPath = __DIR__ . '/my-project-1337-458418-4b4c595d74d5.json'; // Path to your service account JSON
 $operatorSheetName = 'Федоровка'; // As per your screenshot
 $operatorDataRange = $operatorSheetName . '!A2:D'; // Fetch FIO, Queue, Department, Password

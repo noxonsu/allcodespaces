@@ -3,7 +3,9 @@
 header('Content-Type: application/json');
 
 // Define the same lock file path as used by transcribe_worker.php
-define('WORKER_LOCK_FILE', __DIR__ . '/transcribe_worker.lock');
+if (!defined('WORKER_LOCK_FILE')) {
+    define('WORKER_LOCK_FILE', __DIR__ . '/transcribe_worker.lock');
+}
 $workerLogFile = __DIR__ . '/transcribe_worker_launcher.log'; // For logging attempts from AJAX
 
 $response = ['status' => 'error', 'message' => 'Unknown error.'];

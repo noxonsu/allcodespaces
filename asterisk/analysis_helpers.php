@@ -1,7 +1,7 @@
 <?php
 // ...functions for analysis, summary, and statistics...
 
-// Assumes config.php (for $analysisDir) is included.
+// Assumes config.php (for $analysisDir) is included. f
 // Access global config variables
 global $analysisDir;
 

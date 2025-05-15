@@ -13,7 +13,6 @@ if (isset($_GET['logout'])) {
     header("Location: " . $_SERVER['PHP_SELF']); // Redirect to the same page (will show login form)
     exit;
 }
-
 // Autoloader for Composer packages
 require __DIR__ . '/vendor/autoload.php';
 
@@ -34,8 +33,21 @@ require_once __DIR__ . '/analysis_helpers.php';
 // View helper functions
 require_once __DIR__ . '/view_helpers.php';
 
+// ARI Operator Status helper
+require_once __DIR__ . '/operator_status_helper.php';
+
 
 // --- Get Filter Values from URL ---
+$defaultDateTo = date('Y-m-d');
+$defaultDateFrom = date('Y-m-d', strtotime('-30 days'));
+
+$selectedDateFrom = isset($_GET['date_from']) && !empty($_GET['date_from']) ? $_GET['date_from'] : $defaultDateFrom;
+$selectedDateTo = isset($_GET['date_to']) && !empty($_GET['date_to']) ? $_GET['date_to'] : $defaultDateTo;
+
+// Debug: Output the date parameters
+error_log("Selected Date From: " . $selectedDateFrom);
+error_log("Selected Date To: " . $selectedDateTo);
+
 // $selectedQueue was removed from UI, but variable kept for consistency if logic depends on it (currently not)
 $selectedQueue = isset($_GET['queue']) ? $_GET['queue'] : ''; 
 $selectedDepartment = isset($_GET['department']) ? $_GET['department'] : '';
@@ -93,6 +105,50 @@ require_once __DIR__ . '/filter_handler.php';
 // getComment function is in view_helpers.php, uses $commentsDir from config.php
 // formatDuration function is in view_helpers.php
 
+// Determine current operator's extension if logged in and not admin
+$currentOperatorExtension = null;
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && isset($_SESSION['user_fio'])) {
+    // Find the extension for the logged-in FIO
+    foreach ($operatorConfigData as $op) {
+        if (isset($op['fio']) && $op['fio'] === $_SESSION['user_fio'] && isset($op['operator_extension'])) {
+            $currentOperatorExtension = $op['operator_extension'];
+            break;
+        }
+    }
+}
+
+// Fetch ARI status for the current operator if applicable
+$operatorDisplayStatus = '';
+$operatorStatusClass = 'unknown'; // Default class
+
+if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && !empty($currentOperatorExtension)) {
+    // These ARI variables should be defined in your config.php
+    global $ariUsername, $ariPassword, $ariHost, $ariPort;
+
+    if (isset($ariUsername, $ariPassword, $ariHost, $ariPort)) {
+        $ariStatus = getOperatorAriStatus($currentOperatorExtension, $ariUsername, $ariPassword, $ariHost, $ariPort);
+        
+        switch ($ariStatus) {
+            case 'online':
+                $operatorDisplayStatus = 'Онлайн';
+                $operatorStatusClass = 'online';
+                break;
+            case 'offline':
+                $operatorDisplayStatus = 'Офлайн';
+                $operatorStatusClass = 'offline';
+                break;
+            default: // 'error' or unexpected
+                $operatorDisplayStatus = 'Статус неизвестен';
+                // $operatorStatusClass remains 'unknown'
+                break;
+        }
+    } else {
+        error_log("ARI configuration variables are not set in config.php");
+        $operatorDisplayStatus = 'Статус (конф.)';
+    }
+}
+
+
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -128,13 +184,52 @@ require_once __DIR__ . '/filter_handler.php';
             font-size: 14px;
             color: #333;
         }
+        .user-info .status {
+            font-weight: bold;
+        }
+        .user-info .status.online {
+            color: green;
+        }
+        .user-info .status.offline {
+            color: red;
+        }
+        .summary-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px; /* Space between columns/sections */
+        }
+        .summary-section {
+            flex: 1; /* Each section tries to take equal space */
+            min-width: 300px; /* Minimum width before wrapping */
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        .summary-section h3, .summary-section h4 {
+            margin-top: 0;
+        }
+        .filters .filter-group {
+            margin-right: 15px; /* Add some space between filter groups */
+            margin-bottom: 10px; /* Add some space below filter groups */
+        }
+        .filters {
+            display: flex;
+            flex-wrap: wrap; /* Allow filters to wrap on smaller screens */
+            align-items: flex-end; /* Align items to the bottom for a cleaner look */
+            margin-bottom: 20px;
+        }
+
     </style>
 </head>
 <body>
     <div class="user-info">
         Пользователь: <?php echo htmlspecialchars($_SESSION['user_fio'] ?? ''); ?>
-        <?php if (isset($_SESSION['user_fio']) && trim($_SESSION['user_fio']) !== 'администратор' && isset($_SESSION['user_role'])): ?>
+        <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && isset($_SESSION['user_fio'])): ?>
             (<?php echo htmlspecialchars($_SESSION['user_role']); ?>)
+            <?php if (!empty($operatorDisplayStatus)): ?>
+                <span class="status <?php echo $operatorStatusClass; ?>"><?php echo htmlspecialchars($operatorDisplayStatus); ?></span>
+            <?php endif; ?>
         <?php endif; ?>
     </div>
     <a href="?logout=true" class="logout-button">Выход</a>
@@ -144,95 +239,130 @@ require_once __DIR__ . '/filter_handler.php';
         <!-- START: Analysis Summary Section -->
         <div class="analysis-summary">
             <h2>Сводка по анализу звонков и сессий</h2>
-
-            <h3>Общая статистика сессий</h3>
-            <?php if (!empty($overallSummary)): ?>
-            <ul>
-                <li>Всего сессий: <?php echo $overallSummary['Всего сессий'] ?? 0; ?></li>
-                <li>Отвечено сессий: <?php echo $overallSummary['Отвечено сессий'] ?? 0; ?></li>
-                <li>Пропущено сессий: <?php echo $overallSummary['Пропущено сессий'] ?? 0; ?></li>
-                <hr>
-                <?php foreach ($overallSummary as $type => $count): ?>
-                <?php if (!in_array($type, ['Всего сессий', 'Отвечено сессий', 'Пропущено сессий'])): ?>
-                <li><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></li>
+            <div class="summary-container">
+                <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
+                <div class="summary-section">
+                    <h3>Общая статистика сессий</h3>
+                    <?php if (!empty($overallSummary)): ?>
+                    <ul>
+                        <li>Всего сессий: <?php echo $overallSummary['Всего сессий'] ?? 0; ?></li>
+                        <li>Отвечено сессий: <?php echo $overallSummary['Отвечено сессий'] ?? 0; ?></li>
+                        <li>Пропущено сессий: <?php echo $overallSummary['Пропущено сессий'] ?? 0; ?></li>
+                        <li>Общее время разговоров оператора (статус answered): <?php echo $overallSummary['total_operator_talk_time_answered_formatted'] ?? 'N/A'; ?></li>
+                        <hr>
+                        <?php foreach ($overallSummary as $type => $count): ?>
+                        <?php if (!in_array($type, ['Всего сессий', 'Отвечено сессий', 'Пропущено сессий', 'total_operator_talk_time_answered_formatted'])): ?>
+                        <li><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></li>
+                        <?php endif; ?>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php else: ?>
+                    <p>Нет данных для общей сводки.</p>
+                    <?php endif; ?>
+                </div>
                 <?php endif; ?>
-                <?php endforeach; ?>
-            </ul>
-            <?php else: ?>
-            <p>Нет данных для общей сводки.</p>
-            <?php endif; ?>
             
-            <h3>По отделам (на основе анализа)</h3>
-            <?php if (!empty($departmentSummary)): ?>
-            <?php foreach ($departmentSummary as $department => $counts): ?>
-                <h4>Отдел: <?php echo htmlspecialchars($department); ?></h4>
-                <ul>
-                    <?php 
-                    $totalDeptCalls = array_sum(array_values($counts)); // Sum all counts for the department
-                    if ($totalDeptCalls > 0) {
-                        $hasDataForDept = false;
-                        foreach ($counts as $type => $count): 
-                            if ($count > 0): 
-                                $hasDataForDept = true; ?>
-                                <li><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></li>
-                            <?php endif; 
-                        endforeach; 
-                        if (!$hasDataForDept) {
-                             echo "<li>Нет данных для анализа в этом отделе.</li>";
-                        }
-                    } else {
-                        echo "<li>Нет звонков для анализа в этом отделе.</li>";
-                    }
-                    ?>
-                </ul>
-            <?php endforeach; ?>
-            <?php else: ?>
-            <p>Нет данных для сводки по отделам.</p>
-            <?php endif; ?>
-
-            <h3>По операторам (ФИО, на основе анализа и связи с очередью)</h3>
-            <?php if (!empty($operatorSummary)): ?>
-            <?php foreach ($operatorSummary as $fio => $counts): ?>
-                <?php if (trim($fio) === 'администратор') continue; // Skip administrator from summary list ?>
-                <h4>Оператор: <?php echo htmlspecialchars($fio); ?></h4>
-                <ul>
-                     <?php 
-                    $hasAnyDataForFioDisplay = false; 
-
-                    if (isset($counts['Пропущено сессий оператором'])) {
-                        echo "<li>Пропущено сессий оператором: " . $counts['Пропущено сессий оператором'] . "</li>";
-                        if ($counts['Пропущено сессий оператором'] > 0) {
-                            $hasAnyDataForFioDisplay = true;
-                        }
-                    }
-
-                    $analysisDataExistsForFio = false;
-                    foreach ($counts as $type => $count) {
-                        if ($type !== 'Пропущено сессий оператором') {
-                            if ($count > 0) {
-                                echo "<li>" . htmlspecialchars($type) . ": " . $count . "</li>";
-                                $hasAnyDataForFioDisplay = true;
-                                $analysisDataExistsForFio = true;
+                <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
+                <div class="summary-section">
+                    <h3>По отделам (на основе анализа)</h3>
+                    <?php if (!empty($departmentSummary)): ?>
+                    <?php foreach ($departmentSummary as $department => $counts): ?>
+                        <h4>Отдел: <?php echo htmlspecialchars($department); ?></h4>
+                        <ul>
+                            <?php 
+                            $totalDeptCalls = array_sum(array_values($counts)); // Sum all counts for the department
+                            if ($totalDeptCalls > 0) {
+                                $hasDataForDept = false;
+                                foreach ($counts as $type => $count): 
+                                    if ($count > 0): 
+                                        $hasDataForDept = true; ?>
+                                        <li><?php echo htmlspecialchars($type); ?>: <?php echo $count; ?></li>
+                                    <?php endif; 
+                                endforeach; 
+                                if (!$hasDataForDept) {
+                                     echo "<li>Нет данных для анализа в этом отделе.</li>";
+                                }
+                            } else {
+                                echo "<li>Нет звонков для анализа в этом отделе.</li>";
                             }
+                            ?>
+                        </ul>
+                    <?php endforeach; ?>
+                    <?php else: ?>
+                    <p>Нет данных для сводки по отделам.</p>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
+            
+                <div class="summary-section">
+                    <h3>
+                        <?php echo (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin') ? 'По операторам (ФИО, на основе анализа и связи с очередью)' : 'Моя статистика'; ?>
+                    </h3>
+                    <?php if (!empty($operatorSummary)): ?>
+                    <?php foreach ($operatorSummary as $fio => $counts): ?>
+                        <?php 
+                        if (trim($fio) === 'администратор') continue; // Skip administrator from summary list
+                        // If not admin, only show current user's stats
+                        if (isset($_SESSION['user_role']) && $_SESSION['user_role'] !== 'admin' && $fio !== $_SESSION['user_fio']) {
+                            continue;
                         }
-                    }
-                    
-                    if (!$hasAnyDataForFioDisplay && isset($counts['Пропущено сессий оператором']) && $counts['Пропущено сессий оператором'] == 0 && !$analysisDataExistsForFio) {
-                        echo "<li>Нет данных для анализа для этого оператора.</li>";
-                    } elseif (!$hasAnyDataForFioDisplay && (!isset($counts['Пропущено сессий оператором']) || $counts['Пропущено сессий оператором'] == 0) ) {
-                        echo "<li>Нет данных для анализа для этого оператора.</li>";
-                    }
-                    ?>
-                </ul>
-            <?php endforeach; ?>
-            <?php else: ?>
-            <p>Нет данных для сводки по операторам.</p>
-            <?php endif; ?>
+                        ?>
+                        <h4>Оператор: <?php echo htmlspecialchars($fio); ?></h4>
+                        <ul>
+                             <?php 
+                            $hasAnyDataForFioDisplay = false; 
+
+                            if (isset($counts['total_talk_time_formatted'])) {
+                                echo "<li>Общее время разговора: " . htmlspecialchars($counts['total_talk_time_formatted']) . "</li>";
+                                $hasAnyDataForFioDisplay = true;
+                            }
+
+                            if (isset($counts['Пропущено сессий оператором'])) {
+                                echo "<li>Пропущено сессий оператором: " . $counts['Пропущено сессий оператором'] . "</li>";
+                                if ($counts['Пропущено сессий оператором'] > 0) {
+                                    $hasAnyDataForFioDisplay = true;
+                                }
+                            }
+
+                            $analysisDataExistsForFio = false;
+                            foreach ($counts as $type => $count) {
+                                if ($type !== 'Пропущено сессий оператором') {
+                                    if ($count > 0) {
+                                        echo "<li>" . htmlspecialchars($type) . ": " . $count . "</li>";
+                                        $hasAnyDataForFioDisplay = true;
+                                        $analysisDataExistsForFio = true;
+                                }
+                            }
+                            } // Closes the inner foreach ($counts as $type => $count)
+                            
+                            if (!$hasAnyDataForFioDisplay && isset($counts['Пропущено сессий оператором']) && $counts['Пропущено сессий оператором'] == 0 && !$analysisDataExistsForFio) {
+                                echo "<li>Нет данных для анализа для этого оператора.</li>";
+                            } elseif (!$hasAnyDataForFioDisplay && (!isset($counts['Пропущено сессий оператором']) || $counts['Пропущено сессий оператором'] == 0) ) {
+                                echo "<li>Нет данных для анализа для этого оператора.</li>";
+                            }
+                            ?>
+                        </ul>
+                    <?php endforeach; ?>
+                    <?php else: ?>
+                    <p>Нет данных для сводки по операторам.</p>
+                    <?php endif; ?>
+                </div>
+            </div>
         </div>
         <hr> 
         <!-- END: Analysis Summary Section -->
 
         <form method="GET" action="index.php" class="filters">
+            <div class="filter-group">
+                <label for="date-from-filter">Дата с:</label>
+                <input type="date" id="date-from-filter" name="date_from" value="<?php echo htmlspecialchars($selectedDateFrom); ?>" onchange="this.form.submit()">
+            </div>
+            <div class="filter-group">
+                <label for="date-to-filter">Дата по:</label>
+                <input type="date" id="date-to-filter" name="date_to" value="<?php echo htmlspecialchars($selectedDateTo); ?>" onchange="this.form.submit()">
+            </div>
+
+            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'admin'): ?>
             <div class="filter-group">
                 <label for="department-filter">Отдел:</label>
                 <select id="department-filter" name="department" onchange="this.form.submit()">
@@ -255,6 +385,12 @@ require_once __DIR__ . '/filter_handler.php';
                     <?php endforeach; ?>
                 </select>
             </div>
+            <?php else: ?>
+                <!-- For non-admins, FIO filter is implicitly set to themselves if $currentOperatorExtension is available -->
+                <?php if ($currentOperatorExtension): ?>
+                    <input type="hidden" name="fio_filter" value="<?php echo htmlspecialchars($currentOperatorExtension); ?>">
+                <?php endif; ?>
+            <?php endif; ?>
             <noscript><button type="submit">Применить фильтры</button></noscript>
         </form>
 
@@ -268,6 +404,7 @@ require_once __DIR__ . '/filter_handler.php';
                     <th>Оператор (ответил)</th>
                     <th>Попытки операторам</th>
                     <th>Статус сессии</th>
+                    <th>Время ожидания до ответа</th>
                     <th>Длительность (общая)</th>
                     <th>Длительность (тарифиц.)</th>
                     <th>Запись</th>
@@ -346,14 +483,16 @@ require_once __DIR__ . '/filter_handler.php';
                                 }
                                 ?>
                             </td>
+                            <td><?php echo isset($session['wait_time_formatted']) ? htmlspecialchars($session['wait_time_formatted']) : 'N/A'; ?></td>
                             <td><?php echo isset($session['total_duration_sec_overall']) ? formatDuration($session['total_duration_sec_overall']) : '00:00'; ?></td>
                             <td><?php echo isset($session['billed_duration_sec']) ? formatDuration($session['billed_duration_sec']) : '00:00'; ?></td>
                             <td>
                                 <?php if (isset($session['download_url']) && !empty($session['download_url'])): ?>
-                                    <audio controls style="width: 200px;">
+                                    <audio controls style="width: 150px; vertical-align: middle;">
                                         <source src="<?php echo htmlspecialchars($session['download_url']); ?>" type="audio/wav">
-                                        Ваш браузер не поддерживает элемент audio. <a href="<?php echo htmlspecialchars($session['download_url']); ?>">Скачать</a>
+                                        Ваш браузер не поддерживает элемент audio.
                                     </audio>
+                                    <a href="<?php echo htmlspecialchars($session['download_url']); ?>" download style="margin-left: 5px; font-size:0.9em; vertical-align: middle;">Скачать</a>
                                 <?php elseif (isset($session['recording_file']) && !empty($session['recording_file'])): ?>
                                     <?php echo htmlspecialchars($session['recording_file']); ?> (нет URL)
                                 <?php else: ?>
@@ -383,7 +522,7 @@ require_once __DIR__ . '/filter_handler.php';
                             </td>
                         </tr>
                         <?php else: ?>
-                            <tr><td colspan="13" style="text-align: center;">Найден некорректный формат записи сессии или отсутствует session_master_id/session_id_generated</td></tr>
+                            <tr><td colspan="14" style="text-align: center;">Найден некорректный формат записи сессии или отсутствует session_master_id/session_id_generated</td></tr>
                             <?php error_log("Invalid session record format or missing ID: " . print_r($session, true)); ?>
                         <?php endif; ?>
                     <?php endforeach; ?>
