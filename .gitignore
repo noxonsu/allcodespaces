@@ -21,12 +21,12 @@ dist/
 build/
 out/
 *.log
-
+ads/
 # Package files
 *.zip
 *.tar.gz
 *.rar
-
+electrumx/
 # Cache and temporary files
 .cache/
 .tmp/

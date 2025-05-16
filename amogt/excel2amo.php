@@ -500,12 +500,29 @@ function updateAmoDeal($dealNumber, $data) {
         }
         
         // Подготовка данных для обновления
-        $updatePayload = json_encode([
+        $updatePayloadArray = [
             'id' => $dealId,
-            'pipeline_id' => $mainPipelineId,
-            'status_id' => $finalOperatorStatusId,
             'custom_fields_values' => $customFieldsPayload
-        ]);
+        ];
+
+        // Определяем идентификаторы для успешного сценария
+        $mainPipelineId = 8824470; // ID of "Воронка" pipeline
+        $finalOperatorStatusId = 73606602; // ID of "Финальный Операторский" status
+
+        // Проверяем значение статуса из Excel
+        $excelStatusValue = isset($data['status']) ? trim((string)$data['status']) : null;
+
+        if ($excelStatusValue === 'ОШИБКА!') {
+            logMessage("[AmoDeal] Статус из Excel: '$excelStatusValue'. Обновление этапа (на $finalOperatorStatusId) и воронки (на $mainPipelineId) пропускается для сделки $dealNumber (ID: $dealId). Будут обновлены только поля.");
+            // Не добавляем pipeline_id и status_id в $updatePayloadArray, чтобы не менять этап/воронку
+        } else {
+            // Для любого другого статуса (включая "Выполнено", пустой или другой) перемещаем сделку
+            logMessage("[AmoDeal] Статус из Excel: '$excelStatusValue'. Сделка $dealNumber (ID: $dealId) будет перемещена в воронку $mainPipelineId, этап $finalOperatorStatusId.");
+            $updatePayloadArray['pipeline_id'] = $mainPipelineId;
+            $updatePayloadArray['status_id'] = $finalOperatorStatusId;
+        }
+        
+        $updatePayload = json_encode($updatePayloadArray);
         
         $payloadLog = $hideSensetiveData ? '[Payload Redacted]' : $updatePayload;
         logMessage("[AmoDeal] Попытка обновить сделку ID $dealId с payload: " . $payloadLog);

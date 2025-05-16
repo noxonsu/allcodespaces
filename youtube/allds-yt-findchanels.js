@@ -4,6 +4,9 @@ require('dotenv').config();
 const { google } = require('googleapis');
 const youtube = google.youtube('v3');
 const fs = require('fs');
+const fsPromises = fs.promises;
+const path = require('path');
+const http = require('http');
 
 // --- Конфигурация ---
 // Получаем ключ API из переменных окружения (.env файл)
@@ -12,8 +15,29 @@ const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 // GOOGLE_APPLICATION_CREDENTIALS должен быть установлен в .env или системных переменных
 // например: GOOGLE_APPLICATION_CREDENTIALS=/workspaces/allcodespaces/youtube/mycity2_key.json
 
-// Поисковый запрос
-const SEARCH_QUERY = process.env.SEARCH_QUERY || 'инвестиции';
+// --- Новые конфигурации для чтения ключевых слов из таблицы ---
+const KEYWORDS_SHEET_NAME = process.env.KEYWORDS_SHEET_NAME || 'Keywords'; // Название листа с ключевыми словами
+const KEYWORDS_COLUMN_INDEX = parseInt(process.env.KEYWORDS_COLUMN_INDEX) || 0; // 0-based индекс колонки с ключевиками (A=0)
+const STATUS_COLUMN_INDEX = parseInt(process.env.STATUS_COLUMN_INDEX) || 1; // 0-based индекс колонки для статуса (B=1)
+const PROCESSED_STATUS_TEXT = "Processed";
+const ERROR_STATUS_TEXT = "Error";
+const PROCESSING_STATUS_TEXT = "Processing...";
+
+// --- Новые конфигурации для периодического запуска и паузы по квоте ---
+const PROCESSING_INTERVAL_MINUTES = parseInt(process.env.PROCESSING_INTERVAL_MINUTES) || 15;
+const QUOTA_PAUSE_HOURS = parseInt(process.env.QUOTA_PAUSE_HOURS) || 24;
+let quotaPauseUntil = 0; // Timestamp until which processing is paused due to quota
+let sheetsClient; // Глобальный клиент для Google Sheets
+
+// --- Конфигурация для лог сервера ---
+const LOG_DIRECTORY = process.env.LOG_DIRECTORY || 'script_logs';
+const LOG_SERVER_PORT = parseInt(process.env.LOG_SERVER_PORT) || 5565;
+let LATEST_LOG_FILE_PATH = ""; // Будет обновляться
+const GLOBALLY_PROCESSED_CHANNELS_FILE = 'globally_processed_channels.txt';
+let globallyProcessedChannelUrls = new Set();
+
+// Поисковый запрос - ТЕПЕРЬ БУДЕТ БРАТЬСЯ ИЗ ТАБЛИЦЫ
+// const SEARCH_QUERY = process.env.SEARCH_QUERY || 'инвестиции'; // Удаляем или комментируем
 
 // Максимальное количество каналов для анализа
 const MAX_CHANNELS_TO_PROCESS = parseInt(process.env.MAX_CHANNELS_TO_PROCESS) || 500;
@@ -120,36 +144,50 @@ async function getSheetsClient() {
     return google.sheets({ version: 'v4', auth: client });
 }
 
-async function ensureSheetExists(sheets, spreadsheetId, sheetTitle) {
+async function ensureSheetExists(sheets, spreadsheetId, sheetTitle, currentSheetHeaders) {
     try {
         const getSpreadsheetResponse = await sheets.spreadsheets.get({
             spreadsheetId,
-            fields: 'sheets.properties.title',
+            fields: 'sheets.properties(title,sheetId,index)', // Fetch index as well
         });
-        const existingSheet = getSpreadsheetResponse.data.sheets.find(
-            s => s.properties.title === sheetTitle
+        const allSheetsProperties = getSpreadsheetResponse.data.sheets.map(s => s.properties);
+        const existingSheet = allSheetsProperties.find(
+            s => s.title === sheetTitle
         );
 
         if (!existingSheet) {
+            let targetIndex = 1; // Default to position 1 (second sheet)
+            const keywordsSheetInfo = allSheetsProperties.find(s => s.title === KEYWORDS_SHEET_NAME);
+            
+            if (keywordsSheetInfo && typeof keywordsSheetInfo.index === 'number') {
+                targetIndex = keywordsSheetInfo.index + 1;
+            } else {
+                if (!keywordsSheetInfo) {
+                    console.warn(`[ensureSheetExists] Keywords sheet "${KEYWORDS_SHEET_NAME}" not found. Adding new sheet "${sheetTitle}" at default index ${targetIndex}.`);
+                } else {
+                    console.warn(`[ensureSheetExists] Keywords sheet "${KEYWORDS_SHEET_NAME}" found but its index is invalid. Adding new sheet "${sheetTitle}" at default index ${targetIndex}.`);
+                }
+            }
+
             await sheets.spreadsheets.batchUpdate({
                 spreadsheetId,
                 requestBody: {
-                    requests: [{ addSheet: { properties: { title: sheetTitle } } }],
+                    requests: [{ addSheet: { properties: { title: sheetTitle, index: targetIndex } } }], // Set index
                 },
             });
-            console.log(`Лист "${sheetTitle}" создан.`);
+            console.log(`Лист "${sheetTitle}" создан на позиции ${targetIndex}.`);
             // Add headers to the new sheet
             await sheets.spreadsheets.values.append({
                 spreadsheetId,
                 range: `${sheetTitle}!A1`,
                 valueInputOption: 'USER_ENTERED',
-                requestBody: { values: [SHEET_HEADERS] },
+                requestBody: { values: [currentSheetHeaders] },
             });
             console.log(`Заголовки добавлены в лист "${sheetTitle}".`);
         } else {
             // Check if headers exist
             // Определяем диапазон заголовков динамически
-            const lastColumnLetter = String.fromCharCode(64 + SHEET_HEADERS.length); // 65 is 'A'
+            const lastColumnLetter = String.fromCharCode(64 + currentSheetHeaders.length); // 65 is 'A'
             const headerRange = `${sheetTitle}!A1:${lastColumnLetter}1`;
 
             const headerResponse = await sheets.spreadsheets.values.get({
@@ -161,7 +199,7 @@ async function ensureSheetExists(sheets, spreadsheetId, sheetTitle) {
                     spreadsheetId,
                     range: `${sheetTitle}!A1`,
                     valueInputOption: 'USER_ENTERED',
-                    requestBody: { values: [SHEET_HEADERS] },
+                    requestBody: { values: [currentSheetHeaders] },
                 });
                 console.log(`Заголовки добавлены в существующий пустой лист "${sheetTitle}".`);
             } else {
@@ -176,7 +214,7 @@ async function ensureSheetExists(sheets, spreadsheetId, sheetTitle) {
 
 async function appendDataToSheet(sheets, spreadsheetId, sheetTitle, dataRow) {
     try {
-        await sheets.spreadsheets.values.append({
+        await sheets.spreadsheets.values.append({ // <<< OR SET BREAKPOINT HERE
             spreadsheetId,
             range: `${sheetTitle}!A:A`, // Append to the first column to find the next empty row
             valueInputOption: 'USER_ENTERED',
@@ -341,11 +379,12 @@ async function isTargetLanguageChannel(channel) {
 }
 
 function loadPreviouslyAnalyzedIds(filePath) {
+    previouslyAnalyzedChannelIds.clear(); // Сбрасываем для нового ключевого слова
     if (fs.existsSync(filePath)) {
         const data = fs.readFileSync(filePath, 'utf8');
         const ids = data.split('\n').filter(id => id.trim() !== '');
         previouslyAnalyzedChannelIds = new Set(ids);
-        console.log(`Загружено ${previouslyAnalyzedChannelIds.size} ID ранее проанализированных каналов из ${filePath}`);
+        console.log(`Загружено ${previouslyAnalyzedChannelIds.size} ID ранее проанализированных каналов из ${filePath} для текущего запроса.`);
     } else {
         console.log(`Файл ${filePath} не найден. Список ранее проанализированных каналов для текущего запроса пуст.`);
     }
@@ -355,109 +394,163 @@ function saveAnalyzedChannelId(channelId, filePath) {
     if (!previouslyAnalyzedChannelIds.has(channelId)) {
         fs.appendFileSync(filePath, channelId + '\n');
         previouslyAnalyzedChannelIds.add(channelId);
-        // console.log(`Канал ID ${channelId} добавлен в список проанализированных (${filePath}).`); // Можно раскомментировать для детального лога
     }
 }
 
 async function isDuplicateInSheet(sheets, spreadsheetId, sheetTitle, channelUrl) {
     try {
+        // Определяем количество заголовков, чтобы знать, где искать URL канала (предполагаем, что это вторая колонка 'B')
+        const currentSheetHeaders = SHEET_HEADERS; // Replaced getSheetHeaders()
+        const channelUrlColumnIndex = currentSheetHeaders.findIndex(header => header === 'Ссылка канала');
+        if (channelUrlColumnIndex === -1) {
+            console.warn("Не удалось определить колонку для URL канала в заголовках. Проверка на дубликаты может быть неточной.");
+            return false; // Не можем проверить, считаем не дубликатом
+        }
+        const channelUrlColumnLetter = String.fromCharCode(65 + channelUrlColumnIndex); // A=0, B=1, etc.
+
         const response = await sheets.spreadsheets.values.get({
             spreadsheetId,
-            range: `${sheetTitle}!B:B`, // Assuming column B contains channel URLs
+            range: `${sheetTitle}!${channelUrlColumnLetter}:${channelUrlColumnLetter}`,
         });
         const existingUrls = response.data.values?.flat() || [];
         return existingUrls.includes(channelUrl);
     } catch (error) {
+        // Если ошибка связана с тем, что лист еще не существует или пуст (например, error.code === 400, "Unable to parse range")
+        if (error.code === 400 && error.message.includes("Unable to parse range")) {
+             console.log(`Лист "${sheetTitle}" вероятно пуст или колонка URL не найдена, дубликатов нет.`);
+             return false;
+        }
         console.error(`Ошибка при проверке дубликатов в листе "${sheetTitle}":`, error.message);
-        return false; // Assume no duplicate if an error occurs
+        return false; 
     }
 }
 
-async function findChannelsAndTelegramLinks() {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const logFile = `youtube_channels_${timestamp}.txt`;
-    const writeLog = (text) => {
-        console.log(text);
-        fs.appendFileSync(logFile, text + '\n');
-    };
-
-    // Определяем имя файла analysed.txt для текущего запроса
-    const currentAnalyzedChannelsFile = getAnalyzedChannelsFilePath(SEARCH_QUERY);
-
-    writeLog(`--- Начало скрипта ---`);
-    writeLog(`Используемый файл для проанализированных ID: ${currentAnalyzedChannelsFile}`);
-    writeLog(`Конфигурация SKIP_VIDEO_ANALYSIS: ${SKIP_VIDEO_ANALYSIS} (true = пропускать анализ видео)`);
-    writeLog(`Конфигурация EXTRACT_WHATSAPP_NUMBERS: ${EXTRACT_WHATSAPP_NUMBERS}`);
-    writeLog(`Конфигурация MIN_SUBSCRIBER_COUNT: ${MIN_SUBSCRIBER_COUNT}`);
-    writeLog(`Конфигурация MAX_SUBSCRIBER_COUNT: ${MAX_SUBSCRIBER_COUNT === Infinity ? 'Infinity' : MAX_SUBSCRIBER_COUNT}`);
-    writeLog(`Конфигурация MAX_VIDEO_AGE_DAYS: ${MAX_VIDEO_AGE_DAYS} (0 = не проверять)`);
-    writeLog(`Конфигурация MIN_VIDEO_DURATION_MINUTES: ${MIN_VIDEO_DURATION_MINUTES} (0 = не проверять)`);
-    writeLog(`Конфигурация SHORTS_THRESHOLD: ${SHORTS_THRESHOLD} (доля шортсов для фильтрации, 0 = не фильтровать по шортсам)`);
-    writeLog(`Конфигурация TARGET_LANGUAGE: ${TARGET_LANGUAGE}`);
-
-
-    loadPreviouslyAnalyzedIds(currentAnalyzedChannelsFile);
-
-    if (!API_KEY) {
-        console.error("Ошибка: API ключ не найден в .env файле");
-        return;
-    }
-    if (!SPREADSHEET_ID) {
-        console.warn("Предупреждение: SPREADSHEET_ID не найден в .env файле. Данные не будут сохранены в Google Sheets.");
-    }
-    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
-        console.warn("Предупреждение: GOOGLE_APPLICATION_CREDENTIALS не установлен. Аутентификация Google Sheets может не удаться.");
-    }
-
-    let sheetsClient;
-    if (SPREADSHEET_ID) {
-        try {
-            sheetsClient = await getSheetsClient();
-            const sheetTitle = SEARCH_QUERY.trim() || 'YouTube Channels';
-            await ensureSheetExists(sheetsClient, SPREADSHEET_ID, sheetTitle);
-            writeLog(`Данные будут сохранены в Google Sheet: ID ${SPREADSHEET_ID}, Лист: "${sheetTitle}"`);
-        } catch (e) {
-            writeLog(`Не удалось инициализировать Google Sheets: ${e.message}. Данные не будут сохранены в таблицу.`);
-            sheetsClient = null; // Disable sheet operations
+// --- Новые функции для работы с ключевыми словами ---
+async function getKeywordsToProcess(sheets, spreadsheetId, sheetName, keywordColIdx, statusColIdx) {
+    const keywords = [];
+    try {
+        // Пытаемся получить данные со всего листа, чтобы определить последнюю строку
+        const range = `${sheetName}!${String.fromCharCode(65 + keywordColIdx)}:${String.fromCharCode(65 + statusColIdx)}`;
+        const response = await sheets.spreadsheets.values.get({
+            spreadsheetId,
+            range: range, // Читаем колонку с ключевиками и статусами
+        });
+        if (response.data.values) {
+            response.data.values.forEach((row, index) => {
+                const keyword = row[0]; // keywordColIdx относительно начала range, т.е. 0
+                const status = row.length > (statusColIdx - keywordColIdx) ? row[statusColIdx - keywordColIdx] : ""; // statusColIdx относительно начала range
+                if (keyword && keyword.trim() !== "") {
+                    keywords.push({
+                        text: keyword.trim(),
+                        rowIndex: index + 1, // 1-based for sheet API
+                        status: status ? status.trim() : ""
+                    });
+                }
+            });
+        }
+    } catch (error) {
+        console.error(`Ошибка при получении ключевых слов из листа "${sheetName}":`, error.message);
+        // Если лист "Keywords" не существует, это критическая ошибка
+        if (error.message.includes("Unable to parse range") || error.message.includes("Not Found")) {
+            console.error(`Лист "${sheetName}" не найден или пуст. Убедитесь, что он существует и содержит ключевые слова.`);
+            throw new Error(`Лист "${sheetName}" не найден. Пожалуйста, создайте его и добавьте ключевые слова.`);
         }
     }
+    return keywords;
+}
 
-    writeLog(`Поиск каналов по запросу: "${SEARCH_QUERY}"...`);
+async function updateKeywordStatus(sheets, spreadsheetId, sheetName, rowIndex, statusColIdx, statusText) {
+    try {
+        const range = `${sheetName}!${String.fromCharCode(65 + statusColIdx)}${rowIndex}`;
+        await sheets.spreadsheets.values.update({
+            spreadsheetId,
+            range,
+            valueInputOption: 'USER_ENTERED',
+            requestBody: {
+                values: [[statusText]],
+            },
+        });
+        console.log(`Статус для ключевого слова в строке ${rowIndex} обновлен на "${statusText}".`);
+    } catch (error) {
+        console.error(`Ошибка при обновлении статуса ключевого слова в строке ${rowIndex}:`, error.message);
+    }
+}
+// --- Конец новых функций для работы с ключевыми словами ---
+
+// Основная функция обработки одного ключевого слова
+async function processSingleKeyword(searchQuery, currentSheetsClient, globalLogWriteStream, allProcessedChannelUrlsInThisRun) {
+    // Используем currentSheetsClient, переданный из findChannelsAndProcessKeywords
+    const currentSheetHeaders = SHEET_HEADERS;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const sanitizedQueryForFilename = searchQuery.toLowerCase().replace(/\s+/g, '_').replace(/[^\w-]+/g, '');
+    const logFileName = `youtube_channels_${sanitizedQueryForFilename}_${timestamp}.txt`;
+    const logFilePath = path.join(LOG_DIRECTORY, logFileName);
+    LATEST_LOG_FILE_PATH = logFilePath; // Обновляем путь к последнему лог файлу
+
+    // Локальная функция логирования для текущего ключевого слова
+    const writeLog = (text) => {
+        const message = `[${new Date().toISOString()}] ${text}`;
+        console.log(message); // Также выводим в консоль
+        if (globalLogWriteStream) {
+            globalLogWriteStream.write(message + '\n');
+        }
+        fs.appendFileSync(logFilePath, message + '\n');
+    };
+
+    writeLog(`--- Начало обработки ключевого слова: "${searchQuery}" ---`);
+    const currentAnalyzedChannelsFile = getAnalyzedChannelsFilePath(searchQuery);
+    writeLog(`Используемый файл для ID проанализированных каналов (для этого запроса): ${currentAnalyzedChannelsFile}`);
+    loadPreviouslyAnalyzedIds(currentAnalyzedChannelsFile); // Загружаем ID, проанализированные ранее ИМЕННО ДЛЯ ЭТОГО КЛЮЧЕВОГО СЛОВА
+
+    writeLog(`Конфигурация SKIP_VIDEO_ANALYSIS: ${SKIP_VIDEO_ANALYSIS}`);
+    // ... (можно добавить больше логов конфигурации по необходимости)
+
+    const sheetTitle = searchQuery.trim() || 'YouTube Channels (Default)';
+    if (SPREADSHEET_ID && currentSheetsClient) {
+        try {
+            await ensureSheetExists(currentSheetsClient, SPREADSHEET_ID, sheetTitle, currentSheetHeaders);
+            writeLog(`Данные для "${searchQuery}" будут сохранены в Google Sheet: ID ${SPREADSHEET_ID}, Лист: "${sheetTitle}"`);
+        } catch (e) {
+            writeLog(`Не удалось инициализировать лист "${sheetTitle}": ${e.message}. Данные не будут сохранены в таблицу для этого ключевого слова.`);
+            // Не прерываем выполнение, просто не будем писать в этот лист
+        }
+    } else {
+        writeLog("SPREADSHEET_ID не указан или sheetsClient не инициализирован. Данные не будут сохранены в Google Sheets.");
+    }
+
+    writeLog(`Поиск каналов по запросу: "${searchQuery}"...`);
     let nextPageToken = null;
-    const newChannelIdsToAnalyzeSet = new Set(); // Хранит ID НОВЫХ каналов для детального анализа
-    let totalChannelsFetchedFromSearchAPI = 0; // Общее количество каналов, полученных из API поиска
-    let searchApiPagesFetched = 0; // Количество запрошенных страниц поиска
+    const newChannelIdsToAnalyzeSet = new Set();
+    let totalChannelsFetchedFromSearchAPI = 0;
+    let searchApiPagesFetched = 0;
     let estimatedQuotaUsed = 0;
     let channelsWithTelegram = 0;
-    let totalChannelsProcessedDetailed = 0; // Каналов, прошедших детальную обработку (новые)
-    let channelsAttemptedVideoAnalysis = 0; // Новый счетчик
+    let totalChannelsProcessedDetailed = 0;
+    let channelsAttemptedVideoAnalysis = 0;
 
     try {
-        // 1. Поиск каналов напрямую
-        let totalResultsFromSearchAPI = 0; // Общее количество результатов, которое API поиска может вернуть
+        let totalResultsFromSearchAPI = 0;
         let searchComplete = false;
+        writeLog('Этап 1: Поиск каналов по ключевому слову.');
 
-        writeLog('Этап 1: Поиск каналов по ключевому слову (с учетом ранее проанализированных).');
-        // Цикл продолжается, пока не наберем достаточно НОВЫХ каналов или не закончатся результаты поиска
         while (newChannelIdsToAnalyzeSet.size < MAX_CHANNELS_TO_PROCESS) {
             const searchResponse = await youtube.search.list({
                 key: API_KEY,
                 part: 'snippet',
-                q: SEARCH_QUERY,
+                q: searchQuery,
                 type: 'channel',
                 relevanceLanguage: TARGET_LANGUAGE,
-                maxResults: MAX_RESULTS_PER_PAGE, // Запрашиваем полные страницы для эффективной фильтрации
+                maxResults: MAX_RESULTS_PER_PAGE,
                 pageToken: nextPageToken,
             });
             searchApiPagesFetched++;
             estimatedQuotaUsed += 100;
 
             const items = searchResponse.data.items || [];
-            if (searchApiPagesFetched === 1) { // Получаем общее количество результатов один раз
-                 totalResultsFromSearchAPI = searchResponse.data.pageInfo?.totalResults || 0;
+            if (searchApiPagesFetched === 1) {
+                totalResultsFromSearchAPI = searchResponse.data.pageInfo?.totalResults || 0;
             }
             totalChannelsFetchedFromSearchAPI += items.length;
-
             writeLog(`Страница поиска ${searchApiPagesFetched}: получено ${items.length} каналов.`);
 
             if (items.length === 0) {
@@ -474,8 +567,7 @@ async function findChannelsAndTelegramLinks() {
                             newChannelIdsToAnalyzeSet.add(item.snippet.channelId);
                             newChannelsAddedInThisPage++;
                         } else {
-                            // Достигнут лимит MAX_CHANNELS_TO_PROCESS для новых каналов
-                            break; // Прерываем обход элементов на этой странице
+                            break;
                         }
                     }
                 }
@@ -488,63 +580,62 @@ async function findChannelsAndTelegramLinks() {
                 writeLog('Достигнут конец результатов поиска API.');
                 break;
             }
-
             if (newChannelIdsToAnalyzeSet.size >= MAX_CHANNELS_TO_PROCESS) {
-                writeLog(`Собрано достаточно (${newChannelIdsToAnalyzeSet.size}) новых каналов для анализа. Остановка поиска.`);
-                // searchComplete может быть false, если результаты API не исчерпаны, но лимит новых каналов достигнут
+                writeLog(`Собрано достаточно (${newChannelIdsToAnalyzeSet.size}) новых каналов для анализа.`);
                 break;
             }
-            await new Promise(resolve => setTimeout(resolve, 100)); // Задержка между запросами
+            await new Promise(resolve => setTimeout(resolve, 200)); // Увеличена задержка
         }
-
-        writeLog('\n=== Статус этапа 1 (Поиск каналов) ===');
-        writeLog(`Всего найдено каналов API поиска по запросу "${SEARCH_QUERY}": ${totalResultsFromSearchAPI} (просмотрено ${totalChannelsFetchedFromSearchAPI} результатов на ${searchApiPagesFetched} страницах)`);
+        writeLog(`\n=== Статус этапа 1 (Поиск каналов для "${searchQuery}") ===`);
+        writeLog(`Всего найдено каналов API поиска: ${totalResultsFromSearchAPI} (просмотрено ${totalChannelsFetchedFromSearchAPI} на ${searchApiPagesFetched} страницах)`);
         writeLog(`Собрано НОВЫХ уникальных ID для детального анализа: ${newChannelIdsToAnalyzeSet.size}`);
-        writeLog(`Поиск ${searchComplete ? 'завершен полностью по результатам API' : 'остановлен по достижению лимита MAX_CHANNELS_TO_PROCESS для НОВЫХ каналов или из-за отсутствия nextPageToken'}`);
         writeLog('======================================\n');
 
-        // 2. Получение подробной информации о каналах
         writeLog('Этап 2: Получение подробной информации и фильтрация каналов.');
-        const channelIdsToProcessArray = Array.from(newChannelIdsToAnalyzeSet); // Используем набор новых ID
-        const sheetTitle = SEARCH_QUERY.trim() || 'YouTube Channels';
+        const channelIdsToProcessArray = Array.from(newChannelIdsToAnalyzeSet);
         let processedInThisBatch = 0;
 
         for (let i = 0; i < channelIdsToProcessArray.length; i += MAX_RESULTS_PER_PAGE) {
             const batchIds = channelIdsToProcessArray.slice(i, i + MAX_RESULTS_PER_PAGE);
-            // totalChannelsProcessedDetailed теперь будет считать только те каналы, которые действительно были обработаны (т.е. новые)
-            writeLog(`\nЗапрос деталей для ${batchIds.length} каналов (пакет ${Math.floor(i / MAX_RESULTS_PER_PAGE) + 1}/${Math.ceil(channelIdsToProcessArray.length / MAX_RESULTS_PER_PAGE)}). Всего новых каналов для детальной обработки: ${channelIdsToProcessArray.length}, уже обработано деталей: ${totalChannelsProcessedDetailed}`);
+            writeLog(`\nЗапрос деталей для ${batchIds.length} каналов (пакет ${Math.floor(i / MAX_RESULTS_PER_PAGE) + 1}/${Math.ceil(channelIdsToProcessArray.length / MAX_RESULTS_PER_PAGE)}).`);
 
             const channelsResponse = await youtube.channels.list({
                 key: API_KEY,
-                part: 'snippet,statistics', // Добавляем statistics для subscriberCount
+                part: 'snippet,statistics',
                 id: batchIds.join(','),
                 maxResults: MAX_RESULTS_PER_PAGE
             });
-            estimatedQuotaUsed += 1; 
+            estimatedQuotaUsed += 1;
             processedInThisBatch = channelsResponse.data.items?.length || 0;
             writeLog(`Получены детали для ${processedInThisBatch} каналов в этом пакете.`);
 
             for (const channel of channelsResponse.data.items || []) {
-                // Проверка на previouslyAnalyzedChannelIds здесь уже не нужна, так как channelIdsToProcessArray содержит только новые ID.
-                // Однако, если есть вероятность, что ID мог быть добавлен в analysed.txt между Этапом 1 и этим местом
-                // (например, при параллельной работе или ошибке), можно оставить для подстраховки, но это маловероятно при текущей логике.
-                // if (previouslyAnalyzedChannelIds.has(channel.id)) {
-                //     writeLog(`\nКанал ${channel.snippet.title} (ID: ${channel.id}) уже был проанализирован ранее (неожиданно). Пропуск.`);
-                //     continue; 
-                // }
-                totalChannelsProcessedDetailed++; // Увеличиваем счетчик обработанных новых каналов
+                totalChannelsProcessedDetailed++;
+                const channelUrl = `https://www.youtube.com/channel/${channel.id}`;
 
-                // Фильтр 1: Язык канала
+                // Глобальная проверка на дубликат по всем ключевым словам в текущем запуске И ПРЕДЫДУЩИХ ЗАПУСКАХ
+                let skipReason = "";
+                if (allProcessedChannelUrlsInThisRun.has(channelUrl)) {
+                    skipReason = "уже был добавлен в таблицу по другому ключевому слову в этом запуске";
+                } else if (globallyProcessedChannelUrls.has(channelUrl)) {
+                    skipReason = "уже существует в таблице (из предыдущих запусков или других листов)";
+                }
+
+                if (skipReason) {
+                    writeLog(`\nКанал ${channel.snippet.title} (URL: ${channelUrl}) ${skipReason}. Пропуск.`);
+                    saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile); // Все равно помечаем как проанализированный для этого ключа
+                    continue;
+                }
+
                 if (!await isTargetLanguageChannel(channel)) {
                     writeLog(`\nПропущен канал не на целевом языке (${TARGET_LANGUAGE}): ${channel.snippet.title} (ID: ${channel.id})`);
                     saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                     continue;
                 }
 
-                // Фильтр 2: Количество подписчиков
                 const subscriberCount = parseInt(channel.statistics?.subscriberCount || 0);
                 if (subscriberCount < MIN_SUBSCRIBER_COUNT || subscriberCount > MAX_SUBSCRIBER_COUNT) {
-                    writeLog(`\nПропущен канал по количеству подписчиков (${subscriberCount}): ${channel.snippet.title} (ID: ${channel.id}). Требования: ${MIN_SUBSCRIBER_COUNT}-${MAX_SUBSCRIBER_COUNT === Infinity ? 'Infinity' : MAX_SUBSCRIBER_COUNT}`);
+                    writeLog(`\nПропущен канал по количеству подписчиков (${subscriberCount}): ${channel.snippet.title} (ID: ${channel.id}).`);
                     saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                     continue;
                 }
@@ -555,25 +646,17 @@ async function findChannelsAndTelegramLinks() {
                 let avgDurationStr = 'Н/Д';
 
                 if (SKIP_VIDEO_ANALYSIS) {
-                    writeLog(`\nАнализ видео для канала ${channel.snippet.title} (ID: ${channel.id}) пропущен согласно конфигурации.`);
+                    writeLog(`\nАнализ видео для канала ${channel.snippet.title} (ID: ${channel.id}) пропущен.`);
                     videoCriteria = {
-                        isLikelyShortsChannel: false, // Assume not shorts channel to pass filter
-                        meetsVideoAgeCriteria: true,  // Assume meets age criteria to pass filter
-                        meetsVideoDurationCriteria: true, // Assume meets duration criteria to pass filter
-                        estimatedQuotaUsed: 0,
-                        shortsPercentage: 0,
-                        latestVideoTimestamp: null,
-                        oldestVideoTimestamp: null,
-                        videosCheckedCount: 0,
-                        averageDurationMinutes: 0,
-                        videoFrequencyStr: 'Н/Д (анализ пропущен)'
+                        isLikelyShortsChannel: false, meetsVideoAgeCriteria: true, meetsVideoDurationCriteria: true,
+                        estimatedQuotaUsed: 0, shortsPercentage: 0, latestVideoTimestamp: null, oldestVideoTimestamp: null,
+                        videosCheckedCount: 0, averageDurationMinutes: 0, videoFrequencyStr: 'Н/Д (анализ пропущен)'
                     };
-                    statusMessage = 'Добавлен (видео не анализировались)';
-                    shortsPercStr = 'Н/Д (анализ пропущен)';
-                    avgDurationStr = 'Н/Д (анализ пропущен)';
+                    statusMessage = 'Добавлен (видео не анализ.)';
+                    shortsPercStr = 'Н/Д (пропущено)';
+                    avgDurationStr = 'Н/Д (пропущено)';
                 } else {
-                    // Фильтр 3, 4, 5: Шортсы, возраст видео, длительность видео
-                    channelsAttemptedVideoAnalysis++; // Увеличиваем счетчик здесь
+                    channelsAttemptedVideoAnalysis++;
                     videoCriteria = await checkChannelVideosCriteria(channel.id);
                     estimatedQuotaUsed += videoCriteria.estimatedQuotaUsed;
 
@@ -582,59 +665,42 @@ async function findChannelsAndTelegramLinks() {
                         saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                         continue;
                     }
-
                     if (MAX_VIDEO_AGE_DAYS > 0 && !videoCriteria.meetsVideoAgeCriteria) {
-                        writeLog(`\nПропущен канал из-за отсутствия недавних видео (старше ${MAX_VIDEO_AGE_DAYS} дней): ${channel.snippet.title} (ID: ${channel.id})`);
+                        writeLog(`\nПропущен канал из-за отсутствия недавних видео: ${channel.snippet.title} (ID: ${channel.id})`);
                         saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                         continue;
                     }
-
                     if (MIN_VIDEO_DURATION_MINUTES > 0 && !videoCriteria.meetsVideoDurationCriteria) {
-                        writeLog(`\nПропущен канал из-за отсутствия длинных видео (короче ${MIN_VIDEO_DURATION_MINUTES} мин): ${channel.snippet.title} (ID: ${channel.id})`);
+                        writeLog(`\nПропущен канал из-за отсутствия длинных видео: ${channel.snippet.title} (ID: ${channel.id})`);
                         saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
                         continue;
                     }
-                    shortsPercStr = `${(videoCriteria.shortsPercentage * 100).toFixed(0)}% из ${videoCriteria.videosCheckedCount} видео`;
+                    shortsPercStr = `${(videoCriteria.shortsPercentage * 100).toFixed(0)}% из ${videoCriteria.videosCheckedCount} в.`;
                     avgDurationStr = videoCriteria.averageDurationMinutes > 0 ? `${videoCriteria.averageDurationMinutes} мин` : 'Н/Д';
                 }
-
 
                 const telegramLinks = extractTelegramLinks(channel.snippet.description);
                 if (telegramLinks.length > 0) {
                     channelsWithTelegram++;
                     const channelTitle = channel.snippet.title;
-                    const channelUrl = `https://www.youtube.com/channel/${channel.id}`;
                     const channelDescription = channel.snippet.description ? channel.snippet.description.substring(0, 500) + (channel.snippet.description.length > 500 ? '...' : '') : '';
                     const tgLinksStr = telegramLinks.join(', ');
                     
-                    // --- Извлечение WhatsApp ---
                     let whatsAppNumbersStr = '';
                     if (EXTRACT_WHATSAPP_NUMBERS) {
                         const whatsAppNumbers = extractWhatsAppNumbers(channel.snippet.description);
                         whatsAppNumbersStr = whatsAppNumbers.join(', ');
                     }
-                    // --- Конец извлечения WhatsApp ---
-
                     const dateAdded = new Date().toLocaleDateString('ru-RU');
-                    // shortsPercStr is now defined above based on SKIP_VIDEO_ANALYSIS
-                    
+
                     let latestVideoDateStr = 'Н/Д';
-                    if (!SKIP_VIDEO_ANALYSIS && videoCriteria.latestVideoTimestamp) {
+                    if (videoCriteria && videoCriteria.latestVideoTimestamp) {
                         latestVideoDateStr = new Date(videoCriteria.latestVideoTimestamp).toLocaleDateString('ru-RU');
                     }
-
-                    let videoPeriodDaysStr = 'Н/Д';
-                    if (!SKIP_VIDEO_ANALYSIS && videoCriteria.oldestVideoTimestamp && videoCriteria.latestVideoTimestamp && videoCriteria.videosCheckedCount > 1) {
-                        const diffTime = Math.abs(videoCriteria.latestVideoTimestamp - videoCriteria.oldestVideoTimestamp);
-                        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                        videoPeriodDaysStr = `${videoCriteria.videosCheckedCount} видео за ~${diffDays} дней`; // This variable is locally scoped and logged, distinct from videoCriteria.videoFrequencyStr
-                    } else if (videoCriteria.videosCheckedCount === 1 && latestVideoTimestamp) {
-                         videoPeriodDaysStr = `1 видео`;
-                    }
-
+                    
                     writeLog('\n=====================================');
-                    writeLog(`Канал: ${channelTitle}`);
-                    writeLog(`Ссылка на канал: ${channelUrl}`);
+                    writeLog(`Канал: ${channelTitle} (ID: ${channel.id})`);
+                    writeLog(`URL: ${channelUrl}`);
                     writeLog(`Подписчики: ${subscriberCount}`);
                     writeLog(`Telegram ссылки:`);
                     telegramLinks.forEach(link => writeLog(`- ${link}`));
@@ -643,95 +709,297 @@ async function findChannelsAndTelegramLinks() {
                     }
                     writeLog(`Шортсы: ${shortsPercStr}`);
                     writeLog(`Последнее видео: ${latestVideoDateStr}`);
-                    writeLog(`Период видео: ${videoPeriodDaysStr}`); // Logged value
                     writeLog(`Частота видео (для таблицы): ${videoCriteria.videoFrequencyStr}`);
                     writeLog(`Сред. продолж. видео (для таблицы): ${avgDurationStr}`);
                     writeLog('=====================================');
 
-                    if (sheetsClient && SPREADSHEET_ID) {
-                        const channelUrl = `https://www.youtube.com/channel/${channel.id}`;
-                        const isDuplicate = await isDuplicateInSheet(sheetsClient, SPREADSHEET_ID, sheetTitle, channelUrl);
+                    if (currentSheetsClient && SPREADSHEET_ID) {
+                        const isDuplicateInCurrentSheet = await isDuplicateInSheet(currentSheetsClient, SPREADSHEET_ID, sheetTitle, channelUrl);
 
-                        if (isDuplicate) {
-                            writeLog(`Дубль: Канал уже существует в таблице. Пропущен: ${channel.snippet.title} (URL: ${channelUrl})`);
+                        if (isDuplicateInCurrentSheet) {
+                            writeLog(`Дубль в листе "${sheetTitle}": Канал уже существует. Пропущен: ${channel.snippet.title}`);
                         } else {
-                            const dataRowBase = [
-                                channelTitle,
-                                channelUrl,
-                                subscriberCount,
-                                channelDescription,
-                                tgLinksStr,
-                            ];
-
+                            const dataRowBase = [channelTitle, channelUrl, subscriberCount, channelDescription, tgLinksStr];
                             let dataRow = [...dataRowBase];
-
-                            if (EXTRACT_WHATSAPP_NUMBERS) {
-                                dataRow.push(whatsAppNumbersStr);
-                            }
-
-                            const dataRowSuffix = [
-                                dateAdded,
-                                shortsPercStr, // Uses pre-calculated shortsPercStr
-                                videoCriteria.videoFrequencyStr, // Uses value from actual or default videoCriteria
-                                avgDurationStr, // Uses pre-calculated avgDurationStr
-                                statusMessage, // Статус
-                            ];
+                            if (EXTRACT_WHATSAPP_NUMBERS) dataRow.push(whatsAppNumbersStr);
+                            
+                            const dataRowSuffix = [dateAdded, shortsPercStr, videoCriteria.videoFrequencyStr, avgDurationStr, statusMessage];
                             dataRow = dataRow.concat(dataRowSuffix);
 
-                            await appendDataToSheet(sheetsClient, SPREADSHEET_ID, sheetTitle, dataRow);
+                            await appendDataToSheet(currentSheetsClient, SPREADSHEET_ID, sheetTitle, dataRow); 
+                            allProcessedChannelUrlsInThisRun.add(channelUrl); 
+                            globallyProcessedChannelUrls.add(channelUrl); 
+                            writeLog(`Канал ${channelTitle} добавлен в лист "${sheetTitle}".`);
                         }
                     }
                 }
-                // Сохраняем ID канала как проанализированный, даже если не было ссылок на Telegram, но он прошел все фильтры
                 saveAnalyzedChannelId(channel.id, currentAnalyzedChannelsFile);
             }
-
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200)); // Увеличена задержка
         }
 
-        console.log(`\n=== Итоги ===`);
-        writeLog(`\n=== Итоги ===`);
-        writeLog(`Всего найдено каналов API поиска: ${totalResultsFromSearchAPI} (просмотрено ${totalChannelsFetchedFromSearchAPI} результатов)`);
-        writeLog(`Собрано НОВЫХ уникальных ID из поиска для детального анализа: ${newChannelIdsToAnalyzeSet.size}`);
-        writeLog(`Обработано новых каналов (получены детали, применены фильтры): ${totalChannelsProcessedDetailed} из ${newChannelIdsToAnalyzeSet.size}`);
-        
-        if (SKIP_VIDEO_ANALYSIS) {
-            writeLog(`Анализ видео был пропущен для всех каналов согласно конфигурации.`);
-        } else {
-            writeLog(`Выполнен анализ видео для ${channelsAttemptedVideoAnalysis} каналов (прошедших предварительные фильтры).`);
-        }
-        
-        writeLog(`Каналов с Telegram ссылками (после всех фильтров, из новых): ${channelsWithTelegram}`);
-        writeLog(`Статус поиска API: ${searchComplete ? 'Обработаны все доступные по API каналы' : 'Достигнут установленный лимит MAX_CHANNELS_TO_PROCESS для НОВЫХ каналов или поиск остановлен ранее'}`);
-        
-        // Детализация квоты
-        let quotaBreakdown = `Оценка использования квоты (~${estimatedQuotaUsed} единиц):\n`;
-        quotaBreakdown += `  - Поиск каналов (youtube.search.list): ${searchApiPagesFetched} стр. * 100 = ${searchApiPagesFetched * 100}\n`;
-        const channelDetailBatches = Math.ceil(channelIdsToProcessArray.length / MAX_RESULTS_PER_PAGE);
-        quotaBreakdown += `  - Получение деталей каналов (youtube.channels.list): ${channelDetailBatches} пакет(ов) * 1 = ${channelDetailBatches * 1}\n`;
-        if (!SKIP_VIDEO_ANALYSIS && channelsAttemptedVideoAnalysis > 0) {
-            const videoAnalysisQuota = channelsAttemptedVideoAnalysis * 101; // Примерно 100 (search) + 1 (videos.list)
-            quotaBreakdown += `  - Анализ видео (youtube.search.list + youtube.videos.list): ${channelsAttemptedVideoAnalysis} каналов * ~101 = ~${videoAnalysisQuota}\n`;
-        } else if (SKIP_VIDEO_ANALYSIS) {
-            quotaBreakdown += `  - Анализ видео: пропущен (0 единиц)\n`;
-        }
-        writeLog(quotaBreakdown.trim());
-        
-        console.log(`\nРезультаты сохранены в файл: ${logFile}`);
+        writeLog(`\n=== Итоги для ключевого слова "${searchQuery}" ===`);
+        writeLog(`Всего найдено каналов API поиска: ${totalResultsFromSearchAPI}`);
+        writeLog(`Собрано НОВЫХ уникальных ID для детального анализа: ${newChannelIdsToAnalyzeSet.size}`);
+        writeLog(`Обработано новых каналов (детали, фильтры): ${totalChannelsProcessedDetailed}`);
+        if (!SKIP_VIDEO_ANALYSIS) writeLog(`Выполнен анализ видео для ${channelsAttemptedVideoAnalysis} каналов.`);
+        writeLog(`Каналов с Telegram (после всех фильтров): ${channelsWithTelegram}`);
+        writeLog(`Оценка использования квоты для этого ключевого слова: ~${estimatedQuotaUsed} единиц`);
+        writeLog(`--- Завершение обработки ключевого слова: "${searchQuery}" ---`);
 
     } catch (error) {
-        console.error("\nОшибка:");
-        fs.appendFileSync(logFile, "\nОшибка:\n");
+        writeLog(`\nКРИТИЧЕСКАЯ ОШИБКА при обработке "${searchQuery}":`);
         if (error.response?.data?.error?.errors?.[0]?.reason === 'quotaExceeded') {
             const errorMsg = "Достигнут лимит квоты API!";
-            console.error(errorMsg);
-            fs.appendFileSync(logFile, errorMsg + '\n');
+            writeLog(errorMsg);
+            throw new Error(errorMsg); // Перебрасываем, чтобы остановить обработку других ключевых слов
         } else {
-            console.error(error.message);
-            fs.appendFileSync(logFile, error.message + '\n');
+            writeLog(error.message);
+            if (error.stack) writeLog(error.stack);
+        }
+        // Не перебрасываем другие ошибки, чтобы попытаться обработать следующие ключевые слова
+        // Статус ошибки будет установлен в основной функции
+        return ERROR_STATUS_TEXT; // Сигнализируем об ошибке
+    }
+    return PROCESSED_STATUS_TEXT; // Сигнализируем об успешной обработке
+}
+
+
+// Новая функция для загрузки всех URL из всех листов
+async function loadAllExistingChannelUrlsFromSpreadsheet(sheets, spreadsheetId) {
+    console.log("Загрузка всех существующих URL каналов из таблицы для глобальной проверки дубликатов...");
+    globallyProcessedChannelUrls.clear(); // Начинаем с чистого списка в памяти
+    try {
+        const res = await sheets.spreadsheets.get({
+            spreadsheetId,
+            fields: 'sheets.properties(title,sheetId,index)',
+        });
+        const allSheetProperties = res.data.sheets ? res.data.sheets.map(s => s.properties) : [];
+
+        const channelUrlHeaderName = 'Ссылка канала';
+        const channelUrlColumnIndex = SHEET_HEADERS.findIndex(header => header === channelUrlHeaderName);
+
+        if (channelUrlColumnIndex === -1) {
+            console.warn(`[loadAllExistingChannelUrlsFromSpreadsheet] Не удалось найти колонку "${channelUrlHeaderName}" в SHEET_HEADERS. Глобальная проверка дубликатов по URL будет неполной.`);
+            fs.writeFileSync(GLOBALLY_PROCESSED_CHANNELS_FILE, '', 'utf8');
+            console.log(`Файл ${GLOBALLY_PROCESSED_CHANNELS_FILE} создан (пустой), так как колонка URL не определена.`);
+            return;
+        }
+        const channelUrlColumnLetter = String.fromCharCode(65 + channelUrlColumnIndex);
+
+        for (const sheetProps of allSheetProperties) {
+            const title = sheetProps.title;
+            if (title === KEYWORDS_SHEET_NAME) {
+                continue; // Пропускаем лист с ключевыми словами
+            }
+
+            console.log(`[loadAllExistingChannelUrlsFromSpreadsheet] Сканирование листа "${title}" на наличие URL каналов (колонка ${channelUrlColumnLetter})...`);
+            try {
+                // Читаем со второй строки, чтобы пропустить заголовок
+                const range = `${title}!${channelUrlColumnLetter}2:${channelUrlColumnLetter}`;
+                const response = await sheets.spreadsheets.values.get({
+                    spreadsheetId,
+                    range: range,
+                });
+                const existingUrlsInData = response.data.values;
+                if (existingUrlsInData) {
+                    const flatUrls = existingUrlsInData.flat().filter(url => url && typeof url === 'string' && url.trim() !== '');
+                    flatUrls.forEach(url => globallyProcessedChannelUrls.add(url.trim()));
+                    console.log(`[loadAllExistingChannelUrlsFromSpreadsheet] Добавлено ${flatUrls.length} URL из листа "${title}" в глобальный список.`);
+                } else {
+                    console.log(`[loadAllExistingChannelUrlsFromSpreadsheet] В листе "${title}" (колонка ${channelUrlColumnLetter}) не найдено URL или лист пуст.`);
+                }
+            } catch (error) {
+                if (error.code === 400 && error.message && error.message.includes("Unable to parse range")) {
+                    console.log(`[loadAllExistingChannelUrlsFromSpreadsheet] Лист "${title}" вероятно пуст или колонка URL ${channelUrlColumnLetter} не найдена. Пропуск сканирования этого листа.`);
+                } else {
+                    console.warn(`[loadAllExistingChannelUrlsFromSpreadsheet] Ошибка при чтении URL из листа "${title}": ${error.message}. Пропуск этого листа для глобальной проверки.`);
+                }
+            }
+        }
+        fs.writeFileSync(GLOBALLY_PROCESSED_CHANNELS_FILE, Array.from(globallyProcessedChannelUrls).join('\n'), 'utf8');
+        console.log(`[loadAllExistingChannelUrlsFromSpreadsheet] Всего загружено ${globallyProcessedChannelUrls.size} уникальных URL каналов из всех листов. Список сохранен в ${GLOBALLY_PROCESSED_CHANNELS_FILE}`);
+
+    } catch (error) {
+        console.error(`[loadAllExistingChannelUrlsFromSpreadsheet] Критическая ошибка при загрузке URL каналов из таблицы: ${error.message}`);
+        try {
+            fs.writeFileSync(GLOBALLY_PROCESSED_CHANNELS_FILE, '', 'utf8');
+            console.log(`[loadAllExistingChannelUrlsFromSpreadsheet] Файл ${GLOBALLY_PROCESSED_CHANNELS_FILE} очищен из-за ошибки загрузки.`);
+        } catch (writeError) {
+            console.error(`[loadAllExistingChannelUrlsFromSpreadsheet] Не удалось очистить файл ${GLOBALLY_PROCESSED_CHANNELS_FILE}: ${writeError.message}`);
         }
     }
 }
 
+
+// Главная функция-оркестратор для одного цикла обработки ключевых слов
+async function findChannelsAndProcessKeywords() {
+    // Эта функция теперь использует глобальный `sheetsClient`
+    // Инициализируем allProcessedChannelUrlsInThisRun для этого конкретного цикла обработки всех ключевых слов
+    const allProcessedChannelUrlsInThisRun = new Set();
+
+    console.log(`[${new Date().toISOString()}] Запуск цикла обработки ключевых слов...`);
+    // ... (существующая логика проверки API_KEY, SPREADSHEET_ID и GOOGLE_APPLICATION_CREDENTIALS если они не проверяются в initializeApp)
+
+    if (!sheetsClient) {
+        console.error(`[${new Date().toISOString()}] Клиент Google Sheets не инициализирован. Пропуск цикла.`);
+        throw new Error("Sheets client not initialized for findChannelsAndProcessKeywords"); // Это должно быть обработано в runPeriodically
+    }
+
+    let keywordsToProcess;
+    try {
+        keywordsToProcess = await getKeywordsToProcess(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, KEYWORDS_COLUMN_INDEX, STATUS_COLUMN_INDEX);
+        if (keywordsToProcess.length === 0) {
+            console.log(`[${new Date().toISOString()}] Не найдено ключевых слов для обработки в листе. Завершение текущего цикла.`);
+            return;
+        }
+        console.log(`[${new Date().toISOString()}] Найдено ${keywordsToProcess.length} ключевых слов для обработки.`);
+    } catch (e) {
+        console.error(`[${new Date().toISOString()}] Критическая ошибка при получении списка ключевых слов: ${e.message}. Пропуск цикла.`);
+        // Эта ошибка не связана с квотой, поэтому не должна вызывать длительную паузу, но цикл прервется.
+        // runPeriodically запланирует следующий запуск.
+        return; 
+    }
+    
+    for (const keywordData of keywordsToProcess) {
+        if (Date.now() < quotaPauseUntil) { // Дополнительная проверка на случай, если квота была превышена в середине цикла
+            console.log(`[${new Date().toISOString()}] Обнаружена активная пауза по квоте во время обработки ключевых слов. Прерывание цикла.`);
+            throw new Error("Достигнут лимит квоты API!"); // Сигнализируем для runPeriodically
+        }
+
+        if (keywordData.status === PROCESSED_STATUS_TEXT) {
+            console.log(`[${new Date().toISOString()}] Ключевое слово "${keywordData.text}" уже обработано. Пропуск.`);
+            continue;
+        }
+        if (keywordData.status === PROCESSING_STATUS_TEXT) {
+            console.log(`[${new Date().toISOString()}] Ключевое слово "${keywordData.text}" было в состоянии 'Processing...'. Повторная обработка.`);
+            // Можно добавить логику для пропуска или особой обработки таких случаев
+        }
+
+        console.log(`\n[${new Date().toISOString()}] --- Обработка ключевого слова: "${keywordData.text}" (строка ${keywordData.rowIndex}) ---`);
+        await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, PROCESSING_STATUS_TEXT);
+        
+        let processingResultStatus;
+        try {
+            processingResultStatus = await processSingleKeyword(keywordData.text, sheetsClient, null, allProcessedChannelUrlsInThisRun); 
+            if (processingResultStatus === ERROR_STATUS_TEXT) {
+                 await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, ERROR_STATUS_TEXT);
+            } else {
+                 await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, PROCESSED_STATUS_TEXT);
+            }
+        } catch (error) { 
+            console.error(`[${new Date().toISOString()}] Ошибка при обработке "${keywordData.text}": ${error.message}`);
+            await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, ERROR_STATUS_TEXT + " (Детали в логе)");
+            if (error.message.includes("Достигнут лимит квоты API!")) {
+                console.error(`[${new Date().toISOString()}] Обнаружен лимит квоты во время обработки "${keywordData.text}". Прерывание текущего цикла.`);
+                throw error; // Перебрасываем ошибку квоты для runPeriodically
+            }
+            // Для других ошибок прерываем обработку текущего списка ключевых слов
+            break; 
+        }
+        console.log(`[${new Date().toISOString()}] --- Завершение обработки для "${keywordData.text}" со статусом: ${processingResultStatus} ---`);
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Небольшая пауза между ключевыми словами
+    }
+
+    console.log(`[${new Date().toISOString()}] --- Цикл обработки ключевых слов завершен. ---`);
+}
+
+// --- Периодический запуск ---
+const PROCESSING_INTERVAL_MS = PROCESSING_INTERVAL_MINUTES * 60 * 1000;
+const QUOTA_PAUSE_MS = QUOTA_PAUSE_HOURS * 60 * 60 * 1000;
+
+async function runPeriodically() {
+    if (Date.now() < quotaPauseUntil) {
+        const resumeTime = new Date(quotaPauseUntil).toISOString();
+        const waitMs = quotaPauseUntil - Date.now();
+        console.log(`[${new Date().toISOString()}] Script is paused due to API quota limit. Resuming after ${resumeTime} (in ~${(waitMs / (60 * 1000)).toFixed(1)} mins).`);
+        // Schedule the next check closer to the resume time or at the normal interval, whichever is sooner but positive
+        setTimeout(runPeriodically, Math.min(PROCESSING_INTERVAL_MS, waitMs > 0 ? waitMs : PROCESSING_INTERVAL_MS ));
+        return;
+    }
+
+    console.log(`[${new Date().toISOString()}] Starting periodic keyword processing cycle...`);
+    try {
+        if (!sheetsClient) {
+            console.error(`[${new Date().toISOString()}] Sheets client not initialized. Attempting to re-initialize.`);
+            try {
+                sheetsClient = await getSheetsClient(); // Попытка инициализации
+                await loadAllExistingChannelUrlsFromSpreadsheet(sheetsClient, SPREADSHEET_ID); // Перезагрузка глобального списка
+                 console.log(`[${new Date().toISOString()}] Sheets client re-initialized successfully.`);
+            } catch (initError) {
+                console.error(`[${new Date().toISOString()}] Failed to re-initialize Sheets client: ${initError.message}. Retrying in ${PROCESSING_INTERVAL_MINUTES} minutes.`);
+                setTimeout(runPeriodically, PROCESSING_INTERVAL_MS); // Повторная попытка позже
+                return;
+            }
+        }
+        await findChannelsAndProcessKeywords();
+        console.log(`[${new Date().toISOString()}] Finished periodic keyword processing cycle successfully.`);
+    } catch (error) {
+        if (error.message.includes("Достигнут лимит квоты API!")) {
+            console.error(`[${new Date().toISOString()}] API Quota limit reached. Pausing script for ${QUOTA_PAUSE_HOURS} hours.`);
+            quotaPauseUntil = Date.now() + QUOTA_PAUSE_MS;
+        } else {
+            console.error(`[${new Date().toISOString()}] Critical error during keyword processing cycle:`, error);
+            // Для других критических ошибок можно решить, нужна ли пауза или просто логирование и следующая попытка по расписанию
+        }
+    } finally {
+        // Рассчитываем задержку для следующего запуска
+        let nextRunDelay = PROCESSING_INTERVAL_MS;
+        if (Date.now() < quotaPauseUntil) { // Если установлена пауза по квоте
+             const timeToResume = quotaPauseUntil - Date.now();
+             nextRunDelay = Math.max(1000, timeToResume); // Убедимся, что задержка положительная
+        }
+        console.log(`[${new Date().toISOString()}] Next keyword processing cycle scheduled in ~${(nextRunDelay / (60 * 1000)).toFixed(1)} minutes.`);
+        setTimeout(runPeriodically, nextRunDelay);
+    }
+}
+
+// --- Инициализация приложения ---
+async function initializeApp() {
+    if (!fs.existsSync(LOG_DIRECTORY)) {
+        fs.mkdirSync(LOG_DIRECTORY, { recursive: true });
+    }
+    console.log(`--- Начало работы скрипта (режим PM2) ---`);
+    console.log(`Интервал обработки: ${PROCESSING_INTERVAL_MINUTES} мин. Пауза при квоте: ${QUOTA_PAUSE_HOURS} час(ов).`);
+
+
+    if (!API_KEY) {
+        console.error("Ошибка: API ключ YOUTUBE_API_KEY не найден в .env файле. Выполнение остановлено.");
+        return;
+    }
+    if (!SPREADSHEET_ID) {
+        console.warn("Предупреждение: SPREADSHEET_ID не найден. Невозможно прочитать ключевые слова или сохранить результаты. Выполнение остановлено.");
+        return;
+    }
+    if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+        console.warn("Предупреждение: GOOGLE_APPLICATION_CREDENTIALS не установлен. Аутентификация Google Sheets может не удаться.");
+        // Не останавливаем, но предупреждаем
+    }
+
+    try {
+        sheetsClient = await getSheetsClient(); // Инициализация глобального клиента
+        console.log("[initializeApp] Google Sheets client initialized.");
+    } catch (e) {
+        console.error(`[initializeApp] Не удалось инициализировать Google Sheets клиент: ${e.message}. Повторная попытка через 1 минуту.`);
+        setTimeout(initializeApp, 60000); // Повторная попытка инициализации
+        return; // Выход из текущего вызова initializeApp
+    }
+    
+    try {
+        await loadAllExistingChannelUrlsFromSpreadsheet(sheetsClient, SPREADSHEET_ID);
+        console.log("[initializeApp] Global processed channel URLs loaded.");
+    } catch (e) {
+        console.error(`[initializeApp] Не удалось загрузить глобальный список URL: ${e.message}. Работа продолжится без него, но проверка на глобальные дубликаты может быть неполной.`);
+        // Не останавливаем, но функциональность будет ограничена
+    }
+    
+    startLogServer(LOG_DIRECTORY, LOG_SERVER_PORT); // Запуск лог-сервера один раз
+    runPeriodically(); // Запуск основного цикла обработки
+}
+
 // Запуск скрипта
-findChannelsAndTelegramLinks();
+initializeApp().catch(err => {
+    console.error("[GLOBAL CATCH] Непредвиденная ошибка при инициализации приложения:", err);
+    // PM2 должен перезапустить скрипт в соответствии с его настройками
+    process.exit(1); // Явный выход с ошибкой для PM2
+});
