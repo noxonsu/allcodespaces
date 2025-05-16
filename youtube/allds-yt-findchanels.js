@@ -904,6 +904,101 @@ async function findChannelsAndProcessKeywords() {
     console.log(`[${new Date().toISOString()}] --- Цикл обработки ключевых слов завершен. ---`);
 }
 
+// --- HTTP Log Server ---
+async function getLatestLogFile(dir) {
+    try {
+        const files = await fsPromises.readdir(dir);
+        const logFiles = files.filter(file => file.startsWith('youtube_channels_') && file.endsWith('.txt'));
+        if (logFiles.length === 0) return null;
+
+        let latestFile = null;
+        let latestTime = 0;
+
+        for (const file of logFiles) {
+            const filePath = path.join(dir, file);
+            const stats = await fsPromises.stat(filePath);
+            if (stats.mtimeMs > latestTime) {
+                latestTime = stats.mtimeMs;
+                latestFile = filePath;
+            }
+        }
+        return latestFile;
+    } catch (error) {
+        console.error("Ошибка при поиске последнего лог-файла:", error);
+        return null;
+    }
+}
+
+function startLogServer(logDir, port) {
+    http.createServer(async (req, res) => {
+        if (req.url === '/favicon.ico') {
+            res.writeHead(204);
+            res.end();
+            return;
+        }
+        
+        console.log(`[LogServer] Запрос: ${req.url}`);
+        let targetLogFile = LATEST_LOG_FILE_PATH; // По умолчанию последний обновленный в сессии
+
+        if (req.url === '/' || req.url === '/latest') {
+            // Если хотим всегда самый свежий из директории, а не только из текущей сессии
+            const freshestLogFile = await getLatestLogFile(logDir);
+            if (freshestLogFile) {
+                targetLogFile = freshestLogFile;
+            }
+        } else if (req.url.startsWith('/log/')) {
+            const specificLogName = req.url.substring(5); // Убираем /log/
+            const specificLogPath = path.join(logDir, specificLogName);
+            if (fs.existsSync(specificLogPath) && specificLogName.endsWith('.txt')) {
+                 targetLogFile = specificLogPath;
+            } else {
+                res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Лог файл не найден.');
+                return;
+            }
+        } else if (req.url === '/list') {
+             try {
+                const files = await fsPromises.readdir(logDir);
+                const logFiles = files.filter(file => file.startsWith('youtube_channels_') && file.endsWith('.txt'))
+                                      .sort().reverse(); // Сортируем для удобства
+                res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                let html = '<h1>Доступные лог файлы:</h1><ul>';
+                logFiles.forEach(f => {
+                    html += `<li><a href="/log/${f}">${f}</a></li>`;
+                });
+                html += '</ul>';
+                res.end(html);
+                return;
+            } catch (error) {
+                res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+                res.end('Ошибка при чтении директории логов: ' + error.message);
+                return;
+            }
+        }
+
+
+        if (!targetLogFile || !fs.existsSync(targetLogFile)) {
+            res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Лог файл не найден или еще не создан.');
+            return;
+        }
+
+        try {
+            const data = await fsPromises.readFile(targetLogFile, 'utf8');
+            res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end(data);
+        } catch (error) {
+            res.writeHead(500, { 'Content-Type': 'text/plain; charset=utf-8' });
+            res.end('Ошибка при чтении лог файла: ' + error.message);
+        }
+    }).listen(port, () => {
+        console.log(`\nСервер для просмотра логов запущен на http://localhost:${port}`);
+        console.log(`- Открыть последний лог: http://localhost:${port}/latest`);
+        console.log(`- Список всех логов: http://localhost:${port}/list`);
+        console.log(`- Для конкретного лога: http://localhost:${port}/log/ИМЯ_ФАЙЛА.txt`);
+    });
+}
+
 // --- Периодический запуск ---
 const PROCESSING_INTERVAL_MS = PROCESSING_INTERVAL_MINUTES * 60 * 1000;
 const QUOTA_PAUSE_MS = QUOTA_PAUSE_HOURS * 60 * 60 * 1000;
