@@ -889,12 +889,13 @@ async function findChannelsAndProcessKeywords() {
             }
         } catch (error) { 
             console.error(`[${new Date().toISOString()}] Ошибка при обработке "${keywordData.text}": ${error.message}`);
-            await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, ERROR_STATUS_TEXT + " (Детали в логе)");
             if (error.message.includes("Достигнут лимит квоты API!")) {
                 console.error(`[${new Date().toISOString()}] Обнаружен лимит квоты во время обработки "${keywordData.text}". Прерывание текущего цикла.`);
+                await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, ERROR_STATUS_TEXT + " (Quota Limit)");
                 throw error; // Перебрасываем ошибку квоты для runPeriodically
             }
-            // Для других ошибок прерываем обработку текущего списка ключевых слов
+            // Для других ошибок
+            await updateKeywordStatus(sheetsClient, SPREADSHEET_ID, KEYWORDS_SHEET_NAME, keywordData.rowIndex, STATUS_COLUMN_INDEX, ERROR_STATUS_TEXT + " (Details in Log)");
             break; 
         }
         console.log(`[${new Date().toISOString()}] --- Завершение обработки для "${keywordData.text}" со статусом: ${processingResultStatus} ---`);
