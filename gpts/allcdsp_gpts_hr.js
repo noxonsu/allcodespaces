@@ -61,8 +61,9 @@ if (result.error) {
 const FOLLOW_UP_DELAY_MS = 30 * 1000; // 30 sec for testing
 const VACANCY_CLOSED_TRIGGER_PHRASE = "к сожалению"; 
 const FOLLOW_UP_VACANCY_MESSAGE = "Давно ищите оффер?";
-const STOP_DIALOG_MESSAGE = "человеку";
+const STOP_DIALOG_PHRASES = ["человеку", "стоп", "хватит", "остановить", "закончить"]; // Example, replace with your actual list
 const TYPING_DELAY_MS = 10000; // 10 seconds for typing simulation
+const GREETING_PHRASES = ["здравствуйте", "привет", "добрый день", "доброе утро", "добрый вечер", "салам", "хелло", "хай", "hello", "hi", "доброго времени суток"];
 
 // Admin and Server Configuration
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
@@ -353,7 +354,6 @@ bot.on('message', async (msg) => {
     }
     if (msg.text && msg.text.startsWith('/start')) {
         // This is handled by bot.onText for /start, so we can ignore it here
-        // or ensure that onText is processed first. Typically, specific handlers like onText run before generic 'message'.
         return;
     }
     if (!msg.text) {
@@ -372,7 +372,6 @@ bot.on('message', async (msg) => {
     const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
     if (!fs.existsSync(userDataPath) || !userData || Object.keys(userData).length === 0) {
         console.info(`[Сообщение ${chatId}] Файл данных пользователя не найден или пуст. Предлагаем /start.`);
-        // Log the incoming message before prompting for /start
         logChat(chatId, { type: 'user_message_received_no_profile', text: userText, timestamp: new Date(msg.date * 1000).toISOString() }, 'user');
         await bot.sendMessage(chatId, 'Пожалуйста, используйте команду /start, чтобы начать.');
         logChat(chatId, { type: 'system_event', event: 'prompted_start_no_userdata_on_message' }, 'system');
@@ -390,7 +389,6 @@ bot.on('message', async (msg) => {
         return;
     }
     
-    // Log user message early
     logChat(chatId, { type: 'user_message_received', text: userText, timestamp: new Date(msg.date * 1000).toISOString() }, 'user');
 
     try {
@@ -416,13 +414,11 @@ bot.on('message', async (msg) => {
         }
 
         let assistantText;
-        let performLlmCall = true;
+        let performLlmCall = true; // Assume we will call LLM or send a response
 
         if (userData.awaitingFirstMessageAfterStart) {
             console.info(`[Сообщение ${chatId}] Это первое сообщение после /start. Анализ тематики: "${userText}"`);
             
-            // For classification, we call LLM without the 10s typing delay.
-            // Note: This classification call might appear in the LLM's context history unless callLLM has a way to prevent it for specific calls.
             const classificationPrompt = `Проанализируй следующее сообщение пользователя. Связано ли оно с поиском работы, трудоустройством, резюме или вакансиями? Ответь только "да" или "нет". Сообщение пользователя: "${userText}"`;
             const classificationResponse = await callLLM(chatId, [{ type: 'input_text', text: classificationPrompt }]); 
             
@@ -433,47 +429,57 @@ bot.on('message', async (msg) => {
                 llm_raw_classification: classificationResponse 
             }, 'system');
 
+            const lowerUserText = userText.toLowerCase();
+            const isGreeting = GREETING_PHRASES.some(phrase => lowerUserText.startsWith(phrase));
+
             if (classificationResponse && classificationResponse.toLowerCase().includes('да')) {
-                console.info(`[Сообщение ${chatId}] Первое сообщение определено как связанное с работой.`);
+                console.info(`[Сообщение ${chatId}] Первое сообщение определено LLM как связанное с работой.`);
                 
-                // Typing simulation: send "typing", wait
                 await bot.sendChatAction(chatId, 'typing');
                 await new Promise(resolve => setTimeout(resolve, TYPING_DELAY_MS));
 
                 let initialContextPrefix;
-                if (userData.providedName) { // Name might have come from startParam
-                    initialContextPrefix = `Пользователь ${userData.providedName} только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса: `;
+                if (userData.providedName) {
+                    initialContextPrefix = `Пользователь ${userData.providedName} только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса (определено как связанное с работой): `;
                 } else {
-                    initialContextPrefix = "Пользователь только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса: ";
+                    initialContextPrefix = "Пользователь только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса (определено как связанное с работой): ";
                 }
                 const llmInputTextForJobRelated = newDayPrefix + initialContextPrefix + userText;
                 assistantText = await callLLM(chatId, [{ type: 'input_text', text: llmInputTextForJobRelated }]);
+                // performLlmCall remains true
                 
+            } else if (isGreeting) {
+                console.info(`[Сообщение ${chatId}] Первое сообщение НЕ определено LLM как связанное с работой, НО является приветствием: "${userText}". Отвечаем приветствием.`);
+                assistantText = "Здравствуйте!"; // Simple greeting response
+                // Optional: add a very short typing indicator if desired, e.g., 500ms, or none for immediate reply
+                // await bot.sendChatAction(chatId, 'typing');
+                // await new Promise(resolve => setTimeout(resolve, 500));
+                logChat(chatId, { event: 'first_message_is_greeting_reply', user_text: userText, bot_response: assistantText, classification_response: classificationResponse }, 'system');
+                // performLlmCall remains true to send this assistantText
             } else {
-                console.info(`[Сообщение ${chatId}] Первое сообщение НЕ определено как связанное с работой. Перемещение в "Непонятное".`);
+                console.info(`[Сообщение ${chatId}] Первое сообщение НЕ определено LLM как связанное с работой и не является приветствием. Перемещение в "Непонятное".`);
                 logChat(chatId, { 
-                    event: 'first_message_not_job_related', 
+                    event: 'first_message_not_job_related_not_greeting', 
                     user_text: userText, 
                     classification_response: classificationResponse, 
                     action: 'move_to_unclear' 
                 }, 'system');
                 userData.dialogMovedToUnclear = true;
-                performLlmCall = false; // Do not proceed to send a message to the user
+                performLlmCall = false; // Do not send a message to the user
 
                 if (ADMIN_TELEGRAM_ID) {
                     try {
                         const logFileName = `chat_${chatId}.log`;
                         const logUrl = BOT_SERVER_BASE_URL ? `${BOT_SERVER_BASE_URL}/chatlogs/${logFileName}` : `(логи локально)`;
-                        await bot.sendMessage(ADMIN_TELEGRAM_ID, `Диалог с пользователем ${chatId} (${userData.username || 'нет username'}) перемещен в "Непонятное" после первого сообщения (не по теме).\nСообщение: "${userText}"\nЛог: ${logUrl}`);
+                        await bot.sendMessage(ADMIN_TELEGRAM_ID, `Диалог с пользователем ${chatId} (${userData.username || 'нет username'}) перемещен в "Непонятное" после первого сообщения (не по теме и не приветствие).\nСообщение: "${userText}"\nЛог: ${logUrl}`);
                     } catch (adminNotifyError) {
                         console.error(`[Bot ${chatId}] Error notifying admin about unclear dialog:`, adminNotifyError);
                     }
                 }
             }
-            userData.awaitingFirstMessageAfterStart = false; // Clear the flag
+            userData.awaitingFirstMessageAfterStart = false; // Clear the flag as the first message has been processed
         } else {
-            // Regular message processing
-            // Typing simulation: send "typing", wait
+            // Regular message processing (not the first after /start)
             await bot.sendChatAction(chatId, 'typing');
             await new Promise(resolve => setTimeout(resolve, TYPING_DELAY_MS));
 
@@ -490,21 +496,23 @@ bot.on('message', async (msg) => {
                 userData.pendingBotQuestion = null; 
             }
             assistantText = await callLLM(chatId, [{ type: 'input_text', text: llmInputTextRegular }]);
+            // performLlmCall remains true if assistantText is generated
         }
         
-        saveUserData(chatId, userData); // Save changes like awaitingFirstMessageAfterStart, pendingBotQuestion, dialogMovedToUnclear
+        saveUserData(chatId, userData); 
 
         if (performLlmCall && assistantText) { 
             await sendAndLogResponse(chatId, assistantText);
 
-            if (assistantText.includes(STOP_DIALOG_MESSAGE)) {
-                console.info(`[Bot ${chatId}] STOP_DIALOG_MESSAGE detected: "${STOP_DIALOG_MESSAGE}". Stopping dialog and notifying admin.`);
+            const stopPhraseDetected = STOP_DIALOG_PHRASES.find(phrase => assistantText.toLowerCase().includes(phrase.toLowerCase()));
+            if (stopPhraseDetected) {
+                console.info(`[Bot ${chatId}] STOP_DIALOG_PHRASE detected: "${stopPhraseDetected}". Stopping dialog and notifying admin.`);
                 const currentData = loadUserData(chatId); 
                 currentData.dialogStopped = true;
                 saveUserData(chatId, currentData);
                 logChat(chatId, {
                     event: 'dialog_stopped_by_llm',
-                    trigger_phrase: STOP_DIALOG_MESSAGE,
+                    trigger_phrase: stopPhraseDetected,
                     admin_notified: !!(ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL)
                 }, 'system');
 
@@ -512,7 +520,7 @@ bot.on('message', async (msg) => {
                     try {
                         const logFileName = `chat_${chatId}.log`;
                         const logUrl = `${BOT_SERVER_BASE_URL}/chatlogs/${logFileName}`; 
-                        await bot.sendMessage(ADMIN_TELEGRAM_ID, `Диалог с пользователем ${chatId} был остановлен LLM (фраза "${STOP_DIALOG_MESSAGE}").\nЛог: ${logUrl}`);
+                        await bot.sendMessage(ADMIN_TELEGRAM_ID, `Диалог с пользователем ${chatId} (${userData.username || 'нет username'}) был остановлен LLM (фраза "${stopPhraseDetected}").\nЛог: ${logUrl}`);
                     } catch (adminNotifyError) {
                         console.error(`[Bot ${chatId}] Error notifying admin about stopped dialog:`, adminNotifyError);
                     }
@@ -580,9 +588,10 @@ bot.on('message', async (msg) => {
                     }, 'system');
                 }
             }
-        } else if (!performLlmCall) {
-            // This case is when dialogMovedToUnclear was set, no message sent to user.
-            console.info(`[Сообщение ${chatId}] No LLM call performed (e.g. dialog moved to unclear). No response sent to user.`);
+        } else if (!performLlmCall && userData.dialogMovedToUnclear) {
+            console.info(`[Сообщение ${chatId}] Диалог перемещен в "Непонятное" (первое сообщение не по теме/не приветствие). No response sent to user.`);
+        } else if (!performLlmCall) { // Catch other cases where performLlmCall might be false without assistantText
+             console.info(`[Сообщение ${chatId}] No LLM call performed or no assistant text generated where expected. No response sent to user.`);
         }
 
 
