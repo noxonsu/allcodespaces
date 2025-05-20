@@ -2,32 +2,69 @@
 // This file assumes config.php, google_helpers.php have been included
 // and $selectedDateFrom, $selectedDateTo are available from index.php
 
+// Ensure critical files are loaded first.
+require_once __DIR__ . '/config.php'; // Defines $googleCredentialsPath, $googleSheetId, $operatorDataRange, etc.
+require_once __DIR__ . '/google_helpers.php'; // Defines getGoogleServiceClient, fetchFromGoogleSheet
+
 global $googleCredentialsPath, $googleSheetId, $operatorDataRange;
 
 // --- Load Operator Configuration Data ---
 $operatorConfigData = [];
-try {
-    $service = getGoogleServiceClient($googleCredentialsPath); // Assumes this function is in google_helpers.php
-    $sheetData = fetchFromGoogleSheet($service, $googleSheetId, $operatorDataRange); // Assumes this function is in google_helpers.php
+custom_log("Attempting to load operator config. Sheet ID: '{$googleSheetId}', Range: '{$operatorDataRange}'");
 
-    if ($sheetData) {
-        foreach ($sheetData as $row) {
-            // Expecting FIO in col 0, Queue in 1, Dept in 2, Password in 3, Extension in 4 (if added)
-            if (count($row) >= 1 && !empty(trim($row[0]))) { // FIO must exist
-                $operatorConfigData[] = [
-                    'fio' => trim($row[0]),
-                    'queue' => isset($row[1]) ? trim($row[1]) : null,
-                    'department' => isset($row[2]) ? trim($row[2]) : null,
-                    // 'password' is not typically needed for display, but was in auth.php
-                    'operator_extension' => isset($row[4]) ? trim($row[4]) : null, // Assuming extension is in Column E
-                ];
+if (empty($googleSheetId) || empty($operatorDataRange)) {
+    custom_log("Error: \$googleSheetId or \$operatorDataRange is not configured. Cannot load operator config.");
+} else {
+    try {
+        $service = getGoogleServiceClient($googleCredentialsPath); 
+        $sheetData = fetchFromGoogleSheet($service, $googleSheetId, $operatorDataRange); 
+
+        if ($sheetData) {
+            custom_log("Fetched " . count($sheetData) . " rows from Google Sheet for operator config.");
+            foreach ($sheetData as $rowIndex => $row) {
+                // Expecting FIO in col 0 (A), Queue-Operator in 1 (B), Dept in 2 (C), Password in 3 (D), Dedicated Extension in 4 (E)
+                if (count($row) >= 1 && !empty(trim($row[0]))) { // FIO must exist
+                    $fio = trim($row[0]);
+                    $queueOperatorValue = isset($row[1]) ? trim($row[1]) : null; // e.g., "001-101" or "-"
+                    $department = isset($row[2]) ? trim($row[2]) : null;
+                    $dedicatedExtension = isset($row[4]) ? trim($row[4]) : null; // Extension from dedicated column E
+
+                    $currentOperatorExtension = null;
+
+                    // 1. Prioritize dedicated extension column if it's filled
+                    if (!empty($dedicatedExtension)) {
+                        $currentOperatorExtension = $dedicatedExtension;
+                    } 
+                    // 2. If dedicated extension is empty, try to parse from Queue-Operator column
+                    elseif (!empty($queueOperatorValue) && $queueOperatorValue !== '-') {
+                        $parts = explode('-', $queueOperatorValue);
+                        if (count($parts) >= 2) {
+                            $currentOperatorExtension = trim(end($parts));
+                        } elseif (count($parts) === 1 && is_numeric(trim($parts[0]))) {
+                            $currentOperatorExtension = trim($parts[0]);
+                        } else {
+                            custom_log("Warning: Could not parse operator extension from 'Queue-Operator' value: '{$queueOperatorValue}' for FIO: '{$fio}'. Row index: {$rowIndex}");
+                        }
+                    }
+                    // If $queueOperatorValue is '-' or parsing fails, $currentOperatorExtension remains null (or empty if admin)
+
+                    $operatorConfigData[] = [
+                        'fio' => $fio,
+                        'queue' => $queueOperatorValue, // Store the original "Очередь-Оператор" value
+                        'department' => $department,
+                        'operator_extension' => $currentOperatorExtension,
+                    ];
+                } else {
+                    // custom_log("Skipping row {$rowIndex} in operator config: FIO is empty or row is invalid.");
+                }
             }
+            custom_log("Processed " . count($operatorConfigData) . " operator records. Sample: " . print_r(array_slice($operatorConfigData, 0, 2), true));
+        } else {
+            custom_log("Could not fetch operator config from Google Sheet, or sheet is empty. Range: " . $operatorDataRange);
         }
-    } else {
-        custom_log("Could not fetch operator config from Google Sheet. Range: " . $operatorDataRange);
+    } catch (Exception $e) {
+        custom_log("Error loading operator config from Google Sheets: " . $e->getMessage());
     }
-} catch (Exception $e) {
-    custom_log("Error loading operator config from Google Sheets: " . $e->getMessage());
 }
 // custom_log("Operator Config Data Loaded: " . count($operatorConfigData) . " records.");
 
@@ -37,23 +74,31 @@ $sessionsData = [];
 // The base URL should be the one you want to use for fetching CDR data.
 $cdrExportBaseUrl = 'https://sip.qazna24.kz/admin/asterisk_cdr_export/'; // As per your request
 
-// Instead of relying on global variables, directly access the request parameters
-// that were used to set $selectedDateFrom and $selectedDateTo in index.php
-// Validate and process dates before constructing URL
-function isValidDate($date) {
-    if (empty($date)) return false;
-    $d = DateTime::createFromFormat('Y-m-d', $date);
-    return $d && $d->format('Y-m-d') === $date;
+// Load SECRET_KEY from environment variables (assuming config.php loads .env)
+$secretKey = $_ENV['SECRET_KEY'] ?? null;
+
+if (empty($secretKey)) {
+    custom_log("CRITICAL ERROR: SECRET_KEY is not defined in environment variables. Cannot securely fetch CDR data.");
+    // Optionally, prevent further execution or set $sessionsData to an error state
+    // For now, we'll log and proceed, but asterisk_cdr_export.php should reject if key is missing.
 }
 
 $cdrRequestUrl = $cdrExportBaseUrl . '?action=get_cdr_stats';
+
+// Add secretKey to the request URL if it's available
+if (!empty($secretKey)) {
+    $cdrRequestUrl .= '&secretKey=' . urlencode($secretKey);
+} else {
+    custom_log("Warning: SECRET_KEY is missing, CDR request will be made without it. This is insecure if asterisk_cdr_export.php expects it.");
+}
+
 
 // Validate and add date parameters
 if (isset($_GET['date_from']) && !empty($_GET['date_from'])) {
     if (isValidDate($_GET['date_from'])) {
         $cdrRequestUrl .= '&date_from=' . urlencode($_GET['date_from']);
     } else {
-        custom_log("Invalid date_from format: " . $_GET['date_from']);
+        custom_log("Invalid date_from format: " . $_GET['date_from'] . " - Using default or no date_from filter for CDR.");
     }
 }
 
@@ -61,7 +106,7 @@ if (isset($_GET['date_to']) && !empty($_GET['date_to'])) {
     if (isValidDate($_GET['date_to'])) {
         $cdrRequestUrl .= '&date_to=' . urlencode($_GET['date_to']);
     } else {
-        custom_log("Invalid date_to format: " . $_GET['date_to']);
+        custom_log("Invalid date_to format: " . $_GET['date_to'] . " - Using default or no date_to filter for CDR.");
     }
 }
 

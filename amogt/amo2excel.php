@@ -19,6 +19,8 @@ use Google_Service_Sheets_SheetProperties;
 
 // Имя файла для хранения ID обработанных сделок
 define('PROCESSED_DEALS_FILE', __DIR__ . '/blocked_webhook_deals.txt');
+// Имя файла для блокировки одновременного выполнения
+define('LOCK_FILE', __DIR__ . '/amo2excel.lock');
 
 /**
  * Проверяет, была ли уже обработана сделка с данным ID.
@@ -201,6 +203,31 @@ function pushToGoogleSheet($dealNumber, $paymentLink) {
  */
 function handleAmoWebhook() {
     
+    // --- Lock file mechanism ---
+    if (file_exists(LOCK_FILE)) {
+        logError('Lock file exists. Another instance is running. Exiting.');
+        header('HTTP/1.1 429 Too Many Requests');
+        echo json_encode(['status' => 'locked', 'message' => 'Another process is already running. Please try again later.']);
+        exit;
+    }
+
+    // Create lock file
+    if (false === touch(LOCK_FILE)) {
+        logError('Could not create lock file. Exiting to prevent concurrent runs.');
+        // Potentially send a 500 error, as this is a server-side issue
+        header('HTTP/1.1 500 Internal Server Error');
+        echo json_encode(['status' => 'error', 'message' => 'Failed to create lock file.']);
+        exit;
+    }
+
+    // Ensure lock file is removed on script exit
+    register_shutdown_function(function() {
+        if (file_exists(LOCK_FILE)) {
+            unlink(LOCK_FILE);
+            logDebug('Lock file removed.');
+        }
+    });
+    // --- End Lock file mechanism ---
 
     header('HTTP/1.1 200 OK');
     header('Content-Type: application/json');

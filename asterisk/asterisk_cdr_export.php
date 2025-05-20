@@ -8,11 +8,13 @@ error_reporting(E_ALL);
 // Замените 'Europe/Moscow' на вашу актуальную временную зону.
 // Список: https://www.php.net/manual/en/timezones.php
 if (!date_default_timezone_set('Europe/Moscow')) { // Пример, замените на свою зону, например 'Asia/Almaty'
-    custom_log("Failed to set default timezone.");
+    // custom_log("Failed to set default timezone."); // Assuming custom_log might not be available here yet
+    error_log("Failed to set default timezone in asterisk_cdr_export.php");
 }
 
 // Конфигурация для извлечения CDR
 @include("config.php"); // @ подавляет warning, если файла нет
+// $amp_conf should be populated by config.php
 
 // Папка для временного копирования файлов записей
 $temp_files_dir = __DIR__ . '/files_temp_download';
@@ -63,6 +65,8 @@ if (isset($_GET['action'])) {
 
 // === ИСПРАВЛЕННАЯ ЛОГИКА ЗАГРУЗКИ ФАЙЛА ===
 if ($action === 'download') {
+    // checkSecretKey($expectedSecretKey); // Removed secret key check
+
     if (!isset($_GET['file']) || empty(trim($_GET['file'])) || !isset($_GET['cdate']) || empty(trim($_GET['cdate']))) {
         header('Content-Type: application/json; charset=utf-8');
         http_response_code(400);
@@ -195,6 +199,7 @@ if ($action === 'download') {
 
 // === ЛОГИКА ИЗВЛЕЧЕНИЯ И ОБРАБОТКИ CDR (если action=get_cdr_stats или не указан) ===
 if ($action === 'get_cdr_stats') {
+    // checkSecretKey($expectedSecretKey); // Removed secret key check
 
     $pdo = null;
     try {
@@ -450,6 +455,7 @@ if ($action === 'get_cdr_stats') {
                 'call_end_time' => $legs_in_session_val[0]['calldate'], // будет обновлено
                 'overall_status' => 'UNKNOWN', // будет обновлено
                 'answered_by_operator' => null, // будет обновлено
+                'wait_time_sec' => null, // Added for wait time calculation
                 'billed_duration_sec' => 0, // будет обновлено
                 'total_duration_sec_overall' => 0, // будет обновлено
                 'recording_file' => null, // будет обновлено
@@ -497,6 +503,14 @@ if ($action === 'get_cdr_stats') {
                 $session_data['billed_duration_sec'] = (int)$answered_operator_leg_val['duration_billed_sec'];
                 $session_data['recording_file'] = $answered_operator_leg_val['recording_filename'];
                 $session_data['download_url'] = $answered_operator_leg_val['download_url'];
+
+                // Calculate wait time in seconds
+                $session_start_ts = strtotime($session_data['call_start_time']);
+                $answered_leg_start_ts = strtotime($answered_operator_leg_val['calldate']);
+                if ($session_start_ts !== false && $answered_leg_start_ts !== false && $answered_leg_start_ts >= $session_start_ts) {
+                    $session_data['wait_time_sec'] = $answered_leg_start_ts - $session_start_ts;
+                }
+
             } else {
                 $session_data['overall_status'] = 'MISSED'; // Или другой статус, если звонок не дошел до оператора но имел запись
                 // Логика выбора файла записи для пропущенных звонков

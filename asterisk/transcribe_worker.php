@@ -4,7 +4,7 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Include Composer autoloader (missing in original code)
+// Include Composer autoloader
 require_once __DIR__ . '/vendor/autoload.php';
 
 // Set appropriate headers
@@ -17,34 +17,34 @@ if (!defined('WORKER_LOCK_FILE')) {
 // --- End Lock File Configuration ---
 
 // --- Attempt to acquire lock ---
-$lockFileHandle = fopen(WORKER_LOCK_FILE, 'c'); // 'c' mode: create if not exist, pointer at start.
+$lockFileHandle = fopen(WORKER_LOCK_FILE, 'c');
 if (!$lockFileHandle) {
     echo "ERROR: Cannot open/create lock file: " . WORKER_LOCK_FILE . PHP_EOL;
     exit(1);
 }
 
 if (!flock($lockFileHandle, LOCK_EX | LOCK_NB)) {
-    echo "INFO: Transcribe worker is already running or lock file is held. Exiting." . PHP_EOL;
+    echo "INFO: Transcribe worker is already running. Exiting." . PHP_EOL;
     fclose($lockFileHandle);
     exit(0);
 }
 // Lock acquired. Register shutdown function to release lock and unlink file.
 register_shutdown_function(function() use ($lockFileHandle) {
     if ($lockFileHandle) {
-        flock($lockFileHandle, LOCK_UN); // Release the lock
-        fclose($lockFileHandle);        // Close the file handle
-        @unlink(WORKER_LOCK_FILE);      // Attempt to delete the lock file
+        flock($lockFileHandle, LOCK_UN);
+        fclose($lockFileHandle);
+        @unlink(WORKER_LOCK_FILE);
     }
 });
 // --- End Lock File Logic ---
 
 // --- Configuration ---
-$maxToProcessPerRun = 5; // Number of files to process in one execution
-$language = 'ru';        // Language code for transcription (e.g., 'ru' for Russian)
-$analyzeCallType = true; // Set to true to enable call type analysis
-$analysisModel = 'gpt-4.1-mini'; // Model for call type analysis
+$maxToProcessPerRun = 5;
+$language = 'ru';
+$analyzeCallType = true;
+$analysisModel = 'gpt-4.1-мини'; // Убедитесь, что имя модели корректно
 $analysisSystemPrompt = "Ты — ассистент, который помогает классифицировать содержание телефонных звонков. Твоя задача — прочитать транскрипцию звонка и определить его основную цель или категорию. Это медицинские центры. Отвечай кратко, только категорией.";
-$analysisUserPromptTemplate = "Проанализируй следующую транскрипцию телефонного разговора и определи его тип. Возможные типы: 'Жалоба', 'Успешная запись на прием/услугу', 'Неуспешная запись на прием/услугу', 'Консультация/Вопрос', 'Ошиблись номером', 'Спам/Нецелевой', 'Другое'. Если не уверен, выбери 'Другое'.\n\nТранскрипция:\n{transcription}";
+$analysisUserPromptTemplate = "Проанализируй следующую транскрипцию телефонного разговора и определи его тип. Возможные типы: 'Жалоба', 'Успешная запись на прием/услугу', 'Неуспешная запись на прием/услугу', 'Консультация/Вопрос', 'Ошиблись номером', 'Спам/Нецелевой', 'Другое'. Если не уверен, выбери 'Другое'.\n\nТранскрипция:\n";
 // --- End Configuration ---
 
 // Load .env variables
@@ -52,72 +52,88 @@ try {
     $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
     $dotenv->load();
 } catch (Exception $e) {
-    die('Could not load .env file: ' . $e->getMessage() . PHP_EOL);
+    echo ('Could not load .env file: ' . $e->getMessage() . PHP_EOL);
+    exit(1); // Exiting as API key is crucial
 }
 
 $openaiApiKey = $_ENV['OPENAI_API_KEY'] ?? null;
 if (!$openaiApiKey) {
-    die('OPENAI_API_KEY is not set in your .env file.' . PHP_EOL);
+    echo ('OPENAI_API_KEY is not set in your .env file.' . PHP_EOL);
+    exit(1);
+}
+
+$secretKeyForCdrExport = $_ENV['SECRET_KEY'] ?? null; // Fetch secret key for CDR export
+if (!$secretKeyForCdrExport) {
+    echo ('SECRET_KEY is not set in your .env file for CDR export.' . PHP_EOL);
+    exit(1);
 }
 
 $client = OpenAI::client($openaiApiKey);
 
-$callsJsonPath = __DIR__ . '/calls_raw.json'; // Corrected path
-$transcriptionsDir = __DIR__ . '/transcriptions'; // Directory to store .txt transcriptions
-$analysisDir = __DIR__ . '/analysis';         // Directory to store .txt analysis results
-$tempAudioDir = __DIR__ . '/temp_audio';     // Directory for temporary audio downloads
+// $callsJsonPath = __DIR__ . '/calls.json'; // Removed: No longer reading from local file
+$cdrExportUrl = 'https://sip.qazna24.kz/admin/asterisk_cdr_export/?action=get_cdr_stats&secretKey=' . urlencode($secretKeyForCdrExport); // Added secretKey
 
-// Ensure directories exist and are writable
+$transcriptionsDir = __DIR__ . '/transcriptions';
+$analysisDir = __DIR__ . '/analysis';
+$tempAudioDir = __DIR__ . '/temp_audio';
+
 foreach ([$transcriptionsDir, $analysisDir, $tempAudioDir] as $dir) {
     if (!is_dir($dir)) {
         if (!mkdir($dir, 0775, true)) {
-            die("Failed to create directory: {$dir}" . PHP_EOL);
+            echo ("Failed to create directory: {$dir}" . PHP_EOL);
+            exit(1);
         }
     } elseif (!is_writable($dir)) {
-        die("Directory is not writable: {$dir}" . PHP_EOL);
+        echo ("Directory is not writable: {$dir}" . PHP_EOL);
+        exit(1);
     }
 }
 
-if (!file_exists($callsJsonPath)) {
-    die("calls.json not found at {$callsJsonPath}." . PHP_EOL);
+// Fetch data from URL instead of local file
+echo "INFO: Fetching call data from {$cdrExportUrl}..." . PHP_EOL;
+$ch = curl_init($cdrExportUrl);
+curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Consider security implications
+curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // Consider security implications
+$jsonContent = curl_exec($ch);
+$curlError = curl_error($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+curl_close($ch);
+
+if ($curlError) {
+    echo "ERROR: cURL error fetching call data from {$cdrExportUrl}: " . $curlError . PHP_EOL;
+    exit(1);
+}
+if ($httpCode != 200) {
+    echo "ERROR: HTTP error {$httpCode} fetching call data from {$cdrExportUrl}. Response: " . substr($jsonContent, 0, 500) . PHP_EOL;
+    exit(1);
+}
+if ($jsonContent === false || empty($jsonContent)) {
+    echo "ERROR: Failed to fetch or empty response from {$cdrExportUrl}." . PHP_EOL;
+    exit(1);
 }
 
-$jsonContent = file_get_contents($callsJsonPath);
+echo "INFO: Call data fetched successfully." . PHP_EOL;
 $data = json_decode($jsonContent, true);
 
-if (json_last_error() !== JSON_ERROR_NONE || !isset($data['processed_logical_sessions']) || !is_array($data['processed_logical_sessions'])) {
-    die("Error decoding {$callsJsonPath} or invalid format." . PHP_EOL);
+if (json_last_error() !== JSON_ERROR_NONE) {
+    echo "ERROR: Decoding JSON response from {$cdrExportUrl}: " . json_last_error_msg() . PHP_EOL;
+    exit(1);
 }
 
-$callsRawJsonPath = __DIR__ . '/calls_raw.json';
-$calls = [];
-
-if (file_exists($callsRawJsonPath)) {
-    $callsRawJson = file_get_contents($callsRawJsonPath);
-    if ($callsRawJson === false) {
-        custom_log("transcribe_worker.php: Failed to read calls_raw.json.");
-    } else {
-        $calls = json_decode($callsRawJson, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            custom_log("transcribe_worker.php: Error decoding calls_raw.json: " . json_last_error_msg());
-            $calls = []; // Ensure $calls is empty to prevent further errors
-        } elseif (!is_array($calls)) {
-            custom_log("transcribe_worker.php: calls_raw.json does not contain a valid JSON array.");
-            $calls = []; // Ensure $calls is empty
-        }
-    }
-} else {
-    custom_log("transcribe_worker.php: calls_raw.json not found.");
-}
-
-if (empty($calls)) {
-    custom_log("transcribe_worker.php: No calls to process or error loading calls_raw.json. Exiting.");
-    flock($lock, LOCK_UN);
-    fclose($lock);
-    exit(0);
+if (!isset($data['processed_logical_sessions']) || !is_array($data['processed_logical_sessions'])) {
+    echo "ERROR: Fetched data from {$cdrExportUrl} has invalid format or 'processed_logical_sessions' is missing/not an array." . PHP_EOL;
+    exit(1);
 }
 
 $allCalls = $data['processed_logical_sessions'];
+
+if (empty($allCalls)) {
+    echo "INFO: No calls to process from {$cdrExportUrl}. Exiting." . PHP_EOL;
+    exit(0);
+}
+
 $processedCount = 0;
 $skippedCount = 0;
 
@@ -130,35 +146,49 @@ foreach ($allCalls as $call) {
         break;
     }
 
+    $uniqueId = null; // Initialize for safety in catch block
     try {
         $uniqueId = $call['session_master_id'] ?? null;
         if (!$uniqueId) {
-            echo "  ERROR: session_master_id not found for a call. Skipping." . PHP_EOL;
-            $skippedCount++; // Increment skipped count
+            echo " ERROR: session_master_id not found for a call. Skipping." . PHP_EOL;
+            $skippedCount++;
             continue;
         }
 
-        $recordingFilenameFromCall = $call['recording_filename'] ?? null;
+        // Используем 'recording_file' из нового формата
+        $recordingFilenameFromCall = $call['recording_file'] ?? null;
         $downloadUrl = $call['download_url'] ?? null;
+
+        if (!$downloadUrl && !$recordingFilenameFromCall) {
+            echo " ERROR: No download_url or recording_file for call ID: {$uniqueId}. Skipping." . PHP_EOL;
+            $skippedCount++;
+            continue;
+        }
+        // Если нет URL для скачивания, но есть имя файла, и мы не знаем, как его получить - пропускаем.
+        // В данном случае download_url является приоритетным для получения аудио.
+        if (!$downloadUrl) {
+            echo " ERROR: No download_url for call ID: {$uniqueId} (recording_file: {$recordingFilenameFromCall}). Skipping." . PHP_EOL;
+            $skippedCount++;
+            continue;
+        }
+
+
         $transcriptionFilePath = $transcriptionsDir . '/' . $uniqueId . '.txt';
         $analysisFilePath = $analysisDir . '/' . $uniqueId . '.txt';
 
-        // Determine the base filename for the temporary audio file, ensuring it has an extension.
-        $baseFilenameForTemp = $uniqueId . '.wav'; // Default filename with .wav extension
-
+        $baseFilenameForTemp = $uniqueId . '.wav'; // Default
         if ($downloadUrl) {
             parse_str(parse_url($downloadUrl, PHP_URL_QUERY), $queryParams);
             if (isset($queryParams['file']) && !empty($queryParams['file'])) {
                 $filenameFromUrl = basename(urldecode($queryParams['file']));
+                // Используем имя файла из URL, если оно есть, и добавляем префикс ID сессии для уникальности во временной папке
                 if (strpos($filenameFromUrl, '.') !== false) {
                     $baseFilenameForTemp = $uniqueId . '_' . $filenameFromUrl;
                 } else {
-                    // If filename from URL has no extension, append .wav
                     $baseFilenameForTemp = $uniqueId . '_' . $filenameFromUrl . '.wav';
                 }
             }
-        } elseif (!empty($recordingFilenameFromCall)) {
-            // Fallback to recording_filename if download URL didn't yield a specific filename
+        } elseif (!empty($recordingFilenameFromCall)) { // Этот блок теперь менее вероятен если downloadUrl обязателен
             $filenameFromCallData = basename($recordingFilenameFromCall);
             if (strpos($filenameFromCallData, '.') !== false) {
                 $baseFilenameForTemp = $uniqueId . '_' . $filenameFromCallData;
@@ -169,78 +199,71 @@ foreach ($allCalls as $call) {
         
         $tempAudioFilename = $baseFilenameForTemp;
         $tempAudioFilePath = $tempAudioDir . '/' . $tempAudioFilename;
-
-        // For display purposes in logs
         $displayNameForLog = $recordingFilenameFromCall ?? ($downloadUrl ?? $uniqueId);
 
-
         if (file_exists($transcriptionFilePath) && (!$analyzeCallType || file_exists($analysisFilePath))) {
+            // echo " INFO: Already processed: {$uniqueId}. Skipping." . PHP_EOL; // Можно раскомментировать для детального лога
             continue;
         }
 
         echo "INFO: Processing call ID: {$uniqueId}, File: {$displayNameForLog}" . PHP_EOL;
 
-        // 1. Download audio file
         echo "  Downloading {$downloadUrl}..." . PHP_EOL;
         
         $ch = curl_init($downloadUrl);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Skip SSL verification - use with caution!
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // Also skip hostname verification
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true); // На случай редиректов
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // Внимание: небезопасно для production
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false); // Внимание: небезопасно для production
         $audioContent = curl_exec($ch);
-
-        if (curl_errno($ch)) {
-            echo "  ERROR: cURL error downloading audio for {$uniqueId} from {$downloadUrl}: " . curl_error($ch) . PHP_EOL;
-            $skippedCount++;
-            continue;
-        }
-
+        $curlError = curl_error($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        if ($httpCode != 200) {
-            echo "  ERROR: HTTP error downloading audio for {$uniqueId} from {$downloadUrl}: " . $httpCode . " - " . $audioContent . PHP_EOL;
-            $skippedCount++;
-            continue;
-        }
-
         curl_close($ch);
 
-        if ($audioContent === false) {
-            echo "  ERROR: Failed to download audio for {$uniqueId} from {$downloadUrl}. Check URL and network." . PHP_EOL;
+        if ($curlError) {
+            echo "  ERROR: cURL error downloading audio for {$uniqueId}: " . $curlError . PHP_EOL;
+            $skippedCount++;
+            continue;
+        }
+        if ($httpCode != 200) {
+            echo "  ERROR: HTTP error {$httpCode} downloading audio for {$uniqueId}. Response: " . substr($audioContent, 0, 200) . PHP_EOL;
+            $skippedCount++;
+            continue;
+        }
+        if ($audioContent === false || empty($audioContent)) {
+            echo "  ERROR: Failed to download or empty audio content for {$uniqueId}." . PHP_EOL;
             $skippedCount++;
             continue;
         }
 
         if (file_put_contents($tempAudioFilePath, $audioContent) === false) {
-            echo "  ERROR: Failed to save downloaded audio to {$tempAudioFilePath} for {$uniqueId}." . PHP_EOL;
+            echo "  ERROR: Failed to save downloaded audio to {$tempAudioFilePath}." . PHP_EOL;
             $skippedCount++;
             continue;
         }
         echo "  Downloaded successfully to {$tempAudioFilePath}." . PHP_EOL;
 
-        // 2. Transcribe audio
-        if (!file_exists($tempAudioFilePath) || filesize($tempAudioFilePath) === 0) {
-            echo "  ERROR: Downloaded audio file {$tempAudioFilePath} is missing or empty. Skipping transcription." . PHP_EOL;
-            if (file_exists($tempAudioFilePath)) {
-                unlink($tempAudioFilePath);
-            }
+        if (filesize($tempAudioFilePath) === 0) {
+            echo "  ERROR: Downloaded audio file {$tempAudioFilePath} is empty. Skipping." . PHP_EOL;
+            unlink($tempAudioFilePath);
             $skippedCount++;
             continue;
         }
-
-        echo "  Transcribing {$tempAudioFilePath}..." . PHP_EOL;
+        
         $transcribedText = null;
-        try {
-            // Check if transcription already exists, if so, load it
-            if (file_exists($transcriptionFilePath)) {
-                echo "  INFO: Transcription file already exists. Loading for analysis: {$transcriptionFilePath}" . PHP_EOL;
-                $transcribedText = file_get_contents($transcriptionFilePath);
-                if ($transcribedText === false) {
-                    echo "  ERROR: Failed to read existing transcription file {$transcriptionFilePath}." . PHP_EOL;
-                    $transcribedText = null; // Ensure it's null if read failed
-                }
+        // Транскрипция
+        if (file_exists($transcriptionFilePath)) {
+            echo "  INFO: Transcription file already exists. Loading: {$transcriptionFilePath}" . PHP_EOL;
+            $transcribedText = file_get_contents($transcriptionFilePath);
+            if ($transcribedText === false) {
+                echo "  ERROR: Failed to read existing transcription {$transcriptionFilePath}." . PHP_EOL;
+                $transcribedText = null;
             }
-            
-            if ($transcribedText === null || empty(trim($transcribedText)) || trim($transcribedText) === "[No transcription available or audio was silent]") {
+        }
+
+        if ($transcribedText === null || empty(trim($transcribedText)) || trim($transcribedText) === "[Транскрипция недоступна или аудио было тихим]") {
+            echo "  Transcribing {$tempAudioFilePath}..." . PHP_EOL;
+            try {
                 $response = $client->audio()->transcribe([
                     'model' => 'whisper-1',
                     'file' => fopen($tempAudioFilePath, 'r'),
@@ -256,76 +279,81 @@ foreach ($allCalls as $call) {
                     }
                 } else {
                     echo "  WARN: Received empty transcription for {$displayNameForLog}. Saving placeholder." . PHP_EOL;
-                    file_put_contents($transcriptionFilePath, "[No transcription available or audio was silent]");
-                    $transcribedText = "[No transcription available or audio была silent]"; // Ensure this is set for analysis step
+                    $transcribedText = "[Транскрипция недоступна или аудио было тихим]";
+                    file_put_contents($transcriptionFilePath, $transcribedText);
                 }
+            } catch (OpenAI\Exceptions\ErrorException $e) { // Более конкретный тип исключения для OpenAI
+                echo "  ERROR: OpenAI API Error during transcription for {$displayNameForLog}: " . $e->getMessage() . PHP_EOL;
+                $skippedCount++;
+                if (file_exists($tempAudioFilePath)) unlink($tempAudioFilePath);
+                continue; // Пропустить этот звонок
+            } catch (Exception $e) { // Общее исключение
+                echo "  ERROR: Unexpected error transcribing {$displayNameForLog}: " . get_class($e) . " - " . $e->getMessage() . PHP_EOL;
+                $skippedCount++;
+                if (file_exists($tempAudioFilePath)) unlink($tempAudioFilePath);
+                continue; // Пропустить этот звонок
             }
+        }
 
-            // 2.5 Analyze call type if enabled and transcription is available
-            if ($analyzeCallType && !empty(trim($transcribedText)) && trim($transcribedText) !== "[No transcription available or audio was silent]") {
-                if (file_exists($analysisFilePath)) {
-                    echo "  INFO: Analysis file already exists. Skipping analysis: {$analysisFilePath}" . PHP_EOL;
-                } else {
-                    echo "  Analyzing call type for {$uniqueId}..." . PHP_EOL;
-                    $userPrompt = str_replace('{transcription}', $transcribedText, $analysisUserPromptTemplate);
-                    try {
-                        $analysisResponse = $client->chat()->create([ // Corrected method call
-                            'model' => $analysisModel,
-                            'messages' => [
-                                ['role' => 'system', 'content' => $analysisSystemPrompt],
-                                ['role' => 'user', 'content' => $userPrompt]
-                            ],
-                            'temperature' => 0.3, // Lower temperature for more deterministic category
-                        ]);
-                        $analyzedCallType = trim($analysisResponse->choices[0]->message->content);
+        // Анализ типа звонка
+        if ($analyzeCallType && !empty(trim($transcribedText)) && trim($transcribedText) !== "[Транскрипция недоступна или аудио было тихим]") {
+            if (file_exists($analysisFilePath)) {
+                echo "  INFO: Analysis file already exists. Skipping analysis: {$analysisFilePath}" . PHP_EOL;
+            } else {
+                echo "  Analyzing call type for {$uniqueId}..." . PHP_EOL;
+                $userPrompt = $analysisUserPromptTemplate . $transcribedText;
+                try {
+                    $analysisResponse = $client->chat()->create([
+                        'model' => $analysisModel,
+                        'messages' => [
+                            ['role' => 'system', 'content' => $analysisSystemPrompt],
+                            ['role' => 'user', 'content' => $userPrompt]
+                        ],
+                        'temperature' => 0.3,
+                    ]);
+                    $analyzedCallType = trim($analysisResponse->choices[0]->message->content);
 
-                        if (!empty($analyzedCallType)) {
-                            if (file_put_contents($analysisFilePath, $analyzedCallType) === false) {
-                                echo "  ERROR: Failed to save analysis to {$analysisFilePath}." . PHP_EOL;
-                            } else {
-                                echo "  Analysis saved to {$analysisFilePath}: {$analyzedCallType}" . PHP_EOL;
-                            }
+                    if (!empty($analyzedCallType)) {
+                        if (file_put_contents($analysisFilePath, $analyzedCallType) === false) {
+                            echo "  ERROR: Failed to save analysis to {$analysisFilePath}." . PHP_EOL;
                         } else {
-                            echo "  WARN: Received empty analysis for {$displayNameForLog}." . PHP_EOL;
-                            file_put_contents($analysisFilePath, "Другое (пустой ответ)"); // Save placeholder
+                            echo "  Analysis saved to {$analysisFilePath}: {$analyzedCallType}" . PHP_EOL;
                         }
-                    } catch (OpenAI\Exceptions\ErrorException $e) {
-                        echo "  ERROR: OpenAI API Error during analysis for {$displayNameForLog}: " . $e->getMessage() . PHP_EOL;
-                        file_put_contents($analysisFilePath, "Ошибка анализа: " . $e->getMessage());
-                    } catch (Exception $e) {
-                        echo "  ERROR: Unexpected error during analysis for {$displayNameForLog}: " . get_class($e) . " - " . $e->getMessage() . PHP_EOL;
-                        file_put_contents($analysisFilePath, "Ошибка анализа (неожиданная): " . $e->getMessage());
+                    } else {
+                        echo "  WARN: Received empty analysis for {$displayNameForLog}." . PHP_EOL;
+                        file_put_contents($analysisFilePath, "Другое (пустой ответ)");
                     }
-                }
-            } elseif ($analyzeCallType && (empty(trim($transcribedText)) || trim($transcribedText) === "[No transcription available or audio was silent]")) {
-                echo "  INFO: Skipping analysis for {$uniqueId} due to empty or placeholder transcription." . PHP_EOL;
-                if (!file_exists($analysisFilePath)) {
-                    file_put_contents($analysisFilePath, "Нет данных для анализа");
+                } catch (OpenAI\Exceptions\ErrorException $e) {
+                    echo "  ERROR: OpenAI API Error during analysis for {$displayNameForLog}: " . $e->getMessage() . PHP_EOL;
+                    file_put_contents($analysisFilePath, "Ошибка анализа: " . $e->getMessage());
+                } catch (Exception $e) {
+                    echo "  ERROR: Unexpected error during analysis for {$displayNameForLog}: " . get_class($e) . " - " . $e->getMessage() . PHP_EOL;
+                    file_put_contents($analysisFilePath, "Ошибка анализа (неожиданная): " . $e->getMessage());
                 }
             }
-            
-            $processedCount++;
-
-        } catch (OpenAI\Exceptions\ErrorException $e) {
-            echo "  ERROR: OpenAI API Error for {$displayNameForLog}: " . $e->getMessage() . PHP_EOL;
-            $skippedCount++;
-        } catch (Exception $e) {
-            echo "  ERROR: Unexpected error transcribing {$displayNameForLog}: " . get_class($e) . " - " . $e->getMessage() . PHP_EOL;
-            $skippedCount++;
-        } finally {
-            // 3. Clean up downloaded audio file
-            if (file_exists($tempAudioFilePath)) {
-                unlink($tempAudioFilePath);
+        } elseif ($analyzeCallType && (empty(trim($transcribedText)) || trim($transcribedText) === "[Транскрипция недоступна или аудио было тихим]")) {
+            echo "  INFO: Skipping analysis for {$uniqueId} due to empty/placeholder transcription." . PHP_EOL;
+            if (!file_exists($analysisFilePath)) {
+                file_put_contents($analysisFilePath, "Нет данных для анализа");
             }
         }
         
-    } catch (Exception $e) {
-        $currentCallIdForError = $uniqueId ?? (isset($call['session_master_id']) ? $call['session_master_id'] : 'unknown');
-        echo "  ERROR: Processing call {$currentCallIdForError} failed: " . $e->getMessage() . PHP_EOL;
-        $skippedCount++; // Ensure skipped count is incremented for general errors in the outer try-catch
+        $processedCount++;
+
+    } catch (Exception $e) { // Общий обработчик ошибок для цикла по звонку
+        $currentCallIdForError = $uniqueId ?? (isset($call['session_master_id']) ? $call['session_master_id'] : 'unknown_call_in_loop');
+        echo "  ERROR: Processing call {$currentCallIdForError} failed globally: " . $e->getMessage() . PHP_EOL;
+        // Записываем stack trace для более детальной отладки, если нужно
+        // error_log("Stack trace for call {$currentCallIdForError}: " . $e->getTraceAsString());
+        $skippedCount++;
+    } finally {
+        // Очистка временного аудиофайла
+        if (isset($tempAudioFilePath) && file_exists($tempAudioFilePath)) {
+            unlink($tempAudioFilePath);
+        }
     }
 }
 
-echo "Transcription process finished. Newly transcribed: {$processedCount}. Skipped/Errors: {$skippedCount}." . PHP_EOL;
+echo "Transcription process finished. Processed/Updated: {$processedCount}. Skipped/Errors: {$skippedCount}." . PHP_EOL;
 
 ?>

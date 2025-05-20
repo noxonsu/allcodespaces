@@ -1,0 +1,77 @@
+.logout-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    padding: 8px 15px;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    text-decoration: none;
+    font-size: 14px;
+}
+.logout-button:hover {
+    background-color: #d32f2f;
+}
+.comment-cell { max-width: 200px; overflow-wrap: break-word; }
+.operator-attempts { font-size: 0.9em; list-style-type: none; padding-left: 0; }
+.operator-attempts li { margin-bottom: 3px; }
+.user-info {
+    position: absolute;
+    top: 10px;
+    right: 100px; /* Adjust as needed */
+    padding: 8px 15px;
+    font-size: 14px;
+    color: #333;
+}
+.user-info .status {
+    font-weight: bold;
+}
+.user-info .status.online {
+    color: green;
+}
+.user-info .status.offline {
+    color: red;
+}
+.summary-container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px; /* Space between columns/sections */
+}
+.summary-section {
+    flex: 1; /* Each section tries to take equal space */
+    min-width: 300px; /* Minimum width before wrapping */
+    border: 1px solid #eee;
+    padding: 15px;
+    border-radius: 5px;
+    background-color: #f9f9f9;
+}
+.summary-section h3, .summary-section h4 {
+    margin-top: 0;
+}
+.filters .filter-group {
+    margin-right: 15px; /* Add some space between filter groups */
+    margin-bottom: 10px; /* Add some space below filter groups */
+}
+.filters {
+    display: flex;
+    flex-wrap: wrap; /* Allow filters to wrap on smaller screens */
+    align-items: flex-end; /* Align items to the bottom for a cleaner look */
+    margin-bottom: 20px;
+}
+.admin-duration-summary {
+    margin-bottom: 15px;
+    padding: 10px;
+    background-color: #eef4ff; /* Light blue background */
+    border: 1px solid #cce0ff;
+    border-radius: 5px;
+    font-size: 0.9em;
+}
+.admin-duration-summary h4 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-size: 1.1em;
+}
+.admin-duration-summary p {
+    margin: 4px 0;
+}
