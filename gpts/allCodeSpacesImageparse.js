@@ -83,6 +83,12 @@ if (!openaiApiKey && !deepseekApiKey) {
 
 const bot = new TelegramBot(token, { polling: true });
 
+let BOT_USERNAME;
+bot.getMe().then(me => {
+    BOT_USERNAME = me.username;
+    console.log(`[Debug] Bot username: ${BOT_USERNAME}`);
+});
+
 // --- Load System Prompt ---
 let systemPromptContent = 'You are a helpful assistant.';
 try {
@@ -465,6 +471,10 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
 
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
+    if ((msg.chat.type === 'group' || msg.chat.type === 'supergroup') && !msg.text?.includes(`@${BOT_USERNAME}`)) {
+        console.info(`[Ignored] Message in group ${chatId} without mention of @${BOT_USERNAME}`);
+        return;
+    }
     if (!validateChatId(chatId)) {
         console.error(`Некорректный chat ID в обработчике сообщений: ${msg.chat.id}`);
         return;

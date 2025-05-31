@@ -81,3 +81,6 @@ whisper_streaming_input.py
 mycity2_key.json
 mempool/*
 mempool
+
+onout.org/
+btc-rpc-explorer/
