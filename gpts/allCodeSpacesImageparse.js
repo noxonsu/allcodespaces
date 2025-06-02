@@ -37,6 +37,15 @@ const {
     getUserMessageCount
 } = require('./openai');
 
+// Safe import of cost tracker with fallback
+let costTracker = null;
+try {
+    costTracker = require('./costTracker');
+    console.log('[Bot] Cost tracking commands enabled');
+} catch (error) {
+    console.warn('[Bot] Cost tracking commands disabled - costTracker module not found');
+}
+
 // --- Configuration ---
 const result = dotenv.config({ path: envFilePath }); // Use the already determined envFilePath
 if (result.error) {
@@ -713,3 +722,66 @@ process.on('SIGTERM', () => {
         process.exit(0);
     });
 });
+
+// Add cost tracking command (only if cost tracker is available)
+if (costTracker) {
+    bot.onText(/\/cost/, async (msg) => {
+        const chatId = msg.chat.id;
+        if (!validateChatId(chatId)) {
+            console.error(`Некорректный chat ID в /cost: ${msg.chat.id}`);
+            return;
+        }
+
+        try {
+            const chatCosts = costTracker.getChatCosts(chatId);
+            const dailyCosts = costTracker.getDailyCosts();
+            const botSummary = costTracker.getBotCostsSummary();
+            
+            let message = `💰 Статистика расходов:\n\n`;
+            message += `Ваш чат: $${chatCosts.totalCost.toFixed(4)} (${chatCosts.requests} запросов)\n`;
+            message += `Сегодня всего: $${dailyCosts.totalCost.toFixed(4)} (${dailyCosts.requests} запросов)\n\n`;
+            
+            if (Object.keys(botSummary).length > 0) {
+                message += `📊 По ботам:\n`;
+                for (const [bot, stats] of Object.entries(botSummary)) {
+                    message += `${bot}: $${stats.totalCost.toFixed(4)} (${stats.requests} запросов, ${stats.uniqueChats} чатов)\n`;
+                }
+            } else {
+                message += `📊 Данные по ботам пока недоступны.\n`;
+            }
+            
+            await bot.sendMessage(chatId, escapeMarkdown(message), { parse_mode: 'MarkdownV2' });
+            
+            logChat(chatId, {
+                type: 'system_event',
+                event: 'cost_command',
+                timestamp: new Date(msg.date * 1000).toISOString()
+            }, 'system');
+        } catch (error) {
+            console.error(`Ошибка при обработке /cost для чата ${chatId}:`, error);
+            await sendErrorMessage(chatId, error.message, 'получения статистики расходов');
+        }
+    });
+} else {
+    // Fallback /cost command when cost tracker is not available
+    bot.onText(/\/cost/, async (msg) => {
+        const chatId = msg.chat.id;
+        if (!validateChatId(chatId)) {
+            console.error(`Некорректный chat ID в /cost: ${msg.chat.id}`);
+            return;
+        }
+
+        try {
+            const message = `💰 Статистика расходов недоступна.\n\nДанная функция не активирована в этом боте.`;
+            await bot.sendMessage(chatId, escapeMarkdown(message), { parse_mode: 'MarkdownV2' });
+            
+            logChat(chatId, {
+                type: 'system_event',
+                event: 'cost_command_unavailable',
+                timestamp: new Date(msg.date * 1000).toISOString()
+            }, 'system');
+        } catch (error) {
+            console.error(`Ошибка при обработке /cost для чата ${chatId}:`, error);
+        }
+    });
+}

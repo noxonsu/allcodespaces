@@ -7,6 +7,16 @@ const path = require('path');
 const FormData = require('form-data');
 const { sanitizeString, validateChatId, logChat } = require('./utilities');
 const config = require('./config');
+
+// Safe import of cost tracker with fallback
+let costTracker = null;
+try {
+    costTracker = require('./costTracker');
+    console.log('[OpenAI] Cost tracking enabled');
+} catch (error) {
+    console.warn('[OpenAI] Cost tracking disabled - costTracker module not found:', error.message);
+}
+
 const { CHAT_HISTORIES_DIR, USER_DATA_DIR, NAMEPROMPT, MAX_HISTORY } = config;
 
 // --- Configuration & State ---
@@ -373,6 +383,16 @@ async function callOpenAI(chatId, userMessageContent) {
         const assistantText = response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_text')?.text;
         if (!assistantText) throw new Error('Некорректный ответ от OpenAI.');
 
+        // Track token usage and cost (safe)
+        try {
+            const usage = response.data.usage || {};
+            const inputTokens = usage.input_tokens || 0;
+            const outputTokens = usage.output_tokens || 0;
+            trackCost(chatId, modelName, inputTokens, outputTokens);
+        } catch (costError) {
+            console.warn('[OpenAI] Cost tracking failed for this request:', costError.message);
+        }
+
         // Remove sanitization of assistant responses
         logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }] }, 'assistant');
 
@@ -459,6 +479,16 @@ async function callDeepSeek(chatId, userMessageContent) {
         const assistantText = response.data.choices[0].message.content;
         if (!assistantText) throw new Error('Некорректный ответ от DeepSeek.');
 
+        // Track token usage and cost (safe)
+        try {
+            const usage = response.data.usage || {};
+            const inputTokens = usage.prompt_tokens || 0;
+            const outputTokens = usage.completion_tokens || 0;
+            trackCost(chatId, 'deepseek-chat', inputTokens, outputTokens);
+        } catch (costError) {
+            console.warn('[DeepSeek] Cost tracking failed for this request:', costError.message);
+        }
+
         // Remove sanitization of assistant responses
         logChat(chatId, { role: 'assistant', content: [{ type: 'output_text', text: assistantText }] }, 'assistant');
         return assistantText;
@@ -487,7 +517,6 @@ async function transcribeAudio(audioUrlOrPath, language='en') {
         }
 
         formData.append('model', 'whisper-1');
-
         formData.append('response_format', 'text');
 
         const response = await axios.post(
@@ -500,6 +529,15 @@ async function transcribeAudio(audioUrlOrPath, language='en') {
         );
 
         const transcribedText = sanitizeString(response.data);
+        
+        // Track transcription cost (safe)
+        try {
+            const audioMinutes = 1; // You might want to calculate this based on file size or actual duration
+            trackCost('transcription', 'whisper-1', 0, 0, audioMinutes);
+        } catch (costError) {
+            console.warn('[Transcribe] Cost tracking failed for this request:', costError.message);
+        }
+        
         console.info(`[Transcribe ${language}] Успешно транскрибировано. Длина: ${transcribedText.length}`);
         return transcribedText;
     } catch (error) {
