@@ -31,6 +31,10 @@ return str; //disable sanitization  . not a bug (but need to be fixed)
  * @returns {boolean} True if valid, false otherwise.
  */
 function validateChatId(chatId) {
+    // Convert string to number if it's a string
+    if (typeof chatId === 'string') {
+        chatId = Number(chatId);
+    }
     return typeof chatId === 'number' && Number.isInteger(chatId) && chatId !== 0;
 }
 

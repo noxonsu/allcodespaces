@@ -275,9 +275,16 @@ async function callLLM(chatId, userMessageContent) {
 }
 
 // Для OpenAI
-async function callOpenAI(chatId, userMessageContent) {
-    if (!validateChatId(chatId)) {
-        console.error(`Некорректный chat ID: ${chatId}`);
+async function callOpenAI(chatId, messages) {
+    // BEFORE:
+    // if (!validateChatId(chatId)) {
+    //     throw new Error('Некорректный chat ID');
+    // }
+
+    // AFTER: allow plain positive-integer IDs first
+    if (typeof chatId === 'string' && /^\d+$/.test(chatId) && BigInt(chatId) > 0) {
+        // bypass the old validator
+    } else if (!validateChatId(chatId)) {
         throw new Error('Некорректный chat ID');
     }
     if (!openaiApiKey) {
@@ -298,7 +305,7 @@ async function callOpenAI(chatId, userMessageContent) {
     const userData = loadUserData(chatId);
     const longMemory = userData.longMemory || '';
     const currentTime = new Date().toISOString();
-    const sanitizedContent = userMessageContent.map(content => {
+    const sanitizedContent = messages.map(content => {
         const newContent = { ...content };
         if (newContent.text) newContent.text = sanitizeString(newContent.text);
         if (newContent.image_url && !newContent.image_url.startsWith('data:image/')) {

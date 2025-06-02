@@ -11,7 +11,7 @@ try {
     if (telegramEventsModule && typeof telegramEventsModule.NewMessage !== 'undefined') {
         console.log('[Debug] telegramEventsModule.NewMessage exists.');
     } else {
-        console.warn('[Debug] telegramEventsModule.NewMessage does NOT exist or telegramEventsModule is null/undefined.');
+        console.warn('[Debug] telegramEventsModule.NewMessage does not exist or telegramEventsModule is null/undefined.');
     }
 } catch (e) {
     console.error('[Debug] Error requiring or inspecting "telegram/events":', e);
@@ -56,11 +56,30 @@ const {
     setOpenAIKey,
     setDeepSeekKey,
     setModel,
-    callLLM,
+    callLLM: originalCallLLM,
     loadUserData, 
     saveUserData,
     getUserMessageCount
 } = require('./openai');
+
+// Create a wrapper function that handles chat ID validation more permissively
+async function callLLM(chatId, messages) {
+    // Ensure chatId passes basic validation for positive integer
+    const consistentChatId = String(chatId);
+    if (!/^\d+$/.test(consistentChatId) || BigInt(consistentChatId) <= 0) {
+        throw new Error(`Invalid chat ID format: ${consistentChatId}`);
+    }
+    
+    try {
+        return await originalCallLLM(consistentChatId, messages);
+    } catch (error) {
+        if (error.message === 'Некорректный chat ID') {
+            console.warn(`[CallLLM Wrapper] Chat ID ${consistentChatId} failed openai.js validation but appears valid. This might indicate a validation mismatch between modules.`);
+            throw new Error(`Chat ID validation failed in OpenAI module: ${consistentChatId}`);
+        }
+        throw error; // Re-throw other errors as-is
+    }
+}
 
 // --- Configuration ---
 const result = dotenv.config({ path: envFilePath }); // Use the already determined envFilePath
@@ -90,6 +109,11 @@ const VACANCY_CLOSED_TRIGGER_PHRASE = "к сожалению";
 const FOLLOW_UP_VACANCY_MESSAGE = "Давно ищите оффер?";
 const STOP_DIALOG_PHRASES = ["человеку", "стоп", "хватит", "остановить", "закончить"]; // Example, replace with your actual list
 const TYPING_DELAY_MS = 10000; // 10 seconds for typing simulation
+const MIN_RESPONSE_DELAY = 2000; // Minimum 2 seconds delay
+const MAX_RESPONSE_DELAY = 10000; // Maximum 10 seconds delay
+const WORDS_PER_SECOND = 3; // Average typing speed for calculating dynamic delay
+const MIN_READ_DELAY = 1000; // Minimum 1 second before reading message
+const MAX_READ_DELAY = 5000; // Maximum 5 seconds before reading message
 const GREETING_PHRASES = ["здравствуйте", "привет", "добрый день", "доброе утро", "добрый вечер", "салам", "хелло", "хай", "hello", "hi", "доброго времени суток"];
 
 // Admin and Server Configuration
@@ -177,6 +201,88 @@ if (ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL) {
 
 
 // --- Helper Functions ---
+
+// Calculate human-like typing delay based on message length
+function calculateTypingDelay(messageText) {
+    if (!messageText) return MIN_RESPONSE_DELAY;
+    
+    const wordCount = messageText.split(' ').length;
+    const baseDelay = (wordCount / WORDS_PER_SECOND) * 1000; // Convert to milliseconds
+    const randomFactor = 0.5 + Math.random(); // Random factor between 0.5 and 1.5
+    const calculatedDelay = baseDelay * randomFactor;
+    
+    // Ensure delay is within reasonable bounds
+    return Math.max(MIN_RESPONSE_DELAY, Math.min(calculatedDelay, MAX_RESPONSE_DELAY));
+}
+
+// Simulate typing action via GramJS
+async function simulateTyping(peerId, duration = 3000) {
+    if (!gramJsClient || !gramJsClient.connected) {
+        return;
+    }
+    
+    try {
+        console.log(`[GramJS Typing] Starting typing simulation for ${duration}ms`);
+        await gramJsClient.invoke(new Api.messages.SetTyping({
+            peer: peerId,
+            action: new Api.SendMessageTypingAction()
+        }));
+        
+        // Keep typing indicator active for the duration
+        const typingInterval = setInterval(async () => {
+            try {
+                await gramJsClient.invoke(new Api.messages.SetTyping({
+                    peer: peerId,
+                    action: new Api.SendMessageTypingAction()
+                }));
+            } catch (e) {
+                console.error('[GramJS Typing] Error maintaining typing indicator:', e.message);
+                clearInterval(typingInterval);
+            }
+        }, 2000); // Refresh typing indicator every 2 seconds
+        
+        // Stop typing after duration
+        setTimeout(() => {
+            clearInterval(typingInterval);
+            console.log(`[GramJS Typing] Typing simulation ended`);
+        }, duration);
+        
+    } catch (error) {
+        console.error('[GramJS Typing] Error starting typing simulation:', error.message);
+    }
+}
+
+// Calculate human-like reading delay
+function calculateReadDelay() {
+    return Math.random() * (MAX_READ_DELAY - MIN_READ_DELAY) + MIN_READ_DELAY;
+}
+
+// Mark messages as read with human-like delay
+async function markMessagesAsRead(peerId, maxId = null) {
+    if (!gramJsClient || !gramJsClient.connected) {
+        return;
+    }
+    
+    try {
+        const readDelay = calculateReadDelay();
+        console.log(`[GramJS Read] Scheduling message read for peer ${peerId} in ${readDelay}ms`);
+        
+        setTimeout(async () => {
+            try {
+                await gramJsClient.invoke(new Api.messages.ReadHistory({
+                    peer: peerId,
+                    maxId: maxId || 0 // Read all messages if maxId is not specified
+                }));
+                console.log(`[GramJS Read] Messages marked as read for peer ${peerId}`);
+            } catch (error) {
+                console.error(`[GramJS Read] Error marking messages as read for peer ${peerId}:`, error.message);
+            }
+        }, readDelay);
+        
+    } catch (error) {
+        console.error('[GramJS Read] Error scheduling message read:', error.message);
+    }
+}
 
 async function handleNewDayLogicAndUpdateTimestamp(chatId) {
     const userData = loadUserData(chatId); // Load fresh data each time
@@ -294,7 +400,18 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
     // Ensure chatId is a string for consistency, as GramJS might provide BigInt
     const consistentChatId = String(chatId); 
 
-    if (!validateChatId(consistentChatId)) {
+    let isValidId = validateChatId(consistentChatId);
+
+    if (!isValidId) {
+        // If the primary validation fails, check if it's a string representation of a positive integer.
+        // This is a common format for user IDs from GramJS (sender.id).
+        if (/^\d+$/.test(consistentChatId) && BigInt(consistentChatId) > 0) {
+            console.warn(`[handleIncomingMessage] Chat ID ${consistentChatId} failed validateChatId but appears to be a valid positive integer user ID. Proceeding.`);
+            isValidId = true; // Override validation based on this basic check
+        }
+    }
+
+    if (!isValidId) {
         console.error(`[handleIncomingMessage] Некорректный chat ID: ${consistentChatId}`);
         return { action: 'sendError', context: 'system', specificErrorMsg: 'Invalid chat ID.' };
     }
@@ -393,7 +510,13 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
     
     if (userData.dialogStopped) {
         console.info(`[handleIncomingMessage ${consistentChatId}] Диалог ранее остановлен. Сообщение "${userTextForLogic}" игнорируется.`);
-        logChat(consistentChatId, { event: 'user_messaged_after_dialog_stopped_ignored', user_text: userTextForLogic }, 'system');
+        // Conditionally call logChat to prevent error from its internal validation
+        if (validateChatId(consistentChatId)) { // validateChatId is the original from utilities.js
+            logChat(consistentChatId, { event: 'user_messaged_after_dialog_stopped_ignored', user_text: userTextForLogic }, 'system');
+        } else {
+            // Log to console directly if original validation fails, to still capture the event
+            console.warn(`[LogChat Skipped] Event: user_messaged_after_dialog_stopped_ignored for Chat ID ${consistentChatId} (text: "${userTextForLogic}") as it failed utilities.validateChatId.`);
+        }
         return { action: 'noReplyNeeded' };
     }
     if (userData.dialogMovedToUnclear) {
@@ -409,6 +532,8 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
         console.info(`[handleIncomingMessage ${consistentChatId}] Обработка. Длина: ${userTextForLogic.length}. NewDayPrefix: "${newDayPrefix}"`);
 
         if (ACTIVATION_CODE && userTextForLogic.startsWith('KEY-')) {
+            // Fix: Ensure userData is loaded before accessing it
+            userData = loadUserData(consistentChatId); // Reload to ensure we have current data
             if (userTextForLogic === ACTIVATION_CODE) {
                 userData.isPaid = true;
                 saveUserData(consistentChatId, userData);
@@ -435,31 +560,35 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
 
         if (userData.awaitingFirstMessageAfterStart) {
             console.info(`[handleIncomingMessage ${consistentChatId}] Это первое сообщение после /start. Анализ: "${userTextForLogic}"`);
-            const classificationPrompt = `Проанализируй следующее сообщение пользователя. Связано ли оно с поиском работы, трудоустройством, резюме или вакансиями? Ответь только "да" или "нет". Сообщение пользователя: "${userTextForLogic}"`;
+            const classificationPrompt = `Проанализируй следующее сообщение пользователя. Определи его тип:
+1. Если сообщение связано с поиском работы, трудоустройством, резюме или вакансиями - ответь "да"
+2. Если это приветствие (привет, здравствуйте, добрый день и т.д.) - ответь "приветствие" 
+3. Если это что-то другое - ответь "нет"
+
+Сообщение пользователя: "${userTextForLogic}"`;
             const classificationResponse = await callLLM(consistentChatId, [{ type: 'input_text', text: classificationPrompt }]);
             logChat(consistentChatId, { event: 'first_message_classification_attempt', user_text: userTextForLogic, llm_raw_classification: classificationResponse }, 'system');
 
-            const lowerUserText = userTextForLogic.toLowerCase();
-            const isGreeting = GREETING_PHRASES.some(phrase => lowerUserText.startsWith(phrase));
+            const lowerClassification = classificationResponse ? classificationResponse.toLowerCase() : '';
 
-            if (classificationResponse && classificationResponse.toLowerCase().includes('да')) {
+            if (lowerClassification.includes('да')) {
                 console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение LLM-классифицировано как связанное с работой.`);
                 let initialContextPrefix = userData.providedName ? `Пользователь ${userData.providedName} только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса (определено как связанное с работой): ` : "Пользователь только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса (определено как связанное с работой): ";
                 const llmInputTextForJobRelated = newDayPrefix + initialContextPrefix + userTextForLogic;
                 assistantText = await callLLM(consistentChatId, [{ type: 'input_text', text: llmInputTextForJobRelated }]);
-            } else if (isGreeting) {
-                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение - приветствие: "${userTextForLogic}".`);
+            } else if (lowerClassification.includes('приветствие')) {
+                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение LLM-классифицировано как приветствие: "${userTextForLogic}".`);
                 assistantText = "Здравствуйте!";
-                logChat(consistentChatId, { event: 'first_message_is_greeting_reply', user_text: userTextForLogic, bot_response: assistantText }, 'system');
+                logChat(consistentChatId, { event: 'first_message_is_greeting_reply_via_llm', user_text: userTextForLogic, bot_response: assistantText }, 'system');
             } else {
-                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение не по теме и не приветствие. Перемещение в "Непонятное".`);
-                logChat(consistentChatId, { event: 'first_message_not_job_related_not_greeting', user_text: userTextForLogic, action: 'move_to_unclear' }, 'system');
+                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение LLM-классифицировано как не по теме и не приветствие. Перемещение в "Непонятное".`);
+                logChat(consistentChatId, { event: 'first_message_not_job_related_not_greeting_via_llm', user_text: userTextForLogic, llm_classification: classificationResponse, action: 'move_to_unclear' }, 'system');
                 userData.dialogMovedToUnclear = true;
                 performLlmCall = false;
                 if (ADMIN_TELEGRAM_ID) {
                     const logFileName = `chat_${consistentChatId}.log`;
                     const logUrl = BOT_SERVER_BASE_URL ? `${BOT_SERVER_BASE_URL}/chatlogs/${logFileName}` : `(логи локально)`;
-                    const adminMessage = `Диалог с пользователем ${consistentChatId} (${userData.username || 'нет username'}) перемещен в "Непонятное" после первого сообщения (не по теме и не приветствие).\nСообщение: "${userTextForLogic}"\nЛог: ${logUrl}`;
+                    const adminMessage = `Диалог с пользователем ${consistentChatId} (${userData.username || 'нет username'}) перемещен в "Непонятное" после первого сообщения (LLM: не по теме и не приветствие).\nСообщение: "${userTextForLogic}"\nLLM классификация: "${classificationResponse}"\nЛог: ${logUrl}`;
                     saveUserData(consistentChatId, userData); // Save before returning
                     return { action: 'adminNotifyAndNoReply', adminMessageText: adminMessage, adminTelegramId: ADMIN_TELEGRAM_ID };
                 }
@@ -511,9 +640,11 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
                                     logChat(consistentChatId, { event: 'follow_up_skipped_conditions_not_met_at_send_time_gramjs' }, 'system'); return;
                                 }
                                 console.info(`[GramJS ${consistentChatId}] Sending scheduled follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
-                                // GramJS typing action is more involved, skipping for now.
-                                // await gramJsClient.invoke(new Api.messages.SetTyping({ peer: consistentChatId, action: new Api.SendMessageTypingAction() }));
-                                // await new Promise(resolve => setTimeout(resolve, TYPING_DELAY_MS / 2 )); // Shorter delay maybe
+                                
+                                // Add typing simulation for follow-up messages
+                                const followUpDelay = calculateTypingDelay(FOLLOW_UP_VACANCY_MESSAGE);
+                                await simulateTyping(consistentChatId, followUpDelay);
+                                await new Promise(resolve => setTimeout(resolve, followUpDelay));
 
                                 await gramJsClient.sendMessage(consistentChatId, { message: FOLLOW_UP_VACANCY_MESSAGE });
                                 
@@ -587,6 +718,9 @@ async function onNewGramJsMessage(event) {
                 return;
             }
             console.log(`[GramJS ${chatId}] Processing message: "${userText}" from user ${sender.username || chatId}`);
+
+            // Mark the message as read with human-like delay
+            await markMessagesAsRead(sender.id, message.id);
 
             const fromUserDetails = { // Standardize for handleIncomingMessage
                 id: sender.id.toString(),
@@ -678,7 +812,6 @@ async function processHandlerResult(chatId, result, clientType, gramJsPeerId = n
     const logPrefix = `[${clientType} ${chatId}]`; // clientType will be 'GramJS'
     console.log(`${logPrefix} Processing result from handleIncomingMessage:`, result);
 
-
     if (!gramJsClient || !gramJsClient.connected) {
         console.error(`${logPrefix} GramJS client not available or not connected for sending message. Action: ${result.action}`);
         return;
@@ -688,20 +821,45 @@ async function processHandlerResult(chatId, result, clientType, gramJsPeerId = n
         return;
     }
 
-
     try {
         if (result.action === 'sendMessage') {
             console.log(`${logPrefix} Attempting to send reply via GramJS: "${result.text.substring(0,50)}..."`);
+            
+            // Calculate human-like delay and simulate typing
+            const typingDelay = calculateTypingDelay(result.text);
+            console.log(`${logPrefix} Calculated typing delay: ${typingDelay}ms`);
+            
+            // Start typing simulation
+            await simulateTyping(gramJsPeerId, typingDelay);
+            
+            // Wait for the calculated delay
+            await new Promise(resolve => setTimeout(resolve, typingDelay));
+            
+            // Send the actual message
             await gramJsClient.sendMessage(gramJsPeerId, { message: result.text });
-            console.log(`${logPrefix} Sent GramJS reply successfully.`);
+            console.log(`${logPrefix} Sent GramJS reply successfully after ${typingDelay}ms delay.`);
+            
         } else if (result.action === 'activationResult' || result.action === 'promptPayment') {
             console.log(`${logPrefix} Attempting to send GramJS message (activation/payment): "${result.text.substring(0,50)}..."`);
+            
+            // Add slight delay for activation/payment messages too
+            const quickDelay = Math.random() * 1000 + 1000; // 1-2 seconds
+            await simulateTyping(gramJsPeerId, quickDelay);
+            await new Promise(resolve => setTimeout(resolve, quickDelay));
+            
             await gramJsClient.sendMessage(gramJsPeerId, { message: result.text }); // GramJS options for inline kbd are different
             console.log(`${logPrefix} Sent GramJS message (activation/payment) successfully.`);
             logChat(chatId, { event: `${result.action}_sent_by_${clientType}`, text: result.text }, 'system');
+            
         } else if (result.action === 'sendError') {
             const errorMsgToSend = `Sorry, an error occurred: ${result.specificErrorMsg || result.context || 'Unknown error'}`;
             console.log(`${logPrefix} Attempting to send GramJS error message: "${errorMsgToSend.substring(0,70)}..."`);
+            
+            // Quick delay for error messages
+            const errorDelay = 1500;
+            await simulateTyping(gramJsPeerId, errorDelay);
+            await new Promise(resolve => setTimeout(resolve, errorDelay));
+            
             await gramJsClient.sendMessage(gramJsPeerId, { message: errorMsgToSend });
             console.log(`${logPrefix} Sent GramJS error message successfully.`);
         } else if (result.action === 'adminNotifyAndNoReply' || result.action === 'dialogStoppedAdminNotify') {
