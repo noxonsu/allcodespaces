@@ -3,11 +3,64 @@ const path = require('path');
 
 // Pricing per 1M tokens (input/output) in USD
 const MODEL_PRICING = {
+    // Latest GPT-4.1 models
+    'gpt-4.1': { input: 2.00, output: 8.00 },
+    'gpt-4.1-2025-04-14': { input: 2.00, output: 8.00 },
+    'gpt-4.1-mini': { input: 0.40, output: 1.60 },
+    'gpt-4.1-mini-2025-04-14': { input: 0.40, output: 1.60 },
+    'gpt-4.1-nano': { input: 0.10, output: 0.40 },
+    'gpt-4.1-nano-2025-04-14': { input: 0.10, output: 0.40 },
+    'gpt-4.5-preview': { input: 75.00, output: 150.00 },
+    'gpt-4.5-preview-2025-02-27': { input: 75.00, output: 150.00 },
+    
+    // GPT-4o models
     'gpt-4o': { input: 2.50, output: 10.00 },
+    'gpt-4o-2024-08-06': { input: 2.50, output: 10.00 },
+    'gpt-4o-audio-preview': { input: 2.50, output: 10.00 },
+    'gpt-4o-audio-preview-2024-12-17': { input: 2.50, output: 10.00 },
+    'gpt-4o-realtime-preview': { input: 5.00, output: 20.00 },
+    'gpt-4o-realtime-preview-2024-12-17': { input: 5.00, output: 20.00 },
     'gpt-4o-mini': { input: 0.15, output: 0.60 },
+    'gpt-4o-mini-2024-07-18': { input: 0.15, output: 0.60 },
+    'gpt-4o-mini-audio-preview': { input: 0.15, output: 0.60 },
+    'gpt-4o-mini-audio-preview-2024-12-17': { input: 0.15, output: 0.60 },
+    'gpt-4o-mini-realtime-preview': { input: 0.60, output: 2.40 },
+    'gpt-4o-mini-realtime-preview-2024-12-17': { input: 0.60, output: 2.40 },
+    'gpt-4o-mini-search-preview': { input: 0.15, output: 0.60 },
+    'gpt-4o-mini-search-preview-2025-03-11': { input: 0.15, output: 0.60 },
+    'gpt-4o-search-preview': { input: 2.50, output: 10.00 },
+    'gpt-4o-search-preview-2025-03-11': { input: 2.50, output: 10.00 },
+    
+    // o1 models
+    'o1': { input: 15.00, output: 60.00 },
+    'o1-2024-12-17': { input: 15.00, output: 60.00 },
+    'o1-pro': { input: 150.00, output: 600.00 },
+    'o1-pro-2025-03-19': { input: 150.00, output: 600.00 },
+    'o1-mini': { input: 1.10, output: 4.40 },
+    'o1-mini-2024-09-12': { input: 1.10, output: 4.40 },
+    
+    // o3 models
+    'o3': { input: 10.00, output: 40.00 },
+    'o3-2025-04-16': { input: 10.00, output: 40.00 },
+    'o3-mini': { input: 1.10, output: 4.40 },
+    'o3-mini-2025-01-31': { input: 1.10, output: 4.40 },
+    
+    // o4 models
+    'o4-mini': { input: 1.10, output: 4.40 },
+    'o4-mini-2025-04-16': { input: 1.10, output: 4.40 },
+    
+    // Other models
+    'codex-mini-latest': { input: 1.50, output: 6.00 },
+    'computer-use-preview': { input: 3.00, output: 12.00 },
+    'computer-use-preview-2025-03-11': { input: 3.00, output: 12.00 },
+    'gpt-image-1': { input: 5.00, output: 0 }, // No output pricing for image generation
+    
+    // Legacy models (keeping for backward compatibility)
     'gpt-4': { input: 30.00, output: 60.00 },
     'gpt-4-turbo': { input: 10.00, output: 30.00 },
     'gpt-3.5-turbo': { input: 0.50, output: 1.50 },
+    
+    // Non-OpenAI models
     'deepseek-chat': { input: 0.14, output: 0.28 },
     'whisper-1': { input: 0.006, output: 0 } // per minute, not per token
 };
