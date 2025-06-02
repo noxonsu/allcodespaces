@@ -546,6 +546,18 @@ async function transcribeAudio(audioUrlOrPath, language='en') {
     }
 }
 
+// Safe cost tracking function
+function trackCost(chatId, model, inputTokens, outputTokens, audioMinutes = 0) {
+    if (costTracker) {
+        try {
+            const cost = costTracker.calculateCost(model, inputTokens, outputTokens, audioMinutes);
+            costTracker.saveCostData(chatId, model, inputTokens, outputTokens, cost, audioMinutes, NAMEPROMPT);
+        } catch (error) {
+            console.warn('[OpenAI] Cost tracking failed:', error.message);
+        }
+    }
+}
+
 module.exports = {
     setSystemMessage,
     setOpenAIKey,
