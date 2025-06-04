@@ -105,8 +105,93 @@ function getCostDataFromFiles() {
     };
 }
 
+function calculateLandingStats(userFiles) {
+    const stats = {
+        totalUsersReachedLanding: 0,
+        totalUsersProceededFromLanding: 0,
+        conversionRate: 0,
+        landingDetails: []
+    };
+
+    userFiles.forEach(file => {
+        try {
+            const userData = safeReadJSON(file);
+            if (!userData) return;
+            
+            const chatId = userData.chatId;
+            
+            // Check if user reached landing (has providedName and landing was shown)
+            if (userData.providedName) {
+                const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
+                if (fs.existsSync(chatLogPath)) {
+                    const logContent = fs.readFileSync(chatLogPath, 'utf8');
+                    const logLines = logContent.trim().split('\n').filter(line => line.trim());
+                    
+                    let reachedLanding = false;
+                    let proceededFromLanding = false;
+                    let landingShownTime = null;
+                    let firstMessageAfterLanding = null;
+                    
+                    logLines.forEach(line => {
+                        try {
+                            const logEntry = JSON.parse(line);
+                            
+                            // Check if landing was shown
+                            if (logEntry.type === 'landing_shown') {
+                                reachedLanding = true;
+                                landingShownTime = logEntry.timestamp || new Date().toISOString();
+                            }
+                            
+                            // Check if user proceeded (sent message after landing or clicked try_free)
+                            if (reachedLanding && !proceededFromLanding) {
+                                if (logEntry.type === 'callback_query' && logEntry.action === 'try_free_clicked') {
+                                    proceededFromLanding = true;
+                                    firstMessageAfterLanding = logEntry.timestamp || new Date().toISOString();
+                                } else if (logEntry.role === 'user' && logEntry.type !== 'name_provided' && 
+                                          logEntry.timestamp && landingShownTime &&
+                                          new Date(logEntry.timestamp) > new Date(landingShownTime)) {
+                                    proceededFromLanding = true;
+                                    firstMessageAfterLanding = logEntry.timestamp;
+                                }
+                            }
+                        } catch (parseError) {
+                            // Skip malformed log entries
+                        }
+                    });
+                    
+                    if (reachedLanding) {
+                        stats.totalUsersReachedLanding++;
+                        stats.landingDetails.push({
+                            chatId: chatId,
+                            userName: userData.providedName,
+                            firstName: userData.firstName,
+                            reachedAt: landingShownTime,
+                            proceeded: proceededFromLanding,
+                            proceededAt: firstMessageAfterLanding,
+                            isPaid: userData.isPaid || false
+                        });
+                        
+                        if (proceededFromLanding) {
+                            stats.totalUsersProceededFromLanding++;
+                        }
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`Error processing user file ${file}:`, error);
+        }
+    });
+
+    // Calculate conversion rate
+    if (stats.totalUsersReachedLanding > 0) {
+        stats.conversionRate = (stats.totalUsersProceededFromLanding / stats.totalUsersReachedLanding * 100).toFixed(1);
+    }
+
+    return stats;
+}
+
 function getDialogStats() {
-    const userFiles = safeReadDir(USER_DATA_DIR).filter(file => file.endsWith('.json'));
+    const userFiles = safeReadDir(USER_DATA_DIR).filter(file => file.endsWith('.json')).map(file => path.join(USER_DATA_DIR, file));
     const chatFiles = safeReadDir(CHAT_HISTORIES_DIR).filter(file => file.startsWith('chat_') && file.endsWith('.log'));
     
     let totalUsers = 0;
@@ -123,7 +208,7 @@ function getDialogStats() {
     
     // Analyze user data
     userFiles.forEach(file => {
-        const userData = safeReadJSON(path.join(USER_DATA_DIR, file));
+        const userData = safeReadJSON(file);
         if (userData) {
             totalUsers++;
             if (userData.isPaid) paidUsers++;
@@ -178,6 +263,9 @@ function getDialogStats() {
         delete dailyStats[date].users;
     });
     
+    // Calculate landing statistics
+    const landingStats = calculateLandingStats(userFiles);
+    
     return {
         totalUsers,
         activeDialogs,
@@ -188,7 +276,8 @@ function getDialogStats() {
         totalUserMessages,
         totalBotMessages,
         botDistribution,
-        dailyStats
+        dailyStats,
+        landing: landingStats
     };
 }
 
@@ -386,6 +475,48 @@ app.get('/', (req, res) => {
             font-size: 2em;
             font-weight: bold;
         }
+        .landing-stats {
+            background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+            color: white;
+            text-align: center;
+        }
+        .landing-metric {
+            display: inline-block;
+            margin: 10px 20px;
+            text-align: center;
+        }
+        .landing-number {
+            font-size: 2em;
+            font-weight: bold;
+            display: block;
+        }
+        .landing-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+        .conversion-rate {
+            font-size: 3em;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+        .landing-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .landing-table th,
+        .landing-table td {
+            padding: 8px 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+        .landing-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+        .status-proceeded { color: #28a745; font-weight: bold; }
+        .status-landing { color: #ffc107; font-weight: bold; }
+        .status-paid { color: #17a2b8; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -492,6 +623,23 @@ app.get('/', (req, res) => {
                 \`;
             }
             
+            const landingTableRows = dialogs.landing.landingDetails.map(user => {
+                const userName = user.userName || user.firstName || \`ID: \${user.chatId}\`;
+                const reachedDate = user.reachedAt ? new Date(user.reachedAt).toLocaleDateString('ru-RU') : '-';
+                const proceededDate = user.proceededAt ? new Date(user.proceededAt).toLocaleDateString('ru-RU') : '-';
+                const statusClass = user.isPaid ? 'status-paid' : (user.proceeded ? 'status-proceeded' : 'status-landing');
+                const status = user.isPaid ? '💰 Оплачено' : (user.proceeded ? '✅ Прошел дальше' : '⏳ На лендинге');
+                
+                return \`
+                    <tr>
+                        <td>\${userName}</td>
+                        <td>\${reachedDate}</td>
+                        <td>\${user.proceeded ? proceededDate : '-'}</td>
+                        <td class="\${statusClass}">\${status}</td>
+                    </tr>
+                \`;
+            }).join('');
+            
             const botDistributionHtml = Object.entries(dialogs.botDistribution).map(([bot, count]) => \`
                 <div class="metric">
                     <span>\${bot}</span>
@@ -502,6 +650,22 @@ app.get('/', (req, res) => {
             document.getElementById('content').innerHTML = \`
                 <div class="grid">
                     \${costCards}
+                    
+                    <div class="card landing-stats">
+                        <h3>🎯 Аналитика лендинга</h3>
+                        <div class="conversion-rate">\${dialogs.landing.conversionRate}%</div>
+                        <div style="margin-bottom: 20px;">Конверсия лендинга</div>
+                        
+                        <div class="landing-metric">
+                            <span class="landing-number">\${dialogs.landing.totalUsersReachedLanding}</span>
+                            <span class="landing-label">Дошли до лендинга</span>
+                        </div>
+                        
+                        <div class="landing-metric">
+                            <span class="landing-number">\${dialogs.landing.totalUsersProceededFromLanding}</span>
+                            <span class="landing-label">Прошли дальше</span>
+                        </div>
+                    </div>
                     
                     <div class="card">
                         <h3>👥 Dialog Statistics</h3>
@@ -551,6 +715,23 @@ app.get('/', (req, res) => {
                         <h3>🤖 Users by Bot</h3>
                         \${botDistributionHtml || '<p style="color: #666;">No data available</p>'}
                     </div>
+                </div>
+                
+                <div class="card">
+                    <h3>📊 Детализация лендинга</h3>
+                    <table class="landing-table">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Дошел до лендинга</th>
+                                <th>Прошел дальше</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            \${landingTableRows || '<tr><td colspan="4" style="text-align: center; color: #666;">Нет данных</td></tr>'}
+                        </tbody>
+                    </table>
                 </div>
                 
                 <div class="card">
