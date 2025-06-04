@@ -100,6 +100,9 @@ bot.getMe().then(me => {
 
 // --- Load System Prompt ---
 let systemPromptContent = 'You are a helpful assistant.';
+let landingContent = null;
+let landingButtons = null;
+
 try {
     const promptPath = path.join(__dirname, `.env.${NAMEPROMPT}_prompt`);
     if (fs.existsSync(promptPath)) {
@@ -112,6 +115,27 @@ try {
 
     if (!systemPromptContent) {
         throw new Error('Системный промпт пуст или не определен после загрузки.');
+    }
+
+    // Load landing page content if exists
+    const landingPath = path.join(__dirname, `.env.${NAMEPROMPT}_landing`);
+    if (fs.existsSync(landingPath)) {
+        const rawLandingContent = fs.readFileSync(landingPath, 'utf8').trim();
+        console.log(`Лендинг контент загружен из ${landingPath}`);
+        
+        // Parse buttons from content
+        const buttonMatch = rawLandingContent.match(/\[([^/]+)\s*\/\s*([^\]]+)\]/);
+        if (buttonMatch) {
+            landingContent = rawLandingContent.replace(/\[([^/]+)\s*\/\s*([^\]]+)\]/, '').trim();
+            landingButtons = {
+                button1: buttonMatch[1].trim(),
+                button2: buttonMatch[2].trim()
+            };
+            console.log(`Обнаружены кнопки лендинга: "${landingButtons.button1}" / "${landingButtons.button2}"`);
+        } else {
+            landingContent = rawLandingContent;
+            console.log('Лендинг загружен без кнопок');
+        }
     }
 } catch (error) {
     console.error('Ошибка загрузки системного промпта:', error);
@@ -181,22 +205,39 @@ async function checkPaymentStatusAndPrompt(chatId) {
             .replace('{NAMEPROMPT}', NAMEPROMPT)
             .replace('{chatid}', chatId.toString());
 
-        const messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ. Подсчет КБЖУ это 100% способ стать здоровее и улучшить свою или жизнь ребенка. Продолжим? 👍`);
+        let messageText, replyMarkup;
+
+        // Use landing content if available, otherwise use default
+        if (landingContent && landingButtons) {
+            messageText = escapeMarkdown(landingContent);
+            replyMarkup = {
+                inline_keyboard: [
+                    [
+                        { text: landingButtons.button1, url: paymentUrl },
+                        { text: landingButtons.button2, callback_data: `try_free_${chatId}` }
+                    ]
+                ]
+            };
+        } else {
+            messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ. Подсчет КБЖУ это 100% способ стать здоровее и улучшить свою или жизнь ребенка. Продолжим? 👍`);
+            replyMarkup = {
+                inline_keyboard: [
+                    [{ text: "Оплатить доступ", url: paymentUrl }]
+                ]
+            };
+        }
         
         try {
             await bot.sendMessage(chatId, messageText, {
                 parse_mode: 'MarkdownV2',
-                reply_markup: {
-                    inline_keyboard: [
-                        [{ text: "Оплатить доступ", url: paymentUrl }]
-                    ]
-                }
+                reply_markup: replyMarkup
             });
             logChat(chatId, {
                 event: 'payment_prompted',
                 limit: reloadedConfig.FREE_MESSAGE_LIMIT,
                 current_count: userMessageCount,
-                url: paymentUrl
+                url: paymentUrl,
+                used_landing: Boolean(landingContent)
             }, 'system');
         } catch (error) {
             console.error(`Error sending payment prompt to ${chatId}:`, error);
@@ -478,6 +519,66 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
     }
 });
 
+// Add /clear command to delete profile and chat history
+bot.onText(/\/clear/, async (msg) => {
+    const chatId = msg.chat.id;
+    if (!validateChatId(chatId)) {
+        console.error(`Некорректный chat ID в /clear: ${msg.chat.id}`);
+        return;
+    }
+    
+    console.info(`[Clear ${chatId}] Получена команда /clear.`);
+    
+    try {
+        const userFilePath = path.join(USER_DATA_DIR, `${chatId}.json`);
+        const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${chatId}.log`);
+        
+        let deletedFiles = [];
+        
+        // Delete user data file
+        if (fs.existsSync(userFilePath)) {
+            try {
+                fs.unlinkSync(userFilePath);
+                deletedFiles.push('профиль пользователя');
+                console.info(`[Clear ${chatId}] Файл данных пользователя удален.`);
+            } catch (error) {
+                console.error(`[Clear ${chatId}] Ошибка удаления файла данных пользователя:`, error);
+            }
+        }
+        
+        // Delete chat history
+        if (fs.existsSync(chatLogPath)) {
+            try {
+                fs.unlinkSync(chatLogPath);
+                deletedFiles.push('история сообщений');
+                console.info(`[Clear ${chatId}] Лог чата удален.`);
+            } catch (error) {
+                console.error(`[Clear ${chatId}] Ошибка удаления лога чата:`, error);
+            }
+        }
+        
+        // Log the clear action
+        logChat(chatId, {
+            type: 'system_event',
+            event: 'clear_command',
+            deleted_files: deletedFiles,
+            timestamp: new Date(msg.date * 1000).toISOString()
+        }, 'system');
+        
+        if (deletedFiles.length > 0) {
+            const deletedText = deletedFiles.join(' и ');
+            await bot.sendMessage(chatId, `✅ Удалено: ${deletedText}.\n\nДля продолжения работы используйте команду /start`);
+        } else {
+            await bot.sendMessage(chatId, 'Нет данных для удаления.\n\nДля начала работы используйте команду /start');
+        }
+        
+        console.info(`[Clear ${chatId}] Команда /clear успешно выполнена.`);
+    } catch (error) {
+        console.error(`[Clear ${chatId}] Критическая ошибка при обработке /clear:`, error);
+        await sendErrorMessage(chatId, error.message, 'очистки данных');
+    }
+});
+
 bot.on('message', async (msg) => {
     const chatId = msg.chat.id;
     if ((msg.chat.type === 'group' || msg.chat.type === 'supergroup') && !msg.text?.includes(`@${BOT_USERNAME}`)) {
@@ -488,7 +589,7 @@ bot.on('message', async (msg) => {
         console.error(`Некорректный chat ID в обработчике сообщений: ${msg.chat.id}`);
         return;
     }
-    if (msg.photo || msg.voice || (msg.text && msg.text.startsWith('/start'))) {
+    if (msg.photo || msg.voice || (msg.text && (msg.text.startsWith('/start') || msg.text.startsWith('/clear') || msg.text.startsWith('/cost')))) {
         return;
     }
     if (!msg.text) {
@@ -564,12 +665,50 @@ bot.on('message', async (msg) => {
                 console.error(`[Сообщение ${chatId}] Не удалось обновить данные пользователя с именем:`, err);
             }
 
-            const llmInputTextForName = newDayPrefix + `Пользователь только что сказал мне, что его зовут "${userText}". Подтверди это и продолжи разговор естественно.`;
-            const assistantResponse = await callLLM(chatId, [{
-                type: 'input_text',
-                text: llmInputTextForName
-            }]);
-            await sendAndLogResponse(chatId, assistantResponse);
+            // Show landing page if available, otherwise use LLM response
+            if (landingContent) {
+                let messageText = escapeMarkdown(landingContent);
+                let replyMarkup = null;
+
+                if (landingButtons) {
+                    const paymentUrl = PAYMENT_URL_TEMPLATE
+                        .replace('{NAMEPROMPT}', NAMEPROMPT)
+                        .replace('{chatid}', chatId.toString());
+                    
+                    replyMarkup = {
+                        inline_keyboard: [
+                            [
+                                { text: landingButtons.button1, url: paymentUrl },
+                                { text: landingButtons.button2, callback_data: `try_free_${chatId}` }
+                            ]
+                        ]
+                    };
+                }
+
+                try {
+                    await bot.sendMessage(chatId, messageText, {
+                        parse_mode: 'MarkdownV2',
+                        reply_markup: replyMarkup
+                    });
+                    logChat(chatId, {
+                        type: 'landing_shown',
+                        trigger: 'after_name_provided',
+                        has_buttons: Boolean(landingButtons)
+                    }, 'system');
+                } catch (error) {
+                    console.error(`Error sending landing message to ${chatId}:`, error);
+                    // Fallback to plain text
+                    await bot.sendMessage(chatId, landingContent);
+                }
+            } else {
+                // Use LLM response as before
+                const llmInputTextForName = newDayPrefix + `Пользователь только что сказал мне, что его зовут "${userText}". Подтверди это и продолжи разговор естественно.`;
+                const assistantResponse = await callLLM(chatId, [{
+                    type: 'input_text',
+                    text: llmInputTextForName
+                }]);
+                await sendAndLogResponse(chatId, assistantResponse);
+            }
             return;
         }
 
@@ -785,3 +924,31 @@ if (costTracker) {
         }
     });
 }
+
+// Handle callback queries for landing buttons
+bot.on('callback_query', async (query) => {
+    const chatId = query.message.chat.id;
+    const data = query.data;
+
+    try {
+        await bot.answerCallbackQuery(query.id);
+
+        if (data.startsWith('try_free_')) {
+            // Handle "try free" button - send the button text back to the bot
+            if (landingButtons && landingButtons.button2) {
+                logChat(chatId, {
+                    type: 'callback_query',
+                    action: 'try_free_clicked',
+                    button_text: landingButtons.button2
+                }, 'system');
+
+                // Process the button text as if user sent it
+                const userMessageContent = [{ type: 'input_text', text: landingButtons.button2 }];
+                const assistantText = await callLLM(chatId, userMessageContent);
+                await sendAndLogResponse(chatId, assistantText);
+            }
+        }
+    } catch (error) {
+        console.error(`Error handling callback query from ${chatId}:`, error);
+    }
+});
