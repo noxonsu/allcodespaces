@@ -84,6 +84,7 @@ const openaiApiKey = process.env.OPENAI_API_KEY;
 const deepseekApiKey = process.env.DEEPSEEK_API_KEY;
 const ACTIVATION_CODE = process.env.ACTIVATION_CODE; // e.g., "KEY-SOMEKEY123"
 const PAYMENT_URL_TEMPLATE = process.env.PAYMENT_URL_TEMPLATE || 'https://noxon.wpmix.net/counter.php?tome=1&msg={NAMEPROMPT}_{chatid}&cal=1';
+const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID; // Admin chat ID for forwarding landing page messages
 
 if (!openaiApiKey && !deepseekApiKey) {
     console.error(`Ошибка: Ни OPENAI_API_KEY, ни DEEPSEEK_API_KEY не определены в файле .env.${NAMEPROMPT}`);
@@ -149,6 +150,27 @@ if (deepseekApiKey) setDeepSeekKey(deepseekApiKey);
 if (process.env.MODEL) setModel(process.env.MODEL);
 
 // --- Helper Functions ---
+
+async function forwardToAdmin(chatId, userText, userData) {
+    if (!ADMIN_TELEGRAM_ID) return;
+    
+    try {
+        const userName = userData.providedName || userData.firstName || userData.username || 'Unknown';
+        const adminMessage = `📨 Сообщение с лендинга от ${userName} (ID: ${chatId}):\n\n${userText}`;
+        
+        await bot.sendMessage(ADMIN_TELEGRAM_ID, adminMessage);
+        console.info(`[Admin Forward] Message from ${chatId} forwarded to admin ${ADMIN_TELEGRAM_ID}`);
+        
+        logChat(chatId, {
+            type: 'admin_forward',
+            admin_id: ADMIN_TELEGRAM_ID,
+            message_length: userText.length,
+            user_name: userName
+        }, 'system');
+    } catch (error) {
+        console.error(`[Admin Forward] Error forwarding message from ${chatId} to admin:`, error);
+    }
+}
 
 async function handleNewDayLogicAndUpdateTimestamp(chatId) {
     const userData = loadUserData(chatId); // Load fresh data each time
@@ -695,6 +717,15 @@ bot.on('message', async (msg) => {
                         trigger: 'after_name_provided',
                         has_buttons: Boolean(landingButtons)
                     }, 'system');
+                    
+                    // Mark user as being on landing page for message forwarding
+                    try {
+                        const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+                        userData.isOnLandingPage = true;
+                        fs.writeFileSync(userDataPath, JSON.stringify(userData, null, 2));
+                    } catch (err) {
+                        console.error(`[Сообщение ${chatId}] Не удалось отметить пользователя на лендинге:`, err);
+                    }
                 } catch (error) {
                     console.error(`Error sending landing message to ${chatId}:`, error);
                     // Fallback to plain text
@@ -710,6 +741,21 @@ bot.on('message', async (msg) => {
                 await sendAndLogResponse(chatId, assistantResponse);
             }
             return;
+        }
+
+        // Check if user is on landing page and forward message to admin
+        let userData = null;
+        try {
+            userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+            if (userData.isOnLandingPage) {
+                await forwardToAdmin(chatId, userText, userData);
+                
+                // Mark user as no longer on landing page after first message
+                userData.isOnLandingPage = false;
+                fs.writeFileSync(userDataPath, JSON.stringify(userData, null, 2));
+            }
+        } catch (err) {
+            console.error(`[Сообщение ${chatId}] Ошибка проверки статуса лендинга:`, err);
         }
 
         const llmInputTextRegular = newDayPrefix + userText;
@@ -934,13 +980,73 @@ bot.on('callback_query', async (query) => {
         await bot.answerCallbackQuery(query.id);
 
         if (data.startsWith('try_free_')) {
-            // Handle "try free" button - send the button text back to the bot
+            // Handle "try free" button - change button text to "Загрузка..." for 10 seconds
             if (landingButtons && landingButtons.button2) {
+                const paymentUrl = PAYMENT_URL_TEMPLATE
+                    .replace('{NAMEPROMPT}', NAMEPROMPT)
+                    .replace('{chatid}', chatId.toString());
+
+                // Update the button text to show loading state
+                try {
+                    const loadingReplyMarkup = {
+                        inline_keyboard: [
+                            [
+                                { text: landingButtons.button1, url: paymentUrl },
+                                { text: "Загрузка...", callback_data: `loading_${chatId}` }
+                            ]
+                        ]
+                    };
+
+                    await bot.editMessageReplyMarkup(loadingReplyMarkup, {
+                        chat_id: chatId,
+                        message_id: query.message.message_id
+                    });
+                    console.info(`[Callback ${chatId}] Try free button changed to "Загрузка..."`);
+                } catch (editError) {
+                    console.warn(`[Callback ${chatId}] Could not update button text:`, editError.message);
+                }
+
+                // Restore original button text after 10 seconds
+                setTimeout(async () => {
+                    try {
+                        const originalReplyMarkup = {
+                            inline_keyboard: [
+                                [
+                                    { text: landingButtons.button1, url: paymentUrl },
+                                    { text: landingButtons.button2, callback_data: `try_free_${chatId}` }
+                                ]
+                            ]
+                        };
+
+                        await bot.editMessageReplyMarkup(originalReplyMarkup, {
+                            chat_id: chatId,
+                            message_id: query.message.message_id
+                        });
+                        console.info(`[Callback ${chatId}] Button text restored to original after 10 seconds`);
+                    } catch (restoreError) {
+                        console.warn(`[Callback ${chatId}] Could not restore button text:`, restoreError.message);
+                    }
+                }, 10000);
+
                 logChat(chatId, {
                     type: 'callback_query',
                     action: 'try_free_clicked',
-                    button_text: landingButtons.button2
+                    button_text: landingButtons.button2,
+                    button_updated_to_loading: true,
+                    restore_after_seconds: 10
                 }, 'system');
+
+                // Mark user as no longer on landing page after clicking try free
+                try {
+                    const userDataPath = path.join(USER_DATA_DIR, `${chatId}.json`);
+                    if (fs.existsSync(userDataPath)) {
+                        const userData = JSON.parse(fs.readFileSync(userDataPath, 'utf8'));
+                        userData.isOnLandingPage = false;
+                        fs.writeFileSync(userDataPath, JSON.stringify(userData, null, 2));
+                    }
+                } catch (err) {
+                    console.error(`[Callback ${chatId}] Не удалось обновить статус лендинга:`, err);
+                }
 
                 // Process the button text as if user sent it
                 const userMessageContent = [{ type: 'input_text', text: landingButtons.button2 }];
