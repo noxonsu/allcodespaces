@@ -6,6 +6,24 @@ import ScanQrModal from './ScanQrModal';
 const API_BASE_URL_RAW = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 const API_BASE_URL = API_BASE_URL_RAW.endsWith('/') ? API_BASE_URL_RAW.slice(0, -1) : API_BASE_URL_RAW;
 
+let SERVER_ROOT_URL = '';
+try {
+  const apiUrl = new URL(API_BASE_URL_RAW);
+  SERVER_ROOT_URL = `${apiUrl.protocol}//${apiUrl.host}`;
+} catch (error) {
+  console.error("Failed to parse API_BASE_URL_RAW to derive SERVER_ROOT_URL:", API_BASE_URL_RAW, error);
+  // Fallback for environments where new URL() might fail or if API_BASE_URL_RAW is not a full URL.
+  // This basic fallback assumes http/https and a simple domain structure.
+  const parts = API_BASE_URL_RAW.split('/');
+  if (API_BASE_URL_RAW.startsWith("http") && parts.length >= 3) {
+    SERVER_ROOT_URL = `${parts[0]}//${parts[2]}`;
+  } else {
+    // If it's a relative path or unexpected format, this might not be correct.
+    // Defaulting to localhost:8000 as a last resort if parsing fails badly.
+    console.warn("Could not reliably determine SERVER_ROOT_URL, defaulting to http://localhost:8000");
+    SERVER_ROOT_URL = 'http://localhost:8000';
+  }
+}
 
 interface MenuItem {
   id: string; // Changed from number
@@ -259,7 +277,7 @@ const ClientAppPage: React.FC = () => {
           {menuItems.map((item: MenuItem) => (
             <div key={item.id} className="product-card">
               <div className="product-image-container">
-                {item.image_filename && <img src={`${API_BASE_URL}${item.image_filename.startsWith('/') ? item.image_filename : `/${item.image_filename}`}`} alt={item.name} className="product-image" />}
+                {item.image_filename && <img src={`${SERVER_ROOT_URL}/uploads/menu_images/${item.image_filename}`} alt={item.name} className="product-image" />}
                 {!item.image_filename && <div className="product-image-placeholder">Image not available</div>}
                 <div className="image-gradient-overlay"></div>
                 <div className="product-name">{item.name}</div>

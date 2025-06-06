@@ -340,7 +340,11 @@ def create_order(order_in: schemas.OrderCreate) -> models_db.OrderInDB:
         "location_id": loc_id_str,
         "spot": order_in.spot,
         "telegram_user_id": order_in.telegram_user_id,
-        "items": [item.model_dump() for item in order_in.items], # Pydantic v2
+        "items": [
+            # Explicitly convert UUID to string for JSON serialization
+            {**item.model_dump(), "menu_item_id": str(item.menu_item_id)}
+            for item in order_in.items
+        ],
         "total_amount": order_in.total_amount,
         "status": order_in.status,
         "created_at": now_iso,

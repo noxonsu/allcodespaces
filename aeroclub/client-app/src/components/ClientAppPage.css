@@ -47,6 +47,7 @@
   position: relative; /* For absolute positioning of overlay and name */
   border-radius: 16px 16px 0 0; /* Match top corners of card */
   overflow: hidden; /* Ensure image respects border radius */
+  margin-bottom: 8px; /* Add space between image and controls */
 }
 
 .product-image {
@@ -101,9 +102,10 @@
   display: flex;
   justify-content: space-between; /* Distribute items */
   align-items: center;
-  padding: 10px 12px; /* Figma: y:184. Card height 232. Image height 174. Controls height 36. 232-174-36 = 22 total vertical padding. 10px top, 12px bottom approx. x:12 for horizontal padding. */
+  padding: 0 12px; /* Removed top/bottom padding, now handled by margin on image and card flex layout */
   height: 36px; /* Figma */
   box-sizing: border-box;
+  flex-shrink: 0; /* Prevent controls from shrinking */
 }
 
 .product-controls button {
