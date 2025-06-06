@@ -242,15 +242,55 @@ const ClientAppPage: React.FC = () => {
 
   const handleQrScan = (scannedData: string | null) => {
     if (scannedData) {
-      const scannedNumberId = parseInt(scannedData, 10);
-      if (scannedNumberId === locationNumberId) {
-        alert("QR Code matched! Order confirmed.");
+      // Parse the scanned data to extract the number after startapp=
+      let scannedNumberId: number | null = null;
+      
+      if (scannedData.includes('startapp=')) {
+        // Extract everything after 'startapp='
+        const startappIndex = scannedData.indexOf('startapp=');
+        const afterStartapp = scannedData.substring(startappIndex + 'startapp='.length);
+        // Get the number part (until next & or end of string)
+        const numberPart = afterStartapp.split('&')[0];
+        const parsed = parseInt(numberPart, 10);
+        if (!isNaN(parsed)) {
+          scannedNumberId = parsed;
+        }
+      } else {
+        // Fallback: try to parse the entire scanned data as number
+        const parsed = parseInt(scannedData, 10);
+        if (!isNaN(parsed)) {
+          scannedNumberId = parsed;
+        }
+      }
+      
+      if (scannedNumberId !== null && scannedNumberId === locationNumberId) {
+        // Send confirmation to backend if needed
+        fetch(`${API_BASE_URL}/orders/confirm`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            location_id: locationId,
+            scanned_location_id: scannedNumberId
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log("Order confirmation sent:", data);
+          alert("QR Code matched! Order confirmed.");
+        })
+        .catch(error => {
+          console.error("Error confirming order:", error);
+          alert("QR Code matched but confirmation failed.");
+        });
+        
         setIsScanModalOpen(false);
-        // Reset quantities or navigate away
-        const resetQuantities = menuItems.reduce((acc: Record<string, number>, item: MenuItem) => { // Record key type is string
-            acc[item.id] = 0; // item.id is string
+        // Reset quantities
+        const resetQuantities = menuItems.reduce((acc: Record<string, number>, item: MenuItem) => {
+            acc[item.id] = 0;
             return acc;
-          }, {} as Record<string, number>); // Record key type is string
+          }, {} as Record<string, number>);
         setQuantities(resetQuantities);
       } else {
         alert(`QR Code mismatch. Expected ${locationNumberId}, but got ${scannedNumberId}.`);
