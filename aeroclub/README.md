@@ -1,8 +1,8 @@
-# Aeroclub Project
+# Проект Аэроклуб
 
-This project consists of a React frontend application (`aeroclub-app`) and a FastAPI backend application (`backend`).
+Этот проект состоит из React frontend приложения (`aeroclub-app`) и FastAPI backend приложения (`backend`).
 
-## Project Structure
+## Структура проекта
 
 ```
 aeroclub/
@@ -13,7 +13,7 @@ aeroclub/
 │   │   ├── App.tsx
 │   │   └── index.tsx
 │   ├── package.json
-│   └── README.md   # Frontend specific README
+│   └── README.md   # README для frontend
 └── backend/        # FastAPI Backend
     ├── app/
     │   ├── api/
@@ -27,118 +27,153 @@ aeroclub/
     ├── tests/
     ├── .env
     ├── requirements.txt
-    └── README.md   # Backend specific README
+    └── README.md   # README для backend
 ```
 
 ## Frontend (aeroclub-app)
 
-The frontend is a React application built with Create React App and TypeScript.
+Frontend - это React приложение, созданное с помощью Create React App и TypeScript.
 
-### Key Features:
-*   **Login Page**: Allows admin users to log in.
-*   **Admin Page**: Provides a dashboard for managing:
-    *   Users (creation, viewing - full list functionality pending backend endpoint)
-    *   Menu Items (uploading new drinks, editing existing ones - backend integration pending)
-    *   Orders (viewing current orders - backend integration pending)
-    *   Scaling/Locations (managing locations, generating QR codes - backend integration pending)
-*   **Client App Page**: (Placeholder for client-facing application)
+### Основные функции:
+*   **Страница входа**: Позволяет администраторам войти в систему.
+*   **Страница администратора**: Предоставляет панель управления для:
+    *   Пользователей (создание, просмотр - полный функционал списка ожидает endpoint на backend)
+    *   Пунктов меню (загрузка новых напитков, редактирование существующих - ожидается интеграция с backend)
+    *   Заказов (просмотр текущих заказов - ожидается интеграция с backend)
+    *   Масштабирование/Локации (управление локациями, генерация QR-кодов - ожидается интеграция с backend)
+*   **Страница клиентского приложения**: (Заготовка для клиентского приложения)
 
-### Setup and Running:
+### Установка и запуск:
 
-1.  **Navigate to the frontend directory:**
+1.  **Перейдите в директорию frontend:**
     ```bash
     cd aeroclub/aeroclub-app
     ```
-2.  **Install dependencies:**
+2.  **Установите зависимости:**
     ```bash
     npm install
     ```
-3.  **Start the development server:**
+3.  **Запустите сервер разработки:**
     ```bash
     npm start
     ```
-    The application will typically be available at `http://localhost:3000`.
+    Приложение будет доступно по адресу `http://localhost:3000`.
 
-### Backend API Interaction:
-*   The Login page (`src/components/LoginPage.tsx`) interacts with the backend's `/api/v1/auth/token` endpoint for authentication.
-*   The Admin page (`src/components/AdminPage.tsx`) is set up to:
-    *   Fetch user information (currently uses `/api/v1/users/me/` as a placeholder for the current user, a full user list endpoint `GET /api/v1/users/` would be needed).
-    *   Create new users via `POST /api/v1/users/`.
-*   Other Admin page functionalities (menu, orders, locations) have UI elements but require further backend API integration. The backend API base URL is hardcoded as `http://localhost:8000`.
+### Взаимодействие с Backend API:
+*   Страница входа (`src/components/LoginPage.tsx`) взаимодействует с endpoint `/api/v1/auth/token` backend для аутентификации.
+*   Страница администратора (`src/components/AdminPage.tsx`) настроена для:
+    *   Получения информации о пользователях (сейчас использует `/api/v1/users/me/` как заглушку для текущего пользователя, нужен полный endpoint списка пользователей `GET /api/v1/users/`).
+    *   Создания новых пользователей через `POST /api/v1/users/`.
+*   Другие функции страницы администратора (меню, заказы, локации) имеют элементы UI, но требуют дальнейшей интеграции с backend API. Базовый URL backend API жестко задан как `http://localhost:8000`.
 
 ## Backend (backend)
 
-The backend is a FastAPI application.
+Backend - это FastAPI приложение.
 
-### Key Features:
-*   **Authentication**: JWT-based token authentication (`/api/v1/auth/token`).
-*   **User Management**:
-    *   Create users (`POST /api/v1/users/`) - admin protected.
-    *   Get current user (`GET /api/v1/users/me/`).
-    *   Initial admin user setup (`POST /api/v1/auth/setup-admin`).
-*   **API Endpoints**: Organized under `/api/v1/` for various resources (locations, menu items, orders - further implementation details in `backend/app/api/v1/endpoints/`).
-*   **CORS Enabled**: Allows requests from all origins (`*`) for development.
-*   **Static File Serving**: Serves uploaded files from `/uploads`.
+### Основные функции:
+*   **Аутентификация**: JWT-токен аутентификация (`/api/v1/auth/token`).
+*   **Управление пользователями**:
+    *   Создание пользователей (`POST /api/v1/users/`) - защищено для администратора.
+    *   Получение текущего пользователя (`GET /api/v1/users/me/`).
+    *   Первоначальная настройка администратора (`POST /api/v1/auth/setup-admin`).
+*   **API Endpoints**: Организованы под `/api/v1/` для различных ресурсов (локации, пункты меню, заказы - подробности реализации в `backend/app/api/v1/endpoints/`).
+*   **CORS включен**: Разрешает запросы со всех источников (`*`) для разработки.
+*   **Обслуживание статических файлов**: Обслуживает загруженные файлы из `/uploads`.
 
-### Setup and Running:
+### Установка и запуск:
 
-1.  **Navigate to the backend directory:**
+1.  **Перейдите в директорию backend:**
     ```bash
     cd aeroclub/backend
     ```
-2.  **Create a virtual environment (recommended):**
+2.  **Создайте виртуальное окружение (рекомендуется):**
     ```bash
     python -m venv venv
-    source venv/bin/activate  # On Windows: venv\Scripts\activate
+    source venv/bin/activate  # На Windows: venv\Scripts\activate
     ```
-3.  **Install dependencies:**
+3.  **Установите зависимости:**
     ```bash
     pip install -r requirements.txt
     ```
-4.  **Configure environment variables:**
-    Create a `.env` file in the `aeroclub/backend` directory by copying `.env.example` (if one exists) or by creating it manually.
-    It should contain at least:
+4.  **Настройте переменные окружения:**
+    Создайте файл `.env` в директории `aeroclub/backend`, скопировав `.env.example` (если существует) или создав его вручную.
+    Он должен содержать как минимум:
     ```env
-    SECRET_KEY=your_strong_secret_key
+    SECRET_KEY=ваш_секретный_ключ
     ACCESS_TOKEN_EXPIRE_MINUTES=30
-    ADMIN_USERNAME=your_admin_login
-    ADMIN_PASSWORD=your_admin_password
-    # Optional:
-    # TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-    # TELEGRAM_CHAT_ID=your_telegram_chat_id
+    ADMIN_USERNAME=ваш_админ_логин
+    ADMIN_PASSWORD=ваш_админ_пароль
+    # Опционально:
+    # TELEGRAM_BOT_TOKEN=токен_вашего_телеграм_бота
+    # TELEGRAM_CHAT_ID=id_вашего_телеграм_чата
     ```
-5.  **Run the development server:**
+5.  **Запустите сервер разработки:**
     ```bash
     uvicorn app.main:app --reload
     ```
-    The API will typically be available at `http://localhost:8000`. API documentation can be found at `http://localhost:8000/docs` and `http://localhost:8000/redoc`.
+    API будет доступно по адресу `http://localhost:8000`. Документация API находится по адресам `http://localhost:8000/docs` и `http://localhost:8000/redoc`.
 
-## Connecting Frontend to Backend
+## Подключение Frontend к Backend
 
-*   The frontend expects the backend API to be running on `http://localhost:8000`.
-*   The backend is configured with CORS to allow requests from `http://localhost:3000` (and other common development ports, or `*` for wide open access during development).
-*   The `LoginPage.tsx` component in the frontend makes a `POST` request to `http://localhost:8000/api/v1/auth/token` to authenticate.
-*   The `AdminPage.tsx` component in the frontend makes requests to:
-    *   `http://localhost:8000/api/v1/users/` for creating users.
-    *   `http://localhost:8000/api/v1/users/me/` to fetch current user data (as a placeholder for a full user list).
+*   Frontend ожидает, что backend API работает на `http://localhost:8000`.
+*   Backend настроен с CORS для разрешения запросов с `http://localhost:3000` (и других распространенных портов разработки, или `*` для открытого доступа во время разработки).
+*   Компонент `LoginPage.tsx` во frontend делает `POST` запрос к `http://localhost:8000/api/v1/auth/token` для аутентификации.
+*   Компонент `AdminPage.tsx` во frontend делает запросы к:
+    *   `POST http://localhost:8000/api/v1/users/` для создания пользователей.
+    *   `GET http://localhost:8000/api/v1/users/me/` для получения данных текущего пользователя (как заглушка для полного списка пользователей, в то время как `GET /api/v1/users/` ожидается для получения полного списка пользователей).
+*   Для раздела **Заказы** в `AdminPage.tsx`, можно начать интеграцию со следующими эндпоинтами backend:
+    *   `GET http://localhost:8000/api/v1/orders/` для получения списка заказов (требует аутентификации).
+    *   `GET http://localhost:8000/api/v1/orders/{order_id}` для получения конкретного заказа (требует аутентификации).
+    *   `PUT http://localhost:8000/api/v1/orders/{order_id}/status` для обновления статуса заказа (требует аутентификации администратора).
+    *   `POST http://localhost:8000/api/v1/orders/` для создания новых заказов (текущая реализация не требует аутентификации, так как рассчитана на Telegram бота; для использования администратором может потребоваться доработка или отдельный эндпоинт/проверка прав).
 
-## Further Development & TODOs
+## Дальнейшая разработка и задачи
 
 ### Frontend:
-*   Implement API calls for all CRUD operations in the Admin Page (Menu, Orders, Locations).
-*   Replace mock data with data fetched from the backend for all sections.
-*   Implement proper error handling and loading states for all API interactions.
-*   Develop the Client App page.
-*   Add functionality for editing and deleting users.
-*   Secure admin routes, ensuring only authenticated users can access them.
-*   Implement logout functionality.
+*   Реализовать API вызовы для всех CRUD операций на странице администратора:
+    *   **Заказы**: Интегрировать просмотр списка заказов (`GET /api/v1/orders/`), просмотр деталей заказа (`GET /api/v1/orders/{order_id}`) и обновление статуса заказа (`PUT /api/v1/orders/{order_id}/status`). Рассмотреть создание заказов (`POST /api/v1/orders/`) с учетом текущей логики аутентификации эндпоинта.
+    *   **Меню**: Интегрировать CRUD операции.
+    *   **Локации**: Интегрировать CRUD операции.
+*   Заменить mock данные на данные, получаемые с backend для всех разделов.
+*   Реализовать правильную обработку ошибок и состояний загрузки для всех API взаимодействий.
+*   Разработать страницу клиентского приложения.
+*   Добавить функциональность редактирования и удаления пользователей.
+*   Защитить маршруты администратора, обеспечив доступ только аутентифицированным пользователям.
+*   Реализовать функциональность выхода из системы.
 
 ### Backend:
-*   Implement `GET /api/v1/users/` to retrieve a list of all users (admin protected).
-*   Implement `PUT /api/v1/users/{user_id}` and `DELETE /api/v1/users/{user_id}` for user management.
-*   Fully implement CRUD operations for `locations`, `menu_items`, and `orders` endpoints.
-*   Enhance database interactions (currently JSON files, consider a more robust database like PostgreSQL or SQLite for production).
-*   Add more comprehensive tests.
-*   Refine security, especially for production (e.g., more specific CORS origins).
+*   Реализовать `GET /api/v1/users/` для получения списка всех пользователей (защищено для администратора).
+*   Реализовать `PUT /api/v1/users/{user_id}` и `DELETE /api/v1/users/{user_id}` для управления пользователями.
+*   Полностью реализовать CRUD операции для endpoints `locations` и `menu_items`. Эндпоинты для `orders` частично реализованы и готовы к интеграции (см. задачи Frontend).
+*   Рассмотреть необходимость аутентификации для `POST /api/v1/orders/` при использовании из админ-панели.
+*   Улучшить взаимодействие с базой данных (сейчас JSON файлы, рассмотреть более надежную базу данных как PostgreSQL или SQLite для продакшена).
+*   Добавить более комплексные тесты.
+*   Улучшить безопасность, особенно для продакшена (например, более специфичные CORS источники).
 
-This `README.md` provides a general overview. For more specific details, refer to the `README.md` files within the `aeroclub-app` and `backend` directories.
+Этот `README.md` предоставляет общий обзор. Для более конкретных деталей обратитесь к файлам `README.md` в директориях `aeroclub-app` и `backend`.
+
+## Быстрый запуск
+
+Для запуска проекта выполните следующие команды:
+
+### Запуск Backend:
+```bash
+cd aeroclub/backend
+python -m venv venv
+source venv/bin/activate  # На Windows: venv\Scripts\activate
+pip install -r requirements.txt
+# Создайте файл .env с необходимыми переменными
+uvicorn app.main:app --reload
+```
+
+### Запуск Frontend:
+```bash
+cd aeroclub/aeroclub-app
+npm install
+npm start
+```
+
+После запуска:
+- Backend будет доступен на `http://localhost:8000`
+- Frontend будет доступен на `http://localhost:3000`
+- API документация: `http://localhost:8000/docs`

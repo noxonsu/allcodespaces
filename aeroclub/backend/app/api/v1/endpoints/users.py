@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from typing import List
 
 from app import schemas, crud, models_db
 from app.api.v1 import deps
@@ -34,3 +35,15 @@ async def read_users_me(
     """
     # Convert UserInDB (TypedDict) to User (Pydantic model) for response
     return schemas.User(id=current_user["id"], login=current_user["login"])
+
+
+@router.get("/", response_model=List[schemas.User])
+async def read_users(
+    current_admin: models_db.UserInDB = Depends(deps.get_current_admin_user) # Ensures only admin can access
+):
+    """
+    Retrieve all users. Only accessible by admin users.
+    """
+    users_db = crud.get_users()
+    # Convert List[UserInDB] (TypedDict) to List[User] (Pydantic model) for response
+    return [schemas.User(id=user["id"], login=user["login"]) for user in users_db]

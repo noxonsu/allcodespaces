@@ -108,6 +108,10 @@ def create_user(user_in: schemas.UserCreate) -> models_db.UserInDB:
     write_main_db(db)
     return new_user
 
+def get_users() -> List[models_db.UserInDB]:
+    db = read_main_db()
+    return db["users"]
+
 # --- Location CRUD ---
 def get_locations() -> List[models_db.LocationInDB]:
     db = read_main_db()

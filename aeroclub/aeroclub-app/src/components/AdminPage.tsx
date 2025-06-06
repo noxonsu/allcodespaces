@@ -9,6 +9,8 @@ import { UserIcon, EditMenuIcon, OrdersIcon, ScalingGridIcon } from './icons';
 import { LogoIcon } from './LogoIcon';
 
 // Helper function
+// import { v4 as uuidv4 } from 'uuid'; // Not needed for User interface from backend
+
 const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number }): string => {
   const { r, g, b, a = 1 } = color;
   const R = Math.max(0, Math.min(1, r));
@@ -21,7 +23,15 @@ const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number })
 type AdminTab = 'users' | 'editMenu' | 'orders' | 'scaling';
 
 interface Product { name: string; imgFileName: string; }
-interface User { id: string; login: string; password?: string; location?: string; } // Made location optional as it's not in User schema from backend
+// Align User interface with backend schema (GET /api/v1/users/ returns id and login)
+// password and location are not part of the User schema from the backend for listing users.
+// They are kept optional here because the mock data and table rendering might use them.
+interface User { 
+  id: string; // uuid.UUID from backend, will be string in JSON
+  login: string; 
+  password?: string; // Not provided by GET /api/v1/users/
+  location?: string; // Not provided by GET /api/v1/users/
+}
 interface OrderItem { name: string; quantity: number; }
 interface ScalingLocation { id: string; address: string; }
 interface Order {
@@ -63,30 +73,23 @@ const AdminPage: React.FC = () => {
       return;
     }
     try {
-      // Assuming you'll add an endpoint to get all users, for now, we'll use /users/me/ as a placeholder
-      // and then manually add the admin user if the list is empty.
-      // A proper /users/ endpoint (GET) would be needed for a full user list.
-      // For now, this will just fetch the current admin user.
-      const response = await fetch('http://localhost:8000/api/v1/users/me/', {
+      // Fetch all users from the new endpoint GET /api/v1/users/
+      const response = await fetch('http://localhost:8000/api/v1/users/', {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
       if (response.ok) {
-        const currentUser = await response.json();
-        // This is a workaround. Ideally, backend provides a GET /api/v1/users/ endpoint.
-        // For now, we just show the current admin or an empty list.
-        // To show a list, you'd fetch all users from a dedicated endpoint.
-        // setUsers([currentUser]); // Example: if /me/ was the only user to show
-        console.log("Fetched current user:", currentUser);
-        // Since there's no GET all users endpoint yet, we'll keep the mock data for display
-        // and only use this to confirm token validity for now.
-        // Replace usersData with actual fetched users when available.
+        const allUsers = await response.json();
+        setUsers(allUsers); // Set the users state with the fetched array
+        console.log("Fetched all users:", allUsers);
       } else {
         console.error("Failed to fetch users:", response.statusText);
+        setUsers([]); // Clear users or handle error appropriately
       }
     } catch (error) {
       console.error("Error fetching users:", error);
+      setUsers([]); // Clear users or handle error appropriately
     }
   };
 
@@ -154,12 +157,18 @@ const AdminPage: React.FC = () => {
   ];
   
   // Mock data, to be replaced by fetched data if a GET /users endpoint is available
+  // This mock data can be kept as a fallback or for development if the backend is down,
+  // but the primary source of users should be the `users` state populated by `fetchUsers`.
   const usersData: User[] = [
-    { id: 'user1', login: 'Login-1', password: 'password-1', location: 'г. Таганрог, Максима Горького, д. 3' },
-    { id: 'user2', login: 'Login-2', password: 'password-2', location: 'г. Москва, Тверская ул., д. 12' },
+    // { id: 'user1', login: 'Login-1', password: 'password-1', location: 'г. Таганрог, Максима Горького, д. 3' },
+    // { id: 'user2', login: 'Login-2', password: 'password-2', location: 'г. Москва, Тверская ул., д. 12' },
   ];
-  // Use `users` state for rendering if data is fetched, otherwise fallback to usersData or empty.
-  const displayUsers = users.length > 0 ? users : usersData;
+  // Use `users` state for rendering. If `users` is empty after fetch (e.g., API error or no users),
+  // it will render an empty list or a "no users" message.
+  // The fallback to usersData is removed to prioritize live data.
+  // If users state is empty, the map function will simply render nothing, which is acceptable.
+  // A "No users found" message could be added if users.length === 0 after a successful fetch.
+  const displayUsers = users; 
 
 
   const ordersData: Order[] = [
@@ -401,7 +410,25 @@ const AdminPage: React.FC = () => {
             <h2 style={{ color: colors.textDark }}>Пользователи</h2>
             <div className="users-list-container">
               <div className="user-list-header"><span className="user-col-login">Логин</span><span className="user-col-password">Пароль</span><span className="user-col-location">Локация</span><span className="user-col-actions">Действия</span></div>
-              {displayUsers.map(user => (<div key={user.id} className="user-list-row"><span className="user-col-login">{user.login}</span><span className="user-col-password">{user.password || '******'}</span> <span className="user-col-location">{user.location || 'N/A'}</span><div className="user-col-actions user-actions"><button className="action-button edit">✏️ Редактировать</button><button className="action-button delete">🗑️ Удалить</button></div></div>))}
+              {displayUsers.length > 0 ? (
+                displayUsers.map(user => (
+                  <div key={user.id} className="user-list-row">
+                    <span className="user-col-login">{user.login}</span>
+                    {/* Password and Location are not directly available from GET /api/v1/users/ endpoint */}
+                    {/* These will show '******' and 'N/A' respectively as per current logic */}
+                    <span className="user-col-password">{user.password || '******'}</span> 
+                    <span className="user-col-location">{user.location || 'N/A'}</span>
+                    <div className="user-col-actions user-actions">
+                      <button className="action-button edit">✏️ Редактировать</button>
+                      <button className="action-button delete">🗑️ Удалить</button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="user-list-row" style={{ textAlign: 'center', color: colors.textLight, padding: '20px' }}>
+                  Нет пользователей для отображения.
+                </div>
+              )}
             </div>
             <h2 style={{ color: colors.textDark, marginTop: '40px' }}>Создать нового пользователя</h2>
             <div className="form-container create-user-form" style={{ backgroundColor: colors.background }}>

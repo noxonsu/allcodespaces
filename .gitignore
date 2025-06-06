@@ -88,3 +88,5 @@ wa/*
 package.json
 package-lock.json
 
+venv/*
+venv
