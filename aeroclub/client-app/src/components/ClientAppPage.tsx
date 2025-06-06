@@ -8,15 +8,15 @@ const API_BASE_URL = API_BASE_URL_RAW.endsWith('/') ? API_BASE_URL_RAW.slice(0, 
 
 
 interface MenuItem {
-  id: number;
+  id: string; // Changed from number
   name: string;
-  image_url: string;
+  image_filename: string | null; // Changed from image_url, added null
   price: number;
 }
 
 const ClientAppPage: React.FC = () => {
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [quantities, setQuantities] = useState<Record<string, number>>({}); // Changed key type from number to string
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [locationNumberId, setLocationNumberId] = useState<number | null>(null);
@@ -104,16 +104,26 @@ const ClientAppPage: React.FC = () => {
           }
           return response.json();
         })
-        .then((data: MenuItem[] | any) => {
+        .then((data: any[] | any) => { // Changed MenuItem[] to any[] as API data structure differs initially
           if (Array.isArray(data)) {
             const validMenuItems = data.filter(
-              item => item && typeof item.id === 'number' && !isNaN(item.id)
-            );
+              (item): item is { id: string; name: string; image_filename: string | null; price: number } => // Type guard
+                item && typeof item.id === 'string' && item.id.length > 0 && // Validate string ID
+                typeof item.name === 'string' &&
+                (typeof item.image_filename === 'string' || item.image_filename === null) &&
+                typeof item.price === 'number' && !isNaN(item.price)
+            ).map(item => ({ // Ensure structure matches MenuItem
+                id: item.id,
+                name: item.name,
+                image_filename: item.image_filename,
+                price: item.price
+            })) as MenuItem[];
+
             setMenuItems(validMenuItems);
             const initialQuantities = validMenuItems.reduce((acc, item) => {
-              acc[item.id] = 0; // item.id is now guaranteed to be a valid number
+              acc[item.id] = 0; // item.id is now a string
               return acc;
-            }, {} as Record<number, number>);
+            }, {} as Record<string, number>); // Key type is string
             setQuantities(initialQuantities);
             if (data.length !== validMenuItems.length) {
               console.warn("Filtered out some invalid menu items from API response. Original data:", data);
@@ -130,8 +140,8 @@ const ClientAppPage: React.FC = () => {
     }
   }, [locationId]);
 
-  const handleQuantityChange = (itemId: number, delta: number) => {
-    setQuantities((prev: Record<number, number>) => ({
+  const handleQuantityChange = (itemId: string, delta: number) => { // itemId is now string
+    setQuantities((prev: Record<string, number>) => ({ // Record key type is string
       ...prev,
       [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
     }));
@@ -145,30 +155,30 @@ const ClientAppPage: React.FC = () => {
 
     const itemsToOrder = Object.entries(quantities)
       .filter(([_, quantity]) => (quantity as number) > 0)
-      .map(([itemIdStr, quantity]) => {
-        console.log(`Processing itemIdStr: '${itemIdStr}' for order.`);
-        const itemId = parseInt(itemIdStr, 10);
+      .map(([itemId, quantity]) => { // itemIdStr renamed to itemId, it's already a string (UUID)
+        // console.log(`Processing itemId: '${itemId}' for order.`); // No longer need parseInt
+        // const itemIdNum = parseInt(itemIdStr, 10); // REMOVED: No longer parsing UUID to int
 
-        if (isNaN(itemId)) {
-          console.error(`Failed to parse itemId from string: '${itemIdStr}'. Skipping this item.`);
-          return null;
-        }
+        // if (isNaN(itemIdNum)) { // REMOVED
+        //   console.error(`Failed to parse itemId from string: '${itemIdStr}'. Skipping this item.`);
+        //   return null;
+        // }
 
-        const menuItem = menuItems.find(item => item.id === itemId);
+        const menuItem = menuItems.find(item => item.id === itemId); // Direct string comparison
         if (!menuItem) {
-          console.error(`Menu item with id ${itemId} (from key '${itemIdStr}') not found in current menuItems state.`);
+          console.error(`Menu item with id ${itemId} not found in current menuItems state.`);
           console.log("Current menuItems (IDs only):", JSON.stringify(menuItems.map(mi => mi.id)));
           console.log("Current quantities:", JSON.stringify(quantities));
           return null;
         }
         return {
-          menu_item_id: itemId,
+          menu_item_id: itemId, // itemId is now a string (UUID)
           name_snapshot: menuItem.name,
           quantity: quantity as number,
           price_snapshot: menuItem.price,
         };
       })
-      .filter(item => item !== null) as { menu_item_id: number; name_snapshot: string; quantity: number; price_snapshot: number }[];
+      .filter(item => item !== null) as { menu_item_id: string; name_snapshot: string; quantity: number; price_snapshot: number }[]; // menu_item_id is string
 
     if (itemsToOrder.length === 0) {
       alert("Your cart is empty!");
@@ -219,10 +229,10 @@ const ClientAppPage: React.FC = () => {
         alert("QR Code matched! Order confirmed.");
         setIsScanModalOpen(false);
         // Reset quantities or navigate away
-        const resetQuantities = menuItems.reduce((acc: Record<number, number>, item: MenuItem) => {
-            acc[item.id] = 0;
+        const resetQuantities = menuItems.reduce((acc: Record<string, number>, item: MenuItem) => { // Record key type is string
+            acc[item.id] = 0; // item.id is string
             return acc;
-          }, {} as Record<number, number>);
+          }, {} as Record<string, number>); // Record key type is string
         setQuantities(resetQuantities);
       } else {
         alert(`QR Code mismatch. Expected ${locationNumberId}, but got ${scannedNumberId}.`);
@@ -249,8 +259,8 @@ const ClientAppPage: React.FC = () => {
           {menuItems.map((item: MenuItem) => (
             <div key={item.id} className="product-card">
               <div className="product-image-container">
-                {item.image_url && <img src={`${API_BASE_URL}${item.image_url.startsWith('/') ? item.image_url : `/${item.image_url}`}`} alt={item.name} className="product-image" />}
-                {!item.image_url && <div className="product-image-placeholder">Image not available</div>}
+                {item.image_filename && <img src={`${API_BASE_URL}${item.image_filename.startsWith('/') ? item.image_filename : `/${item.image_filename}`}`} alt={item.name} className="product-image" />}
+                {!item.image_filename && <div className="product-image-placeholder">Image not available</div>}
                 <div className="image-gradient-overlay"></div>
                 <div className="product-name">{item.name}</div>
               </div>
