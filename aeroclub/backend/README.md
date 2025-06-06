@@ -161,3 +161,32 @@ python-multipart
 # python-telegram-bot
 # or
 # aiogram
+```
+
+## 9. Запуск проекта:
+
+1.  **Клонируйте репозиторий:**
+    ```bash
+    git clone https://github.com/yourusername/aeroclub-backend.git
+    cd aeroclub-backend
+    ```
+2.  **Создайте и активируйте виртуальное окружение:**
+    ```bash
+    python -m venv venv
+    source venv/bin/activate  # On Windows use `venv\Scripts\activate`
+    ```
+3.  **Установите зависимости:**
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  **Настройте переменные окружения:**
+    -   Переименуйте `.env.example` в `.env`.
+    -   Заполните значения, особенно для `ADMIN_PASSWORD` и `SECRET_KEY`.
+5.  **Запустите сервер разработки:**
+    ```bash
+    uvicorn app.main:app --host 0.0.0.0 --reload
+    ```
+    или 
+    ```bash
+    ./venv/bin/uvicorn app.main:app --host 0.0.0.0 --reload
+    ```

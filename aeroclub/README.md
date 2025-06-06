@@ -91,7 +91,11 @@ Backend - это FastAPI приложение.
     ```
 5.  **Запустите сервер разработки:**
     ```bash
-    uvicorn app.main:app --reload
+    uvicorn app.main:app --host 0.0.0.0 --reload
+    ```
+    или 
+    ```
+    pm2 start --name allgtps-aeroclub-backend python3 --interpreter python3 -- uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     ```
     API будет доступно по адресу `http://localhost:8000`. Документация API находится по адресам `http://localhost:8000/docs` и `http://localhost:8000/redoc`.
 
@@ -174,7 +178,7 @@ Backend - это FastAPI приложение.
     ```bash
     cd aeroclub/backend
     # (следуйте инструкциям по установке и запуску выше)
-    uvicorn app.main:app --reload
+    uvicorn app.main:app --host 0.0.0.0 --reload
     ```
 
 2.  **Запустите Панель администратора:**

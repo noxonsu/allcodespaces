@@ -68,4 +68,4 @@ async def root():
 # For simplicity, the /api/v1/auth/setup-admin endpoint can be called manually once.
 
 # To run the app (from the 'backend' directory):
-# uvicorn app.main:app --reload
+# uvicorn app.main:app --host 0.0.0.0 --reload
