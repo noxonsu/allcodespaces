@@ -5,6 +5,7 @@ import ScanQrModal from './ScanQrModal';
 
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
 
+
 interface MenuItem {
   id: number;
   name: string;
@@ -62,7 +63,7 @@ const ClientAppPage: React.FC = () => {
   }, [locationId]);
 
   const handleQuantityChange = (itemId: number, delta: number) => {
-    setQuantities(prev => ({
+    setQuantities((prev: Record<number, number>) => ({
       ...prev,
       [itemId]: Math.max(0, (prev[itemId] || 0) + delta),
     }));
@@ -75,10 +76,10 @@ const ClientAppPage: React.FC = () => {
     }
 
     const orderItems = Object.entries(quantities)
-      .filter(([_, quantity]) => quantity > 0)
+      .filter(([_, quantity]) => (quantity as number) > 0)
       .map(([itemId, quantity]) => ({
         menu_item_id: parseInt(itemId, 10),
-        quantity: quantity,
+        quantity: quantity as number,
       }));
 
     if (orderItems.length === 0) {
@@ -119,7 +120,7 @@ const ClientAppPage: React.FC = () => {
         alert("QR Code matched! Order confirmed.");
         setIsScanModalOpen(false);
         // Reset quantities or navigate away
-        const resetQuantities = menuItems.reduce((acc, item) => {
+        const resetQuantities = menuItems.reduce((acc: Record<number, number>, item: MenuItem) => {
             acc[item.id] = 0;
             return acc;
           }, {} as Record<number, number>);
@@ -139,7 +140,7 @@ const ClientAppPage: React.FC = () => {
       <h1>Меню (Локация #{locationNumberId})</h1>
       <div className="product-list-container">
         <div className="product-list">
-          {menuItems.map(item => (
+          {menuItems.map((item: MenuItem) => (
             <div key={item.id} className="product-card">
               <div className="product-image-container">
                 <img src={`${API_BASE_URL}${item.image_url}`} alt={item.name} className="product-image" />
