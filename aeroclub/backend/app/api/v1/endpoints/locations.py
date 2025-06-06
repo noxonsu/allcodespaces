@@ -1,9 +1,14 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Path
+from fastapi.responses import StreamingResponse
 from typing import List, Union
 import uuid
+import qrcode # Для генерации QR-кодов
+from PIL import Image # Для работы с изображениями QR-кодов
+import io # Для отправки изображения в ответе
 
 from app import schemas, crud, models_db
 from app.api.v1 import deps
+from app.core.config import settings # Импортируем настройки
 
 router = APIRouter()
 
@@ -108,3 +113,52 @@ async def associate_menu_item_with_location(
     if not success:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location or Menu Item not found, or association failed.")
     return {"message": "Menu item successfully associated with location."}
+
+@router.get("/{location_id_or_numeric_id}/qr-code", summary="Get QR Code for Location")
+async def get_location_qr_code(
+    location_id_or_numeric_id: Union[uuid.UUID, int] = Path(..., description="The ID (UUID) or Numeric ID of the location for the QR code"),
+    # No auth needed for QR code generation as per typical use case
+):
+    """
+    Generates and returns a QR code for the specified location.
+    The QR code will contain the URL: `TELEGRAM_MINI_APP_BASE_URL` + `numeric_id`.
+    Example: `https://t.me/yourbot/yourapp/?startapp=1001`
+    """
+    location_db = None
+    if isinstance(location_id_or_numeric_id, uuid.UUID):
+        location_db = crud.get_location_by_id(str(location_id_or_numeric_id))
+    elif isinstance(location_id_or_numeric_id, int):
+        location_db = crud.get_location_by_numeric_id(location_id_or_numeric_id)
+    
+    if not location_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
+
+    numeric_id = location_db.get("numeric_id")
+    if not numeric_id:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Location numeric ID is missing.")
+
+    if not settings.TELEGRAM_MINI_APP_BASE_URL:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="TELEGRAM_MINI_APP_BASE_URL is not configured in the server settings. Please contact the administrator."
+        )
+
+    # Убедимся, что базовый URL заканчивается на /?startapp=
+    base_url = settings.TELEGRAM_MINI_APP_BASE_URL
+    if not base_url.endswith("?startapp="):
+        if base_url.endswith("/"):
+            base_url += "?startapp="
+        else:
+            base_url += "/?startapp="
+            
+    qr_data = f"{base_url}{numeric_id}"
+
+    # Generate QR code
+    img = qrcode.make(qr_data)
+    
+    # Save QR code to a bytes buffer
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    buf.seek(0) # Go to the beginning of the buffer
+
+    return StreamingResponse(buf, media_type="image/png")

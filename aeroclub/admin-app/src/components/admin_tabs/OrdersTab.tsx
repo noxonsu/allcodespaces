@@ -1,123 +1,103 @@
 import React from 'react';
-import { Order, ColorPalette, FigmaColorToCssFunc, ScalingLocation } from './types'; // Импорт общих типов
+import { Order, ScalingLocation } from './types'; // Импорт общих типов
+import './OrdersTab.css'; // Импорт стилей
+
+// Предполагаем, что иконка chevron-down будет импортирована или доступна как SVG-компонент
+// import ChevronDownIcon from './path-to-chevron-down.svg'; 
 
 interface OrdersTabProps {
   orders: Order[];
-  scalingLocations: ScalingLocation[]; // Добавлено для использования в фильтре
+  scalingLocations: ScalingLocation[];
   onOpenOrderInfoModal: (orderId: string) => void;
-  colors: ColorPalette;
-  figmaColorToCss: FigmaColorToCssFunc;
+  // TODO: Добавить проп для обработчика смены статуса, если он будет отличаться от console.log
+  // onChangeOrderStatus: (orderId: string, newStatus: string) => void; 
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({
   orders,
-  scalingLocations, // Получаем реальные локации
+  scalingLocations,
   onOpenOrderInfoModal,
-  colors,
-  figmaColorToCss,
 }) => {
   // Используем scalingLocations для фильтра, если они есть, иначе заглушку
-  const locationOptions = scalingLocations.length > 0 
-    ? [{ id: "", address: "Все локации" }, ...scalingLocations] 
-    : [{ id: 'all', address: 'Все локации' }]; // Заглушка, если scalingLocations пуст
+  const locationOptions = scalingLocations.length > 0
+    ? [{ id: "", address: "Все локации" }, ...scalingLocations.map(loc => ({ id: loc.id, address: loc.address }))]
+    : [{ id: 'all', address: 'Все локации' }];
 
-  // Состояние для выбранной локации в фильтре (пока не используется для фильтрации данных)
+  // Состояние для выбранной локации в фильтре
   const [selectedFilterLocation, setSelectedFilterLocation] = React.useState("");
+  // TODO: Добавить состояние и обработчик для фильтра по дате/времени, если необходимо
+
+  // TODO: Реализовать фильтрацию заказов на основе selectedFilterLocation и других фильтров
+  const filteredOrders = orders; // Пока что отображаем все заказы
 
   return (
-    <div className="content-section orders-section">
-      <h2 style={{ color: colors.textDark }}>Текущие заказы</h2>
-      <div className="orders-filters">
-        <div className="form-group">
-          <label style={{ color: colors.textLight }}>Дата/время</label>
-          <div className="input-wrapper select-wrapper" style={{ backgroundColor: colors.white }}>
-            <select style={{ color: colors.textDark }}>
-              <option>Все время</option>
-              {/* TODO: Добавить варианты для фильтрации по дате/времени */}
-            </select>
-          </div>
-        </div>
-        <div className="form-group">
-          <label style={{ color: colors.textLight }}>Локация</label>
-          <div className="input-wrapper select-wrapper" style={{ backgroundColor: colors.white }}>
-            <select 
-              value={selectedFilterLocation} 
-              onChange={(e) => setSelectedFilterLocation(e.target.value)} 
-              style={{ color: colors.textDark }}
-            >
-              {locationOptions.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.address}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </div>
-      <div className="orders-list-container">
-        <div className="order-list-header" style={{ display: 'flex', justifyContent: 'space-between', padding: '0 20px', marginBottom: '10px' }}>
-          <span style={{ flex: 1, textAlign: 'left', color: colors.textLight }}>Дата/время</span>
-          <span style={{ flex: 2, textAlign: 'left', color: colors.textLight }}>Локация | место</span>
-          <span style={{ flex: 1, textAlign: 'right', color: colors.textLight }}>Действия</span>
-        </div>
-        {orders.length > 0 ? (
-          orders.map(order => (
-            <div key={order.id} className="order-list-row" style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '10px 20px',
-              borderBottom: `1px solid ${figmaColorToCss({ r: 0.9, g: 0.9, b: 0.9 })}`
-            }}>
-              <span style={{ flex: 1, color: colors.textDark }}>{order.dateTime}</span>
-              <span style={{ flex: 2, color: colors.textDark }}>{`${order.location} | ${order.spot}`}</span>
-              <div className="order-actions" style={{ flex: 1, textAlign: 'right' }}>
-                <button
-                  className="action-button"
-                  style={{
-                    backgroundColor: colors.buttonDark,
-                    color: colors.white,
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    marginRight: '10px'
-                  }}
-                  onClick={() => onOpenOrderInfoModal(order.id)}
-                >
-                  Показать заказ
-                </button>
-                <button
-                  className="action-button status-button"
-                  style={{
-                    backgroundColor: colors.orangeButton,
-                    color: colors.white,
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    display: 'inline-flex',
-                    alignItems: 'center'
-                  }}
-                  // TODO: Добавить обработчик для смены статуса, возможно через модальное окно
-                  onClick={() => console.log("Change status for order:", order.id)}
-                >
-                  <span style={{
-                    display: 'inline-block',
-                    width: '10px',
-                    height: '10px',
-                    borderRadius: '50%',
-                    backgroundColor: colors.white,
-                    marginRight: '8px',
-                    border: `1px solid ${colors.orangeButton}`
-                  }}></span> Сменить статус
-                </button>
-              </div>
+    <div className="orders-tab-container"> {/* Используем обертку для применения стилей */}
+      <div className="frame-153-hCCJHX"> {/* Этот класс из CSS */}
+        <h1 className="title-mUl0Lc title">Текущие заказы</h1>
+        <div className="frame-141-mUl0Lc">
+          <div className="frame-139-Mvawx2">
+            <div className="frame-160-e9KnCy">
+              <div className="title-JxeMua title">Дата/время</div>
+              {/* <img className="icon-chevron-down" src={ChevronDownIcon} alt="icon / chevron-down" /> */}
+              {/* Заглушка для иконки, если SVG не импортирован */}
+              <img className="icon-chevron-down" alt="icon / chevron-down" src="https://cdn.animaapp.com/projects/67d17e7b307c8641d34b3d03/releases/68435e892d15ce502a9dbc98/img/icon---chevron-down-1.svg" />
             </div>
-          ))
-        ) : (
-          <div className="order-list-row" style={{ textAlign: 'center', color: colors.textLight, padding: '20px' }}>
-            Нет заказов для отображения.
+            <div className="frame-161-e9KnCy">
+              <div className="title-rIZb6T title">Локация</div>
+               {/* <img className="icon-chevron-down" src={ChevronDownIcon} alt="icon / chevron-down" /> */}
+               <img className="icon-chevron-down" alt="icon / chevron-down" src="https://cdn.animaapp.com/projects/67d17e7b307c8641d34b3d03/releases/68435e892d15ce502a9dbc98/img/icon---chevron-down-1.svg" />
+            </div>
+            {/* TODO: Добавить элементы управления для фильтров, если они нужны здесь */}
+            {/* Пример для фильтра локаций, если он должен быть здесь, а не в AdminPage */}
+            {/* 
+            <div className="form-group" style={{ marginLeft: 'auto' }}>
+              <select 
+                value={selectedFilterLocation} 
+                onChange={(e) => setSelectedFilterLocation(e.target.value)}
+                style={{ padding: '8px', borderRadius: '4px' }} 
+              >
+                {locationOptions.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.address}</option>
+                ))}
+              </select>
+            </div>
+            */}
           </div>
-        )}
+          <div className="frame-142-Mvawx2">
+            {filteredOrders.length > 0 ? (
+              filteredOrders.map(order => (
+                // Используем общий класс для строк заказа, если он есть в CSS, или frame-140-QJHgXe и т.д.
+                // В HTML каждая строка имела свой уникальный класс (frame-140-QJHgXe, frame-145-QJHgXe, ...), 
+                // что не подходит для динамического рендеринга. Используем один общий класс.
+                <div key={order.id} className="frame-140-QJHgXe"> {/* Общий класс для строки заказа */}
+                  <div className="title order-row-text-date tildasans-medium-scarpa-flow-18px">{order.dateTime}</div>
+                  <p className="title order-row-text-location tildasans-medium-scarpa-flow-18px">
+                    {`${order.location} | место ${order.spot}`}
+                  </p>
+                  <div className="frame-138"> {/* Контейнер для кнопок */}
+                    <div 
+                      className="btn-admin btn-admin-show-order" // Классы для кнопки "Показать заказ"
+                      onClick={() => onOpenOrderInfoModal(order.id)}
+                    >
+                      <div className="title tildasans-bold-white-18px">Показать заказ</div>
+                    </div>
+                    <div 
+                      className="btn-admin btn-admin-change-status" // Классы для кнопки "Сменить статус"
+                      onClick={() => console.log("Change status for order:", order.id)} // TODO: Заменить на реальный обработчик
+                    >
+                      <div className="ellipse-1"></div>
+                      <div className="title tildasans-bold-eerie-black-18px">Сменить статус</div>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="no-orders-message"> {/* Класс для сообщения об отсутствии заказов */}
+                Нет заказов для отображения.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

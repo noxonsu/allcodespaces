@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     ADMIN_USERNAME: str = "your_admin_login"
     ADMIN_PASSWORD: str = "your_admin_password" # This will be plain text from .env for initial setup
     TELEGRAM_BOT_TOKEN: str
+    TELEGRAM_MINI_APP_BASE_URL: str # Добавлено для базового URL QR-кода
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30

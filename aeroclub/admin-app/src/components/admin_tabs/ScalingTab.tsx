@@ -22,14 +22,42 @@ const ScalingTab: React.FC<ScalingTabProps> = ({
 }) => {
   const [newScalingLocationName, setNewScalingLocationName] = React.useState("");
 
-  const handleDownloadQrCode = (locationId: string) => {
-    console.log(`Download QR code for location ${locationId}`);
-    // Логика скачивания QR-кода здесь.
-    // Можно открыть ссылку на QR-код в новой вкладке или инициировать скачивание.
-    // Пример: window.open(`${API_BASE_URL}/api/v1/locations/${locationId}/qr-code`, '_blank');
-    // Также можно сделать GET запрос на эндпоинт, который возвращает файл QR-кода
-    // и затем обработать ответ для скачивания файла браузером.
-    openSuccessModal(`QR код для локации ${locationId} запрошен (реальная загрузка зависит от эндпоинта).`);
+  const handleDownloadQrCode = async (locationId: string, locationAddress: string) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      alert("Ошибка авторизации. Пожалуйста, войдите снова.");
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/locations/${locationId}/qr-code`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: `Ошибка загрузки QR-кода. Статус: ${response.status}` }));
+        throw new Error(errorData.detail || `HTTP error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      // Sanitize locationAddress for filename
+      const sanitizedAddress = locationAddress.replace(/[^a-z0-9_.-]/gi, '_').toLowerCase();
+      a.download = `qr_code_location_${locationId}_${sanitizedAddress || 'location'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      openSuccessModal(`QR-код для локации "${locationAddress}" успешно скачан.`);
+
+    } catch (error: any) {
+      console.error("Error downloading QR code:", error);
+      alert(`Не удалось скачать QR-код: ${error.message}`);
+    }
   };
 
   const handleCreateLocation = async () => {
@@ -78,7 +106,7 @@ const ScalingTab: React.FC<ScalingTabProps> = ({
             <span style={{ color: colors.textDark }}>({loc.id}) {loc.address}</span>
             <div className="scaling-location-actions">
               <a
-                href={`http://localhost:3001?location_id=${loc.id}`}
+                href={`${process.env.REACT_APP_CLIENT_APP_BASE_URL || 'http://localhost:3008'}?location_id=${loc.id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="action-button"
@@ -89,7 +117,7 @@ const ScalingTab: React.FC<ScalingTabProps> = ({
               <button
                 className="action-button qr-button"
                 style={{ backgroundColor: colors.buttonDark, color: colors.white, marginRight: '10px', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-                onClick={() => handleDownloadQrCode(loc.id)}
+                onClick={() => handleDownloadQrCode(loc.id, loc.address)}
               >
                 <ScalingGridIcon color={colors.white} size={20} style={{ marginRight: '8px' }} />
                 Скачать QR код

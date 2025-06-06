@@ -4,56 +4,69 @@
   left: 0;
   right: 0;
   bottom: 0;
+  background-color: rgba(24, 26, 27, 0.4); /* From Figma background */
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000; /* Ensure it's above other content */
+  z-index: 1000;
 }
 
 .scan-qr-modal-content {
-  width: 374px; /* From Figma Frame 85 */
-  /* height: 421px; /* From Figma Frame 85 - let content define height */
-  border-radius: 16px; /* From Figma Frame 85 */
-  padding: 24px; /* Based on Frame 84 x, y */
+  width: 374px;
+  background-color: #F7F7F7; /* From Figma Frame 85 */
+  border-radius: 16px;
+  padding: 24px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   text-align: center;
   font-family: 'Tilda Sans', sans-serif;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .scan-qr-modal-icon-container {
-  margin-top: 56px; /* (80px from top of Frame 85) - 24px padding */
-  margin-bottom: 32px; /* (164px y of Frame 84) - (80px y of icon + 52px height of icon) */
+  margin-top: 56px; /* 80px (icon y) - 24px (padding) */
+  margin-bottom: 32px; /* 164px (text frame y) - 80px (icon y) - 52px (icon height) */
+}
+
+#qr-reader-container {
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.scan-qr-modal-text-content {
+    margin-top: 20px;
 }
 
 .scan-qr-modal-title {
-  font-size: 24px; /* From Figma */
-  font-weight: bold; /* From Figma */
-  margin: 0 0 10px 0; /* (39px y of text) - (29px height of title) */
+  font-size: 24px;
+  font-weight: bold;
+  color: #1B1515; /* From Figma */
+  margin: 0 0 10px 0;
 }
 
 .scan-qr-modal-text {
-  font-size: 17px; /* From Figma */
-  line-height: 1.4; /* Approximate from 60px height for 3 lines */
-  margin: 0 0 24px 0; /* (123px y of button) - (39px y of text + 60px height of text) */
-  max-width: 326px; /* Width of text block */
+  font-size: 17px;
+  color: #545B5E; /* From Figma */
+  line-height: 1.4;
+  margin: 0 0 24px 0;
+  max-width: 326px;
 }
 
 .scan-qr-modal-button {
-  width: 100%; /* Matches 326px width of btn instance */
+  width: 100%;
   max-width: 326px;
-  height: 54px; /* From Figma */
-  border-radius: 10px; /* From Figma */
+  height: 54px;
+  background-color: #181A1C; /* From Figma */
+  color: #FFFFFF; /* From Figma */
+  border-radius: 10px;
   border: none;
-  font-size: 17px; /* From Figma */
-  font-weight: bold; /* From Figma */
+  font-size: 17px;
+  font-weight: bold;
   cursor: pointer;
   transition: opacity 0.2s ease;
 }
 
 .scan-qr-modal-button:hover {
-  opacity: 0.85;
+  opacity: 0.9;
 }

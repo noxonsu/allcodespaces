@@ -9,6 +9,8 @@ python-multipart
 pytest
 pytest-asyncio
 httpx
+qrcode
+Pillow
 # Optional, if bot is part of this project:
 # python-telegram-bot
 # or
