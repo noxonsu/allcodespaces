@@ -28,7 +28,13 @@ app = FastAPI(
 #     # Add your frontend production URL here
 # ]
 # For development, allowing all origins is often easiest:
-origins = ["*"] # This is problematic with allow_credentials=True
+origins = [
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3008", # Current client app port
+    "https://aeroclub.onout.org", # Production client app domain
+    "https://aeroclubapi.onout.org", # If API is accessed from its own domain
+]
 
 app.add_middleware(
     CORSMiddleware,
