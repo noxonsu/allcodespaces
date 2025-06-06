@@ -20,16 +20,19 @@ const ClientAppPage: React.FC = () => {
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [locationId, setLocationId] = useState<number | null>(null);
   const [locationNumberId, setLocationNumberId] = useState<number | null>(null);
+  const [rawStartParam, setRawStartParam] = useState<string | null>(null); // New state for raw start param
 
   const location = useLocation();
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
     const locId = searchParams.get('start');
+    setRawStartParam(locId); // Store the raw value
 
     // Fallback for Telegram Mini App
     if (!locId && window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
       const startParam = window.Telegram.WebApp.initDataUnsafe.start_param;
+      setRawStartParam(startParam); // Store the raw value from Telegram
       // Assuming the start_param is the location_id
       setLocationId(parseInt(startParam, 10));
     } else if (locId) {
@@ -155,8 +158,14 @@ const ClientAppPage: React.FC = () => {
     }
   };
 
-  if (!locationId) {
-    return <div>Loading or Invalid Location...</div>;
+  if (locationId === null) {
+    return (
+      <div>
+        {rawStartParam === null
+          ? "Location ID is missing. Please provide it using ?start=ID"
+          : `Invalid Location ID: '${rawStartParam}'. Please provide a valid numeric ID.`}
+      </div>
+    );
   }
 
   return (
