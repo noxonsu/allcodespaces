@@ -58,7 +58,7 @@ const ClientAppPage: React.FC = () => {
         .catch(error => console.error('Error fetching location details:', error));
 
       // Fetch menu for the location
-      fetch(`${API_BASE_URL}/locations/${locationId}/menu`)
+      fetch(`${API_BASE_URL}/menu-items/locations/${locationId}/menu`)
         .then(response => {
           if (!response.ok) {
             console.error(`Error fetching menu items: ${response.status} ${response.statusText}`);
