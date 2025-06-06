@@ -77,6 +77,15 @@ const ScalingTab: React.FC<ScalingTabProps> = ({
           <div key={loc.id} className="scaling-location-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${figmaColorToCss({ r: 0.9, g: 0.9, b: 0.9 })}` }}>
             <span style={{ color: colors.textDark }}>({loc.id}) {loc.address}</span>
             <div className="scaling-location-actions">
+              <a
+                href={`http://localhost:3001?location_id=${loc.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="action-button"
+                style={{ backgroundColor: '#4CAF50', color: 'white', marginRight: '10px', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none' }}
+              >
+                Открыть меню
+              </a>
               <button
                 className="action-button qr-button"
                 style={{ backgroundColor: colors.buttonDark, color: colors.white, marginRight: '10px', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}

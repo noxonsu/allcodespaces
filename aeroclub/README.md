@@ -1,53 +1,22 @@
 # Проект Аэроклуб
 
-Этот проект состоит из React frontend приложения (`aeroclub-app`) и FastAPI backend приложения (`backend`).
+Этот проект состоит из трех частей:
+*   **Панель администратора (`admin-app`)**: React-приложение для управления.
+*   **Клиентское приложение (`client-app`)**: React-приложение, адаптированное для Telegram Mini App.
+*   **Бэкенд (`backend`)**: FastAPI-приложение.
 
 ## Структура проекта
 
 ```
 aeroclub/
-├── aeroclub-app/   # React Frontend
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── admin_tabs/  # Компоненты для вкладок страницы администратора
-│   │   │   │   ├── AdminSidebar.tsx
-│   │   │   │   ├── EditMenuTab.tsx
-│   │   │   │   ├── OrdersTab.tsx
-│   │   │   │   ├── ScalingTab.tsx
-│   │   │   │   ├── UsersTab.tsx
-│   │   │   │   └── types.ts       # Общие типы для вкладок
-│   │   │   ├── AdminPage.tsx
-│   │   │   ├── ConfirmDeleteModal.tsx
-│   │   │   ├── EditDrinkModal.tsx
-│   │   │   ├── LoginPage.tsx
-│   │   │   ├── OrderInfoModal.tsx
-│   │   │   ├── SuccessModal.tsx
-│   │   │   ├── icons.tsx
-│   │   │   └── LogoIcon.tsx
-│   │   ├── App.tsx
-│   │   └── index.tsx
-│   ├── package.json
-│   └── README.md   # README для frontend
+├── admin-app/      # React Admin Panel
+├── client-app/     # React Telegram Mini App
 └── backend/        # FastAPI Backend
-    ├── app/
-    │   ├── api/
-    │   ├── core/
-    │   ├── db_json/
-    │   ├── services/
-    │   ├── uploads/
-    │   ├── crud.py
-    │   ├── main.py
-    │   └── models_db.py
-    ├── tests/
-    ├── .env
-    ├── requirements.txt
-    └── README.md   # README для backend
 ```
 
-## Frontend (aeroclub-app)
+## Панель администратора (`admin-app`)
 
-Frontend - это React приложение, созданное с помощью Create React App и TypeScript.
+Это React-приложение, созданное с помощью Create React App и TypeScript, для управления системой.
 
 ### Основные функции:
 *   **Страница входа**: Позволяет администраторам войти в систему.
@@ -58,11 +27,11 @@ Frontend - это React приложение, созданное с помощь
     *   Масштабирование/Локации (управление локациями, генерация QR-кодов - ожидается интеграция с backend)
 *   **Страница клиентского приложения**: (Заготовка для клиентского приложения)
 
-### Установка и запуск:
+### Установка и запуск
 
-1.  **Перейдите в директорию frontend:**
+1.  **Перейдите в директорию `admin-app`:**
     ```bash
-    cd aeroclub/aeroclub-app
+    cd aeroclub/admin-app
     ```
 2.  **Установите зависимости:**
     ```bash
@@ -74,12 +43,10 @@ Frontend - это React приложение, созданное с помощь
     ```
     Приложение будет доступно по адресу `http://localhost:3000`.
 
-### Взаимодействие с Backend API:
-*   Страница входа (`src/components/LoginPage.tsx`) взаимодействует с endpoint `/api/v1/auth/token` backend для аутентификации.
-*   Страница администратора (`src/components/AdminPage.tsx`) настроена для:
-    *   Получения информации о пользователях (сейчас использует `/api/v1/users/me/` как заглушку для текущего пользователя, нужен полный endpoint списка пользователей `GET /api/v1/users/`).
-    *   Создания новых пользователей через `POST /api/v1/users/`.
-*   Другие функции страницы администратора (меню, заказы, локации) имеют элементы UI, но требуют дальнейшей интеграции с backend API. Базовый URL backend API жестко задан как `http://localhost:8000`.
+### Взаимодействие с Backend API
+*   Страница входа (`src/components/LoginPage.tsx`) взаимодействует с endpoint `/api/v1/auth/token` бэкенда для аутентификации.
+*   Страница администратора (`src/components/AdminPage.tsx`) настроена для взаимодействия с различными эндпоинтами API для управления пользователями, меню, заказами и т.д.
+*   Базовый URL backend API жестко задан как `http://localhost:8000`.
 
 ## Backend (backend)
 
@@ -167,28 +134,65 @@ Backend - это FastAPI приложение.
 
 Этот `README.md` предоставляет общий обзор. Для более конкретных деталей обратитесь к файлам `README.md` в директориях `aeroclub-app` и `backend`.
 
+## Клиентское приложение (`client-app`)
+
+Это React-приложение (также на Create React App и TypeScript), предназначенное для работы как **Telegram Mini App**.
+
+### Настройка для Telegram
+*   В `public/index.html` добавлен скрипт `telegram-web-app.js`, необходимый для интеграции с Telegram.
+*   Приложение настроено для отображения одного компонента — `ClientAppPage`, который станет основой для интерфейса в Telegram.
+
+### Установка и запуск
+1.  **Перейдите в директорию:**
+    ```bash
+    cd aeroclub/client-app
+    ```
+2.  **Установите зависимости:**
+    ```bash
+    npm install
+    ```
+3.  **Запустите сервер разработки:**
+    ```bash
+    npm start
+    ```
+    Приложение будет доступно по адресу `http://localhost:3001` (или другому порту, если 3000 занят).
+
+### Как открыть в Telegram
+1.  **Запустите приложение локально**, как описано выше.
+2.  **Используйте ngrok** или аналогичный сервис, чтобы создать публичный HTTPS-тоннель к вашему локальному серверу (`localhost:3001`).
+    ```bash
+    ngrok http 3001
+    ```
+3.  **Настройте своего Telegram-бота**: через [@BotFather](https://t.me/BotFather) установите URL вашего Mini App, используя полученную HTTPS-ссылку от ngrok.
+4.  **Откройте приложение в Telegram**: Перейдите в чат с вашим ботом и откройте Mini App через меню или по прямой ссылке.
+
 ## Быстрый запуск
 
-Для запуска проекта выполните следующие команды:
+Для запуска всего проекта выполните следующие шаги:
 
-### Запуск Backend:
-```bash
-cd aeroclub/backend
-python -m venv venv
-source venv/bin/activate  # На Windows: venv\Scripts\activate
-pip install -r requirements.txt
-# Создайте файл .env с необходимыми переменными
-uvicorn app.main:app --reload
-```
+1.  **Запустите Backend:**
+    ```bash
+    cd aeroclub/backend
+    # (следуйте инструкциям по установке и запуску выше)
+    uvicorn app.main:app --reload
+    ```
 
-### Запуск Frontend:
-```bash
-cd aeroclub/aeroclub-app
-npm install
-npm start
-```
+2.  **Запустите Панель администратора:**
+    ```bash
+    cd aeroclub/admin-app
+    npm install
+    npm start
+    ```
 
-После запуска:
-- Backend будет доступен на `http://localhost:8000`
-- Frontend будет доступен на `http://localhost:3000`
-- API документация: `http://localhost:8000/docs`
+3.  **Запустите Клиентское приложение:**
+    ```bash
+    cd aeroclub/client-app
+    npm install
+    npm start
+    ```
+
+После запуска сервисы будут доступны по следующим адресам:
+-   **Backend API**: `http://localhost:8000`
+-   **API документация**: `http://localhost:8000/docs`
+-   **Панель администратора**: `http://localhost:3000`
+-   **Клиентское приложение**: `http://localhost:3001`
