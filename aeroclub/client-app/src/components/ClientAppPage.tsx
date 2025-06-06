@@ -39,6 +39,7 @@ const ClientAppPage: React.FC = () => {
   const [locationId, setLocationId] = useState<number | null>(null);
   const [locationNumberId, setLocationNumberId] = useState<number | null>(null);
   const [rawStartParam, setRawStartParam] = useState<string | null>(null); // New state for raw start param
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(null); // To store the ID of the created order
 
   const location = useLocation();
 
@@ -207,10 +208,17 @@ const ClientAppPage: React.FC = () => {
       return sum + item.price_snapshot * item.quantity;
     }, 0);
 
+    const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    if (!telegramUser) {
+      alert("Telegram user data is not available. Cannot place order.");
+      return;
+    }
+
     const orderPayload = {
       location_id: locationId,
       items: itemsToOrder,
       total_amount: totalAmount,
+      telegram_user_id: telegramUser.id.toString(), // Add user ID to payload
     };
 
     fetch(`${API_BASE_URL}/orders/`, {
@@ -232,7 +240,8 @@ const ClientAppPage: React.FC = () => {
     })
     .then(data => {
       console.log("Order successful:", data);
-      setIsScanModalOpen(true); // Открываем модалку QR
+      setCurrentOrderId(data.id); // Save the created order ID
+      setIsScanModalOpen(true); // Open QR modal
     })
     .catch(error => {
       console.error('Caught error in order promise chain:', error);
@@ -242,21 +251,17 @@ const ClientAppPage: React.FC = () => {
 
   const handleQrScan = (scannedData: string | null) => {
     if (scannedData) {
-      // Parse the scanned data to extract the number after startapp=
       let scannedNumberId: number | null = null;
       
       if (scannedData.includes('startapp=')) {
-        // Extract everything after 'startapp='
         const startappIndex = scannedData.indexOf('startapp=');
         const afterStartapp = scannedData.substring(startappIndex + 'startapp='.length);
-        // Get the number part (until next & or end of string)
         const numberPart = afterStartapp.split('&')[0];
         const parsed = parseInt(numberPart, 10);
         if (!isNaN(parsed)) {
           scannedNumberId = parsed;
         }
       } else {
-        // Fallback: try to parse the entire scanned data as number
         const parsed = parseInt(scannedData, 10);
         if (!isNaN(parsed)) {
           scannedNumberId = parsed;
@@ -264,36 +269,52 @@ const ClientAppPage: React.FC = () => {
       }
       
       if (scannedNumberId !== null && scannedNumberId === locationNumberId) {
-        // Send confirmation to backend if needed
+        const telegramUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+        if (!currentOrderId) {
+          alert("Ошибка: ID заказа отсутствует. Невозможно подтвердить.");
+          return;
+        }
+        if (!telegramUser) {
+          alert("Ошибка: данные пользователя Telegram не найдены. Невозможно подтвердить.");
+          return;
+        }
+
         fetch(`${API_BASE_URL}/orders/confirm`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            location_id: locationId,
-            scanned_location_id: scannedNumberId
-          })
+            order_id: currentOrderId,
+            telegram_user_id: telegramUser.id.toString(),
+          }),
         })
-        .then(response => response.json())
+        .then(async response => {
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: "Не удалось прочитать ошибку с сервера." }));
+            throw new Error(errorData.detail || `Сервер ответил со статусом ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
-          console.log("Order confirmation sent:", data);
-          alert("QR Code matched! Order confirmed.");
+          console.log("Order confirmation successful:", data);
+          alert("Заказ подтвержден!");
+          setIsScanModalOpen(false);
+          setCurrentOrderId(null); // Сброс ID заказа
+          // Сброс корзины
+          const resetQuantities = menuItems.reduce((acc: Record<string, number>, item: MenuItem) => {
+              acc[item.id] = 0;
+              return acc;
+            }, {} as Record<string, number>);
+          setQuantities(resetQuantities);
         })
         .catch(error => {
           console.error("Error confirming order:", error);
-          alert("QR Code matched but confirmation failed.");
+          alert(`Не удалось подтвердить заказ: ${error.message}`);
         });
         
-        setIsScanModalOpen(false);
-        // Reset quantities
-        const resetQuantities = menuItems.reduce((acc: Record<string, number>, item: MenuItem) => {
-            acc[item.id] = 0;
-            return acc;
-          }, {} as Record<string, number>);
-        setQuantities(resetQuantities);
       } else {
-        alert(`QR Code mismatch. Expected ${locationNumberId}, but got ${scannedNumberId}.`);
+        alert(`QR-код не совпадает. Ожидался ${locationNumberId}, получен ${scannedNumberId}.`);
       }
     }
   };

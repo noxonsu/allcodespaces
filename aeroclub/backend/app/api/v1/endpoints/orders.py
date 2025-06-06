@@ -126,3 +126,42 @@ async def update_order_status(
     order_data_copy = updated_order_db.copy()
     order_data_copy["items"] = order_items_pydantic
     return schemas.Order(**order_data_copy)
+
+@router.post("/confirm", response_model=schemas.Order, summary="Confirm an order by a user")
+async def confirm_order(
+    confirmation_data: schemas.OrderConfirmation,
+    # This endpoint is unauthenticated from the client's perspective,
+    # but we verify ownership by matching telegram_user_id.
+):
+    """
+    Allows a user to confirm their own order, changing its status from 'pending' to 'processing'.
+    This is typically done after a second QR code scan.
+    - **order_id**: The UUID of the order to confirm.
+    - **telegram_user_id**: The Telegram User ID of the user confirming the order.
+    """
+    order_db = crud.get_order_by_id(str(confirmation_data.order_id))
+
+    # 1. Check if order exists
+    if not order_db:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
+
+    # 2. Check if the order belongs to the user trying to confirm it
+    if str(order_db.get("telegram_user_id")) != str(confirmation_data.telegram_user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You do not have permission to confirm this order.")
+
+    # 3. Check if the order is in 'pending' status
+    if order_db.get("status") != "pending":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Order cannot be confirmed. Its current status is '{order_db.get('status')}'."
+        )
+
+    # 4. Update the status to 'processing'
+    updated_order_db = crud.update_order_status(order_id=str(confirmation_data.order_id), status="processing")
+    if not updated_order_db:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to update order status.")
+
+    order_items_pydantic = [schemas.OrderItem(**item) for item in updated_order_db["items"]]
+    order_data_copy = updated_order_db.copy()
+    order_data_copy["items"] = order_items_pydantic
+    return schemas.Order(**order_data_copy)

@@ -96,3 +96,7 @@ class Order(OrderBase):
     items: List[OrderItem] # Use the OrderItem schema here
 
     model_config = ConfigDict(from_attributes=True)
+
+class OrderConfirmation(BaseModel):
+    order_id: uuid.UUID
+    telegram_user_id: str
