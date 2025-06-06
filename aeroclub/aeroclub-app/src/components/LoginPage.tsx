@@ -18,19 +18,44 @@ const LoginPage: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate login check
-    // In a real app, this would involve API calls and proper authentication
-    if (login.trim() === 'Dmitry_MDA' && password.trim() === 'password') { // Example correct credentials
-      console.log('Login successful with:', { login, password });
-      navigate('/admin');
-    } else if (login.trim() !== '' && password.trim() !== '') {
-      console.log('Login failed with:', { login, password });
+    if (!login.trim() || !password.trim()) {
       setIsErrorModalOpen(true);
+      return;
     }
-     else {
-      // alert('Пожалуйста, введите логин и пароль.'); // Replaced with modal for consistency
-      setIsErrorModalOpen(true); // Show error modal if fields are empty too
-    }
+
+    const details = {
+      username: login,
+      password: password,
+    };
+
+    const formBody = Object.keys(details)
+      // @ts-ignore
+      .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key]))
+      .join('&');
+
+    fetch('http://localhost:8000/api/v1/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
+      },
+      body: formBody,
+    })
+      .then(response => {
+        if (response.ok) {
+          return response.json();
+        } else {
+          throw new Error('Login failed');
+        }
+      })
+      .then(data => {
+        console.log('Login successful, token:', data.access_token);
+        localStorage.setItem('accessToken', data.access_token); // Store the token
+        navigate('/admin');
+      })
+      .catch(error => {
+        console.error('Login error:', error);
+        setIsErrorModalOpen(true);
+      });
   };
 
   const colors = {

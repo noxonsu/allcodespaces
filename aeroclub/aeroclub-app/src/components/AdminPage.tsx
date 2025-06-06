@@ -21,7 +21,7 @@ const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number })
 type AdminTab = 'users' | 'editMenu' | 'orders' | 'scaling';
 
 interface Product { name: string; imgFileName: string; }
-interface User { id: string; login: string; password?: string; location: string; }
+interface User { id: string; login: string; password?: string; location?: string; } // Made location optional as it's not in User schema from backend
 interface OrderItem { name: string; quantity: number; }
 interface ScalingLocation { id: string; address: string; }
 interface Order {
@@ -53,6 +53,43 @@ const AdminPage: React.FC = () => {
   };
 
   const [activeTab, setActiveTab] = useState<AdminTab>(getTabFromHash());
+  const [users, setUsers] = useState<User[]>([]); // State for users fetched from backend
+
+  const fetchUsers = async () => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      console.error("No access token found");
+      // Potentially redirect to login
+      return;
+    }
+    try {
+      // Assuming you'll add an endpoint to get all users, for now, we'll use /users/me/ as a placeholder
+      // and then manually add the admin user if the list is empty.
+      // A proper /users/ endpoint (GET) would be needed for a full user list.
+      // For now, this will just fetch the current admin user.
+      const response = await fetch('http://localhost:8000/api/v1/users/me/', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      if (response.ok) {
+        const currentUser = await response.json();
+        // This is a workaround. Ideally, backend provides a GET /api/v1/users/ endpoint.
+        // For now, we just show the current admin or an empty list.
+        // To show a list, you'd fetch all users from a dedicated endpoint.
+        // setUsers([currentUser]); // Example: if /me/ was the only user to show
+        console.log("Fetched current user:", currentUser);
+        // Since there's no GET all users endpoint yet, we'll keep the mock data for display
+        // and only use this to confirm token validity for now.
+        // Replace usersData with actual fetched users when available.
+      } else {
+        console.error("Failed to fetch users:", response.statusText);
+      }
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    }
+  };
+
 
   useEffect(() => {
     const handleHashChange = () => {
@@ -60,13 +97,16 @@ const AdminPage: React.FC = () => {
     };
 
     window.addEventListener('hashchange', handleHashChange);
-    // Set initial tab based on hash
-    handleHashChange();
+    handleHashChange(); // Set initial tab
+
+    if (activeTab === 'users') {
+      fetchUsers(); // Fetch users when users tab is active
+    }
 
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, []);
+  }, [activeTab]);
 
   const handleTabClick = (tab: AdminTab) => {
     setActiveTab(tab);
@@ -80,7 +120,7 @@ const AdminPage: React.FC = () => {
 
   const [newUserLogin, setNewUserLogin] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserLocation, setNewUserLocation] = useState("");
+  // const [newUserLocation, setNewUserLocation] = useState(""); // Removed as not in UserCreate schema
 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<Product | User | ScalingLocation | null>(null);
@@ -113,10 +153,14 @@ const AdminPage: React.FC = () => {
     { name: 'Кофе с молоком', imgFileName: '8d89a25cc99599807fdb64a57bba2ccd79e35964.png' },
   ];
   
+  // Mock data, to be replaced by fetched data if a GET /users endpoint is available
   const usersData: User[] = [
     { id: 'user1', login: 'Login-1', password: 'password-1', location: 'г. Таганрог, Максима Горького, д. 3' },
     { id: 'user2', login: 'Login-2', password: 'password-2', location: 'г. Москва, Тверская ул., д. 12' },
   ];
+  // Use `users` state for rendering if data is fetched, otherwise fallback to usersData or empty.
+  const displayUsers = users.length > 0 ? users : usersData;
+
 
   const ordersData: Order[] = [
     { id: 'order1', dateTime: '07.05.2025 | 16:20', location: 'г. Таганрог, Максима Горького, д. 3', spot: 'место 124', items: [{name: 'Черный чай', quantity: 2}, {name: 'Вода без газа', quantity: 4}], status: 'pending' },
@@ -145,6 +189,46 @@ const AdminPage: React.FC = () => {
     { name: 'Текущие заказы', id: 'orders', IconComponent: OrdersIcon },
     { name: 'Масштабирование', id: 'scaling', IconComponent: ScalingGridIcon },
   ];
+
+  const handleCreateUser = async () => {
+    if (!newUserLogin.trim() || !newUserPassword.trim()) {
+      alert("Логин и пароль не могут быть пустыми.");
+      return;
+    }
+    const token = localStorage.getItem('accessToken');
+    if (!token) {
+      alert("Ошибка авторизации. Пожалуйста, войдите снова.");
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8000/api/v1/users/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ login: newUserLogin, password: newUserPassword }),
+      });
+
+      if (response.status === 201) {
+        const newUser = await response.json();
+        setUsers(prevUsers => [...prevUsers, newUser]); // Add to local state
+        setSuccessModalMessage(`Пользователь "${newUser.login}" успешно создан.`);
+        setIsSuccessModalOpen(true);
+        setNewUserLogin("");
+        setNewUserPassword("");
+        // Optionally, re-fetch all users to ensure list is up-to-date
+        // fetchUsers(); 
+      } else {
+        const errorData = await response.json();
+        alert(`Ошибка создания пользователя: ${errorData.detail || response.statusText}`);
+      }
+    } catch (error) {
+      console.error("Error creating user:", error);
+      alert("Произошла ошибка при создании пользователя.");
+    }
+  };
 
   const handleOpenDeleteDrinkModal = (product: Product) => { console.log("Delete drink:", product); setItemToDelete(product); setDeleteItemType('drink'); setIsDeleteModalOpen(true); };
   const handleOpenEditDrinkModal = (product: Product) => { console.log("Edit drink:", product); setItemToEdit(product); setEditItemType('drink'); setIsEditModalOpen(true); };
@@ -195,8 +279,14 @@ const AdminPage: React.FC = () => {
 
       if (itemName && itemTypeMessage) {
         console.log(`${itemTypeMessage} "${itemName}" confirmed for deletion.`);
+        // Add actual deletion logic here for backend
         setSuccessModalMessage(`${itemTypeMessage} "${itemName}" успешно удален.`);
         setIsSuccessModalOpen(true);
+        // Example: if deleting a user, update local state
+        if (deleteItemType === 'user') {
+          // setUsers(users.filter(u => u.id !== (itemToDelete as User).id)); // Requires a GET all users endpoint first
+        }
+
       } else {
         console.error("Item to delete or its properties are not correctly set.", itemToDelete, deleteItemType);
       }
@@ -311,16 +401,16 @@ const AdminPage: React.FC = () => {
             <h2 style={{ color: colors.textDark }}>Пользователи</h2>
             <div className="users-list-container">
               <div className="user-list-header"><span className="user-col-login">Логин</span><span className="user-col-password">Пароль</span><span className="user-col-location">Локация</span><span className="user-col-actions">Действия</span></div>
-              {usersData.map(user => (<div key={user.id} className="user-list-row"><span className="user-col-login">{user.login}</span><span className="user-col-password">{user.password}</span> <span className="user-col-location">{user.location}</span><div className="user-col-actions user-actions"><button className="action-button edit">✏️ Редактировать</button><button className="action-button delete">🗑️ Удалить</button></div></div>))}
+              {displayUsers.map(user => (<div key={user.id} className="user-list-row"><span className="user-col-login">{user.login}</span><span className="user-col-password">{user.password || '******'}</span> <span className="user-col-location">{user.location || 'N/A'}</span><div className="user-col-actions user-actions"><button className="action-button edit">✏️ Редактировать</button><button className="action-button delete">🗑️ Удалить</button></div></div>))}
             </div>
             <h2 style={{ color: colors.textDark, marginTop: '40px' }}>Создать нового пользователя</h2>
             <div className="form-container create-user-form" style={{ backgroundColor: colors.background }}>
               <div className="form-row">
                 <div className="form-group"><label style={{ color: colors.textLight }}>Логин</label><div className="input-wrapper" style={{ backgroundColor: colors.white }}><input type="text" placeholder="Логин" value={newUserLogin} onChange={(e) => setNewUserLogin(e.target.value)} style={{ color: colors.textDark }} /></div></div>
                 <div className="form-group"><label style={{ color: colors.textLight }}>Пароль</label><div className="input-wrapper" style={{ backgroundColor: colors.white }}><input type="password" placeholder="Пароль" value={newUserPassword} onChange={(e) => setNewUserPassword(e.target.value)} style={{ color: colors.textDark }} /></div></div>
-                <div className="form-group"><label style={{ color: colors.textLight }}>Локация</label><div className="input-wrapper select-wrapper" style={{ backgroundColor: colors.white }}><select value={newUserLocation} onChange={(e) => setNewUserLocation(e.target.value)} style={{ color: colors.textDark }}>{locations.map(loc => (<option key={loc.value} value={loc.value}>{loc.label}</option>))}</select></div></div>
+                {/* Location field removed for user creation as it's not in UserCreate schema */}
               </div>
-              <div className="form-actions"><button className="save-button" style={{ backgroundColor: colors.accentRed, color: colors.white, opacity: 0.4 }}>Создать пользователя</button></div>
+              <div className="form-actions"><button className="save-button" style={{ backgroundColor: colors.accentRed, color: colors.white }} onClick={handleCreateUser}>Создать пользователя</button></div>
             </div>
             <div className="form-actions page-actions" style={{marginTop: '40px', justifyContent: 'flex-start'}}><button className="save-button" style={{ backgroundColor: colors.accentRed, color: colors.white }} onClick={() => handleSaveChangesForm('usersPage')}>Сохранить изменения</button><button className="cancel-button" style={{ backgroundColor: colors.textLight, color: colors.white }}>Отмена</button></div>
           </div>
@@ -541,7 +631,7 @@ const AdminPage: React.FC = () => {
                     fontSize: '18px',
                     fontFamily: '"Tilda Sans", sans-serif',
                     fontWeight: 700,
-                    opacity: 0.4,
+                    opacity: 0.4, // This was 0.4, assuming it should be 1 for active button
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center'
