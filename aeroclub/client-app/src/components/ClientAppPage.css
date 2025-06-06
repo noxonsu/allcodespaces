@@ -26,15 +26,49 @@
 }
 
 .product-card {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05); /* Subtle shadow for cards */
+  width: 174px; /* Figma */
+  height: 232px; /* Figma */
+  border-radius: 16px; /* Figma */
+  background-color: #f7f7f7; /* Figma: rgb(0.97, 0.97, 0.97) */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* To respect border-radius for children */
 }
 
 .product-card:hover {
   transform: translateY(-5px);
 }
 
-.product-image-container .image-gradient-overlay {
+.product-image-container {
+  width: 174px; /* Figma */
+  height: 174px; /* Figma */
+  position: relative; /* For absolute positioning of overlay and name */
+  border-radius: 16px 16px 0 0; /* Match top corners of card */
+  overflow: hidden; /* Ensure image respects border radius */
+}
+
+.product-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Figma: scaleMode: "FILL" */
+}
+
+.product-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e0e0e0;
+  color: #757575;
+  font-size: 14px;
+  text-align: center;
+  border-radius: 16px 16px 0 0; /* Match top corners of card */
+}
+
+.image-gradient-overlay { /* Renamed from .product-image-container .image-gradient-overlay for clarity */
   position: absolute;
   bottom: 0;
   left: 0;
@@ -49,12 +83,63 @@
   pointer-events: none; /* Allows clicks to pass through to image if needed */
 }
 
+.product-name {
+  position: absolute;
+  bottom: 12px; /* Figma: y:142, image_height:174 => 174-142-20(text_height_approx) is not 12. Let's use Figma's y directly relative to image container bottom. 174 - 142 = 32 from top of text to bottom of image. Text height 20. So 32-20 = 12px from bottom of text to bottom of image. */
+  left: 0; /* Figma: x:12, but text is centered */
+  width: 100%; /* Figma: width:146, but text is centered */
+  text-align: center; /* Figma */
+  font-size: 17px; /* Figma */
+  font-family: 'Tilda Sans', sans-serif; /* Figma */
+  color: #fff; /* Figma */
+  padding: 0 12px; /* To prevent text touching edges if name is long */
+  box-sizing: border-box;
+  pointer-events: none; /* To allow clicks on image if needed */
+}
+
+.product-controls {
+  display: flex;
+  justify-content: space-between; /* Distribute items */
+  align-items: center;
+  padding: 10px 12px; /* Figma: y:184. Card height 232. Image height 174. Controls height 36. 232-174-36 = 22 total vertical padding. 10px top, 12px bottom approx. x:12 for horizontal padding. */
+  height: 36px; /* Figma */
+  box-sizing: border-box;
+}
+
+.product-controls button {
+  width: 36px; /* Figma */
+  height: 36px; /* Figma */
+  border-radius: 8px; /* Figma */
+  background-color: #fff; /* Figma */
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 20px; /* For +/- symbols */
+  color: #181A1B; /* textDark for symbols */
+}
+
+.product-controls button:disabled {
+  background-color: #fff; /* Figma: Frame 82 (minus button) opacity 0.4 on white */
+  opacity: 0.4; /* Figma */
+  cursor: not-allowed;
+}
 
 .product-controls input[type="text"] {
+  width: 62px; /* Figma */
+  height: 36px; /* Figma */
+  border-radius: 8px; /* Figma */
+  border: 1px solid rgba(27, 22, 21, 0.12); /* Figma: textDark with 12% opacity */
+  background-color: #fff; /* Ensure input background is white */
+  text-align: center; /* Figma */
+  font-size: 17px; /* Figma */
+  font-family: 'Tilda Sans', sans-serif; /* Figma */
+  color: #181A1B; /* Figma: textDark */
   -moz-appearance: textfield; /* Firefox */
   appearance: textfield;
-  border: 1px solid rgba(27, 22, 21, 0.12); /* textDark with 12% opacity */
-  background-color: #fff; /* Ensure input background is white */
+  padding: 0; /* Remove browser default padding */
 }
 
 .product-controls input[type="text"]::-webkit-inner-spin-button,

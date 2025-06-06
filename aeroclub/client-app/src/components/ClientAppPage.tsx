@@ -26,23 +26,58 @@ const ClientAppPage: React.FC = () => {
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-    const locId = searchParams.get('start');
-    setRawStartParam(locId); // Store the raw value
+    const locIdFromUrlStartApp = searchParams.get('startapp');
+    const locIdFromUrlStart = searchParams.get('start'); // Fallback
 
-    // Fallback for Telegram Mini App
-    if (!locId && window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
-      const startParam = window.Telegram.WebApp.initDataUnsafe.start_param;
-      setRawStartParam(startParam); // Store the raw value from Telegram
-      // Assuming the start_param is the location_id
-      setLocationId(parseInt(startParam, 10));
-    } else if (locId) {
-      setLocationId(parseInt(locId, 10));
+    let effectiveStartParam: string | null = null;
+    let source: string = "No start parameter found";
+
+    // Priority 1: Telegram Mini App's start_param
+    if (window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
+      effectiveStartParam = window.Telegram.WebApp.initDataUnsafe.start_param;
+      source = "Telegram Mini App start_param";
     }
+    // Priority 2: URL's 'startapp' parameter (for browser testing)
+    else if (locIdFromUrlStartApp) {
+      effectiveStartParam = locIdFromUrlStartApp;
+      source = "URL 'startapp' parameter";
+    }
+    // Priority 3: URL's 'start' parameter (fallback for old links or direct testing)
+    else if (locIdFromUrlStart) {
+        effectiveStartParam = locIdFromUrlStart;
+        source = "URL 'start' parameter (fallback)";
+    }
+    
+    setRawStartParam(effectiveStartParam);
 
+    if (effectiveStartParam) {
+      console.log(`Processing startParam: '${effectiveStartParam}' from ${source}`);
+      const parts = effectiveStartParam.split('__');
+      // Assume the location ID is the last part after splitting by '__'
+      // If no '__', it's the whole string.
+      const idStrToParse = parts.length > 0 ? parts[parts.length - 1] : null;
+
+      if (idStrToParse) {
+        const parsedId = parseInt(idStrToParse, 10);
+        if (!isNaN(parsedId)) {
+          setLocationId(parsedId);
+          console.log(`Successfully parsed locationId: ${parsedId} from segment '${idStrToParse}' (Source: ${source})`);
+        } else {
+          console.error(`Failed to parse numeric ID from segment: '${idStrToParse}' (Original startParam: '${effectiveStartParam}', Source: ${source})`);
+          setLocationId(null);
+        }
+      } else {
+        console.error(`Could not extract ID segment from startParam: '${effectiveStartParam}' (Source: ${source})`);
+        setLocationId(null);
+      }
+    } else {
+      console.log("No startParam found in Telegram context or URL ('startapp' or 'start').");
+      setLocationId(null);
+    }
   }, [location]);
 
   useEffect(() => {
-    if (locationId) {
+    if (locationId && !isNaN(locationId)) {
       // Fetch location details to get number_id
       fetch(`${API_BASE_URL}/locations/${locationId}`)
         .then(response => {
@@ -52,10 +87,10 @@ const ClientAppPage: React.FC = () => {
           return response.json();
         })
         .then(data => {
-          if (data && typeof data.number_id !== 'undefined') {
-            setLocationNumberId(data.number_id);
+          if (data && typeof data.numeric_id !== 'undefined') {
+            setLocationNumberId(data.numeric_id);
           } else {
-            console.error('Error: number_id not found in location data:', data);
+            console.error('Error: numeric_id not found in location data:', data);
           }
         })
         .catch(error => console.error('Error fetching location details:', error));
@@ -71,14 +106,20 @@ const ClientAppPage: React.FC = () => {
         })
         .then((data: MenuItem[] | any) => {
           if (Array.isArray(data)) {
-            setMenuItems(data);
-            const initialQuantities = data.reduce((acc, item) => {
-              acc[item.id] = 0;
+            const validMenuItems = data.filter(
+              item => item && typeof item.id === 'number' && !isNaN(item.id)
+            );
+            setMenuItems(validMenuItems);
+            const initialQuantities = validMenuItems.reduce((acc, item) => {
+              acc[item.id] = 0; // item.id is now guaranteed to be a valid number
               return acc;
             }, {} as Record<number, number>);
             setQuantities(initialQuantities);
+            if (data.length !== validMenuItems.length) {
+              console.warn("Filtered out some invalid menu items from API response. Original data:", data);
+            }
           } else {
-            console.error('Received non-array data for menu items, setting to empty.');
+            console.error('Received non-array data for menu items, setting to empty. Data:', data);
             setMenuItems([]);
           }
         })
@@ -97,49 +138,80 @@ const ClientAppPage: React.FC = () => {
   };
 
   const handleOrder = () => {
-    if (!locationId) {
-      alert("Location ID is missing!");
+    if (!locationId || isNaN(locationId)) {
+      alert("Location ID is missing or invalid!");
       return;
     }
 
-    const orderItems = Object.entries(quantities)
+    const itemsToOrder = Object.entries(quantities)
       .filter(([_, quantity]) => (quantity as number) > 0)
-      .map(([itemId, quantity]) => ({
-        menu_item_id: parseInt(itemId, 10),
-        quantity: quantity as number,
-      }));
+      .map(([itemIdStr, quantity]) => {
+        console.log(`Processing itemIdStr: '${itemIdStr}' for order.`);
+        const itemId = parseInt(itemIdStr, 10);
 
-    if (orderItems.length === 0) {
+        if (isNaN(itemId)) {
+          console.error(`Failed to parse itemId from string: '${itemIdStr}'. Skipping this item.`);
+          return null;
+        }
+
+        const menuItem = menuItems.find(item => item.id === itemId);
+        if (!menuItem) {
+          console.error(`Menu item with id ${itemId} (from key '${itemIdStr}') not found in current menuItems state.`);
+          console.log("Current menuItems (IDs only):", JSON.stringify(menuItems.map(mi => mi.id)));
+          console.log("Current quantities:", JSON.stringify(quantities));
+          return null;
+        }
+        return {
+          menu_item_id: itemId,
+          name_snapshot: menuItem.name,
+          quantity: quantity as number,
+          price_snapshot: menuItem.price,
+        };
+      })
+      .filter(item => item !== null) as { menu_item_id: number; name_snapshot: string; quantity: number; price_snapshot: number }[];
+
+    if (itemsToOrder.length === 0) {
       alert("Your cart is empty!");
       return;
     }
+
+    const totalAmount = itemsToOrder.reduce((sum, item) => {
+      return sum + item.price_snapshot * item.quantity;
+    }, 0);
+
+    const orderPayload = {
+      location_id: locationId,
+      items: itemsToOrder,
+      total_amount: totalAmount,
+    };
 
     fetch(`${API_BASE_URL}/orders/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        location_id: locationId,
-        items: orderItems,
-      }),
+      body: JSON.stringify(orderPayload),
     })
-    .then(response => response.json())
-    .then(data => {
-      if (data.id) {
-        // Order successful
-        setIsScanModalOpen(true);
-      } else {
-        // Handle error
-        alert("Failed to place order.");
+    .then(async response => {
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: "Failed to parse error response" }));
+        console.error('Error placing order:', errorData);
+        const errorMessage = errorData.detail || `Failed to place order. Status: ${response.status}`;
+        alert(errorMessage);
+        throw new Error(errorMessage);
       }
+      return response.json();
+    })
+    .then(data => {
+      console.log("Order successful:", data);
+      setIsScanModalOpen(true); // Открываем модалку QR
     })
     .catch(error => {
-      console.error('Error placing order:', error);
-      alert("An error occurred while placing the order.");
+      console.error('Caught error in order promise chain:', error);
+      // Alert уже должен был быть показан в .then(async response => ...)
     });
   };
-  
+
   const handleQrScan = (scannedData: string | null) => {
     if (scannedData) {
       const scannedNumberId = parseInt(scannedData, 10);
@@ -158,12 +230,13 @@ const ClientAppPage: React.FC = () => {
     }
   };
 
-  if (locationId === null) {
+  if (locationId === null || isNaN(locationId)) {
+    const message = rawStartParam === null || typeof rawStartParam === 'undefined' || rawStartParam.trim() === ''
+      ? "Location ID is missing. Please ensure 'start' parameter is provided in the URL (e.g., ?start=123) or via Telegram Mini App start_param."
+      : `Invalid or missing Location ID. Received: '${rawStartParam}'. Please provide a valid numeric ID.`;
     return (
-      <div>
-        {rawStartParam === null
-          ? "Location ID is missing. Please provide it using ?start=ID"
-          : `Invalid Location ID: '${rawStartParam}'. Please provide a valid numeric ID.`}
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        {message}
       </div>
     );
   }
@@ -176,7 +249,8 @@ const ClientAppPage: React.FC = () => {
           {menuItems.map((item: MenuItem) => (
             <div key={item.id} className="product-card">
               <div className="product-image-container">
-                <img src={`${API_BASE_URL}${item.image_url}`} alt={item.name} className="product-image" />
+                {item.image_url && <img src={`${API_BASE_URL}${item.image_url.startsWith('/') ? item.image_url : `/${item.image_url}`}`} alt={item.name} className="product-image" />}
+                {!item.image_url && <div className="product-image-placeholder">Image not available</div>}
                 <div className="image-gradient-overlay"></div>
                 <div className="product-name">{item.name}</div>
               </div>
