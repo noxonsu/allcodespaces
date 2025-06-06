@@ -319,8 +319,6 @@ const AdminPage: React.FC = () => {
             orders={orders}
             scalingLocations={scalingLocations} 
             onOpenOrderInfoModal={handleOpenOrderInfoModal}
-            colors={colors}
-            figmaColorToCss={figmaColorToCss}
           />
         )}
         {activeTab === 'scaling' && (

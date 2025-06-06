@@ -9,8 +9,10 @@ interface ScanQrModalProps {
 }
 
 const ScanQrModal: React.FC<ScanQrModalProps> = ({ isOpen, onClose, onScan }) => {
+
   useEffect(() => {
     if (isOpen) {
+      // Use a local variable for the scanner instance in this effect's scope
       const scanner = new Html5QrcodeScanner(
         'qr-reader-container',
         { fps: 10, qrbox: 250, aspectRatio: 1.0 },
@@ -18,27 +20,27 @@ const ScanQrModal: React.FC<ScanQrModalProps> = ({ isOpen, onClose, onScan }) =>
       );
 
       const onScanSuccess = (decodedText: string) => {
-        // It's important to handle the cleanup properly.
-        // The library should handle the scanner UI removal on success.
+        // Cleanup is handled by the library on success, but we also have our own cleanup
         onScan(decodedText);
-        onClose(); // Close modal on successful scan
+        onClose();
       };
 
       const onScanFailure = (error: any) => {
-        // This callback is called frequently, so keep it light.
         // console.warn(`QR scan error: ${error}`);
       };
 
       scanner.render(onScanSuccess, onScanFailure);
 
-      // Cleanup function to be called on component unmount or before re-render
+      // Return a cleanup function
       return () => {
-        // Check if scanner is still active before trying to clear
-        if (scanner && scanner.getState() !== 2 /* NOT_STARTED */) {
-          scanner.clear().catch((error: any) => {
-            console.error("Failed to clear html5-qrcode-scanner.", error);
-          });
-        }
+        // The key is to ensure `clear()` is called on the instance from this render.
+        // The library might have issues if the component re-renders and `scanner` variable is stale.
+        // By keeping it local to useEffect, we ensure we call clear on the correct instance.
+        scanner.clear().catch((error: any) => {
+          // This can throw an error if the scanner is already cleared or not in a clearable state.
+          // We can safely ignore it as our goal is just to ensure it's gone.
+          console.error("QR Scanner cleanup failed, this can sometimes be ignored.", error);
+        });
       };
     }
   }, [isOpen, onScan, onClose]);
