@@ -28,11 +28,24 @@ app = FastAPI(
 #     # Add your frontend production URL here
 # ]
 # For development, allowing all origins is often easiest:
-origins = ["*"] 
+# origins = ["*"] # This is problematic with allow_credentials=True
+
+# Define specific origins for local development
+origins = [
+    "http://localhost",
+    "http://localhost:3000",    # Common React dev port for this project
+    "http://localhost:5173",    # Another common Vite/React dev port
+    # Add any other specific origins if needed
+]
+
+# Regex to allow any GitHub Codespace URL for the frontend.
+# This matches https://<any-codespace-name-and-port-combination>.app.github.dev
+codespace_origin_regex = r"^https:\/\/[a-zA-Z0-9-]+\.app\.github\.dev$"
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=origins, # List of specific origins
+    allow_origin_regex=codespace_origin_regex, # Regex for dynamic origins like Codespaces
     allow_credentials=True,
     allow_methods=["*"], # Allows all methods
     allow_headers=["*"], # Allows all headers

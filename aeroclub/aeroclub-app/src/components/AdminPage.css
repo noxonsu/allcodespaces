@@ -105,7 +105,6 @@
 .form-group {
   display: flex;
   flex-direction: column;
-  flex: 1 1 364px; /* Allow shrinking and growing, with a basis of Figma's input width */
   /* min-width: 300px; /* Removed to allow better flexing */
   max-width: 364px; /* Set max-width to Figma's input width */
 }

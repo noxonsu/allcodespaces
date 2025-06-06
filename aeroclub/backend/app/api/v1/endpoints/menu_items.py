@@ -12,7 +12,11 @@ router = APIRouter()
 # Define a directory to store uploaded images for menu items
 # This should ideally be configurable and outside the app code (e.g., a 'static' or 'media' folder served by a web server)
 # For simplicity, creating it within the backend structure.
-UPLOAD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), "uploads", "menu_images")
+# Correct UPLOAD_DIR path to be relative to the 'backend' directory, consistent with static file serving in main.py
+# __file__ is aeroclub/backend/app/api/v1/endpoints/menu_items.py
+# We want aeroclub/backend/uploads/menu_images/
+_BACKEND_ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..")) # Navigates up to 'aeroclub/backend/'
+UPLOAD_DIR = os.path.join(_BACKEND_ROOT_DIR, "uploads", "menu_images")
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 

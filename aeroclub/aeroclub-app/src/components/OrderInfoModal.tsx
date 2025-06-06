@@ -25,10 +25,10 @@ interface OrderInfoModalProps {
   isOpen: boolean;
   onClose: () => void;
   order: Order | null;
-  onCompleteOrder: (orderId: string) => void; // Placeholder for complete action
+  onUpdateStatus: (orderId: string, newStatus: string) => void; 
 }
 
-const OrderInfoModal: React.FC<OrderInfoModalProps> = ({ isOpen, onClose, order, onCompleteOrder }) => {
+const OrderInfoModal: React.FC<OrderInfoModalProps> = ({ isOpen, onClose, order, onUpdateStatus }) => {
   if (!isOpen || !order) {
     return null;
   }
@@ -82,7 +82,7 @@ const OrderInfoModal: React.FC<OrderInfoModalProps> = ({ isOpen, onClose, order,
           <button
             className="modal-button completed"
             style={{ backgroundColor: colors.buttonRed, color: colors.white }}
-            onClick={() => onCompleteOrder(order.id)}
+            onClick={() => onUpdateStatus(order.id, 'completed')}
           >
             Выполнено
           </button>

@@ -89,3 +89,22 @@ async def delete_location(
         # This case should ideally not be reached if the initial check passes
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to delete location")
     return None
+
+@router.post("/{location_id}/menu-items/{item_id}/associate", status_code=status.HTTP_200_OK, summary="Associate Menu Item with Location")
+async def associate_menu_item_with_location(
+    location_id: uuid.UUID = Path(..., description="The ID of the location"),
+    item_id: uuid.UUID = Path(..., description="The ID of the menu item"),
+    current_admin: models_db.UserInDB = Depends(deps.get_current_admin_user)
+):
+    """
+    Associate an existing menu item with an existing location.
+    This makes the menu item available at that location.
+    - **location_id**: UUID of the location.
+    - **item_id**: UUID of the menu item.
+    \f
+    Requires admin privileges.
+    """
+    success = crud.associate_item_to_location(location_id=str(location_id), item_id=str(item_id))
+    if not success:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location or Menu Item not found, or association failed.")
+    return {"message": "Menu item successfully associated with location."}

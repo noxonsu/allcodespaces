@@ -17,6 +17,7 @@ class UserBase(BaseModel):
 
 class UserCreate(UserBase):
     password: str
+    location_id: Optional[uuid.UUID] = None
 
 class UserInDBBase(UserBase):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
@@ -24,7 +25,8 @@ class UserInDBBase(UserBase):
     model_config = ConfigDict(from_attributes=True)
 
 class User(UserInDBBase):
-    pass
+    location_id: Optional[uuid.UUID] = None
+    location_name: Optional[str] = None # Добавляем для отображения имени локации
 
 class UserInDB(UserInDBBase):
     hashed_password: str

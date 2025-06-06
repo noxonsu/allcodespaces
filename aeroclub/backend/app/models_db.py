@@ -9,6 +9,7 @@ class UserInDB(TypedDict):
     id: str  # UUID stored as string in JSON
     login: str
     hashed_password: str
+    location_id: Optional[str] # UUID stored as string in JSON, optional
 
 class LocationInDB(TypedDict):
     id: str  # UUID stored as string

@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
+import uuid # Добавляем импорт uuid
 
 from app import schemas, crud, models_db
 from app.api.v1 import deps
@@ -23,7 +24,11 @@ async def create_user(
     
     created_user_db = crud.create_user(user_in=user_in)
     # Convert UserInDB (TypedDict) to User (Pydantic model) for response
-    return schemas.User(id=created_user_db["id"], login=created_user_db["login"])
+    return schemas.User(
+        id=created_user_db["id"], 
+        login=created_user_db["login"],
+        location_id=uuid.UUID(created_user_db["location_id"]) if created_user_db.get("location_id") else None
+    )
 
 
 @router.get("/me/", response_model=schemas.User)
@@ -44,6 +49,21 @@ async def read_users(
     """
     Retrieve all users. Only accessible by admin users.
     """
-    users_db = crud.get_users()
-    # Convert List[UserInDB] (TypedDict) to List[User] (Pydantic model) for response
-    return [schemas.User(id=user["id"], login=user["login"]) for user in users_db]
+    users_db_with_locations = crud.get_users()
+    # Convert List[Dict[str, Any]] to List[schemas.User]
+    response_users = []
+    for user_data in users_db_with_locations:
+        location_id_uuid = None
+        if user_data.get("location_id"):
+            try:
+                location_id_uuid = uuid.UUID(user_data["location_id"])
+            except ValueError: # Handle cases where location_id might not be a valid UUID string
+                location_id_uuid = None
+        
+        response_users.append(schemas.User(
+            id=uuid.UUID(user_data["id"]), # Ensure id is also UUID object
+            login=user_data["login"],
+            location_id=location_id_uuid,
+            location_name=user_data.get("location_name")
+        ))
+    return response_users

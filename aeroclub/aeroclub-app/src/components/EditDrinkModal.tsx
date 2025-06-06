@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import './EditDrinkModal.css'; // Will create this CSS file next
+import './EditDrinkModal.css';
+import { API_BASE_URL } from '../apiConfig'; // Import API_BASE_URL
 
 // Helper function (can be shared)
 const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number }): string => {
@@ -7,33 +8,55 @@ const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number })
   return `rgba(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)}, ${a})`;
 };
 
-interface DrinkToEdit {
+// Align with FrontendMenuItem from AdminPage.tsx
+interface FrontendMenuItem {
+  id: string;
   name: string;
-  imgFileName: string;
-  // Add other properties if needed, e.g., id
+  price: number;
+  image_filename: string | null;
 }
 
 interface EditDrinkModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedDrinkData: { currentName: string; newName: string; newImageFile?: File }) => void;
-  drink: DrinkToEdit | null;
+  onSave: (updatedData: { 
+    id: string; 
+    name: string; 
+    price: number; 
+    newImageFile?: File; 
+    currentImageFilename: string | null;
+  }) => void;
+  drink: FrontendMenuItem | null; // Use FrontendMenuItem
 }
 
 const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave, drink }) => {
-  const [newDrinkName, setNewDrinkName] = useState('');
+  const [editedName, setEditedName] = useState('');
+  const [editedPrice, setEditedPrice] = useState<number | string>('');
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [currentImagePreview, setCurrentImagePreview] = useState<string | null>(null);
   const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
 
   useEffect(() => {
-    if (drink) {
-      setNewDrinkName(''); // Start with empty field for new name
-      setCurrentImagePreview(`${process.env.PUBLIC_URL}/images/${drink.imgFileName}`);
+    if (drink && isOpen) {
+      setEditedName(drink.name);
+      setEditedPrice(drink.price);
+      if (drink.image_filename) {
+        setCurrentImagePreview(`${API_BASE_URL}/uploads/menu_images/${drink.image_filename}`);
+      } else {
+        // Use a generic placeholder if no image_filename exists
+        setCurrentImagePreview(`${process.env.PUBLIC_URL}/images/placeholder.png`); 
+      }
       setNewImageFile(null);
       setNewImagePreview(null);
+    } else if (!isOpen) {
+      // Optionally reset fields when modal is closed, if desired
+      setEditedName('');
+      setEditedPrice('');
+      setNewImageFile(null);
+      setNewImagePreview(null);
+      setCurrentImagePreview(null);
     }
-  }, [drink, isOpen]); // Reset form when drink or isOpen changes
+  }, [drink, isOpen]);
 
   if (!isOpen || !drink) {
     return null;
@@ -57,10 +80,22 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
   };
 
   const handleSave = () => {
+    if (!drink) return; // Should not happen if modal is open
+
+    const finalName = editedName.trim() === '' ? drink.name : editedName.trim();
+    const finalPrice = typeof editedPrice === 'string' ? parseFloat(editedPrice) : editedPrice;
+
+    if (isNaN(finalPrice) || finalPrice < 0) {
+      alert("Цена должна быть положительным числом.");
+      return;
+    }
+
     onSave({
-      currentName: drink.name,
-      newName: newDrinkName.trim() === '' ? drink.name : newDrinkName.trim(), // Keep old name if new is empty
+      id: drink.id,
+      name: finalName,
+      price: finalPrice,
       newImageFile: newImageFile || undefined,
+      currentImageFilename: drink.image_filename 
     });
   };
   
@@ -88,19 +123,31 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
             <input 
               type="text" 
               className="drink-name-input current" 
-              defaultValue={drink.name} 
+              defaultValue={drink.name} // Shows initial name, but editedName is the state for the input below
               readOnly 
-              style={{ backgroundColor: colors.white, color: colors.textDark }} 
+              style={{ backgroundColor: colors.white, color: colors.textDark, display: 'none' }} // Hide if not needed, or show as 'Old Name'
             />
             <input 
               type="text" 
               className="drink-name-input new" 
               placeholder="Новое название" 
-              value={newDrinkName}
-              onChange={(e) => setNewDrinkName(e.target.value)}
+              value={editedName}
+              onChange={(e) => setEditedName(e.target.value)}
               style={{ backgroundColor: colors.white, color: colors.textDark, '--placeholder-color': colors.inputPlaceholder } as React.CSSProperties}
             />
           </div>
+        </div>
+
+        <div className="edit-form-section">
+          <label style={{ color: colors.textLightGray }}>Цена</label>
+          <input
+            type="number"
+            className="drink-price-input new"
+            placeholder="Новая цена"
+            value={editedPrice}
+            onChange={(e) => setEditedPrice(e.target.value)}
+            style={{ backgroundColor: colors.white, color: colors.textDark, width: '100%', padding: '10px', borderRadius: '5px', border: `1px solid ${colors.textLightGray}` }}
+          />
         </div>
 
         <div className="edit-form-section">

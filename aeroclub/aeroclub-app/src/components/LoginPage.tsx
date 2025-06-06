@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './LoginPage.css';
 import { LogoIcon } from './LogoIcon';
 import LoginErrorModal from './LoginErrorModal'; // Import the error modal
+import { API_BASE_URL } from '../apiConfig'; // Import the API base URL
 
 // Helper function (can be shared or moved to a utils file)
 const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number }): string => {
@@ -11,7 +12,7 @@ const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number })
 };
 
 const LoginPage: React.FC = () => {
-  const [login, setLogin] = useState('Dmitry_MDA'); // Default from Figma
+  const [login, setLogin] = useState(''); // Default from Figma
   const [password, setPassword] = useState('');
   const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
   const navigate = useNavigate();
@@ -33,7 +34,7 @@ const LoginPage: React.FC = () => {
       .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(details[key]))
       .join('&');
 
-    fetch('http://localhost:8000/api/v1/auth/token', {
+    fetch(`${API_BASE_URL}/api/v1/auth/token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',

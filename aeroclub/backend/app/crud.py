@@ -103,14 +103,25 @@ def create_user(user_in: schemas.UserCreate) -> models_db.UserInDB:
         "id": new_user_id,
         "login": user_in.login,
         "hashed_password": hashed_password,
+        "location_id": str(user_in.location_id) if user_in.location_id else None,
     }
     db["users"].append(new_user)
     write_main_db(db)
     return new_user
 
-def get_users() -> List[models_db.UserInDB]:
+def get_users() -> List[Dict[str, Any]]: # Return type changed to support added fields
     db = read_main_db()
-    return db["users"]
+    users_with_locations = []
+    for user_data in db["users"]:
+        user_dict = dict(user_data) # Convert TypedDict to regular dict for modification
+        location_name = None
+        if user_data.get("location_id"):
+            location = get_location_by_id(user_data["location_id"]) # type: ignore
+            if location:
+                location_name = location["address"]
+        user_dict["location_name"] = location_name
+        users_with_locations.append(user_dict)
+    return users_with_locations
 
 # --- Location CRUD ---
 def get_locations() -> List[models_db.LocationInDB]:

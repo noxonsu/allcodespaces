@@ -34,7 +34,7 @@
 }
 
 .form-group {
-  margin-bottom: 12px; /* Уменьшенный отступ между полями ввода */
+  margin-bottom: 4px; /* Further reduced spacing between input fields */
 }
 
 .login-input {
@@ -63,7 +63,7 @@
   font-family: 'Tilda Sans', sans-serif;
   font-weight: bold; /* Bold */
   cursor: pointer;
-  margin-top: 6px; /* Adjusted to create a 12px total gap (6px from form-group + 6px here) */
+  margin-top: 0px; /* Combined with form-group's margin-bottom: 4px, this creates a 4px gap */
   transition: opacity 0.2s ease;
 }
 
