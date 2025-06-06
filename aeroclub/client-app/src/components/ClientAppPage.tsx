@@ -25,7 +25,7 @@ const ClientAppPage: React.FC = () => {
 
   useEffect(() => {
     const searchParams = new URLSearchParams(location.search);
-    const locId = searchParams.get('location_id');
+    const locId = searchParams.get('start');
 
     // Fallback for Telegram Mini App
     if (!locId && window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
