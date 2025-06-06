@@ -1,0 +1,328 @@
+{
+"name":"Frame 133",
+"type":"FRAME",
+"visible":true,
+"x":772,
+"y":354,
+"width":376,
+"height":372,
+"rotation":0,
+"opacity":1,
+"cornerRadius":16,
+"cornerSmoothing":0.6000000238418579,
+"constraints":
+{
+	"horizontal": "CENTER",
+	"vertical": "CENTER"
+},
+"fills":
+[
+	{
+		"type": "SOLID",
+		"visible": true,
+		"opacity": 1,
+		"blendMode": "NORMAL",
+		"color": {
+			"r": 0.9700000286102295,
+			"g": 0.9700000286102295,
+			"b": 0.9700000286102295
+		},
+		"boundVariables": {}
+	}
+],
+"strokeCap":"NONE",
+"strokeJoin":"MITER",
+"strokeMiterLimit":4,
+"strokeStyleId":"",
+"strokeWeight":1,
+"children":
+[
+	{
+		"name":"vuesax/bold/tick-square",
+		"type":"INSTANCE",
+		"visible":true,
+		"x":158,
+		"y":64,
+		"width":60,
+		"height":60,
+		"rotation":0,
+		"opacity":1,
+		"cornerRadius":0,
+		"cornerSmoothing":0,
+		"constraints":
+		{
+			"horizontal": "MIN",
+			"vertical": "MIN"
+		},
+		"fills":
+		[
+			{
+				"type": "SOLID",
+				"visible": false,
+				"opacity": 1,
+				"blendMode": "NORMAL",
+				"color": {
+					"r": 1,
+					"g": 1,
+					"b": 1
+				},
+				"boundVariables": {}
+			}
+		],
+		"strokeCap":"NONE",
+		"strokeJoin":"MITER",
+		"strokeMiterLimit":4,
+		"strokeStyleId":"",
+		"strokeWeight":1,
+		"children":
+		[
+			{
+				"name":"vuesax/bold/tick-square",
+				"type":"GROUP",
+				"visible":true,
+				"x":0,
+				"y":0,
+				"width":60,
+				"height":60,
+				"rotation":0,
+				"opacity":1,
+				"children":
+				[
+					{
+						"name":"tick-square",
+						"type":"GROUP",
+						"visible":true,
+						"x":0,
+						"y":0,
+						"width":60,
+						"height":60,
+						"rotation":0,
+						"opacity":1,
+						"children":
+						[
+							{
+								"name":"Vector",
+								"type":"VECTOR",
+								"visible":true,
+								"x":5,
+								"y":5,
+								"width":49.9750862121582,
+								"height":50,
+								"rotation":0,
+								"opacity":1,
+								"cornerRadius":0,
+								"cornerSmoothing":0,
+								"constraints":
+								{
+									"horizontal": "SCALE",
+									"vertical": "SCALE"
+								},
+								"fills":
+								[
+									{
+										"type": "SOLID",
+										"visible": true,
+										"opacity": 1,
+										"blendMode": "NORMAL",
+										"color": {
+											"r": 1,
+											"g": 0.32156863808631897,
+											"b": 0.2823529541492462
+										},
+										"boundVariables": {}
+									}
+								],
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1
+							},
+							{
+								"name":"Vector",
+								"type":"VECTOR",
+								"visible":true,
+								"x":60,
+								"y":60,
+								"width":60,
+								"height":60,
+								"rotation":180,
+								"opacity":0,
+								"cornerRadius":0,
+								"cornerSmoothing":0,
+								"constraints":
+								{
+									"horizontal": "SCALE",
+									"vertical": "SCALE"
+								},
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"name":"Frame 39",
+		"type":"FRAME",
+		"visible":true,
+		"x":32,
+		"y":156,
+		"width":312,
+		"height":152,
+		"rotation":0,
+		"opacity":1,
+		"cornerRadius":0,
+		"cornerSmoothing":0,
+		"constraints":
+		{
+			"horizontal": "MIN",
+			"vertical": "MIN"
+		},
+		"strokeCap":"NONE",
+		"strokeJoin":"MITER",
+		"strokeMiterLimit":4,
+		"strokeStyleId":"",
+		"strokeWeight":1,
+		"children":
+		[
+			{
+				"name":"Title",
+				"type":"TEXT",
+				"visible":true,
+				"x":0,
+				"y":0,
+				"width":312,
+				"height":74,
+				"rotation":0,
+				"opacity":1,
+				"constraints":
+				{
+					"horizontal": "MIN",
+					"vertical": "MIN"
+				},
+				"characters":"Напиток успешно добавлен в меню",
+				"fontSize":34,
+				"textAlignHorizontal":"CENTER",
+				"textAlignVertical":"TOP",
+				"fontName":
+				{
+					"family": "Tilda Sans",
+					"style": "Extra Bold"
+				},
+				"fills":
+				[
+					{
+						"type": "SOLID",
+						"visible": true,
+						"opacity": 1,
+						"blendMode": "NORMAL",
+						"color": {
+							"r": 0.09659722447395325,
+							"g": 0.10442128777503967,
+							"b": 0.10833333432674408
+						},
+						"boundVariables": {}
+					}
+				],
+				"strokeCap":"NONE",
+				"strokeJoin":"MITER",
+				"strokeMiterLimit":4,
+				"strokeStyleId":"",
+				"strokeWeight":1
+			},
+			{
+				"name":"btn-admin",
+				"type":"INSTANCE",
+				"visible":true,
+				"x":95,
+				"y":98,
+				"width":122,
+				"height":54,
+				"rotation":0,
+				"opacity":1,
+				"cornerRadius":10,
+				"cornerSmoothing":0.6000000238418579,
+				"constraints":
+				{
+					"horizontal": "MIN",
+					"vertical": "MIN"
+				},
+				"fills":
+				[
+					{
+						"type": "SOLID",
+						"visible": true,
+						"opacity": 1,
+						"blendMode": "NORMAL",
+						"color": {
+							"r": 0.3294117748737335,
+							"g": 0.35686275362968445,
+							"b": 0.3686274588108063
+						},
+						"boundVariables": {}
+					}
+				],
+				"strokeCap":"NONE",
+				"strokeJoin":"MITER",
+				"strokeMiterLimit":4,
+				"strokeStyleId":"",
+				"strokeWeight":1,
+				"children":
+				[
+					{
+						"name":"Title",
+						"type":"TEXT",
+						"visible":true,
+						"x":28,
+						"y":16,
+						"width":66,
+						"height":22,
+						"rotation":0,
+						"opacity":1,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"characters":"Хорошо",
+						"fontSize":18,
+						"textAlignHorizontal":"LEFT",
+						"textAlignVertical":"TOP",
+						"fontName":
+						{
+							"family": "Tilda Sans",
+							"style": "Bold"
+						},
+						"fills":
+						[
+							{
+								"type": "SOLID",
+								"visible": true,
+								"opacity": 1,
+								"blendMode": "NORMAL",
+								"color": {
+									"r": 1,
+									"g": 1,
+									"b": 1
+								},
+								"boundVariables": {}
+							}
+						],
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1
+					}
+				]
+			}
+		]
+	}
+]
+}

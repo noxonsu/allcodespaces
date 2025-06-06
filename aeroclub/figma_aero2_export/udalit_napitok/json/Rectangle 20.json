@@ -1,0 +1,38 @@
+{
+"name":"Rectangle 20",
+"type":"RECTANGLE",
+"visible":true,
+"x":0,
+"y":0,
+"width":1920,
+"height":1080,
+"rotation":0,
+"opacity":0.30000001192092896,
+"cornerRadius":0,
+"cornerSmoothing":0,
+"constraints":
+{
+	"horizontal": "CENTER",
+	"vertical": "CENTER"
+},
+"fills":
+[
+	{
+		"type": "SOLID",
+		"visible": true,
+		"opacity": 1,
+		"blendMode": "NORMAL",
+		"color": {
+			"r": 0.09659722447395325,
+			"g": 0.10442128777503967,
+			"b": 0.10833333432674408
+		},
+		"boundVariables": {}
+	}
+],
+"strokeCap":"NONE",
+"strokeJoin":"MITER",
+"strokeMiterLimit":4,
+"strokeStyleId":"",
+"strokeWeight":1
+}

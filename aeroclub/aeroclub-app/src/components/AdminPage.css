@@ -1,0 +1,433 @@
+/* Basic Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Tilda Sans', sans-serif; /* Assuming Tilda Sans is available or imported */
+}
+
+.admin-page {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.sidebar {
+  width: 292px; /* From Figma */
+  padding: 32px 12px; /* Approximate padding based on Figma structure */
+  display: flex;
+  flex-direction: column;
+  border-top-right-radius: 32px; /* From Figma */
+  border-bottom-right-radius: 32px; /* From Figma */
+}
+
+.logo-container {
+  margin-bottom: 30px; /* Spacing after logo */
+  text-align: center;
+}
+
+.sidebar-nav ul {
+  list-style: none;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  padding: 15px 20px; /* From Figma (input frame padding) */
+  margin-bottom: 12px; /* From Figma (spacing between inputs) */
+  border-radius: 10px; /* From Figma */
+  cursor: pointer;
+  font-size: 18px; /* From Figma */
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+.sidebar-item .sidebar-icon {
+  margin-right: 12px; /* Space between icon and text */
+  /* Add styles for actual icons later */
+}
+
+.sidebar-item.active {
+  /* Active styles are applied inline via style prop in TSX */
+}
+
+.user-profile {
+  margin-top: auto; /* Pushes to the bottom */
+  padding: 20px;
+  text-align: left;
+}
+
+.user-profile p {
+  margin-bottom: 16px; /* Space before logout button */
+}
+
+.logout-button {
+  width: 100%;
+  padding: 16px; /* From Figma (btn height 54px, text 22px -> (54-22)/2 = 16) */
+  border: none;
+  border-radius: 10px; /* From Figma */
+  font-size: 18px; /* From Figma */
+  font-weight: bold; /* From Figma */
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.main-content {
+  flex-grow: 1;
+  padding: 49px 32px; /* Approximate padding based on Figma (Frame 153 y, and general spacing) */
+  display: flex;
+  flex-direction: column;
+  gap: 30px; /* Space between content sections */
+}
+
+.content-section {
+  width: 100%;
+}
+
+.content-section h2 {
+  margin-bottom: 24px; /* From Figma (Title to Frame 146 y: 68 - 44 = 24) */
+  font-weight: 800; /* Extra Bold */
+}
+
+.form-container,
+.menu-container {
+  padding: 24px; /* From Figma */
+  border-radius: 22px; /* From Figma */
+  /* min-height: 200px; /* Placeholder height - will be determined by content */
+}
+
+.form-row {
+  display: flex;
+  gap: 12px; /* Approximate gap from Figma (Frame 150 to 151 x: 376 - 364 = 12) */
+  margin-bottom: 24px; /* From Figma (Frame 148 to 150 y: 132 - (24+84) = 24) */
+  flex-wrap: nowrap; /* Ensure items stay in a single line */
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 364px; /* Allow shrinking and growing, with a basis of Figma's input width */
+  /* min-width: 300px; /* Removed to allow better flexing */
+  max-width: 364px; /* Set max-width to Figma's input width */
+}
+
+.form-group label {
+  font-size: 18px; /* From Figma */
+  margin-bottom: 8px; /* From Figma (Title to input y: 30 - 22 = 8) */
+  padding-left: 20px; /* From Figma (Title x-offset) */
+}
+
+.input-wrapper {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px; /* From Figma (input height 54, text 22 -> (54-22)/2 = 16 for padding y) */
+  border-radius: 10px; /* From Figma */
+  height: 54px; /* From Figma */
+}
+
+.input-wrapper span:first-child { /* Text content in non-input fields */
+  flex-grow: 1;
+}
+
+.input-wrapper input[type="text"],
+.input-wrapper select {
+  flex-grow: 1;
+  border: none;
+  outline: none;
+  font-size: 18px; /* From Figma */
+  background-color: transparent;
+  color: inherit; /* Inherit text color from parent */
+  width: 100%;
+  height: 100%;
+  padding: 0; /* Remove default select padding if any */
+  margin: 0; /* Remove default select margin if any */
+  -webkit-appearance: none; /* Remove default arrow on Chrome/Safari */
+  -moz-appearance: none; /* Remove default arrow on Firefox */
+  appearance: none; /* Remove default arrow */
+  cursor: pointer;
+}
+
+/* Custom arrow for select, if needed, can be added via ::after pseudo-element on .select-wrapper */
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper::after {
+  content: '▼';
+  font-size: 12px; /* Adjust size as needed */
+  color: #333; /* Adjust color as needed */
+  position: absolute;
+  right: 20px; /* Adjust position from Figma */
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none; /* So it doesn't interfere with select click */
+}
+
+
+.input-wrapper .icon-placeholder {
+  font-size: 20px; /* Adjust as needed */
+  margin-left: 8px;
+}
+
+.file-input-wrapper {
+  cursor: pointer; /* To indicate it's clickable for file input */
+}
+
+.file-input-wrapper .icon-placeholder {
+  font-size: 24px; /* Attachment icon size */
+  margin-right: 12px; /* Space between icon and text */
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px; /* From Figma (btn-admin to btn-admin x: 249 - 237 = 12) */
+}
+
+.form-actions button {
+  padding: 16px 28px; /* From Figma (btn height 54, text 22 -> padding y 16. Title x 28) */
+  border: none;
+  border-radius: 10px; /* From Figma */
+  font-size: 18px; /* From Figma */
+  font-weight: bold; /* From Figma */
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+
+.form-actions button:hover {
+  opacity: 0.9;
+}
+
+.save-button {
+  min-width: 237px; /* From Figma */
+}
+
+.cancel-button {
+  min-width: 121px; /* From Figma */
+}
+
+.location-filter {
+  margin-bottom: 24px; /* Spacing before product grid, similar to form-row margin */
+}
+
+.product-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); /* From Figma card width */
+  gap: 12px; /* From Figma (Frame 155 to 156 x: 250 - 238 = 12) */
+  margin-bottom: 24px; /* Spacing before menu actions */
+}
+
+.product-card {
+  border-radius: 10px; /* From Figma */
+  padding: 12px; /* From Figma */
+  display: flex;
+  flex-direction: column;
+  height: 138px; /* From Figma */
+}
+
+.product-card-image-name {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px; /* From Figma (Frame 156 to 157 y: 86 - (12+62) = 12) */
+}
+
+.product-image {
+  width: 62px; /* From Figma */
+  height: 62px; /* From Figma */
+  border-radius: 8px; /* From Figma */
+  margin-right: 12px; /* From Figma (Rectangle 19 to Title x: 74 - 62 = 12) */
+  object-fit: cover;
+}
+
+.product-name {
+  font-size: 18px; /* From Figma */
+  flex-grow: 1;
+}
+
+.product-card-actions {
+  display: flex;
+  gap: 12px; /* From Figma (btn-admin to btn-admin x: 52 - 40 = 12) */
+}
+
+.icon-button {
+  width: 40px; /* From Figma */
+  height: 40px; /* From Figma */
+  border: none;
+  border-radius: 10px; /* From Figma */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+}
+
+.icon-button:hover {
+  opacity: 0.8;
+}
+
+.icon-button .icon-placeholder {
+  font-size: 20px; /* Adjust as needed for emoji/icons */
+}
+
+.menu-actions {
+  margin-top: 24px; /* Ensure spacing if product grid is empty or short */
+}
+
+.product-grid-placeholder {
+  min-height: 138px; /* Roughly the height of one row of product cards */
+  /* This will just be an empty div with the container's background color,
+     matching the screenshot for "no location selected" state. */
+}
+
+/* Styles for Users Tab */
+.users-list-container {
+  background-color: #f7f7f7; /* From screenshot, similar to other containers */
+  padding: 24px;
+  border-radius: 22px;
+  margin-bottom: 30px;
+}
+
+.user-list-header,
+.user-list-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #eeeeee;
+  align-items: center;
+}
+
+.user-list-header {
+  font-weight: bold; /* From screenshot, header text is bolder/darker */
+  color: #545B5E; /* Darker gray for header text */
+  font-size: 16px; /* Slightly smaller or same as row text */
+  padding-bottom: 16px;
+  margin-bottom: 8px;
+}
+
+.user-list-row:last-child {
+  border-bottom: none;
+}
+
+.user-list-row span, .user-list-header span {
+  font-size: 16px; /* From screenshot */
+  color: #181A1C; /* Dark text for data */
+}
+
+.user-col-login { flex: 1.5; } /* Adjusted flex based on screenshot content */
+.user-col-password { flex: 1.5; }
+.user-col-location { flex: 2.5; }
+.user-col-actions { 
+  flex: 1.5; 
+  display: flex;
+  gap: 10px; 
+  justify-content: flex-end;
+}
+
+.users-section .action-button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500; /* Medium */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.users-section .action-button.edit {
+  background-color: #545B5E; /* Dark gray from screenshot */
+  color: white;
+}
+.users-section .action-button.delete {
+  background-color: #F7F7F7; /* Light gray background from screenshot */
+  color: #FF5248; /* Accent red for delete text/icon */
+  border: 1px solid #E0E0E0; /* Light border */
+}
+
+.create-user-form {
+  margin-top: 24px; /* Spacing after "Создать нового пользователя" title */
+}
+
+.page-actions { /* For the overall save/cancel at bottom of users tab */
+  margin-top: 40px;
+  justify-content: flex-start; /* Align to left as per screenshot */
+}
+
+/* Styles for Orders Tab */
+.orders-filters {
+  display: flex;
+  gap: 20px; /* Adjust gap as needed */
+  margin-bottom: 24px;
+  align-items: flex-end; /* Align items to bottom if labels make heights uneven */
+}
+
+.orders-filters .form-group {
+  max-width: 300px; /* Or adjust as needed */
+}
+.orders-filters .form-group label {
+  padding-left: 0; /* No extra padding for filter labels */
+}
+
+
+.orders-list-container {
+  /* Similar to users-list-container but might not need background if rows are styled directly */
+  /* padding: 24px; */
+  /* border-radius: 22px; */
+}
+
+.order-list-header,
+.order-list-row {
+  display: grid;
+  grid-template-columns: 1.5fr 2.5fr 2fr; /* Adjust column ratios as needed */
+  gap: 16px;
+  padding: 12px 16px; /* Add some padding to rows */
+  border-bottom: 1px solid #eeeeee;
+  align-items: center;
+  background-color: #fff; /* White background for rows from screenshot */
+}
+.order-list-row:nth-child(odd) {
+ /* background-color: #f9f9f9; /* Optional zebra striping if desired */
+}
+
+
+.order-list-header {
+  font-weight: 500; /* Medium weight for headers */
+  color: #545B5E; /* Darker gray for header text */
+  font-size: 16px;
+  background-color: transparent; /* No background for header row itself */
+  border-bottom: 2px solid #e0e0e0; /* Stronger border for header */
+  margin-bottom: 4px;
+}
+
+.order-list-row span {
+  font-size: 16px;
+  color: #181A1C;
+}
+
+.order-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.orders-section .action-button { /* Reusing .action-button from users, can be more specific */
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: white; /* Default for colored buttons */
+}
+
+.orders-section .action-button.status-button {
+  background-color: #FFB02E; /* Orange color from screenshot */
+  color: #181A1C; /* Dark text on orange button */
+}
+
+
+/* Placeholder for Tilda Sans font if not globally available */
+@import url('https://fonts.googleapis.com/css2?family=Tilda+Sans:wght@400;500;600;700;800&display=swap');
+/* Note: This is a guess for Tilda Sans. If it's a custom/local font, it needs to be set up in the project. */

@@ -1,0 +1,45 @@
+{
+"name":"Title",
+"type":"TEXT",
+"visible":true,
+"x":16,
+"y":124,
+"width":358,
+"height":31,
+"rotation":0,
+"opacity":1,
+"constraints":
+{
+	"horizontal": "CENTER",
+	"vertical": "MIN"
+},
+"characters":"Закажите напиток",
+"fontSize":30,
+"textAlignHorizontal":"CENTER",
+"textAlignVertical":"TOP",
+"fontName":
+{
+	"family": "Tilda Sans",
+	"style": "Extra Bold"
+},
+"fills":
+[
+	{
+		"type": "SOLID",
+		"visible": true,
+		"opacity": 1,
+		"blendMode": "NORMAL",
+		"color": {
+			"r": 0.10576923191547394,
+			"g": 0.0828457847237587,
+			"b": 0.0808524414896965
+		},
+		"boundVariables": {}
+	}
+],
+"strokeCap":"NONE",
+"strokeJoin":"MITER",
+"strokeMiterLimit":4,
+"strokeStyleId":"",
+"strokeWeight":1
+}

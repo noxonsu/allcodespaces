@@ -1,0 +1,59 @@
+.scan-qr-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Ensure it's above other content */
+}
+
+.scan-qr-modal-content {
+  width: 374px; /* From Figma Frame 85 */
+  /* height: 421px; /* From Figma Frame 85 - let content define height */
+  border-radius: 16px; /* From Figma Frame 85 */
+  padding: 24px; /* Based on Frame 84 x, y */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-family: 'Tilda Sans', sans-serif;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.scan-qr-modal-icon-container {
+  margin-top: 56px; /* (80px from top of Frame 85) - 24px padding */
+  margin-bottom: 32px; /* (164px y of Frame 84) - (80px y of icon + 52px height of icon) */
+}
+
+.scan-qr-modal-title {
+  font-size: 24px; /* From Figma */
+  font-weight: bold; /* From Figma */
+  margin: 0 0 10px 0; /* (39px y of text) - (29px height of title) */
+}
+
+.scan-qr-modal-text {
+  font-size: 17px; /* From Figma */
+  line-height: 1.4; /* Approximate from 60px height for 3 lines */
+  margin: 0 0 24px 0; /* (123px y of button) - (39px y of text + 60px height of text) */
+  max-width: 326px; /* Width of text block */
+}
+
+.scan-qr-modal-button {
+  width: 100%; /* Matches 326px width of btn instance */
+  max-width: 326px;
+  height: 54px; /* From Figma */
+  border-radius: 10px; /* From Figma */
+  border: none;
+  font-size: 17px; /* From Figma */
+  font-weight: bold; /* From Figma */
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+
+.scan-qr-modal-button:hover {
+  opacity: 0.85;
+}

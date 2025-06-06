@@ -1,0 +1,54 @@
+/* .modal-overlay is already defined in ConfirmDeleteModal.css, can be shared if CSS is bundled globally or imported appropriately */
+/* For simplicity, I might redefine it or assume it's available. Let's assume it's available or define it if needed later. */
+/* If ConfirmDeleteModal.css is imported in App.tsx or index.tsx, .modal-overlay would be global. */
+
+.success-modal-content {
+  width: 376px; /* From Figma Frame 133 */
+  padding: 32px; /* General padding, can adjust based on inner content spacing */
+  border-radius: 16px; /* From Figma */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  /* background-color is set inline via style prop */
+}
+
+.success-modal-icon {
+  margin-top: 32px; /* From Figma (Frame y 64 - outer padding 32 = 32) */
+  margin-bottom: 32px; /* From Figma (icon bottom to Frame 39 y: 156 - (64+60) = 32) */
+}
+
+.success-modal-title {
+  font-size: 34px; /* From Figma */
+  font-weight: 800; /* Extra Bold */
+  line-height: 1.1; /* Adjust for multi-line text if message is long */
+  margin-bottom: 24px; /* From Figma (Title to btn-admin y: 98 - 74 = 24) */
+  max-width: 312px; /* From Figma (width of text block) */
+}
+
+.success-modal-actions {
+  display: flex;
+  justify-content: center; /* Center the single button */
+  width: 100%;
+}
+
+.success-modal-button.okay {
+  min-width: 122px; /* From Figma */
+  height: 54px; /* From Figma */
+  padding: 0 28px; /* Horizontal padding from Figma (Title x: 28) */
+  border: none;
+  border-radius: 10px; /* From Figma */
+  font-size: 18px; /* From Figma */
+  font-weight: bold; /* From Figma */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease-in-out;
+  /* background-color and color are set inline */
+}
+
+.success-modal-button.okay:hover {
+  opacity: 0.9;
+}

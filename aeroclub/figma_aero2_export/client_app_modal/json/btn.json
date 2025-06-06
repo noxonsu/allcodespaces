@@ -1,0 +1,86 @@
+{
+"name":"btn",
+"type":"INSTANCE",
+"visible":true,
+"x":16,
+"y":927,
+"width":358,
+"height":54,
+"rotation":0,
+"opacity":1,
+"cornerRadius":10,
+"cornerSmoothing":0.6000000238418579,
+"constraints":
+{
+	"horizontal": "CENTER",
+	"vertical": "MIN"
+},
+"fills":
+[
+	{
+		"type": "SOLID",
+		"visible": true,
+		"opacity": 1,
+		"blendMode": "NORMAL",
+		"color": {
+			"r": 1,
+			"g": 0.32156863808631897,
+			"b": 0.2823529541492462
+		},
+		"boundVariables": {}
+	}
+],
+"strokeCap":"NONE",
+"strokeJoin":"MITER",
+"strokeMiterLimit":4,
+"strokeStyleId":"",
+"strokeWeight":1,
+"children":
+[
+	{
+		"name":"Title",
+		"type":"TEXT",
+		"visible":true,
+		"x":123.5,
+		"y":17,
+		"width":111,
+		"height":20,
+		"rotation":0,
+		"opacity":1,
+		"constraints":
+		{
+			"horizontal": "MIN",
+			"vertical": "MIN"
+		},
+		"characters":"Сделать заказ",
+		"fontSize":17,
+		"textAlignHorizontal":"LEFT",
+		"textAlignVertical":"TOP",
+		"fontName":
+		{
+			"family": "Tilda Sans",
+			"style": "Bold"
+		},
+		"fills":
+		[
+			{
+				"type": "SOLID",
+				"visible": true,
+				"opacity": 1,
+				"blendMode": "NORMAL",
+				"color": {
+					"r": 1,
+					"g": 1,
+					"b": 1
+				},
+				"boundVariables": {}
+			}
+		],
+		"strokeCap":"NONE",
+		"strokeJoin":"MITER",
+		"strokeMiterLimit":4,
+		"strokeStyleId":"",
+		"strokeWeight":1
+	}
+]
+}

@@ -85,3 +85,6 @@ mempool
 onout.org/
 btc-rpc-explorer/
 wa/*
+package.json
+package-lock.json
+

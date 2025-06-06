@@ -1,0 +1,925 @@
+{
+"name":"Frame 155",
+"type":"FRAME",
+"visible":true,
+"x":675,
+"y":251,
+"width":570,
+"height":579,
+"rotation":0,
+"opacity":1,
+"cornerRadius":16,
+"cornerSmoothing":0.6000000238418579,
+"constraints":
+{
+	"horizontal": "CENTER",
+	"vertical": "CENTER"
+},
+"fills":
+[
+	{
+		"type": "SOLID",
+		"visible": true,
+		"opacity": 1,
+		"blendMode": "NORMAL",
+		"color": {
+			"r": 0.9700000286102295,
+			"g": 0.9700000286102295,
+			"b": 0.9700000286102295
+		},
+		"boundVariables": {}
+	}
+],
+"strokeCap":"NONE",
+"strokeJoin":"MITER",
+"strokeMiterLimit":4,
+"strokeStyleId":"",
+"strokeWeight":1,
+"children":
+[
+	{
+		"name":"Title",
+		"type":"TEXT",
+		"visible":true,
+		"x":32,
+		"y":32,
+		"width":506,
+		"height":37,
+		"rotation":0,
+		"opacity":1,
+		"constraints":
+		{
+			"horizontal": "MIN",
+			"vertical": "MIN"
+		},
+		"characters":"Редактирование напитка",
+		"fontSize":34,
+		"textAlignHorizontal":"CENTER",
+		"textAlignVertical":"TOP",
+		"fontName":
+		{
+			"family": "Tilda Sans",
+			"style": "Extra Bold"
+		},
+		"fills":
+		[
+			{
+				"type": "SOLID",
+				"visible": true,
+				"opacity": 1,
+				"blendMode": "NORMAL",
+				"color": {
+					"r": 0.09659722447395325,
+					"g": 0.10442128777503967,
+					"b": 0.10833333432674408
+				},
+				"boundVariables": {}
+			}
+		],
+		"strokeCap":"NONE",
+		"strokeJoin":"MITER",
+		"strokeMiterLimit":4,
+		"strokeStyleId":"",
+		"strokeWeight":1
+	},
+	{
+		"name":"Frame 164",
+		"type":"FRAME",
+		"visible":true,
+		"x":32,
+		"y":101,
+		"width":506,
+		"height":360,
+		"rotation":0,
+		"opacity":1,
+		"cornerRadius":0,
+		"cornerSmoothing":0,
+		"constraints":
+		{
+			"horizontal": "MIN",
+			"vertical": "MIN"
+		},
+		"strokeCap":"NONE",
+		"strokeJoin":"MITER",
+		"strokeMiterLimit":4,
+		"strokeStyleId":"",
+		"strokeWeight":1,
+		"children":
+		[
+			{
+				"name":"Frame 151",
+				"type":"FRAME",
+				"visible":true,
+				"x":0,
+				"y":0,
+				"width":506,
+				"height":84,
+				"rotation":0,
+				"opacity":1,
+				"cornerRadius":0,
+				"cornerSmoothing":0,
+				"constraints":
+				{
+					"horizontal": "MIN",
+					"vertical": "MIN"
+				},
+				"strokeCap":"NONE",
+				"strokeJoin":"MITER",
+				"strokeMiterLimit":4,
+				"strokeStyleId":"",
+				"strokeWeight":1,
+				"children":
+				[
+					{
+						"name":"Frame 151",
+						"type":"FRAME",
+						"visible":true,
+						"x":0,
+						"y":0,
+						"width":99,
+						"height":22,
+						"rotation":0,
+						"opacity":1,
+						"cornerRadius":0,
+						"cornerSmoothing":0,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1,
+						"children":
+						[
+							{
+								"name":"Title",
+								"type":"TEXT",
+								"visible":true,
+								"x":20,
+								"y":0,
+								"width":79,
+								"height":22,
+								"rotation":0,
+								"opacity":1,
+								"constraints":
+								{
+									"horizontal": "MIN",
+									"vertical": "MIN"
+								},
+								"characters":"Название",
+								"fontSize":18,
+								"textAlignHorizontal":"LEFT",
+								"textAlignVertical":"TOP",
+								"fontName":
+								{
+									"family": "Tilda Sans",
+									"style": "Medium"
+								},
+								"fills":
+								[
+									{
+										"type": "SOLID",
+										"visible": true,
+										"opacity": 1,
+										"blendMode": "NORMAL",
+										"color": {
+											"r": 0.3294117748737335,
+											"g": 0.35686275362968445,
+											"b": 0.3686274588108063
+										},
+										"boundVariables": {}
+									}
+								],
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1
+							}
+						]
+					},
+					{
+						"name":"Frame 162",
+						"type":"FRAME",
+						"visible":true,
+						"x":0,
+						"y":30,
+						"width":506,
+						"height":54,
+						"rotation":0,
+						"opacity":1,
+						"cornerRadius":0,
+						"cornerSmoothing":0,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1,
+						"children":
+						[
+							{
+								"name":"input",
+								"type":"INSTANCE",
+								"visible":true,
+								"x":0,
+								"y":0,
+								"width":249,
+								"height":54,
+								"rotation":0,
+								"opacity":1,
+								"cornerRadius":10,
+								"cornerSmoothing":0.6000000238418579,
+								"constraints":
+								{
+									"horizontal": "MIN",
+									"vertical": "MIN"
+								},
+								"fills":
+								[
+									{
+										"type": "SOLID",
+										"visible": true,
+										"opacity": 1,
+										"blendMode": "NORMAL",
+										"color": {
+											"r": 1,
+											"g": 1,
+											"b": 1
+										},
+										"boundVariables": {}
+									}
+								],
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1,
+								"children":
+								[
+									{
+										"name":"Title",
+										"type":"TEXT",
+										"visible":true,
+										"x":20,
+										"y":16,
+										"width":106,
+										"height":22,
+										"rotation":0,
+										"opacity":1,
+										"constraints":
+										{
+											"horizontal": "MIN",
+											"vertical": "MIN"
+										},
+										"characters":"Черный кофе",
+										"fontSize":18,
+										"textAlignHorizontal":"LEFT",
+										"textAlignVertical":"TOP",
+										"fontName":
+										{
+											"family": "Tilda Sans",
+											"style": "Medium"
+										},
+										"fills":
+										[
+											{
+												"type": "SOLID",
+												"visible": true,
+												"opacity": 1,
+												"blendMode": "NORMAL",
+												"color": {
+													"r": 0.09659722447395325,
+													"g": 0.10442128777503967,
+													"b": 0.10833333432674408
+												},
+												"boundVariables": {}
+											}
+										],
+										"strokeCap":"NONE",
+										"strokeJoin":"MITER",
+										"strokeMiterLimit":4,
+										"strokeStyleId":"",
+										"strokeWeight":1
+									}
+								]
+							},
+							{
+								"name":"input",
+								"type":"INSTANCE",
+								"visible":true,
+								"x":257,
+								"y":0,
+								"width":249,
+								"height":54,
+								"rotation":0,
+								"opacity":1,
+								"cornerRadius":10,
+								"cornerSmoothing":0.6000000238418579,
+								"constraints":
+								{
+									"horizontal": "MIN",
+									"vertical": "MIN"
+								},
+								"fills":
+								[
+									{
+										"type": "SOLID",
+										"visible": true,
+										"opacity": 1,
+										"blendMode": "NORMAL",
+										"color": {
+											"r": 1,
+											"g": 1,
+											"b": 1
+										},
+										"boundVariables": {}
+									}
+								],
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1,
+								"children":
+								[
+									{
+										"name":"Title",
+										"type":"TEXT",
+										"visible":true,
+										"x":20,
+										"y":16,
+										"width":131,
+										"height":22,
+										"rotation":0,
+										"opacity":1,
+										"constraints":
+										{
+											"horizontal": "MIN",
+											"vertical": "MIN"
+										},
+										"characters":"Новое название",
+										"fontSize":18,
+										"textAlignHorizontal":"LEFT",
+										"textAlignVertical":"TOP",
+										"fontName":
+										{
+											"family": "Tilda Sans",
+											"style": "Medium"
+										},
+										"fills":
+										[
+											{
+												"type": "SOLID",
+												"visible": true,
+												"opacity": 0.4000000059604645,
+												"blendMode": "NORMAL",
+												"color": {
+													"r": 0.10588235408067703,
+													"g": 0.08235294371843338,
+													"b": 0.08235294371843338
+												},
+												"boundVariables": {}
+											}
+										],
+										"strokeCap":"NONE",
+										"strokeJoin":"MITER",
+										"strokeMiterLimit":4,
+										"strokeStyleId":"",
+										"strokeWeight":1
+									}
+								]
+							}
+						]
+					}
+				]
+			},
+			{
+				"name":"Frame 153",
+				"type":"FRAME",
+				"visible":true,
+				"x":0,
+				"y":108,
+				"width":506,
+				"height":252,
+				"rotation":0,
+				"opacity":1,
+				"cornerRadius":0,
+				"cornerSmoothing":0,
+				"constraints":
+				{
+					"horizontal": "MIN",
+					"vertical": "MIN"
+				},
+				"strokeCap":"NONE",
+				"strokeJoin":"MITER",
+				"strokeMiterLimit":4,
+				"strokeStyleId":"",
+				"strokeWeight":1,
+				"children":
+				[
+					{
+						"name":"Title",
+						"type":"TEXT",
+						"visible":true,
+						"x":197.5,
+						"y":0,
+						"width":111,
+						"height":22,
+						"rotation":0,
+						"opacity":1,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"characters":"Изображение",
+						"fontSize":18,
+						"textAlignHorizontal":"LEFT",
+						"textAlignVertical":"TOP",
+						"fontName":
+						{
+							"family": "Tilda Sans",
+							"style": "Medium"
+						},
+						"fills":
+						[
+							{
+								"type": "SOLID",
+								"visible": true,
+								"opacity": 1,
+								"blendMode": "NORMAL",
+								"color": {
+									"r": 0.3294117748737335,
+									"g": 0.35686275362968445,
+									"b": 0.3686274588108063
+								},
+								"boundVariables": {}
+							}
+						],
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1
+					},
+					{
+						"name":"Frame 162",
+						"type":"FRAME",
+						"visible":true,
+						"x":0,
+						"y":30,
+						"width":506,
+						"height":222,
+						"rotation":0,
+						"opacity":1,
+						"cornerRadius":0,
+						"cornerSmoothing":0,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1,
+						"children":
+						[
+							{
+								"name":"Rectangle 19",
+								"type":"RECTANGLE",
+								"visible":true,
+								"x":173,
+								"y":0,
+								"width":160,
+								"height":160,
+								"rotation":0,
+								"opacity":1,
+								"cornerRadius":8,
+								"cornerSmoothing":0,
+								"constraints":
+								{
+									"horizontal": "MIN",
+									"vertical": "MIN"
+								},
+								"fills":
+								[
+									{
+										"type": "IMAGE",
+										"src":"images/2cd96672e2f5e16292666ec7a36d0b579a9dd662.png",
+										"visible": true,
+										"opacity": 1,
+										"blendMode": "NORMAL",
+										"scaleMode": "FILL",
+										"imageTransform": [
+											[
+												0.5625,
+												0,
+												0.21875
+											],
+											[
+												0,
+												1,
+												0
+											]
+										],
+										"scalingFactor": 0.5,
+										"rotation": 0,
+										"filters": {
+											"exposure": 0,
+											"contrast": 0,
+											"saturation": 0,
+											"temperature": 0,
+											"tint": 0,
+											"highlights": 0,
+											"shadows": 0
+										},
+										"imageHash": "2cd96672e2f5e16292666ec7a36d0b579a9dd662"
+									}
+								],
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1
+							},
+							{
+								"name":"input",
+								"type":"FRAME",
+								"visible":true,
+								"x":71,
+								"y":168,
+								"width":364,
+								"height":54,
+								"rotation":0,
+								"opacity":1,
+								"cornerRadius":10,
+								"cornerSmoothing":0.6000000238418579,
+								"constraints":
+								{
+									"horizontal": "MIN",
+									"vertical": "MIN"
+								},
+								"fills":
+								[
+									{
+										"type": "SOLID",
+										"visible": true,
+										"opacity": 1,
+										"blendMode": "NORMAL",
+										"color": {
+											"r": 1,
+											"g": 1,
+											"b": 1
+										},
+										"boundVariables": {}
+									}
+								],
+								"strokeCap":"NONE",
+								"strokeJoin":"MITER",
+								"strokeMiterLimit":4,
+								"strokeStyleId":"",
+								"strokeWeight":1,
+								"children":
+								[
+									{
+										"name":"icon / attachment",
+										"type":"INSTANCE",
+										"visible":true,
+										"x":20,
+										"y":15,
+										"width":24,
+										"height":24,
+										"rotation":0,
+										"opacity":1,
+										"cornerRadius":0,
+										"cornerSmoothing":0,
+										"constraints":
+										{
+											"horizontal": "MIN",
+											"vertical": "MIN"
+										},
+										"fills":
+										[
+											{
+												"type": "SOLID",
+												"visible": false,
+												"opacity": 1,
+												"blendMode": "NORMAL",
+												"color": {
+													"r": 1,
+													"g": 1,
+													"b": 1
+												},
+												"boundVariables": {}
+											}
+										],
+										"strokeCap":"NONE",
+										"strokeJoin":"MITER",
+										"strokeMiterLimit":4,
+										"strokeStyleId":"",
+										"strokeWeight":1,
+										"children":
+										[
+											{
+												"name":"attachment",
+												"type":"VECTOR",
+												"visible":true,
+												"x":4.292892932891846,
+												"y":3.4644665718078613,
+												"width":16.242639541625977,
+												"height":17.020814895629883,
+												"rotation":0,
+												"opacity":1,
+												"cornerRadius":0,
+												"cornerSmoothing":0.6000000238418579,
+												"constraints":
+												{
+													"horizontal": "SCALE",
+													"vertical": "SCALE"
+												},
+												"strokeCap":"ROUND",
+												"strokeJoin":"ROUND",
+												"strokeMiterLimit":4,
+												"strokeStyleId":"S:a5fd4e734423bcf590205fbcd462714ba532a69c,",
+												"strokeWeight":2,
+												"strokes":
+												[
+													{
+														"type": "SOLID",
+														"visible": true,
+														"opacity": 1,
+														"blendMode": "NORMAL",
+														"color": {
+															"r": 1,
+															"g": 0.32156863808631897,
+															"b": 0.2823529541492462
+														},
+														"boundVariables": {}
+													}
+												]
+											}
+										]
+									},
+									{
+										"name":"Title",
+										"type":"TEXT",
+										"visible":true,
+										"x":56,
+										"y":16,
+										"width":238,
+										"height":22,
+										"rotation":0,
+										"opacity":1,
+										"constraints":
+										{
+											"horizontal": "MIN",
+											"vertical": "MIN"
+										},
+										"characters":"Файл «кофе.png» прикреплен",
+										"fontSize":18,
+										"textAlignHorizontal":"LEFT",
+										"textAlignVertical":"TOP",
+										"fontName":
+										{
+											"family": "Tilda Sans",
+											"style": "Medium"
+										},
+										"fills":
+										[
+											{
+												"type": "SOLID",
+												"visible": true,
+												"opacity": 1,
+												"blendMode": "NORMAL",
+												"color": {
+													"r": 0.09659722447395325,
+													"g": 0.10442128777503967,
+													"b": 0.10833333432674408
+												},
+												"boundVariables": {}
+											}
+										],
+										"strokeCap":"NONE",
+										"strokeJoin":"MITER",
+										"strokeMiterLimit":4,
+										"strokeStyleId":"",
+										"strokeWeight":1
+									}
+								]
+							}
+						]
+					}
+				]
+			}
+		]
+	},
+	{
+		"name":"Frame 163",
+		"type":"FRAME",
+		"visible":true,
+		"x":100,
+		"y":493,
+		"width":370,
+		"height":54,
+		"rotation":0,
+		"opacity":1,
+		"cornerRadius":0,
+		"cornerSmoothing":0,
+		"constraints":
+		{
+			"horizontal": "MIN",
+			"vertical": "MIN"
+		},
+		"strokeCap":"NONE",
+		"strokeJoin":"MITER",
+		"strokeMiterLimit":4,
+		"strokeStyleId":"",
+		"strokeWeight":1,
+		"children":
+		[
+			{
+				"name":"btn-admin",
+				"type":"INSTANCE",
+				"visible":true,
+				"x":0,
+				"y":0,
+				"width":237,
+				"height":54,
+				"rotation":0,
+				"opacity":0.4000000059604645,
+				"cornerRadius":10,
+				"cornerSmoothing":0.6000000238418579,
+				"constraints":
+				{
+					"horizontal": "MIN",
+					"vertical": "MIN"
+				},
+				"fills":
+				[
+					{
+						"type": "SOLID",
+						"visible": true,
+						"opacity": 1,
+						"blendMode": "NORMAL",
+						"color": {
+							"r": 1,
+							"g": 0.32156863808631897,
+							"b": 0.2823529541492462
+						},
+						"boundVariables": {}
+					}
+				],
+				"strokeCap":"NONE",
+				"strokeJoin":"MITER",
+				"strokeMiterLimit":4,
+				"strokeStyleId":"",
+				"strokeWeight":1,
+				"children":
+				[
+					{
+						"name":"Title",
+						"type":"TEXT",
+						"visible":true,
+						"x":28,
+						"y":16,
+						"width":181,
+						"height":22,
+						"rotation":0,
+						"opacity":1,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"characters":"Сохранить изменения",
+						"fontSize":18,
+						"textAlignHorizontal":"LEFT",
+						"textAlignVertical":"TOP",
+						"fontName":
+						{
+							"family": "Tilda Sans",
+							"style": "Bold"
+						},
+						"fills":
+						[
+							{
+								"type": "SOLID",
+								"visible": true,
+								"opacity": 1,
+								"blendMode": "NORMAL",
+								"color": {
+									"r": 1,
+									"g": 1,
+									"b": 1
+								},
+								"boundVariables": {}
+							}
+						],
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1
+					}
+				]
+			},
+			{
+				"name":"btn-admin",
+				"type":"INSTANCE",
+				"visible":true,
+				"x":249,
+				"y":0,
+				"width":121,
+				"height":54,
+				"rotation":0,
+				"opacity":1,
+				"cornerRadius":10,
+				"cornerSmoothing":0.6000000238418579,
+				"constraints":
+				{
+					"horizontal": "MIN",
+					"vertical": "MIN"
+				},
+				"fills":
+				[
+					{
+						"type": "SOLID",
+						"visible": true,
+						"opacity": 1,
+						"blendMode": "NORMAL",
+						"color": {
+							"r": 0.3294117748737335,
+							"g": 0.35686275362968445,
+							"b": 0.3686274588108063
+						},
+						"boundVariables": {}
+					}
+				],
+				"strokeCap":"NONE",
+				"strokeJoin":"MITER",
+				"strokeMiterLimit":4,
+				"strokeStyleId":"",
+				"strokeWeight":1,
+				"children":
+				[
+					{
+						"name":"Title",
+						"type":"TEXT",
+						"visible":true,
+						"x":28,
+						"y":16,
+						"width":65,
+						"height":22,
+						"rotation":0,
+						"opacity":1,
+						"constraints":
+						{
+							"horizontal": "MIN",
+							"vertical": "MIN"
+						},
+						"characters":"Отмена",
+						"fontSize":18,
+						"textAlignHorizontal":"LEFT",
+						"textAlignVertical":"TOP",
+						"fontName":
+						{
+							"family": "Tilda Sans",
+							"style": "Bold"
+						},
+						"fills":
+						[
+							{
+								"type": "SOLID",
+								"visible": true,
+								"opacity": 1,
+								"blendMode": "NORMAL",
+								"color": {
+									"r": 1,
+									"g": 1,
+									"b": 1
+								},
+								"boundVariables": {}
+							}
+						],
+						"strokeCap":"NONE",
+						"strokeJoin":"MITER",
+						"strokeMiterLimit":4,
+						"strokeStyleId":"",
+						"strokeWeight":1
+					}
+				]
+			}
+		]
+	}
+]
+}
