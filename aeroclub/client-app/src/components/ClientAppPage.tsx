@@ -3,7 +3,8 @@ import { useLocation } from 'react-router-dom';
 import './ClientAppPage.css';
 import ScanQrModal from './ScanQrModal';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL_RAW = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = API_BASE_URL_RAW.endsWith('/') ? API_BASE_URL_RAW.slice(0, -1) : API_BASE_URL_RAW;
 
 
 interface MenuItem {
@@ -41,24 +42,47 @@ const ClientAppPage: React.FC = () => {
     if (locationId) {
       // Fetch location details to get number_id
       fetch(`${API_BASE_URL}/locations/${locationId}`)
-        .then(response => response.json())
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
         .then(data => {
-          setLocationNumberId(data.number_id);
+          if (data && typeof data.number_id !== 'undefined') {
+            setLocationNumberId(data.number_id);
+          } else {
+            console.error('Error: number_id not found in location data:', data);
+          }
         })
         .catch(error => console.error('Error fetching location details:', error));
 
       // Fetch menu for the location
       fetch(`${API_BASE_URL}/locations/${locationId}/menu_items`)
-        .then(response => response.json())
-        .then((data: MenuItem[]) => {
-          setMenuItems(data);
-          const initialQuantities = data.reduce((acc, item) => {
-            acc[item.id] = 0;
-            return acc;
-          }, {} as Record<number, number>);
-          setQuantities(initialQuantities);
+        .then(response => {
+          if (!response.ok) {
+            console.error(`Error fetching menu items: ${response.status} ${response.statusText}`);
+            return [];
+          }
+          return response.json();
         })
-        .catch(error => console.error('Error fetching menu items:', error));
+        .then((data: MenuItem[] | any) => {
+          if (Array.isArray(data)) {
+            setMenuItems(data);
+            const initialQuantities = data.reduce((acc, item) => {
+              acc[item.id] = 0;
+              return acc;
+            }, {} as Record<number, number>);
+            setQuantities(initialQuantities);
+          } else {
+            console.error('Received non-array data for menu items, setting to empty.');
+            setMenuItems([]);
+          }
+        })
+        .catch(error => {
+          console.error('Error fetching or parsing menu items:', error);
+          setMenuItems([]);
+        });
     }
   }, [locationId]);
 
