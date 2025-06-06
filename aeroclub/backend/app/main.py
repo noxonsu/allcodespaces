@@ -28,20 +28,11 @@ app = FastAPI(
 #     # Add your frontend production URL here
 # ]
 # For development, allowing all origins is often easiest:
-# origins = ["*"] # This is problematic with allow_credentials=True
-
-origins = [
-    "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:5173",
-]
-
-codespace_origin_regex = r"^https:\/\/[a-zA-Z0-9-]+\.app\.github\.dev$"
+origins = ["*"] # This is problematic with allow_credentials=True
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_origin_regex=codespace_origin_regex,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
