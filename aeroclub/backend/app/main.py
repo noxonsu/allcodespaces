@@ -28,15 +28,15 @@ app = FastAPI(
 #     # Add your frontend production URL here
 # ]
 # For development, allowing all origins is often easiest:
-origins = ["*"] # Allow all origins
+# origins = ["*"] # Allow all origins. Commented out as Cloudflare might be handling this.
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# app.add_middleware(
+#     CORSMiddleware,
+#     allow_origins=origins,
+#     allow_credentials=True,
+#     allow_methods=["*"],
+#     allow_headers=["*"],
+# )
 
 # Mount the v1 API router
 app.include_router(api_router_v1, prefix="/api/v1")
