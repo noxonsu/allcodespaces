@@ -1,5 +1,4 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
 import { UserIcon, EditMenuIcon, OrdersIcon, ScalingGridIcon } from '../icons'; // Убедитесь, что путь к иконкам верный
 import { LogoIcon } from '../LogoIcon'; // Убедитесь, что путь к LogoIcon верный
 
@@ -37,7 +36,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
   onTabClick,
   onLogout,
   colors,
-  userName = "Иванов И.И.", // Значение по умолчанию
+  userName,
 }) => {
   return (
     <aside className="sidebar" style={{ backgroundColor: colors.background }}>
@@ -68,25 +67,10 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({
               </li>
             );
           })}
-          <li
-            className="sidebar-item client-app-link"
-            style={{
-              backgroundColor: colors.white, // Или colors.background
-              color: colors.textLight,
-              display: 'flex',
-              alignItems: 'center',
-              padding: '12px 20px',
-              marginTop: '20px',
-            }}
-          >
-            <Link to="/client" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', width: '100%' }}>
-              <span style={{ fontSize: '12px' }}>Client App</span>
-            </Link>
-          </li>
         </ul>
       </nav>
       <div className="user-profile">
-        <p style={{ color: colors.textDark, fontSize: '20px' }}>{userName}</p>
+        <p style={{ color: colors.textDark, fontSize: '20px' }}>{userName || 'Пользователь'}</p>
         <button className="logout-button" style={{ backgroundColor: colors.textLight, color: colors.white }} onClick={onLogout}>
           Выход
         </button>

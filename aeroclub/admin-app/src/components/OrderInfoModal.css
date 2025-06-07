@@ -15,19 +15,32 @@
 
 .order-info-modal-title {
   font-size: 28px; /* Approximate from screenshot */
-  font-weight: bold; /* Or Extra Bold if matches other titles */
+  font-weight: 800; /* Extra Bold */
+  font-family: "Tilda Sans-ExtraBold", Helvetica;
   margin-bottom: 8px;
 }
 
 .order-location-spot {
   font-size: 16px; /* Approximate */
+  font-family: "Tilda Sans-Medium", Helvetica;
   margin-bottom: 20px; /* Approximate */
+}
+
+.order-details-section {
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.order-details-subtitle {
+  font-size: 18px; /* Approximate */
+  font-weight: 700; /* Bold */
+  margin-bottom: 12px; /* Space between subtitle and table */
+  text-align: left; /* Align subtitle to left */
 }
 
 .order-items-table {
   width: 100%;
   border-collapse: collapse;
-  margin-bottom: 24px;
 }
 
 .order-items-table th,
@@ -35,6 +48,7 @@
   padding: 10px 8px;
   text-align: left;
   font-size: 16px; /* Approximate */
+  font-family: "Tilda Sans-Medium", Helvetica;
 }
 
 .order-items-table th {
@@ -68,7 +82,8 @@
   border: none;
   border-radius: 10px;
   font-size: 18px;
-  font-weight: bold;
+  font-weight: 700; /* Bold */
+  font-family: "Tilda Sans-Bold", Helvetica;
   cursor: pointer;
   display: flex;
   align-items: center;

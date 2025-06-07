@@ -5,6 +5,8 @@ import ConfirmDeleteModal from './ConfirmDeleteModal';
 import SuccessModal from './SuccessModal';
 import EditDrinkModal from './EditDrinkModal';
 import OrderInfoModal from './OrderInfoModal';
+import ConfirmStatusChangeModal from './ConfirmStatusChangeModal';
+import EditUserModal from './EditUserModal';
 
 import AdminSidebar from './admin_tabs/AdminSidebar';
 import UsersTab from './admin_tabs/UsersTab';
@@ -58,7 +60,7 @@ const AdminPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [scalingLocations, setScalingLocations] = useState<ScalingLocation[]>([]);
   
-  const [selectedLocationEdit, setSelectedLocationEdit] = useState<string>("");
+  const [selectedLocationEdit, /* setSelectedLocationEdit */] = useState<string>(""); // setSelectedLocationEdit закомментирован
 
 
   // States for modals
@@ -74,6 +76,12 @@ const AdminPage: React.FC = () => {
 
   const [isOrderInfoModalOpen, setIsOrderInfoModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const [isConfirmStatusChangeModalOpen, setIsConfirmStatusChangeModalOpen] = useState(false);
+  const [orderIdToChangeStatus, setOrderIdToChangeStatus] = useState<string | null>(null);
+
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false);
+  const [userToEdit, setUserToEdit] = useState<User | null>(null);
 
   const openSuccessModal = (message: string) => {
     setSuccessModalMessage(message);
@@ -164,15 +172,17 @@ const AdminPage: React.FC = () => {
   const handleOpenDeleteDrinkModal = (item: FrontendMenuItem) => { setItemToDelete(item); setDeleteItemType('drink'); setIsDeleteModalOpen(true); };
   const handleOpenEditDrinkModal = (item: FrontendMenuItem) => { setItemToEdit(item); setIsEditModalOpen(true); };
   const handleOpenDeleteUserModal = (user: User) => { setItemToDelete(user); setDeleteItemType('user'); setIsDeleteModalOpen(true); };
+  const handleOpenEditUserModal = (user: User) => { setUserToEdit(user); setIsEditUserModalOpen(true); };
   const handleOpenDeleteLocationModal = (location: ScalingLocation) => { setItemToDelete(location); setDeleteItemType('location'); setIsDeleteModalOpen(true); };
+  const handleOpenConfirmStatusChangeModal = (orderId: string) => { setOrderIdToChangeStatus(orderId); setIsConfirmStatusChangeModalOpen(true); };
 
 
-  const handleSaveEditedDrink = async (updatedData: { id: string; name: string; price: number; newImageFile?: File; currentImageFilename: string | null; }) => {
+  const handleSaveEditedDrink = async (updatedData: { id: string; name: string; /* price: number; */ newImageFile?: File; currentImageFilename: string | null; }) => {
     const token = localStorage.getItem('accessToken');
     if (!token) { alert("Ошибка авторизации."); return; }
     const formData = new FormData();
     formData.append('name', updatedData.name);
-    formData.append('price', updatedData.price.toString());
+    // formData.append('price', updatedData.price.toString()); // Цена удалена
     if (updatedData.newImageFile) formData.append('image', updatedData.newImageFile);
 
     try {
@@ -282,6 +292,42 @@ const AdminPage: React.FC = () => {
       setDeleteItemType(null);
     }
   };
+
+  const handleSaveEditedUser = async (userId: string, newLogin: string, newPassword?: string, newLocationId?: string | null) => {
+    const token = localStorage.getItem('accessToken');
+    if (!token) { alert("Ошибка авторизации."); return; }
+
+    const payload: { login: string; password?: string; location_id?: string | null } = { login: newLogin };
+    if (newPassword) {
+      payload.password = newPassword;
+    }
+    payload.location_id = newLocationId; // Can be null to unset location
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        openSuccessModal(`Пользователь "${newLogin}" успешно обновлен.`);
+        fetchUsers();
+      } else {
+        const errData = await response.json().catch(() => ({ detail: `Failed to update user. Status: ${response.status}` }));
+        throw new Error(errData.detail);
+      }
+    } catch (error: any) {
+      console.error("Error updating user:", error);
+      alert(`Ошибка обновления пользователя: ${error.message}`);
+    } finally {
+      setIsEditUserModalOpen(false);
+      setUserToEdit(null);
+    }
+  };
   
   return (
     <div className="admin-page" style={{ backgroundColor: colors.white }}>
@@ -299,6 +345,7 @@ const AdminPage: React.FC = () => {
             scalingLocations={scalingLocations}
             fetchUsers={fetchUsers}
             onOpenDeleteUserModal={handleOpenDeleteUserModal}
+            onOpenEditUserModal={handleOpenEditUserModal}
             openSuccessModal={openSuccessModal}
             colors={colors}
           />
@@ -319,6 +366,7 @@ const AdminPage: React.FC = () => {
             orders={orders}
             scalingLocations={scalingLocations} 
             onOpenOrderInfoModal={handleOpenOrderInfoModal}
+            onOpenConfirmStatusChangeModal={handleOpenConfirmStatusChangeModal}
           />
         )}
         {activeTab === 'scaling' && (
@@ -341,6 +389,7 @@ const AdminPage: React.FC = () => {
           itemName={
             (itemToDelete as any)?.name || (itemToDelete as any)?.login || (itemToDelete as any)?.address || 'элемент'
           }
+          itemType={deleteItemType}
         />
       )}
 
@@ -366,6 +415,25 @@ const AdminPage: React.FC = () => {
           order={selectedOrder} 
           onUpdateStatus={handleUpdateOrderStatus} 
         /> 
+      )}
+
+      {orderIdToChangeStatus && (
+        <ConfirmStatusChangeModal
+          isOpen={isConfirmStatusChangeModalOpen}
+          onClose={() => { setIsConfirmStatusChangeModalOpen(false); setOrderIdToChangeStatus(null); }}
+          onConfirm={handleUpdateOrderStatus}
+          orderId={orderIdToChangeStatus}
+        />
+      )}
+
+      {userToEdit && (
+        <EditUserModal
+          isOpen={isEditUserModalOpen}
+          onClose={() => { setIsEditUserModalOpen(false); setUserToEdit(null); }}
+          user={userToEdit}
+          scalingLocations={scalingLocations}
+          onSave={handleSaveEditedUser}
+        />
       )}
     </div>
   );

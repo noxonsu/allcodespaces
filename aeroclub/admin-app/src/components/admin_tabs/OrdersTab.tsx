@@ -9,14 +9,14 @@ interface OrdersTabProps {
   orders: Order[];
   scalingLocations: ScalingLocation[];
   onOpenOrderInfoModal: (orderId: string) => void;
-  // TODO: Добавить проп для обработчика смены статуса, если он будет отличаться от console.log
-  // onChangeOrderStatus: (orderId: string, newStatus: string) => void; 
+  onOpenConfirmStatusChangeModal: (orderId: string) => void;
 }
 
 const OrdersTab: React.FC<OrdersTabProps> = ({
   orders,
   scalingLocations,
   onOpenOrderInfoModal,
+  onOpenConfirmStatusChangeModal,
 }) => {
   // Используем scalingLocations для фильтра, если они есть, иначе заглушку
   const locationOptions = scalingLocations.length > 0
@@ -47,6 +47,10 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                {/* <img className="icon-chevron-down" src={ChevronDownIcon} alt="icon / chevron-down" /> */}
                <img className="icon-chevron-down" alt="icon / chevron-down" src="https://cdn.animaapp.com/projects/67d17e7b307c8641d34b3d03/releases/68435e892d15ce502a9dbc98/img/icon---chevron-down-1.svg" />
             </div>
+            <div className="frame-161-e9KnCy"> {/* Новая колонка для статуса */}
+              <div className="title-rIZb6T title">Статус</div>
+              <img className="icon-chevron-down" alt="icon / chevron-down" src="https://cdn.animaapp.com/projects/67d17e7b307c8641d34b3d03/releases/68435e892d15ce502a9dbc98/img/icon---chevron-down-1.svg" />
+            </div>
             {/* TODO: Добавить элементы управления для фильтров, если они нужны здесь */}
             {/* Пример для фильтра локаций, если он должен быть здесь, а не в AdminPage */}
             {/* 
@@ -70,10 +74,13 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                 // В HTML каждая строка имела свой уникальный класс (frame-140-QJHgXe, frame-145-QJHgXe, ...), 
                 // что не подходит для динамического рендеринга. Используем один общий класс.
                 <div key={order.id} className="frame-140-QJHgXe"> {/* Общий класс для строки заказа */}
-                  <div className="title order-row-text-date tildasans-medium-scarpa-flow-18px">{order.dateTime}</div>
-                  <p className="title order-row-text-location tildasans-medium-scarpa-flow-18px">
+                  <div className="order-row-text-date tildasans-medium-scarpa-flow-18px">{order.dateTime}</div>
+                  <p className="order-row-text-location tildasans-medium-scarpa-flow-18px">
                     {`${order.location} | место ${order.spot}`}
                   </p>
+                  <div className="order-row-text-status tildasans-medium-scarpa-flow-18px"> {/* Отображение статуса */}
+                    {order.status}
+                  </div>
                   <div className="frame-138"> {/* Контейнер для кнопок */}
                     <div 
                       className="btn-admin btn-admin-show-order" // Классы для кнопки "Показать заказ"
@@ -83,7 +90,7 @@ const OrdersTab: React.FC<OrdersTabProps> = ({
                     </div>
                     <div 
                       className="btn-admin btn-admin-change-status" // Классы для кнопки "Сменить статус"
-                      onClick={() => console.log("Change status for order:", order.id)} // TODO: Заменить на реальный обработчик
+                      onClick={() => onOpenConfirmStatusChangeModal(order.id)}
                     >
                       <div className="ellipse-1"></div>
                       <div className="title tildasans-bold-eerie-black-18px">Сменить статус</div>

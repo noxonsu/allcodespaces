@@ -12,9 +12,10 @@ interface ConfirmDeleteModalProps {
   onClose: () => void;
   onConfirm: () => void;
   itemName: string;
+  itemType: 'drink' | 'user' | 'location' | null;
 }
 
-const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, onClose, onConfirm, itemName }) => {
+const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, onClose, onConfirm, itemName, itemType }) => {
   if (!isOpen) {
     return null;
   }
@@ -50,7 +51,7 @@ const ConfirmDeleteModal: React.FC<ConfirmDeleteModalProps> = ({ isOpen, onClose
           <TrashIcon />
         </div>
         <h2 className="modal-title" style={{ color: colors.textDark }}>
-          Удалить напиток
+          Удалить {itemType === 'drink' ? 'напиток' : itemType === 'user' ? 'пользователя' : itemType === 'location' ? 'локацию' : 'элемент'}
         </h2>
         <p className="modal-item-name" style={{ color: colors.textLightGray }}>
           {itemName}

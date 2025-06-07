@@ -54,41 +54,44 @@ const OrderInfoModal: React.FC<OrderInfoModalProps> = ({ isOpen, onClose, order,
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
       <div className="order-info-modal-content" style={{ backgroundColor: colors.background }}>
-        <h2 className="order-info-modal-title" style={{ color: colors.textDark }}>
+        <h2 className="order-info-modal-title" style={{ color: colors.textDark, fontFamily: '"Tilda Sans-ExtraBold", sans-serif' }}>
           Информация по заказу
         </h2>
-        <p className="order-location-spot" style={{ color: colors.textSlightlyLighter }}>
+        <p className="order-location-spot" style={{ color: colors.textSlightlyLighter, fontFamily: '"Tilda Sans-Medium", sans-serif' }}>
           {`${order.location} | ${order.spot}`}
         </p>
         
-        <table className="order-items-table">
-          <thead>
-            <tr>
-              <th style={{color: colors.tableHeader}}>Наименование</th>
-              <th style={{color: colors.tableHeader}}>Кол-во</th>
-            </tr>
-          </thead>
-          <tbody>
-            {order.items.map((item, index) => (
-              <tr key={index}>
-                <td style={{color: colors.tableCell}}>{item.name}</td>
-                <td style={{color: colors.tableCell}}>{item.quantity}</td>
+        <div className="order-details-section">
+          <h3 className="order-details-subtitle" style={{ color: colors.textDark, fontFamily: '"Tilda Sans-Bold", sans-serif' }}>Состав заказа:</h3>
+          <table className="order-items-table">
+            <thead>
+              <tr>
+                <th style={{color: colors.tableHeader, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>Наименование</th>
+                <th style={{color: colors.tableHeader, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>Кол-во</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {order.items.map((item, index) => (
+                <tr key={index}>
+                  <td style={{color: colors.tableCell, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>{item.name}</td>
+                  <td style={{color: colors.tableCell, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>{item.quantity}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <div className="order-info-modal-actions">
           <button
             className="modal-button completed"
-            style={{ backgroundColor: colors.buttonRed, color: colors.white }}
+            style={{ backgroundColor: colors.buttonRed, color: colors.white, fontFamily: '"Tilda Sans-Bold", sans-serif' }}
             onClick={() => onUpdateStatus(order.id, 'completed')}
           >
             Выполнено
           </button>
           <button
             className="modal-button cancel"
-            style={{ backgroundColor: colors.buttonGray, color: colors.white }}
+            style={{ backgroundColor: colors.buttonGray, color: colors.white, fontFamily: '"Tilda Sans-Bold", sans-serif' }}
             onClick={onClose}
           >
             Закрыть

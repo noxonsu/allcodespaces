@@ -120,13 +120,13 @@ const EditMenuTab: React.FC<EditMenuTabProps> = ({
   return (
     <>
       <div className="content-section upload-drinks">
-        <h2 style={{ color: colors.textDark }}>Загрузить новые напитки</h2>
-        <div className="form-container" style={{ backgroundColor: colors.background }}>
+        <h2>Загрузить новые напитки</h2>
+        <div className="form-container users-list-container">
           <div className="form-row">
             <div className="form-group">
-              <label style={{ color: colors.textLight }}>Локация</label>
-              <div className="input-wrapper select-wrapper" style={{ backgroundColor: colors.white }}>
-                <select value={selectedLocationUpload} onChange={(e) => setSelectedLocationUpload(e.target.value)} style={{ color: colors.textDark }}>
+              <label>Локация</label>
+              <div className="input-wrapper select-wrapper">
+                <select value={selectedLocationUpload} onChange={(e) => setSelectedLocationUpload(e.target.value)}>
                   {locationOptionsForUpload.map(loc => (
                     <option key={loc.id} value={loc.id}>{loc.address}</option>
                   ))}
@@ -134,23 +134,23 @@ const EditMenuTab: React.FC<EditMenuTabProps> = ({
               </div>
             </div>
             <div className="form-group">
-              <label style={{ color: colors.textLight }}>Название нового напитка</label>
-              <div className="input-wrapper" style={{ backgroundColor: colors.white }}>
-                <input type="text" placeholder="Название" value={newDrinkName} onChange={(e) => setNewDrinkName(e.target.value)} style={{ color: colors.textDark }} />
+              <label>Название нового напитка</label>
+              <div className="input-wrapper">
+                <input type="text" placeholder="Название" value={newDrinkName} onChange={(e) => setNewDrinkName(e.target.value)} />
               </div>
             </div>
             <div className="form-group">
-              <label style={{ color: colors.textLight }}>Цена</label>
-              <div className="input-wrapper" style={{ backgroundColor: colors.white }}>
-                <input type="number" placeholder="Цена" value={newDrinkPrice} onChange={(e) => setNewDrinkPrice(e.target.value)} style={{ color: colors.textDark }} className="price-input" />
+              <label>Цена</label>
+              <div className="input-wrapper">
+                <input type="number" placeholder="Цена" value={newDrinkPrice} onChange={(e) => setNewDrinkPrice(e.target.value)} className="price-input" />
               </div>
             </div>
             <div className="form-group">
-              <label style={{ color: colors.textLight }}>Изображение</label>
-              <div className="input-wrapper file-input-wrapper" style={{ backgroundColor: colors.white }}>
+              <label>Изображение</label>
+              <div className="input-wrapper file-input-wrapper">
                 <label htmlFor="fileUploadMenu" style={{ display: 'flex', alignItems: 'center', width: '100%', cursor: 'pointer', paddingLeft: 0, marginBottom: 0 }}>
-                  <span className="icon-placeholder" style={{ color: colors.accentRed }}>📎</span>
-                  <span style={{ color: colors.textDark, marginLeft: '8px' }}>{fileName || "Выберите файл"}</span>
+                  <span className="icon-placeholder">📎</span>
+                  <span>{fileName || "Выберите файл"}</span>
                 </label>
                 <input
                   type="file"
@@ -171,21 +171,27 @@ const EditMenuTab: React.FC<EditMenuTabProps> = ({
             </div>
           </div>
           <div className="form-actions">
-            <button className="save-button" style={{ backgroundColor: colors.accentRed, color: colors.white }} onClick={handleCreateMenuItem}>Создать напиток</button>
-            <button className="cancel-button" style={{ backgroundColor: colors.textLight, color: colors.white }}>Отмена</button>
+            <button 
+              className="save-button" 
+              onClick={handleCreateMenuItem} 
+              disabled={!newDrinkName.trim() || newDrinkPrice === "" || isNaN(parseFloat(String(newDrinkPrice))) || parseFloat(String(newDrinkPrice)) < 0}
+              style={{ opacity: (!newDrinkName.trim() || newDrinkPrice === "" || isNaN(parseFloat(String(newDrinkPrice))) || parseFloat(String(newDrinkPrice)) < 0) ? 0.4 : 1 }}
+            >
+              Создать напиток
+            </button>
+            <button className="cancel-button">Отмена</button>
           </div>
         </div>
       </div>
       <div className="content-section edit-menu">
-        <h2 style={{ color: colors.textDark }}>Редактировать меню</h2>
-        <div className="menu-container" style={{ backgroundColor: colors.background }}>
-          <div className="form-group location-filter">
-            <label style={{ color: colors.textLight }}>Локация</label>
-            <div className="input-wrapper select-wrapper" style={{ backgroundColor: colors.white, width: '364px' }}>
+        <h2>Редактировать меню</h2>
+        <div className="menu-container users-list-container">
+          <div className="form-group location-filter" style={{ marginBottom: '40px' }}> {/* Увеличенный отступ */}
+            <label>Локация</label>
+            <div className="input-wrapper select-wrapper">
               <select 
                 value={/*selectedLocationEdit !== undefined ? selectedLocationEdit :*/ currentSelectedLocationEdit} 
                 onChange={handleLocationEditChange} 
-                style={{ color: colors.textDark }}
               >
                 {locationOptionsForFilter.map(loc => (
                   <option key={loc.id} value={loc.id}>{loc.address}</option>
@@ -195,28 +201,31 @@ const EditMenuTab: React.FC<EditMenuTabProps> = ({
           </div>
           <div className="product-grid">
             {menuItems.length > 0 ? menuItems.map((item) => (
-              <div key={item.id} className="product-card" style={{ backgroundColor: colors.white }}>
+              <div key={item.id} className="product-card">
                 <div className="product-card-image-name">
                   <img
                     src={item.image_filename ? `${API_BASE_URL}/uploads/menu_images/${item.image_filename}` : `${process.env.PUBLIC_URL}/images/placeholder.png`}
                     alt={item.name}
                     className="product-image"
-                    onError={(e) => (e.currentTarget.src = `${process.env.PUBLIC_URL}/images/placeholder.png`)}
+                    onError={e => {
+                      e.currentTarget.onerror = null;
+                      e.currentTarget.src = `${process.env.PUBLIC_URL}/images/placeholder.png`;
+                    }}
                   />
-                  <span className="product-name" style={{ color: colors.textDark }}>{item.name}</span>
-                  <span className="product-price" style={{ color: colors.textLight, fontSize: '14px', marginTop: '4px' }}>{item.price} руб.</span>
+                  <span className="product-name">{item.name}</span>
+                  <span className="product-price">{item.price} руб.</span>
                 </div>
                 <div className="product-card-actions">
-                  <button className="icon-button" style={{ backgroundColor: colors.background }} onClick={() => onOpenEditDrinkModal(item)}>
-                    <span className="icon-placeholder" style={{ color: colors.textLight }}>✏️</span>
+                  <button className="icon-button" onClick={() => onOpenEditDrinkModal(item)}>
+                    <span className="icon-placeholder">✏️</span>
                   </button>
-                  <button className="icon-button" style={{ backgroundColor: colors.background }} onClick={() => onOpenDeleteDrinkModal(item)}>
-                    <span className="icon-placeholder" style={{ color: colors.accentRed }}>🗑️</span>
+                  <button className="icon-button" onClick={() => onOpenDeleteDrinkModal(item)}>
+                    <span className="icon-placeholder">🗑️</span>
                   </button>
                 </div>
               </div>
             )) : (
-              <p style={{ color: colors.textLight, textAlign: 'center', width: '100%' }}>Нет доступных напитков. Добавьте новый выше.</p>
+              <p className="no-items-message">Нет доступных напитков. Добавьте новый выше.</p>
             )}
           </div>
         </div>

@@ -7,6 +7,7 @@ interface UsersTabProps {
   scalingLocations: ScalingLocation[];
   fetchUsers: () => Promise<void>;
   onOpenDeleteUserModal: (user: User) => void;
+  onOpenEditUserModal: (user: User) => void;
   openSuccessModal: (message: string) => void;
   colors: ColorPalette; // Используем импортированный тип ColorPalette
 }
@@ -16,6 +17,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
   scalingLocations,
   fetchUsers,
   onOpenDeleteUserModal,
+  onOpenEditUserModal,
   openSuccessModal,
   colors,
 }) => {
@@ -87,7 +89,7 @@ const UsersTab: React.FC<UsersTabProps> = ({
               <span className="user-col-password">{user.password || '******'}</span>
               <span className="user-col-location">{user.location || 'N/A'}</span>
               <div className="user-col-actions user-actions">
-                <button className="action-button edit">✏️ Редактировать</button>
+                <button className="action-button edit" onClick={() => onOpenEditUserModal(user)}>✏️ Редактировать</button>
                 <button className="action-button delete" onClick={() => onOpenDeleteUserModal(user)}>🗑️ Удалить</button>
               </div>
             </div>

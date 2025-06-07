@@ -21,7 +21,7 @@
 
 .login-title {
   font-size: 40px; /* From Figma */
-  font-family: 'Tilda Sans', sans-serif; /* Assuming Tilda Sans is globally available */
+  font-family: 'Tilda Sans-ExtraBold', Helvetica; /* Явно указываем начертание */
   font-weight: 800; /* Extra Bold */
   text-align: center;
   margin: 0 0 32px 0; /* (76px y of Frame 34) - (44px height of Title) */
@@ -34,7 +34,7 @@
 }
 
 .form-group {
-  margin-bottom: 4px; /* Further reduced spacing between input fields */
+  margin-bottom: 16px; /* Увеличенный отступ между инпутами */
 }
 
 .login-input {
@@ -44,7 +44,7 @@
   border-radius: 10px; /* From Figma */
   border: none; /* Assuming no border from Figma, background color implies container */
   font-size: 18px; /* From Figma */
-  font-family: 'Tilda Sans', sans-serif;
+  font-family: 'Tilda Sans-Medium', Helvetica; /* Явно указываем начертание */
   font-weight: 500; /* Medium */
   box-sizing: border-box;
 }
@@ -60,7 +60,7 @@
   border-radius: 10px; /* From Figma */
   border: none;
   font-size: 18px; /* From Figma */
-  font-family: 'Tilda Sans', sans-serif;
+  font-family: 'Tilda Sans-Bold', Helvetica; /* Явно указываем начертание */
   font-weight: bold; /* Bold */
   cursor: pointer;
   margin-top: 0px; /* Combined with form-group's margin-bottom: 4px, this creates a 4px gap */

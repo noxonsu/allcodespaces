@@ -81,9 +81,7 @@ const ScalingTab: React.FC<ScalingTabProps> = ({
       });
       if (response.status === 201) {
         const newLoc = await response.json();
-        const successMessage = newLoc.qr_code_link
-          ? `Локация "${newLoc.address}" успешно создана. QR: ${newLoc.qr_code_link}`
-          : `Локация "${newLoc.address || newScalingLocationName}" успешно создана.`; // Используем newScalingLocationName если address нет в ответе
+        const successMessage = `Локация "${newLoc.address || newScalingLocationName}" успешно создана.`;
         openSuccessModal(successMessage);
         setNewScalingLocationName("");
         fetchScalingLocations();
@@ -104,19 +102,17 @@ const ScalingTab: React.FC<ScalingTabProps> = ({
         {scalingLocations.length > 0 ? scalingLocations.map((loc) => (
           <div key={loc.id} className="scaling-location-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${figmaColorToCss({ r: 0.9, g: 0.9, b: 0.9 })}` }}>
             <span style={{ color: colors.textDark }}>({loc.id}) {loc.address}</span>
-            <div className="scaling-location-actions">
+            <div className="scaling-location-actions" style={{ display: 'flex', gap: '12px' }}>
               <a
-                href={`${process.env.REACT_APP_CLIENT_APP_BASE_URL || 'http://localhost:3008'}?location_id=${loc.id}`}
-                target="_blank"
-                rel="noopener noreferrer"
+                href={`/admin#editMenu?location_id=${loc.id}`} // Изменено на внутренний маршрут
                 className="action-button"
-                style={{ backgroundColor: '#4CAF50', color: 'white', marginRight: '10px', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none' }}
+                style={{ backgroundColor: '#4CAF50', color: 'white', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', textDecoration: 'none' }}
               >
                 Открыть меню
               </a>
               <button
                 className="action-button qr-button"
-                style={{ backgroundColor: colors.buttonDark, color: colors.white, marginRight: '10px', padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+                style={{ backgroundColor: colors.buttonDark, color: colors.white, padding: '8px 16px', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 onClick={() => handleDownloadQrCode(loc.id, loc.address)}
               >
                 <ScalingGridIcon color={colors.white} size={20} style={{ marginRight: '8px' }} />

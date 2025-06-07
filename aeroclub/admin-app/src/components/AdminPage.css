@@ -3,22 +3,34 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  font-family: 'Tilda Sans', sans-serif; /* Assuming Tilda Sans is available or imported */
+  font-family: 'Tilda Sans-Medium', sans-serif; /* Используем Tilda Sans-Medium как базовый */
+}
+
+body {
+  height: 100vh;
+  /* overflow: hidden; /* Удалено, чтобы разрешить прокрутку на body */
 }
 
 .admin-page {
-  display: flex;
-  min-height: 100vh;
-  width: 100%;
+  background-color: var(--white); /* From .edit-4 */
+  display: flex; /* Используем flexbox для расположения сайдбара и основного контента */
+  min-height: 100vh; /* Устанавливаем минимальную высоту, чтобы страница занимала всю высоту viewport */
+  overflow: auto; /* Разрешаем прокрутку, если содержимое выходит за пределы */
+  overflow-x: hidden;
+  position: relative; /* Оставляем relative для позиционирования внутренних элементов, если нужно */
 }
 
 .sidebar {
-  width: 292px; /* From Figma */
+  background-color: var(--black-haze); /* From .rectangle-18-0mwb4h */
+  border-radius: 0px 32px 32px 0px; /* From .rectangle-18-0mwb4h */
+  min-height: 100%; /* Занимаем всю высоту родителя (admin-page) */
+  /* Удаляем absolute позиционирование, так как теперь это flex-элемент */
+  /* left: 0px; */
+  /* top: 0px; */
+  width: 292px; /* From .rectangle-18-0mwb4h */
   padding: 32px 12px; /* Approximate padding based on Figma structure */
   display: flex;
   flex-direction: column;
-  border-top-right-radius: 32px; /* From Figma */
-  border-bottom-right-radius: 32px; /* From Figma */
 }
 
 .logo-container {
@@ -39,6 +51,7 @@
   cursor: pointer;
   font-size: 18px; /* From Figma */
   transition: background-color 0.3s ease, color 0.3s ease;
+  font-family: 'Tilda Sans-Medium', sans-serif; /* Явно устанавливаем шрифт */
 }
 
 .sidebar-item .sidebar-icon {
@@ -58,6 +71,7 @@
 
 .user-profile p {
   margin-bottom: 16px; /* Space before logout button */
+  font-family: 'Tilda Sans-Medium', sans-serif; /* Устанавливаем шрифт */
 }
 
 .logout-button {
@@ -72,11 +86,16 @@
 }
 
 .main-content {
-  flex-grow: 1;
-  padding: 49px 32px; /* Approximate padding based on Figma (Frame 153 y, and general spacing) */
+  align-items: flex-start; /* From .frame-153-xfkOEd */
+  gap: 24px; /* From .frame-153-xfkOEd */
+  /* Удаляем absolute позиционирование */
+  /* left: 348px; */
+  /* top: 48px; */
+  flex-grow: 1; /* Занимаем оставшееся пространство */
+  padding: 48px 24px 48px 56px; /* Добавляем отступы, чтобы компенсировать удаление left/top */
   display: flex;
   flex-direction: column;
-  gap: 30px; /* Space between content sections */
+  overflow-y: auto; /* Добавляем прокрутку для основного контента */
 }
 
 .content-section {
@@ -84,8 +103,16 @@
 }
 
 .content-section h2 {
+  align-self: stretch; /* From .title-3usywt */
+  color: var(--black); /* From .title-3usywt */
+  font-family: var(--font-family-tilda_sans-bold); /* Используем Tilda Sans-Bold */
+  font-size: var(--font-size-xxl); /* From .title-3usywt */
+  font-style: normal; /* From .title-3usywt */
+  font-weight: 700; /* Соответствует Tilda Sans-Bold */
+  line-height: 44.0px; /* From .title-3usywt */
+  margin-top: -1.00px; /* From .title-3usywt */
+  text-align: left; /* From .title-3usywt */
   margin-bottom: 24px; /* From Figma (Title to Frame 146 y: 68 - 44 = 24) */
-  font-weight: 800; /* Extra Bold */
 }
 
 .form-container,
@@ -96,8 +123,14 @@
 }
 
 .form-row {
+  align-items: center; /* From .frame-148-xVFxBK */
+  align-self: stretch; /* From .frame-148-xVFxBK */
+  background-color: transparent; /* From .frame-148-xVFxBK */
   display: flex;
+  flex: 0 0 auto; /* From .frame-148-xVFxBK */
   gap: 12px; /* Approximate gap from Figma (Frame 150 to 151 x: 376 - 364 = 12) */
+  position: relative; /* From .frame-148-xVFxBK */
+  width: 100%; /* From .frame-148-xVFxBK */
   margin-bottom: 24px; /* From Figma (Frame 148 to 150 y: 132 - (24+84) = 24) */
   flex-wrap: nowrap; /* Ensure items stay in a single line */
 }
@@ -110,12 +143,19 @@
 }
 
 .form-group label {
+  line-height: normal; /* From .title-7It6oC */
+  margin-top: -1.00px; /* From .title-7It6oC */
+  text-align: left; /* From .title-7It6oC */
+  width: fit-content; /* From .title-7It6oC */
   font-size: 18px; /* From Figma */
   margin-bottom: 8px; /* From Figma (Title to input y: 30 - 22 = 8) */
   padding-left: 20px; /* From Figma (Title x-offset) */
 }
 
 .input-wrapper {
+  background-color: var(--white); /* From .input-MOsU7E */
+  justify-content: space-between; /* From .input-MOsU7E */
+  width: 364px; /* From .input-MOsU7E */
   display: flex;
   align-items: center;
   padding: 16px 20px; /* From Figma (input height 54, text 22 -> (54-22)/2 = 16 for padding y) */
@@ -128,6 +168,7 @@
 }
 
 .input-wrapper input[type="text"],
+.input-wrapper input[type="number"], /* Добавлено для унификации */
 .input-wrapper select {
   flex-grow: 1;
   border: none;
@@ -143,6 +184,7 @@
   -moz-appearance: none; /* Remove default arrow on Firefox */
   appearance: none; /* Remove default arrow */
   cursor: pointer;
+  font-family: 'Tilda Sans-Medium', sans-serif; /* Унифицируем шрифт для инпутов и селектов */
 }
 
 /* Custom arrow for select, if needed, can be added via ::after pseudo-element on .select-wrapper */
@@ -182,6 +224,9 @@
 }
 
 .form-actions button {
+  background-color: var(--red); /* From .btn-admin-cwiCRH */
+  height: 54px; /* From .btn-admin-cwiCRH */
+  opacity: 0.4; /* From .btn-admin-cwiCRH */
   padding: 16px 28px; /* From Figma (btn height 54, text 22 -> padding y 16. Title x 28) */
   border: none;
   border-radius: 10px; /* From Figma */
@@ -208,6 +253,9 @@
 }
 
 .product-grid {
+  background-color: transparent; /* From .frame-158-jOLHMU */
+  display: inline-flex; /* From .frame-158-jOLHMU */
+  flex: 0 0 auto; /* From .frame-158-jOLHMU */
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(238px, 1fr)); /* From Figma card width */
   gap: 12px; /* From Figma (Frame 155 to 156 x: 250 - 238 = 12) */
@@ -215,38 +263,64 @@
 }
 
 .product-card {
+  align-items: flex-start; /* From .frame-155-4sq5TK */
+  background-color: var(--white); /* From .frame-155-4sq5TK */
   border-radius: 10px; /* From Figma */
+  gap: 12px; /* From .frame-155-4sq5TK */
   padding: 12px; /* From Figma */
+  position: relative; /* From .frame-155-4sq5TK */
+  width: 238px; /* From .frame-155-4sq5TK */
   display: flex;
   flex-direction: column;
   height: 138px; /* From Figma */
 }
 
 .product-card-image-name {
+  align-items: center; /* From .frame-156-BayH6u */
+  background-color: transparent; /* From .frame-156-BayH6u */
+  display: inline-flex; /* From .frame-156-BayH6u */
+  flex: 0 0 auto; /* From .frame-156-BayH6u */
   display: flex;
-  align-items: center;
   margin-bottom: 12px; /* From Figma (Frame 156 to 157 y: 86 - (12+62) = 12) */
 }
 
 .product-image {
-  width: 62px; /* From Figma */
-  height: 62px; /* From Figma */
+  height: 62px; /* From .rectangle-19-jNvktm */
+  width: 62px; /* From .rectangle-19-jNvktm */
+  background-color: transparent; /* From .rectangle-19 */
+  object-fit: cover; /* From .rectangle-19 */
+  position: relative; /* From .rectangle-19 */
   border-radius: 8px; /* From Figma */
   margin-right: 12px; /* From Figma (Rectangle 19 to Title x: 74 - 62 = 12) */
-  object-fit: cover;
 }
 
 .product-name {
+  line-height: normal; /* From .title-jNvktm */
+  text-align: left; /* From .title-jNvktm */
+  width: fit-content; /* From .title-jNvktm */
   font-size: 18px; /* From Figma */
   flex-grow: 1;
+  font-family: 'Tilda Sans-Medium', sans-serif; /* Явно устанавливаем шрифт */
+}
+
+.product-price {
+  font-family: 'Tilda Sans-Medium', sans-serif; /* Явно устанавливаем шрифт */
+  font-size: 18px; /* Предполагаем такой же размер, как у имени */
+  color: var(--black); /* Предполагаем цвет */
 }
 
 .product-card-actions {
+  background-color: transparent; /* From .frame-157-BayH6u */
+  display: inline-flex; /* From .frame-157-BayH6u */
+  flex: 0 0 auto; /* From .frame-157-BayH6u */
   display: flex;
   gap: 12px; /* From Figma (btn-admin to btn-admin x: 52 - 40 = 12) */
+  margin-bottom: 12px; /* Добавлен отступ снизу */
 }
 
 .icon-button {
+  background-color: var(--black-haze); /* From .btn-admin-m8wLVp */
+  padding: 8px; /* From .btn-admin-m8wLVp */
   width: 40px; /* From Figma */
   height: 40px; /* From Figma */
   border: none;
@@ -268,6 +342,14 @@
 
 .menu-actions {
   margin-top: 24px; /* Ensure spacing if product grid is empty or short */
+}
+
+.no-items-message {
+  color: var(--gray);
+  font-size: 18px;
+  text-align: center;
+  width: 100%;
+  padding: 40px 0; /* Добавим отступы для лучшего отображения */
 }
 
 .product-grid-placeholder {
@@ -376,7 +458,7 @@
 .order-list-header,
 .order-list-row {
   display: grid;
-  grid-template-columns: 1.5fr 2.5fr 2fr; /* Adjust column ratios as needed */
+  grid-template-columns: 1.5fr 2.5fr 1fr 2fr; /* Adjust column ratios as needed (Дата/время, Локация, Статус, Кнопки) */
   gap: 16px;
   padding: 12px 16px; /* Add some padding to rows */
   border-bottom: 1px solid #eeeeee;
@@ -425,8 +507,3 @@
   background-color: #FFB02E; /* Orange color from screenshot */
   color: #181A1C; /* Dark text on orange button */
 }
-
-
-/* Placeholder for Tilda Sans font if not globally available */
-@import url('https://fonts.googleapis.com/css2?family=Tilda+Sans:wght@400;500;600;700;800&display=swap');
-/* Note: This is a guess for Tilda Sans. If it's a custom/local font, it needs to be set up in the project. */

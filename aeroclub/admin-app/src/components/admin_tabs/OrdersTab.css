@@ -299,10 +299,10 @@ input:focus {
   border-left-style: none;
   border-right-style: none;
   border-top-style: none;
-  display: flex;
-  flex: 0 0 auto;
-  gap: 12px;
-  padding: 12px 0px;
+  display: grid; /* Изменено на grid */
+  grid-template-columns: 1.5fr 2.5fr 1fr 2fr; /* Соответствует AdminPage.css */
+  gap: 16px; /* Соответствует AdminPage.css */
+  padding: 12px 16px; /* Соответствует AdminPage.css */
   position: relative;
   width: 100%;
 }
@@ -313,7 +313,6 @@ input:focus {
   display: flex;
   gap: 6px;
   position: relative;
-  width: 279px; /* This might need to be more flexible */
 }
 
 .orders-tab-container .title-JxeMua {
@@ -333,7 +332,7 @@ input:focus {
   display: flex;
   gap: 6px;
   position: relative;
-  width: 562px; /* This might need to be more flexible */
+  
 }
 
 .orders-tab-container .title-rIZb6T {
@@ -351,23 +350,14 @@ input:focus {
   align-items: flex-start;
   align-self: stretch;
   background-color: transparent;
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
+  display: flex; /* Изменено на flex */
+  flex-direction: column; /* Добавлено для вертикального расположения строк */
+  gap: 0; /* Убираем gap, так как строки будут иметь свои границы */
   position: relative;
   width: 100%;
 }
 
-.orders-tab-container .frame-140-QJHgXe, /* This class is repeated for each order row */
-.orders-tab-container .frame-145-QJHgXe,
-.orders-tab-container .frame-146-QJHgXe,
-.orders-tab-container .frame-147-QJHgXe,
-.orders-tab-container .frame-148-QJHgXe,
-.orders-tab-container .frame-149-QJHgXe,
-.orders-tab-container .frame-150-QJHgXe,
-.orders-tab-container .frame-151-QJHgXe,
-.orders-tab-container .frame-152-QJHgXe,
-.orders-tab-container .frame-153-QJHgXe.frame-153 { /* Specificity for the last one */
+.orders-tab-container .frame-140-QJHgXe { /* Общий класс для строки заказа */
   align-items: center;
   align-self: stretch;
   background-color: transparent;
@@ -377,23 +367,25 @@ input:focus {
   border-left-style: none;
   border-right-style: none;
   border-top-style: none;
-  display: flex;
-  flex: 0 0 auto;
-  justify-content: space-between;
-  padding: 12px 0px;
-  position: relative;
-  width: 100%;
+  padding: 12px 16px; /* Соответствует AdminPage.css */
+  display: grid; /* Добавлено display: grid */
+  grid-template-columns: 1.5fr 2.5fr 1fr 2fr; /* Соответствует AdminPage.css */
+  gap: 16px; /* Соответствует AdminPage.css */
 }
 /* Generic class for order row text elements */
 .orders-tab-container .order-row-text-date {
   line-height: normal;
-  width: 279px; /* Consider using flex-basis or min-width for responsiveness */
+  text-align: left; /* Выравнивание по левому краю */
 }
 .orders-tab-container .order-row-text-location {
   flex: 1;
   line-height: normal;
   padding-left: 12px; /* Add some spacing if .frame-138 is removed or changed */
   padding-right: 12px;
+  text-align: left; /* Выравнивание по левому краю */
+}
+.orders-tab-container .order-row-text-status {
+  text-align: left; /* Выравнивание по левому краю */
 }
 
 

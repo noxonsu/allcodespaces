@@ -22,7 +22,7 @@ interface EditDrinkModalProps {
   onSave: (updatedData: { 
     id: string; 
     name: string; 
-    price: number; 
+    // price: number; // Цена удалена по запросу
     newImageFile?: File; 
     currentImageFilename: string | null;
   }) => void;
@@ -31,7 +31,7 @@ interface EditDrinkModalProps {
 
 const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave, drink }) => {
   const [editedName, setEditedName] = useState('');
-  const [editedPrice, setEditedPrice] = useState<number | string>('');
+  // const [editedPrice, setEditedPrice] = useState<number | string>(''); // Цена удалена
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [currentImagePreview, setCurrentImagePreview] = useState<string | null>(null);
   const [newImagePreview, setNewImagePreview] = useState<string | null>(null);
@@ -39,7 +39,7 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
   useEffect(() => {
     if (drink && isOpen) {
       setEditedName(drink.name);
-      setEditedPrice(drink.price);
+      // setEditedPrice(drink.price); // Цена удалена
       if (drink.image_filename) {
         setCurrentImagePreview(`${API_BASE_URL}/uploads/menu_images/${drink.image_filename}`);
       } else {
@@ -51,7 +51,7 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
     } else if (!isOpen) {
       // Optionally reset fields when modal is closed, if desired
       setEditedName('');
-      setEditedPrice('');
+      // setEditedPrice(''); // Цена удалена
       setNewImageFile(null);
       setNewImagePreview(null);
       setCurrentImagePreview(null);
@@ -62,14 +62,14 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
     return null;
   }
 
-  const colors = {
-    background: figmaColorToCss({ r: 0.97, g: 0.97, b: 0.97 }),
-    textDark: figmaColorToCss({ r: 0.0965, g: 0.1044, b: 0.1083 }),
-    textLightGray: figmaColorToCss({ r: 0.3294, g: 0.3568, b: 0.3686 }),
-    inputPlaceholder: figmaColorToCss({ r: 0.1058, g: 0.0823, b: 0.0823, a: 0.4 }),
-    accentRed: figmaColorToCss({ r: 1, g: 0.3215, b: 0.2823 }),
-    white: figmaColorToCss({ r: 1, g: 1, b: 1 }),
-  };
+  // const colors = { // Удалено, так как стили теперь в CSS
+  //   background: figmaColorToCss({ r: 0.97, g: 0.97, b: 0.97 }),
+  //   textDark: figmaColorToCss({ r: 0.0965, g: 0.1044, b: 0.1083 }),
+  //   textLightGray: figmaColorToCss({ r: 0.3294, g: 0.3568, b: 0.3686 }),
+  //   inputPlaceholder: figmaColorToCss({ r: 0.1058, g: 0.0823, b: 0.0823, a: 0.4 }),
+  //   accentRed: figmaColorToCss({ r: 1, g: 0.3215, b: 0.2823 }),
+  //   white: figmaColorToCss({ r: 1, g: 1, b: 1 }),
+  // };
 
   const handleImageChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files[0]) {
@@ -83,17 +83,17 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
     if (!drink) return; // Should not happen if modal is open
 
     const finalName = editedName.trim() === '' ? drink.name : editedName.trim();
-    const finalPrice = typeof editedPrice === 'string' ? parseFloat(editedPrice) : editedPrice;
+    // const finalPrice = typeof editedPrice === 'string' ? parseFloat(editedPrice) : editedPrice; // Цена удалена
 
-    if (isNaN(finalPrice) || finalPrice < 0) {
-      alert("Цена должна быть положительным числом.");
-      return;
-    }
+    // if (isNaN(finalPrice) || finalPrice < 0) { // Проверка цены удалена
+    //   alert("Цена должна быть положительным числом.");
+    //   return;
+    // }
 
     onSave({
       id: drink.id,
       name: finalName,
-      price: finalPrice,
+      // price: finalPrice, // Цена удалена
       newImageFile: newImageFile || undefined,
       currentImageFilename: drink.image_filename 
     });
@@ -112,82 +112,91 @@ const EditDrinkModal: React.FC<EditDrinkModalProps> = ({ isOpen, onClose, onSave
 
   return (
     <div className="modal-overlay" onClick={handleOverlayClick}>
-      <div className="edit-drink-modal-content" style={{ backgroundColor: colors.background }}>
-        <h2 className="edit-drink-modal-title" style={{ color: colors.textDark }}>
+      {/* Corresponds to frame-155-xfkOEd */}
+      <div className="edit-drink-modal-content"> 
+        {/* Corresponds to title-7m0Nq5 */}
+        <h2 className="edit-drink-modal-title">
           Редактирование напитка
         </h2>
         
-        <div className="edit-form-section">
-          <label style={{ color: colors.textLightGray }}>Название</label>
-          <div className="name-inputs-container">
-            <input 
-              type="text" 
-              className="drink-name-input current" 
-              defaultValue={drink.name} // Shows initial name, but editedName is the state for the input below
-              readOnly 
-              style={{ backgroundColor: colors.white, color: colors.textDark, display: 'none' }} // Hide if not needed, or show as 'Old Name'
-            />
-            <input 
-              type="text" 
-              className="drink-name-input new" 
-              placeholder="Новое название" 
-              value={editedName}
-              onChange={(e) => setEditedName(e.target.value)}
-              style={{ backgroundColor: colors.white, color: colors.textDark, '--placeholder-color': colors.inputPlaceholder } as React.CSSProperties}
-            />
+        {/* Corresponds to frame-164-7m0Nq5 */}
+        <div className="edit-form-section-container">
+          {/* Corresponds to frame-151-QUsxCt */}
+          <div className="edit-form-section">
+            {/* Corresponds to frame-151-qYHIl2 */}
+            <div className="edit-form-section-label-container">
+              {/* Corresponds to title-BkqjB9 */}
+              <label>Название</label>
+            </div>
+            {/* Corresponds to frame-162-qYHIl2 */}
+            <div className="name-inputs-container">
+              {/* Corresponds to input-x7sxMB - current name, hidden or read-only */}
+              <input 
+                type="text" 
+                className="drink-name-input current" 
+                defaultValue={drink.name}
+                readOnly 
+                style={{ display: 'none' }} // Keeping it hidden as per previous logic, can be changed
+              />
+              {/* Corresponds to input-9KvOgI - new name */}
+              <input 
+                type="text" 
+                className="drink-name-input new" 
+                placeholder="Новое название" 
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Блок цены удален по запросу */}
+
+          {/* Corresponds to frame-153-QUsxCt */}
+          <div className="edit-form-section">
+            {/* Label for image section, corresponds to title-Il7Dy3 */}
+            <div className="edit-form-section-label-container" style={{ justifyContent: 'center', paddingLeft: 0 }}> {/* Centered label */}
+              <label>Изображение</label>
+            </div>
+            {/* Corresponds to frame-162-Il7Dy3 */}
+            <div className="image-edit-container">
+              {/* Corresponds to rectangle-19-1LJJ98 */}
+              <img 
+                src={newImagePreview || currentImagePreview || undefined} 
+                alt={drink.name} 
+                className="drink-image-preview" 
+              />
+              {/* Corresponds to input-1LJJ98 */}
+              <label htmlFor="editImageUpload" className="file-input-label">
+                {/* Corresponds to icon-attachment */}
+                <span className="icon-placeholder">📎</span>
+                {/* Corresponds to title-6GNvJ1 */}
+                {newImageFile ? newImageFile.name : "Заменить файл"} 
+              </label>
+              <input 
+                type="file" 
+                id="editImageUpload" 
+                style={{ display: 'none' }} 
+                accept="image/*"
+                onChange={handleImageChange}
+              />
+            </div>
           </div>
         </div>
 
-        <div className="edit-form-section">
-          <label style={{ color: colors.textLightGray }}>Цена</label>
-          <input
-            type="number"
-            className="drink-price-input new"
-            placeholder="Новая цена"
-            value={editedPrice}
-            onChange={(e) => setEditedPrice(e.target.value)}
-            style={{ backgroundColor: colors.white, color: colors.textDark, width: '100%', padding: '10px', borderRadius: '5px', border: `1px solid ${colors.textLightGray}` }}
-          />
-        </div>
-
-        <div className="edit-form-section">
-          <label style={{ color: colors.textLightGray }}>Изображение</label>
-          <div className="image-edit-container">
-            <img 
-              src={newImagePreview || currentImagePreview || undefined} 
-              alt={drink.name} 
-              className="drink-image-preview" 
-            />
-            <label htmlFor="editImageUpload" className="file-input-label" style={{ backgroundColor: colors.white, color: colors.textDark }}>
-              <span className="icon-placeholder" style={{ color: colors.accentRed }}>📎</span>
-              {newImageFile ? newImageFile.name : "Заменить файл"}
-            </label>
-            <input 
-              type="file" 
-              id="editImageUpload" 
-              style={{ display: 'none' }} 
-              accept="image/*"
-              onChange={handleImageChange}
-            />
-          </div>
-        </div>
-
+        {/* Corresponds to frame-163-7m0Nq5 */}
         <div className="edit-drink-modal-actions">
+          {/* Corresponds to btn-admin-by5otq */}
           <button
             className="modal-button save"
-            style={{ 
-              backgroundColor: colors.accentRed, 
-              color: colors.white,
-              opacity: isSaveDisabled ? 0.4 : 1
-            }}
+            style={{ opacity: isSaveDisabled ? 0.4 : 1 }}
             onClick={handleSave}
             disabled={isSaveDisabled}
           >
             Сохранить изменения
           </button>
+          {/* Corresponds to btn-admin-skSndU */}
           <button
             className="modal-button cancel"
-            style={{ backgroundColor: colors.textLightGray, color: colors.white }}
             onClick={onClose}
           >
             Отмена
