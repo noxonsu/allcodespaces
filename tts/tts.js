@@ -81,10 +81,10 @@ function splitText(text) {
 }
 
 // Функция для сохранения текстовых фрагментов
-async function saveTextChunks(chunks) {
+async function saveTextChunks(chunks, originalFileName) {
   try {
     for (let i = 0; i < chunks.length; i++) {
-      const chunkFile = path.resolve(textChunksDir, `chunk_${i + 1}.txt`);
+      const chunkFile = path.resolve(textChunksDir, `${originalFileName}_chunk_${i + 1}.txt`);
       await fs.writeFile(chunkFile, chunks[i]);
       console.log(`Текстовый фрагмент сохранен: ${chunkFile}`);
     }
@@ -95,11 +95,11 @@ async function saveTextChunks(chunks) {
 }
 
 // Функция для загрузки существующих текстовых фрагментов
-async function loadTextChunks() {
+async function loadTextChunks(originalFileName) {
   try {
     const files = await fs.readdir(textChunksDir);
     const chunkFiles = files
-      .filter((file) => file.startsWith("chunk_") && file.endsWith(".txt"))
+      .filter((file) => file.startsWith(`${originalFileName}_chunk_`) && file.endsWith(".txt"))
       .sort((a, b) => {
         const aNum = parseInt(a.match(/\d+/)[0]);
         const bNum = parseInt(b.match(/\d+/)[0]);
@@ -171,7 +171,7 @@ async function textToSpeech() {
     const originalFileName = path.basename(inputFile, path.extname(inputFile));
 
     // Проверяем, существуют ли текстовые фрагменты
-    let textChunks = await loadTextChunks();
+    let textChunks = await loadTextChunks(originalFileName);
     if (textChunks.length > 0) {
       console.log(`Найдено ${textChunks.length} существующих текстовых фрагментов.`);
     } else {
@@ -187,7 +187,7 @@ async function textToSpeech() {
       console.log(`Текст разделен на ${textChunks.length} частей.`);
 
       // Сохранение текстовых фрагментов
-      await saveTextChunks(textChunks);
+      await saveTextChunks(textChunks, originalFileName);
     }
 
     // Создание аудиофайлов для каждой части

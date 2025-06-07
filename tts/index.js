@@ -9,7 +9,7 @@ const ttsScriptPath = path.join(__dirname, 'tts.js');
 console.log(`Running TTS script: ${ttsScriptPath}`);
 
 // Spawn a new process to run the tts.js script
-const child = spawn('node', [ttsScriptPath], { stdio: 'inherit' });
+const child = spawn('node', [ttsScriptPath, '--prevent-sending-existing-files'], { stdio: 'inherit' });
 
 child.on('error', (err) => {
   console.error('Failed to start child process:', err);
