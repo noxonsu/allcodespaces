@@ -1,23 +1,31 @@
-тнеров<?php
+<?php
 // amogt/zeno_report.php
 
 require_once __DIR__ . '/config.php'; // Defines AMO_TOKEN, BLOCKED_DEALS_PATH etc.
 require_once __DIR__ . '/vendor/autoload.php'; // For AmoCRM client if used, or other utilities
 require_once __DIR__ . '/logger.php';
 require_once __DIR__ . '/lib/json_storage_utils.php';
-// Potentially require AmoCRM interaction logic if refactored from excel2amo.php
-// For now, we'll adapt parts of excel2amo.php's logic here.
+require_once __DIR__ . '/lib/amo_auth_utils.php'; // New include for AmoCRM auth functions
 
 define('ZENO_REPORT_LOG_FILE', __DIR__ . '/logs/zeno_report.log');
-define('ZENO_REPORTS_JSON_FILE', __DIR__ . '/zeno_report.json');
-define('RECIEVED_AMO_IDS_FILE_PATH', __DIR__ . '/recieved_amo_ids.txt'); // For IDs processed via Amo
+define('ZENO_REPORTS_JSON_FILE', __DIR__ . '/data/zeno_report.json');
+define('RECIEVED_AMO_IDS_FILE_PATH', __DIR__ . '/data/recieved_amo_ids.txt'); // For IDs processed via Amo
 
-// --- Global AmoCRM variables (similar to excel2amo.php) ---
+// --- Global AmoCRM variables ---
 $amoCustomFieldsDefinitions = null; // To store AmoCRM custom field definitions
-$currentAccessToken = AMO_TOKEN; // Use token from config by default
+$currentAccessToken = null; // Будет установлен через checkAmoAccess()
 global $AMO_CUSTOM_FIELD_NAMES; // From config.php
 
-// --- Helper function to load AmoCRM custom field definitions (adapted from excel2amo) ---
+// Попытка получить актуальный токен AmoCRM
+$amoTokens = checkAmoAccess();
+if ($amoTokens && !empty($amoTokens['access_token'])) {
+    $currentAccessToken = $amoTokens['access_token'];
+    logMessage('[ZenoReport] AmoCRM access token obtained for Zeno Report.', 'INFO', ZENO_REPORT_LOG_FILE);
+} else {
+    logMessage('[ZenoReport] Failed to obtain AmoCRM access token for Zeno Report. AmoCRM updates will be skipped.', 'ERROR', ZENO_REPORT_LOG_FILE);
+}
+
+// --- Helper function to load AmoCRM custom field definitions ---
 function zenoFetchAndProcessAmoCustomFieldDefinitions() {
     global $amoCustomFieldsDefinitions, $currentAccessToken;
     if ($amoCustomFieldsDefinitions !== null) return true; // Already loaded
@@ -116,13 +124,7 @@ $amoUpdatePerformed = false;
 if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is NOT provided in POST
     
     // Check if this lead_id was already processed for AmoCRM
-    $recievedAmoIds = [];
-    if (file_exists(RECIEVED_AMO_IDS_FILE_PATH)) {
-        $idsContent = file_get_contents(RECIEVED_AMO_IDS_FILE_PATH);
-        if ($idsContent !== false) {
-            $recievedAmoIds = array_filter(explode(PHP_EOL, trim($idsContent)));
-        }
-    }
+    $recievedAmoIds = loadLineDelimitedFile(RECIEVED_AMO_IDS_FILE_PATH);
 
     if (in_array($leadId, $recievedAmoIds)) {
         $reportEntry['amo_update_skipped_reason'] = 'already_processed_for_amo';
@@ -131,7 +133,8 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
         logMessage("[ZenoReport] AmoCRM update for lead $leadId skipped: already processed.", 'INFO', ZENO_REPORT_LOG_FILE);
     } else {
         // Add to processed list BEFORE attempting AmoCRM update
-        if (file_put_contents(RECIEVED_AMO_IDS_FILE_PATH, $leadId . PHP_EOL, FILE_APPEND | LOCK_EX) === false) {
+        $recievedAmoIds[] = $leadId;
+        if (saveLineDelimitedFile(RECIEVED_AMO_IDS_FILE_PATH, $recievedAmoIds) === false) {
             logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . RECIEVED_AMO_IDS_FILE_PATH, 'ERROR', ZENO_REPORT_LOG_FILE);
             // Decide if we should proceed or error out. For now, log and proceed.
             $reportEntry['amo_update_skipped_reason'] = 'failed_to_log_recieved_id';
@@ -146,6 +149,7 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
             $chSearch = curl_init($urlSearch);
             curl_setopt($chSearch, CURLOPT_RETURNTRANSFER, true);
             curl_setopt($chSearch, CURLOPT_HTTPHEADER, ['Authorization: Bearer ' . $currentAccessToken]);
+            curl_setopt($chSearch, CURLOPT_TIMEOUT, 15);
             $amoDealResponse = curl_exec($chSearch);
             $httpCodeSearch = curl_getinfo($chSearch, CURLINFO_HTTP_CODE);
             curl_close($chSearch);

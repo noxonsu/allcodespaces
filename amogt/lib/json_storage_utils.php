@@ -25,104 +25,92 @@ if (!function_exists('logMessage')) {
 
 /**
  * Loads data from a JSON file.
- * Handles both JSON array format and line-by-line format for backwards compatibility (for specific 'dealId' structures).
- * For generic JSON, it expects an array of objects.
- * @param string $filePath Path to the data file.
- * @return array The array of objects or an empty array on failure/if file not found.
+ * @param string $filePath Path to the JSON file.
+ * @return array The decoded JSON data as an array, or an empty array on failure/if file not found or invalid JSON.
  */
 function loadDataFromFile(string $filePath): array {
     if (!file_exists($filePath) || !is_readable($filePath)) {
-        logMessage("Data file not found or not readable: $filePath");
+        // logMessage("Data file not found or not readable: $filePath", 'DEBUG'); // Too verbose for non-critical files
         return [];
     }
     $fileContent = file_get_contents($filePath);
     if ($fileContent === false) {
-        logMessage("Failed to read data file: $filePath");
+        logMessage("Failed to read data file: $filePath", 'ERROR');
         return [];
     }
     
-    // Try to decode as JSON first
     $data = json_decode($fileContent, true);
-    if (json_last_error() === JSON_ERROR_NONE && is_array($data)) {
-        // JSON format - ensure it's an array of items (potentially objects)
-        $normalizedItems = [];
-        foreach ($data as $item) {
-            if (is_string($item) || is_numeric($item)) {
-                // Simple ID format (likely from old line-by-line format if it somehow got into JSON)
-                // This part is specific to the 'dealId' structure of amo2json.
-                // For generic partner leads, we'd expect objects.
-                $normalizedItems[] = [
-                    'dealId' => (string)$item, // Assuming this structure for backward compatibility
-                    'paymentUrl' => null,
-                    'created_at' => null,
-                    'last_updated' => null
-                ];
-            } elseif (is_array($item)) {
-                // Object format, preserve all fields
-                $normalizedItem = $item; // Copy all existing fields
-                
-                // The following is specific to 'dealId' structure from amo2json.
-                // For generic partner leads, these specific field checks might not apply
-                // or would be different.
-                if (isset($item['dealId'])) {
-                    $normalizedItem['dealId'] = (string)$item['dealId'];
-                }
-                // Ensure standard fields have default nulls if not present,
-                // but don't overwrite if they are already there with a different value (e.g. false)
-                if (!array_key_exists('paymentUrl', $normalizedItem) && isset($item['dealId'])) {
-                    $normalizedItem['paymentUrl'] = null;
-                }
-                if (!array_key_exists('created_at', $normalizedItem)) {
-                    $normalizedItem['created_at'] = date('Y-m-d H:i:s'); // Default to now if not present
-                }
-                if (!array_key_exists('last_updated', $normalizedItem)) {
-                    $normalizedItem['last_updated'] = date('Y-m-d H:i:s'); // Default to now if not present
-                }
-                $normalizedItems[] = $normalizedItem;
-            }
-        }
-        return $normalizedItems;
+    if (json_last_error() !== JSON_ERROR_NONE) {
+        logMessage("Invalid JSON format in file: $filePath. Error: " . json_last_error_msg(), 'ERROR');
+        return [];
     }
     
-    // Not valid JSON, try line-by-line format (specific to old amo2json dealId list)
-    $lines = explode("\n", trim($fileContent));
-    $items = [];
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if (!empty($line)) {
-            // This structure is specific to 'dealId' list
-            $items[] = [
-                'dealId' => $line,
-                'paymentUrl' => null,
-                'created_at' => date('Y-m-d H:i:s'),
-                'last_updated' => date('Y-m-d H:i:s')
-            ];
-        }
-    }
-    
-    if (!empty($items)) {
-        logMessage("Loaded " . count($items) . " items from line-by-line format from $filePath. Converting to JSON format.");
-        // Save in JSON format for future use
-        saveDataToFile($filePath, $items); // Use the generic saveDataToFile
-    }
-    
-    return $items;
+    return is_array($data) ? $data : [];
 }
 
 /**
  * Saves data to a JSON file.
  * @param string $filePath Path to the JSON file.
- * @param array $dataToSave The array of objects to save.
+ * @param array $dataToSave The array to encode and save as JSON.
  * @return bool True on success, false on failure.
  */
 function saveDataToFile(string $filePath, array $dataToSave): bool {
     $jsonData = json_encode($dataToSave, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     if ($jsonData === false) {
-        logMessage("Failed to encode data to JSON for $filePath. Error: " . json_last_error_msg());
+        logMessage("Failed to encode data to JSON for $filePath. Error: " . json_last_error_msg(), 'ERROR');
         return false;
     }
+    // Ensure directory exists before writing
+    $dir = dirname($filePath);
+    if (!is_dir($dir)) {
+        if (!mkdir($dir, 0775, true)) {
+            logMessage("Failed to create directory for file: $dir", 'ERROR');
+            return false;
+        }
+    }
     if (file_put_contents($filePath, $jsonData, LOCK_EX) === false) {
-        logMessage("Failed to write data to file: $filePath");
+        logMessage("Failed to write data to file: $filePath", 'ERROR');
+        return false;
+    }
+    return true;
+}
+
+/**
+ * Loads data from a line-delimited text file.
+ * @param string $filePath Path to the text file.
+ * @return array An array of lines, or an empty array on failure/if file not found.
+ */
+function loadLineDelimitedFile(string $filePath): array {
+    if (!file_exists($filePath) || !is_readable($filePath)) {
+        // logMessage("Line-delimited file not found or not readable: $filePath", 'DEBUG');
+        return [];
+    }
+    $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+    if ($lines === false) {
+        logMessage("Failed to read line-delimited file: $filePath", 'ERROR');
+        return [];
+    }
+    return $lines;
+}
+
+/**
+ * Saves an array of strings to a line-delimited text file.
+ * @param string $filePath Path to the text file.
+ * @param array $linesToSave An array of strings, each representing a line.
+ * @return bool True on success, false on failure.
+ */
+function saveLineDelimitedFile(string $filePath, array $linesToSave): bool {
+    $content = implode(PHP_EOL, $linesToSave) . PHP_EOL;
+    // Ensure directory exists before writing
+    $dir = dirname($filePath);
+    if (!is_dir($dir)) {
+        if (!mkdir($dir, 0775, true)) {
+            logMessage("Failed to create directory for file: $dir", 'ERROR');
+            return false;
+        }
+    }
+    if (file_put_contents($filePath, $content, LOCK_EX) === false) {
+        logMessage("Failed to write data to line-delimited file: $filePath", 'ERROR');
         return false;
     }
     return true;

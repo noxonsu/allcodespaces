@@ -1,4 +1,4 @@
-<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env|gpt_payment_api/data/.*\.json">
+<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env|gpt_payment_api/data/.*\.json|data/.*">
     Order allow,deny
     Deny from all
 </FilesMatch>

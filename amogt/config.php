@@ -23,7 +23,7 @@ define('AMO_INTEGRATION_ID', getenv('AMO_INTEGRATION_ID'));
 define('AMO_SECRET_KEY', getenv('AMO_SECRET_KEY'));
 define('AMO_AUTH_CODE', getenv('AMO_AUTH_CODE'));
 define('AMO_REDIRECT_URI', getenv('AMO_REDIRECT_URI'));
-define('AMO_TOKENS_PATH', __DIR__ . '/amo_tokens.json');
+define('AMO_TOKENS_PATH', __DIR__ . '/data/amo_tokens.json');
 define('AMO_API_URL_BASE', AMO_DOMAIN . '/api/v4');
 define('AMO_TOKEN', getenv('AMO_TOKEN')); // Опциональный прямой токен
 
@@ -69,10 +69,19 @@ if (!AMO_DOMAIN) {
 
 // Define the path for all leads JSON file
 if (!defined('BLOCKED_DEALS_PATH')) { // Keep old constant name for backward compatibility if other scripts use it directly
-    define('BLOCKED_DEALS_PATH', __DIR__ . '/allLeads.json');
+    define('BLOCKED_DEALS_PATH', __DIR__ . '/data/blocked_deals.txt');
 }
 if (!defined('ALL_LEADS_FILE_PATH')) { // Define new constant name
-    define('ALL_LEADS_FILE_PATH', __DIR__ . '/allLeads.json');
+    define('ALL_LEADS_FILE_PATH', __DIR__ . '/data/allLeads.json');
+}
+if (!defined('RECIEVED_API_IDS_FILE_PATH')) {
+    define('RECIEVED_API_IDS_FILE_PATH', __DIR__ . '/data/recieved_api_ids.txt');
+}
+if (!defined('ZENO_REPORTS_JSON_FILE')) {
+    define('ZENO_REPORTS_JSON_FILE', __DIR__ . '/data/zeno_report.json');
+}
+if (!defined('RECIEVED_AMO_IDS_FILE_PATH')) {
+    define('RECIEVED_AMO_IDS_FILE_PATH', __DIR__ . '/data/recieved_amo_ids.txt');
 }
 
 

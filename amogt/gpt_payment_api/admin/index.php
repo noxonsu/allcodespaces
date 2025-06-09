@@ -42,6 +42,9 @@ switch ($page) {
     case 'transactions':
         include __DIR__ . '/transactions.php';
         break;
+    case 'leads':
+        include __DIR__ . '/leads.php';
+        break;
     case 'instructions':
         include __DIR__ . '/templates/instructions.php';
         break;

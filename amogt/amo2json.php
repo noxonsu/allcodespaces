@@ -28,6 +28,10 @@ define('AMO2JSON_SCRIPT_LOG_FILE', __DIR__ . '/logs/amo2json.log');
  * @param string $filePath Path to the blocked deals file
  * @return bool True if deal is blocked, false otherwise
  */
+// isDealBlocked больше не используется напрямую, так как BLOCKED_DEALS_PATH теперь указывает на ALL_LEADS_FILE_PATH
+// и логика проверки дубликатов перенесена в api.php для submit_partner_lead.
+// Эта функция может быть удалена, если нет других мест, где она используется.
+/*
 function isDealBlocked(string $dealId, string $filePath): bool {
     $deals = loadDataFromFile($filePath);
     foreach ($deals as $deal) {
@@ -37,6 +41,7 @@ function isDealBlocked(string $dealId, string $filePath): bool {
     }
     return false;
 }
+*/
 
 /**
  * Main function to handle AMO to JSON webhook processing.
@@ -78,7 +83,7 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
     if ($dealId && $paymentUrl) {
         logMessage("Processing webhook for amo2json - Deal ID: $dealId, Payment URL: $paymentUrl", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
 
-        $deals = loadDataFromFile(BLOCKED_DEALS_PATH);
+        $deals = loadDataFromFile(ALL_LEADS_FILE_PATH);
         $dealFound = false;
 
         foreach ($deals as $key => $existingDeal) {
@@ -101,11 +106,11 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
             logMessage("Deal ID $dealId not found, adding new entry to JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
         }
 
-        if (saveDataToFile(BLOCKED_DEALS_PATH, $deals)) {
-            logMessage("Successfully updated/added deal ID $dealId to " . BLOCKED_DEALS_PATH, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+        if (saveDataToFile(ALL_LEADS_FILE_PATH, $deals)) {
+            logMessage("Successfully updated/added deal ID $dealId to " . ALL_LEADS_FILE_PATH, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
             return ['status' => 'success', 'message' => "Deal $dealId processed and saved to JSON.", 'http_code' => $successHttpCode];
         } else {
-            logMessage("Failed to save deal ID $dealId to " . BLOCKED_DEALS_PATH, 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+            logMessage("Failed to save deal ID $dealId to " . ALL_LEADS_FILE_PATH, 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
             return ['status' => 'error', 'message' => "Failed to save deal $dealId to JSON.", 'http_code' => 500];
         }
     } else {
@@ -138,7 +143,7 @@ if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
 
     // Now, use the locked request handler to do the actual processing.
     // The handleLockedPostRequest function will manage its own output, but since we've
-    // already closed the connection, it won't be sent to the original client.
+    // already closed the connection, it's not sent to the original client.
     // It will, however, log everything correctly.
     handleLockedPostRequest(AMO2JSON_LOCK_FILE, 'handleAmo2JsonWebhook', 200);
 }
