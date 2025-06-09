@@ -4,6 +4,12 @@
 // Configuration
 $zeno_report_url = 'https://paysaasbot.ru/chatgptbot_connector/zeno_report.php';
 
+// Delay between requests to avoid AmoCRM rate limiting (in seconds)
+$delay_between_requests = 3;
+
+// Set to specific scenario index (0-4) to run only one test, or null to run all
+$run_single_scenario = null; // Change to 0, 1, 2, 3, or 4 to run specific scenario only
+
 // Sample lead ID (replace with an actual lead ID from your allLeads.json for testing)
 // You can get a lead ID by running amogt/amodeals_json.php
 $test_lead_id = 'lead_6846dcc69c4e2'; // Replace with a real lead ID from allLeads.json
@@ -62,7 +68,20 @@ $scenarios = [
 
 echo "=== Testing Zeno Report API ===\n";
 
-foreach ($scenarios as $scenario) {
+if ($run_single_scenario !== null) {
+    echo "Running only scenario #{$run_single_scenario}\n";
+    $scenarios_to_run = [$scenarios[$run_single_scenario]];
+} else {
+    echo "Running all scenarios with {$delay_between_requests}s delay between requests\n";
+    $scenarios_to_run = $scenarios;
+}
+
+foreach ($scenarios_to_run as $index => $scenario) {
+    if ($index > 0 && $run_single_scenario === null) {
+        echo "\nWaiting {$delay_between_requests} seconds before next request to avoid rate limiting...\n";
+        sleep($delay_between_requests);
+    }
+    
     echo "\n--- Running Scenario: " . $scenario['name'] . " ---\n";
     $url = $zeno_report_url . '?id=' . $scenario['lead_id'];
     $post_data = http_build_query($scenario['data']);

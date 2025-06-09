@@ -65,9 +65,9 @@ function zenoFetchAndProcessAmoCustomFieldDefinitions() {
 // --- Main Request Handling ---
 header('Content-Type: application/json');
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') { // Expect POST for report data, GET for lead_id
+if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
-    echo json_encode(['status' => 'error', 'message' => 'Invalid request method. Only POST is accepted.']);
+    echo json_encode(['status' => 'error', 'message' => 'Invalid request method. Only GET is accepted.']);
     exit;
 }
 
@@ -78,24 +78,24 @@ if (empty($leadId)) {
     exit;
 }
 
-// Assuming report data comes as x-www-form-urlencoded
-$reportStatus = $_POST['status'] ?? null;
-$reportAmount = $_POST['amount'] ?? null;
-$reportCurrency = $_POST['currency'] ?? null;
-$reportEmail = $_POST['email'] ?? null;
-$reportCard = $_POST['card'] ?? null;
-$partnerIdSubmitter = $_POST['partner_id'] ?? null; // Optional partner_id
+// Assuming report data comes as GET parameters
+$reportStatus = $_GET['status'] ?? null;
+$reportAmount = $_GET['amount'] ?? null;
+$reportCurrency = $_GET['currency'] ?? null;
+$reportEmail = $_GET['email'] ?? null;
+$reportCard = $_GET['card'] ?? null;
+$partnerIdSubmitter = $_GET['partner_id'] ?? null; // Optional partner_id
 
 if (empty($reportStatus)) {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => "Missing required POST parameter: status."]);
+    echo json_encode(['status' => 'error', 'message' => "Missing required GET parameter: status."]);
     exit;
 }
 // Validate status value (example)
-$validStatuses = ["Успешно", "ОШИБКА!"]; // Assuming these are the only two valid statuses
+$validStatuses = ["Выполнено", "ОШИБКА!"]; // Updated to use correct status values
 if (!in_array($reportStatus, $validStatuses)) {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => "Invalid value for POST parameter 'status'. Allowed: " . implode(', ', $validStatuses)]);
+    echo json_encode(['status' => 'error', 'message' => "Invalid value for GET parameter 'status'. Allowed: " . implode(', ', $validStatuses)]);
     exit;
 }
 

@@ -15,6 +15,8 @@ if (!function_exists('logMessage')) {
 }
 require_once __DIR__ . '/lib/json_storage_utils.php';
 require_once __DIR__ . '/lib/request_utils.php';
+require_once __DIR__ . '/lib/amo_auth_utils.php'; // Для работы с API AmoCRM
+require_once __DIR__ . '/lib/payment_link_parser.php'; // Для парсинга ссылок на оплату
 
 // Define constants
 define('AMO2JSON_LOCK_FILE', __DIR__ . '/amo2json.lock');
@@ -83,6 +85,125 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
     if ($dealId && $paymentUrl) {
         logMessage("Processing webhook for amo2json - Deal ID: $dealId, Payment URL: $paymentUrl", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
 
+        // 1. Получаем токены AmoCRM
+        $tokens = checkAmoAccess();
+        if (!$tokens) {
+            $logMsg = "Failed to get AmoCRM access tokens for deal ID: $dealId. Cannot process payment link.";
+            logMessage($logMsg, 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+            // Продолжаем сохранение в JSON, но не обновляем AmoCRM
+            // return ['status' => 'error', 'message' => $logMsg, 'http_code' => 500]; // Не прерываем, чтобы сохранить URL
+        } else {
+            $accessToken = $tokens['access_token'];
+
+            // 2. Получаем текущий статус сделки
+            $currentStatusId = null;
+            $currentPipelineId = null;
+
+            // Попытка получить status_id и pipeline_id из данных веб-хука
+            if (isset($leadData['status_id'])) {
+                $currentStatusId = (string)$leadData['status_id'];
+            }
+            if (isset($leadData['pipeline_id'])) {
+                $currentPipelineId = (string)$leadData['pipeline_id'];
+            }
+
+            // Если status_id не найден в веб-хуке (что маловероятно для update), делаем запрос к API
+            if (!$currentStatusId) {
+                logMessage("Status ID not found in webhook data for deal $dealId. Fetching deal details from AmoCRM API.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                try {
+                    $dealInfoResponse = httpClient(AMO_API_URL_BASE . "/leads/" . $dealId, [
+                        'headers' => [
+                            'Authorization: Bearer ' . $accessToken,
+                            'Content-Type: application/json'
+                        ]
+                    ]);
+
+                    if ($dealInfoResponse['statusCode'] < 400) {
+                        $dealDetails = json_decode($dealInfoResponse['body'], true);
+                        if (json_last_error() === JSON_ERROR_NONE && isset($dealDetails['_embedded']['leads'][0])) {
+                            $currentStatusId = (string)$dealDetails['_embedded']['leads'][0]['status_id'];
+                            $currentPipelineId = (string)$dealDetails['_embedded']['leads'][0]['pipeline_id'];
+                            logMessage("Fetched deal $dealId details. Status ID: $currentStatusId, Pipeline ID: $currentPipelineId", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                        } else {
+                            logMessage("Failed to parse deal details for $dealId or lead data missing. Body: " . $dealInfoResponse['body'], 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                        }
+                    } else {
+                        logMessage("Failed to fetch deal details for $dealId. Status: " . $dealInfoResponse['statusCode'] . " Body: " . $dealInfoResponse['body'], 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                    }
+                } catch (Exception $e) {
+                    logMessage("Exception fetching deal details for $dealId: " . $e->getMessage(), 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                }
+            }
+
+            // 3. Проверяем, что текущий этап сделки НЕ "CHATGPT" (ID: 74304782)
+            // Также проверяем, что это наша основная воронка (ID: 8824470)
+            if ($currentPipelineId === '8824470' && $currentStatusId !== '74304782') {
+                logMessage("Deal $dealId is in pipeline $currentPipelineId and not in CHATGPT stage ($currentStatusId). Proceeding with parsing.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+
+                // 4. Вызываем parsePaymentPage для парсинга ссылки
+                $parseResult = parsePaymentPage($paymentUrl);
+
+                if ($parseResult['error'] === null && $parseResult['amount'] !== null && $parseResult['currency'] !== null) {
+                    $amount = (float)$parseResult['amount'];
+                    $currency = $parseResult['currency'];
+
+                    // Получаем enum_id для валюты
+                    $currencyEnumId = AMO_CURRENCY_ENUM_IDS[strtoupper($currency)] ?? null;
+
+                    if ($currencyEnumId !== null) {
+                        // 5. Обновляем поля в AmoCRM
+                        $updatePayload = [
+                            [
+                                'id' => (int)$dealId,
+                                'custom_fields_values' => [
+                                    [
+                                        'field_id' => 636765, // Сумма запроса
+                                        'values' => [
+                                            ['value' => $amount]
+                                        ]
+                                    ],
+                                    [
+                                        'field_id' => 636815, // Валюта запроса
+                                        'values' => [
+                                            ['enum_id' => $currencyEnumId]
+                                        ]
+                                    ]
+                                ]
+                            ]
+                        ];
+
+                        logMessage("Attempting to update AmoCRM deal $dealId with Amount: $amount, Currency Enum ID: $currencyEnumId", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+
+                        try {
+                            $updateResponse = httpClient(AMO_API_URL_BASE . "/leads", [
+                                'method' => 'PATCH',
+                                'headers' => [
+                                    'Authorization: Bearer ' . $accessToken,
+                                    'Content-Type: application/json'
+                                ],
+                                'body' => json_encode($updatePayload)
+                            ]);
+
+                            if ($updateResponse['statusCode'] < 400) {
+                                logMessage("Successfully updated AmoCRM deal $dealId with payment details.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                            } else {
+                                logMessage("Failed to update AmoCRM deal $dealId. Status: " . $updateResponse['statusCode'] . " Body: " . $updateResponse['body'], 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                            }
+                        } catch (Exception $e) {
+                            logMessage("Exception updating AmoCRM deal $dealId: " . $e->getMessage(), 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                        }
+                    } else {
+                        logMessage("Unknown currency '$currency' for deal $dealId. Cannot update AmoCRM currency field.", 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
+                    }
+                } else {
+                    logMessage("Failed to parse payment details for deal $dealId from URL $paymentUrl. Error: " . ($parseResult['error'] ?? 'Unknown parsing error.'), 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
+                }
+            } else {
+                logMessage("Deal $dealId is either not in the main pipeline ($currentPipelineId !== 8824470) or already in CHATGPT stage ($currentStatusId === 74304782). Skipping parsing.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+            }
+        }
+
+        // Existing logic to save/update deal in local JSON file
         $deals = loadDataFromFile(ALL_LEADS_FILE_PATH);
         $dealFound = false;
 
