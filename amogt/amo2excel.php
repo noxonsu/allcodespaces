@@ -1,5 +1,7 @@
 <?php
 
+
+
 define('SCRIPT_LOG_FILE', __DIR__ . '/logs/amo2us.log');
 //
 require_once __DIR__ . '/vendor/autoload.php';
@@ -303,6 +305,14 @@ function handleAmoWebhook() {
         logError($logMsg);
         logDebug("Webhook data where data was missing: " . json_encode($webhookData, JSON_UNESCAPED_UNICODE));
         echo json_encode(['status' => 'error', 'message' => 'Missing required data (deal ID or payment URL).']);
+    }
+
+    // In amo2excel.php or amo2us.php, after processing the main logic:
+    if (isset($webhookData) && is_array($webhookData)) {
+        // Include and call amo2json processing
+        require_once __DIR__ . '/amo2json.php';
+        $jsonResult = handleAmo2JsonWebhook($webhookData);
+        logMessage("AMO2JSON result: " . json_encode($jsonResult));
     }
 }
 

@@ -17,13 +17,6 @@ if (file_exists(__DIR__ . '/.env')) {
 // Общие настройки
 define('NAMEPROMPT', getenv('NAMEPROMPT') ?: '');
 
-// Google Drive / API
-define('GOOGLE_SCOPES', ['https://www.googleapis.com/auth/drive']);
-define('GOOGLE_KEY_FILE', __DIR__ . '/my-project-1337-458418-4b4c595d74d5.json');
-define('GOOGLE_DRIVE_FILE_ID_AMO2EXCEL', getenv('GOOGLE_DRIVE_FILE_ID_AMO2EXCEL'));
-define('GOOGLE_DRIVE_FILE_ID_EXCEL2AMO', getenv('GOOGLE_DRIVE_FILE_ID_EXCEL2AMO'));
-define('DEFAULT_SHEET_NAME', getenv('SHEET_NAME') ?: 'Sheet1');
-
 // AMO CRM
 define('AMO_DOMAIN', getenv('AMO_DOMAIN'));
 define('AMO_INTEGRATION_ID', getenv('AMO_INTEGRATION_ID'));
@@ -57,14 +50,6 @@ $requiredEnvVars = [
     'AMO_REDIRECT_URI' => AMO_REDIRECT_URI,
 ];
 
-if (getenv('GOOGLE_DRIVE_FILE_ID_AMO2EXCEL')) {
-    $requiredEnvVars['GOOGLE_DRIVE_FILE_ID_AMO2EXCEL'] = GOOGLE_DRIVE_FILE_ID_AMO2EXCEL;
-}
-
-if (getenv('GOOGLE_DRIVE_FILE_ID_EXCEL2AMO')) {
-    $requiredEnvVars['GOOGLE_DRIVE_FILE_ID_EXCEL2AMO'] = GOOGLE_DRIVE_FILE_ID_EXCEL2AMO;
-}
-
 $missingVar = false;
 foreach ($requiredEnvVars as $key => $value) {
     if (getenv($key) !== false && empty($value)) {
@@ -82,8 +67,16 @@ if (!AMO_DOMAIN) {
     exit(1);
 }
 
-// Проверка наличия Google Service Account Key
-if ((GOOGLE_DRIVE_FILE_ID_AMO2EXCEL || GOOGLE_DRIVE_FILE_ID_EXCEL2AMO) && !file_exists(GOOGLE_KEY_FILE)) {
-    echo "Критическая ошибка: Файл ключа Google Service Account не найден по пути " . GOOGLE_KEY_FILE . "\n";
-    exit(1);
+// Define the path for all leads JSON file
+if (!defined('BLOCKED_DEALS_PATH')) { // Keep old constant name for backward compatibility if other scripts use it directly
+    define('BLOCKED_DEALS_PATH', __DIR__ . '/allLeads.json');
+}
+if (!defined('ALL_LEADS_FILE_PATH')) { // Define new constant name
+    define('ALL_LEADS_FILE_PATH', __DIR__ . '/allLeads.json');
+}
+
+
+// Mark that config is loaded to prevent conflicts
+if (!defined('CONFIG_LOADED')) {
+    define('CONFIG_LOADED', true);
 }

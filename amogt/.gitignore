@@ -1,3 +1,6 @@
 mycity*
 amo_tokens.json
 *.json
+blocked*
+gpt_payment_api/data/
+amo_fields.txt

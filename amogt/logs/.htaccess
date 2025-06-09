@@ -1,0 +1,4 @@
+<FilesMatch "^(amo2us\.log|excel2amo\.log|index\.php|app\.log)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>

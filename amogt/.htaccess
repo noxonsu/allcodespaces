@@ -1,4 +1,4 @@
-<!-- filepath: /workspaces/allcodespaces/amogt/.htaccess -->
-<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env">
-    Require all denied
+<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env|gpt_payment_api/data/.*\.json">
+    Order allow,deny
+    Deny from all
 </FilesMatch>
