@@ -40,24 +40,7 @@ function main(): void
     logMessage('[Main] Initial value of config.DEFAULT_SHEET_NAME: "' . (defined('DEFAULT_SHEET_NAME') ? DEFAULT_SHEET_NAME : 'NOT SET') . '"');
     
     logMessage("--- [Main] Starting execution at " . date('c') . " ---");
-    $currentAccessToken = null;
-
-    try {
-        $amoTokens = checkAmoAccess();
-
-        if ($amoTokens && !empty($amoTokens['access_token'])) {
-            $currentAccessToken = $amoTokens['access_token'];
-            logMessage("[Main] AmoCRM access confirmed.");
-
-        } else {
-            logMessage('[Main] Could not obtain/verify AmoCRM OAuth tokens. Auth instructions should have been printed by checkAmoAccess(). Skipping API-dependent operations that require OAuth.');
-        }
-
-
-    } catch (Exception $error) {
-        logMessage("[Main] Error during execution: " . $error->getMessage() . PHP_EOL . $error->getTraceAsString());
-    }
-
+    
     logMessage("--- [Main] Execution finished at " . date('c') . " ---");
 }
 

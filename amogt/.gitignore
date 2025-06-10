@@ -3,5 +3,9 @@ amo_tokens.json
 *.json
 blocked*
 gpt_payment_api/data/
-data/
+data_test/
+data_production/
+logs_test/
+logs_production/
 amo_fields.json
+.env.*

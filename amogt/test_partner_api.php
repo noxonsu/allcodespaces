@@ -7,7 +7,7 @@ $api_token = 'fd9be88e261c6d2ca38d87c5e2cb3ea8'; // Replace with actual API toke
 // Sample lead data for testing
 $lead_data = [
     [
-        'paymentUrl' => 'https://pay.openai.com/example1',
+        'paymentUrl' => 'https://pay.openai.com/c/pay/cs_live_a1CtYtwEj0KJEyHUSn40Ir2m7hb0ybi8nEyGoQAWkVwrBE0RIbvxF5Rs79#fidpamZkaWAnPydgaycpJ3ZwZ3Zmd2x1cWxqa1BrbHRwYGtgdnZAa2RnaWBhJz9jZGl2YCknZHVsTmB8Jz8ndW5aaWxzYFowNE1Kd1ZyRjNtNGt9QmpMNmlRRGJXb1xTd38xYVA2Y1NKZGd8RmZOVzZ1Z0BPYnBGU0RpdEZ9YX1GUHNqV200XVJyV2RmU2xqc1A2bklOc3Vub20yTHRuUjU1bF1Udm9qNmsnKSdjd2poVmB3c2B3Jz9xd3BgKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdga2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl',
         'custom_field_example' => 'some_value'
     ]
 ];

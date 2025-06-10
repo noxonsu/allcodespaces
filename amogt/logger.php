@@ -2,7 +2,12 @@
 
 ob_start();
 
-function logMessage($message, $type = 'INFO') {
+// Подключаем config.php, чтобы LOGS_DIR был доступен
+if (!defined('CONFIG_LOADED')) {
+    require_once __DIR__ . '/config.php';
+}
+
+function logMessage($message, $type = 'INFO', $logFile = null) {
     // Check if logging is enabled
     $enableLogs = $_ENV['ENABLE_LOGS'] ?? 0;
     
@@ -17,8 +22,17 @@ function logMessage($message, $type = 'INFO') {
         }
     }
 
-    // Determine log file: use SCRIPT_LOG_FILE if defined, otherwise default to app.log
-    $logFilename = defined('SCRIPT_LOG_FILE') ? SCRIPT_LOG_FILE : __DIR__ . '/logs/app.log';
+    // Determine script name from debug backtrace
+    $scriptName = 'unknown';
+    $backtrace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+    if (isset($backtrace[1]['file'])) {
+        $scriptName = basename($backtrace[1]['file'], '.php');
+    } elseif (isset($backtrace[0]['file'])) {
+        $scriptName = basename($backtrace[0]['file'], '.php');
+    }
+    
+    // Determine log file: use provided logFile, then SCRIPT_LOG_FILE if defined, otherwise default to app.log in LOGS_DIR
+    $logFilename = $logFile ?? (defined('SCRIPT_LOG_FILE') ? SCRIPT_LOG_FILE : LOGS_DIR . '/app.log'); // Используем LOGS_DIR
     
     $logDir = dirname($logFilename);
 
@@ -34,7 +48,7 @@ function logMessage($message, $type = 'INFO') {
     }
 
     $dateTime = date('Y-m-d H:i:s');
-    $logEntry = "[$dateTime][$type] $message" . PHP_EOL;
+    $logEntry = "[$dateTime][$type][$scriptName] $message" . PHP_EOL;
     
     error_log($logEntry); // Continues to log to the general PHP error log as well
     file_put_contents($logFilename, $logEntry, FILE_APPEND);
@@ -54,10 +68,10 @@ function logMessage($message, $type = 'INFO') {
     return $message;
 }
 
-function logError($message) {
-    logMessage($message, 'ERROR');
+function logError($message, $logFile = null) {
+    logMessage($message, 'ERROR', $logFile);
 }
 
-function logDebug($message) {
-    logMessage($message, 'DEBUG');
+function logDebug($message, $logFile = null) {
+    logMessage($message, 'DEBUG', $logFile);
 }

@@ -416,105 +416,54 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
         return { action: 'sendError', context: 'system', specificErrorMsg: 'Invalid chat ID.' };
     }
 
-    const isStartCommand = rawUserText.startsWith('/start');
-    let startParam = null;
-    let userTextForLogic = rawUserText;
-
-    if (isStartCommand) {
-        const match = rawUserText.match(/\/start(?:\s+(.+))?/);
-        startParam = match?.[1] ? sanitizeString(match[1]) : null;
-        userTextForLogic = '/start'; // Normalized for the /start block
-        console.info(`[handleIncomingMessage ${consistentChatId}] Processing /start command. Param: ${startParam}`);
-    } else {
-        userTextForLogic = sanitizeString(rawUserText); // Sanitize for regular messages
-        if (!userTextForLogic) {
-            console.info(`[handleIncomingMessage ${consistentChatId}] Игнорирование пустого текстового сообщения после очистки.`);
-            return { action: 'noReplyNeeded' };
-        }
+    // Sanitize user text for regular messages
+    const userTextForLogic = sanitizeString(rawUserText);
+    if (!userTextForLogic) {
+        console.info(`[handleIncomingMessage ${consistentChatId}] Игнорирование пустого текстового сообщения после очистки.`);
+        return { action: 'noReplyNeeded' };
     }
     
-    // --- /start command logic ---
-    if (userTextForLogic === '/start') {
-        try {
-            const userFilePath = path.join(USER_DATA_DIR, `${consistentChatId}.json`);
-            let howPassed = startParam ? `через параметр: ${startParam}` : 'прямая команда /start';
-
-            const userDataOnStart = {
-                chatId: consistentChatId,
-                firstVisit: new Date().toISOString(),
-                startParameter: startParam,
-                howPassed: howPassed,
-                username: fromUserDetails?.username || null, // fromUserDetails is the sender object
-                firstName: fromUserDetails?.first_name || fromUserDetails?.firstName || null, // Adapt to GramJS sender properties
-                lastName: fromUserDetails?.last_name || fromUserDetails?.lastName || null,
-                languageCode: fromUserDetails?.language_code || fromUserDetails?.langCode || null,
-                longMemory: '',
-                lastLongMemoryUpdate: 0,
-                isPaid: false,
-                providedName: startParam || null,
-                lastRestartTime: new Date().toISOString(),
-                lastMessageTimestamp: null,
-                followUpSent: false,
-                dialogStopped: false,
-                pendingBotQuestion: null,
-                awaitingFirstMessageAfterStart: true,
-                dialogMovedToUnclear: false
-            };
-            
-            if (startParam) {
-                userDataOnStart.howPassed = `через параметр: ${startParam}, который был принят за имя при старте.`;
-                logChat(consistentChatId, {
-                    type: 'name_inferred_from_start_param_on_start',
-                    name: startParam,
-                    timestamp: new Date().toISOString()
-                }, 'system');
-            }
-            
-            fs.writeFileSync(userFilePath, JSON.stringify(userDataOnStart, null, 2));
-            console.info(`[handleIncomingMessage ${consistentChatId}] Профиль пользователя пересоздан и сохранен.`);
-
-            const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${consistentChatId}.log`);
-            if (fs.existsSync(chatLogPath)) {
-                try {
-                    fs.unlinkSync(chatLogPath);
-                    console.info(`[handleIncomingMessage ${consistentChatId}] Лог чата очищен из-за команды /start.`);
-                } catch (unlinkError) {
-                    console.error(`Ошибка удаления лога чата для ${consistentChatId}:`, unlinkError);
-                }
-            }
-            logChat(consistentChatId, {
-                type: 'system_event',
-                event: 'start_command_profile_recreated_awaiting_message',
-                howPassed: userDataOnStart.howPassed,
-                startParam: startParam,
-                timestamp: messageDate.toISOString()
-            }, 'system');
-            
-            return { action: 'profileResetOk' };
-        } catch (error) {
-            console.error(`Критическая ошибка при обработке /start для чата ${consistentChatId} в handleIncomingMessage:`, error);
-            return { action: 'sendError', context: 'обработки команды /start', specificErrorMsg: error.message };
-        }
-    }
-
-    // --- Regular message logic ---
+    // --- User data initialization ---
     let userData = loadUserData(consistentChatId);
     const userDataPath = path.join(USER_DATA_DIR, `${consistentChatId}.json`);
 
+    // Create user profile if it doesn't exist
     if (!fs.existsSync(userDataPath) || !userData || Object.keys(userData).length === 0) {
-        console.info(`[handleIncomingMessage ${consistentChatId}] Файл данных пользователя не найден или пуст. Предлагаем /start.`);
-        logChat(consistentChatId, { type: 'user_message_received_no_profile', text: userTextForLogic, timestamp: messageDate.toISOString() }, 'user');
-        logChat(consistentChatId, { type: 'system_event', event: 'prompted_start_no_userdata_on_message' }, 'system');
-        return { action: 'sendMessage', text: 'Пожалуйста, используйте команду /start, чтобы начать.' };
+        console.info(`[handleIncomingMessage ${consistentChatId}] Создание нового профиля пользователя.`);
+        
+        const newUserData = {
+            chatId: consistentChatId,
+            firstVisit: new Date().toISOString(),
+            username: fromUserDetails?.username || null,
+            firstName: fromUserDetails?.first_name || fromUserDetails?.firstName || null,
+            lastName: fromUserDetails?.last_name || fromUserDetails?.lastName || null,
+            languageCode: fromUserDetails?.language_code || fromUserDetails?.langCode || null,
+            longMemory: '',
+            lastLongMemoryUpdate: 0,
+            isPaid: false,
+            lastMessageTimestamp: null,
+            followUpSent: false,
+            dialogStopped: false,
+            pendingBotQuestion: null,
+            dialogMovedToUnclear: false
+        };
+        
+        fs.writeFileSync(userDataPath, JSON.stringify(newUserData, null, 2));
+        userData = newUserData;
+        console.info(`[handleIncomingMessage ${consistentChatId}] Новый профиль пользователя создан.`);
+        
+        logChat(consistentChatId, {
+            type: 'system_event',
+            event: 'new_user_profile_created',
+            timestamp: messageDate.toISOString()
+        }, 'system');
     }
     
     if (userData.dialogStopped) {
         console.info(`[handleIncomingMessage ${consistentChatId}] Диалог ранее остановлен. Сообщение "${userTextForLogic}" игнорируется.`);
-        // Conditionally call logChat to prevent error from its internal validation
-        if (validateChatId(consistentChatId)) { // validateChatId is the original from utilities.js
+        if (validateChatId(consistentChatId)) {
             logChat(consistentChatId, { event: 'user_messaged_after_dialog_stopped_ignored', user_text: userTextForLogic }, 'system');
         } else {
-            // Log to console directly if original validation fails, to still capture the event
             console.warn(`[LogChat Skipped] Event: user_messaged_after_dialog_stopped_ignored for Chat ID ${consistentChatId} (text: "${userTextForLogic}") as it failed utilities.validateChatId.`);
         }
         return { action: 'noReplyNeeded' };
@@ -532,8 +481,7 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
         console.info(`[handleIncomingMessage ${consistentChatId}] Обработка. Длина: ${userTextForLogic.length}. NewDayPrefix: "${newDayPrefix}"`);
 
         if (ACTIVATION_CODE && userTextForLogic.startsWith('KEY-')) {
-            // Fix: Ensure userData is loaded before accessing it
-            userData = loadUserData(consistentChatId); // Reload to ensure we have current data
+            userData = loadUserData(consistentChatId);
             if (userTextForLogic === ACTIVATION_CODE) {
                 userData.isPaid = true;
                 saveUserData(consistentChatId, userData);
@@ -548,67 +496,26 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
         const payment = await getPaymentStatus(consistentChatId);
         if (!payment.proceed) {
             if (payment.prompt) {
-                 // Log that payment prompt details were generated, actual sending is up to caller
                 logChat(consistentChatId, { event: 'payment_prompt_details_forwarded_for_sending', user_text: userTextForLogic }, 'system');
                 return { action: 'promptPayment', text: payment.prompt.text, options: payment.prompt.options };
             }
-            return { action: 'noReplyNeeded' }; // Should ideally not happen if prompt is always returned
+            return { action: 'noReplyNeeded' };
         }
 
-        let assistantText;
-        let performLlmCall = true;
-
-        if (userData.awaitingFirstMessageAfterStart) {
-            console.info(`[handleIncomingMessage ${consistentChatId}] Это первое сообщение после /start. Анализ: "${userTextForLogic}"`);
-            const classificationPrompt = `Проанализируй следующее сообщение пользователя. Определи его тип:
-1. Если сообщение связано с поиском работы, трудоустройством, резюме или вакансиями - ответь "да"
-2. Если это приветствие (привет, здравствуйте, добрый день и т.д.) - ответь "приветствие" 
-3. Если это что-то другое - ответь "нет"
-
-Сообщение пользователя: "${userTextForLogic}"`;
-            const classificationResponse = await callLLM(consistentChatId, [{ type: 'input_text', text: classificationPrompt }]);
-            logChat(consistentChatId, { event: 'first_message_classification_attempt', user_text: userTextForLogic, llm_raw_classification: classificationResponse }, 'system');
-
-            const lowerClassification = classificationResponse ? classificationResponse.toLowerCase() : '';
-
-            if (lowerClassification.includes('да')) {
-                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение LLM-классифицировано как связанное с работой.`);
-                let initialContextPrefix = userData.providedName ? `Пользователь ${userData.providedName} только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса (определено как связанное с работой): ` : "Пользователь только что запустил диалог (профиль был сброшен). Его первое сообщение после сброса (определено как связанное с работой): ";
-                const llmInputTextForJobRelated = newDayPrefix + initialContextPrefix + userTextForLogic;
-                assistantText = await callLLM(consistentChatId, [{ type: 'input_text', text: llmInputTextForJobRelated }]);
-            } else if (lowerClassification.includes('приветствие')) {
-                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение LLM-классифицировано как приветствие: "${userTextForLogic}".`);
-                assistantText = "Здравствуйте!";
-                logChat(consistentChatId, { event: 'first_message_is_greeting_reply_via_llm', user_text: userTextForLogic, bot_response: assistantText }, 'system');
-            } else {
-                console.info(`[handleIncomingMessage ${consistentChatId}] Первое сообщение LLM-классифицировано как не по теме и не приветствие. Перемещение в "Непонятное".`);
-                logChat(consistentChatId, { event: 'first_message_not_job_related_not_greeting_via_llm', user_text: userTextForLogic, llm_classification: classificationResponse, action: 'move_to_unclear' }, 'system');
-                userData.dialogMovedToUnclear = true;
-                performLlmCall = false;
-                if (ADMIN_TELEGRAM_ID) {
-                    const logFileName = `chat_${consistentChatId}.log`;
-                    const logUrl = BOT_SERVER_BASE_URL ? `${BOT_SERVER_BASE_URL}/chatlogs/${logFileName}` : `(логи локально)`;
-                    const adminMessage = `Диалог с пользователем ${consistentChatId} (${userData.username || 'нет username'}) перемещен в "Непонятное" после первого сообщения (LLM: не по теме и не приветствие).\nСообщение: "${userTextForLogic}"\nLLM классификация: "${classificationResponse}"\nЛог: ${logUrl}`;
-                    saveUserData(consistentChatId, userData); // Save before returning
-                    return { action: 'adminNotifyAndNoReply', adminMessageText: adminMessage, adminTelegramId: ADMIN_TELEGRAM_ID };
-                }
-            }
-            userData.awaitingFirstMessageAfterStart = false;
-        } else {
-            // Regular message processing
-            let llmInputTextRegular = newDayPrefix + userTextForLogic;
-            if (userData.pendingBotQuestion) {
-                const contextPrefix = `[Контекст предыдущего вопроса бота: ${userData.pendingBotQuestion}] `;
-                llmInputTextRegular = newDayPrefix + contextPrefix + userTextForLogic;
-                logChat(consistentChatId, { event: 'user_reply_with_follow_up_context', original_user_text: userTextForLogic, bot_question_context: userData.pendingBotQuestion }, 'system');
-                userData.pendingBotQuestion = null;
-            }
-            assistantText = await callLLM(consistentChatId, [{ type: 'input_text', text: llmInputTextRegular }]);
+        // Regular message processing - direct AI interaction
+        let llmInputText = newDayPrefix + userTextForLogic;
+        if (userData.pendingBotQuestion) {
+            const contextPrefix = `[Контекст предыдущего вопроса бота: ${userData.pendingBotQuestion}] `;
+            llmInputText = newDayPrefix + contextPrefix + userTextForLogic;
+            logChat(consistentChatId, { event: 'user_reply_with_follow_up_context', original_user_text: userTextForLogic, bot_question_context: userData.pendingBotQuestion }, 'system');
+            userData.pendingBotQuestion = null;
         }
+        
+        const assistantText = await callLLM(consistentChatId, [{ type: 'input_text', text: llmInputText }]);
         
         saveUserData(consistentChatId, userData);
 
-        if (performLlmCall && assistantText) {
+        if (assistantText) {
             const stopPhraseDetected = STOP_DIALOG_PHRASES.find(phrase => assistantText.toLowerCase().includes(phrase.toLowerCase()));
             if (stopPhraseDetected) {
                 console.info(`[handleIncomingMessage ${consistentChatId}] STOP_DIALOG_PHRASE detected: "${stopPhraseDetected}".`);
@@ -631,7 +538,6 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
                     console.info(`[handleIncomingMessage ${consistentChatId}] Vacancy closed. Scheduling follow-up.`);
                     logChat(consistentChatId, { event: 'follow_up_scheduled_by_handleIncomingMessage', delay_ms: FOLLOW_UP_DELAY_MS }, 'system');
                     
-                    // Follow-up messages will now be attempted via GramJS if it's active.
                     if (gramJsClient && gramJsClient.connected) {
                         setTimeout(async () => {
                             try {
@@ -641,7 +547,6 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
                                 }
                                 console.info(`[GramJS ${consistentChatId}] Sending scheduled follow-up: "${FOLLOW_UP_VACANCY_MESSAGE}"`);
                                 
-                                // Add typing simulation for follow-up messages
                                 const followUpDelay = calculateTypingDelay(FOLLOW_UP_VACANCY_MESSAGE);
                                 await simulateTyping(consistentChatId, followUpDelay);
                                 await new Promise(resolve => setTimeout(resolve, followUpDelay));
@@ -665,10 +570,8 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
                 }
             }
             return { action: 'sendMessage', text: assistantText };
-        } else if (!performLlmCall && userData.dialogMovedToUnclear) {
-            return { action: 'noReplyNeeded' };
-        } else if (!performLlmCall) {
-             console.info(`[handleIncomingMessage ${consistentChatId}] No LLM call performed or no assistant text. No response.`);
+        } else {
+             console.info(`[handleIncomingMessage ${consistentChatId}] No assistant text generated. No response.`);
         }
         return { action: 'noReplyNeeded' };
 

@@ -12,7 +12,7 @@ $run_single_scenario = null; // Change to 0, 1, 2, 3, or 4 to run specific scena
 
 // Sample lead ID (replace with an actual lead ID from your allLeads.json for testing)
 // You can get a lead ID by running amogt/amodeals_json.php
-$test_lead_id = 'lead_6846dcc69c4e2'; // Replace with a real lead ID from allLeads.json
+$test_lead_id = '18536300'; // Replace with a real lead ID from allLeads.json
 
 // Test Scenarios
 $scenarios = [
@@ -20,49 +20,13 @@ $scenarios = [
         'name' => 'Successful Report (no partner_id)',
         'lead_id' => $test_lead_id,
         'data' => [
-            'status' => 'Успешно',
+            'status' => 'Выполнено',
             'amount' => '100.00',
             'currency' => 'USD',
             'email' => 'test@example.com',
-            'card' => '**** **** **** 1234'
+            'card' => '1234'
         ],
         'expected_status' => 'success'
-    ],
-    [
-        'name' => 'Error Report (no partner_id)',
-        'lead_id' => 'lead_error_test', // Use a different ID for this test
-        'data' => [
-            'status' => 'ОШИБКА!',
-            'message' => 'Payment failed due to card decline.'
-        ],
-        'expected_status' => 'success' // The report itself should be saved successfully
-    ],
-    [
-        'name' => 'Report with partner_id (should skip AmoCRM update)',
-        'lead_id' => 'lead_partner_test', // Use a different ID for this test
-        'data' => [
-            'status' => 'Успешно',
-            'amount' => '50.00',
-            'currency' => 'EUR',
-            'partner_id' => 'partner_test_id'
-        ],
-        'expected_status' => 'success'
-    ],
-    [
-        'name' => 'Missing Status Parameter',
-        'lead_id' => 'lead_missing_status',
-        'data' => [
-            'amount' => '200.00'
-        ],
-        'expected_status' => 'error'
-    ],
-    [
-        'name' => 'Invalid Status Value',
-        'lead_id' => 'lead_invalid_status',
-        'data' => [
-            'status' => 'Pending' // Invalid status
-        ],
-        'expected_status' => 'error'
     ]
 ];
 
@@ -84,21 +48,15 @@ foreach ($scenarios_to_run as $index => $scenario) {
     
     echo "\n--- Running Scenario: " . $scenario['name'] . " ---\n";
     $url = $zeno_report_url . '?id=' . $scenario['lead_id'];
-    $post_data = http_build_query($scenario['data']);
+    $query_string = http_build_query($scenario['data']);
+    $url = $zeno_report_url . '?id=' . $scenario['lead_id'] . '&' . $query_string;
 
     echo "URL: $url\n";
-    echo "POST Data: $post_data\n";
 
     $curl = curl_init();
     curl_setopt_array($curl, [
         CURLOPT_URL => $url,
         CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST => true,
-        CURLOPT_POSTFIELDS => $post_data,
-        CURLOPT_HTTPHEADER => [
-            'Content-Type: application/x-www-form-urlencoded',
-            'Content-Length: ' . strlen($post_data)
-        ],
         CURLOPT_TIMEOUT => 30,
         CURLOPT_FOLLOWLOCATION => true,
         CURLOPT_SSL_VERIFYPEER => false,

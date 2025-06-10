@@ -2,7 +2,10 @@
 
 // Configuration
 // Убедитесь, что этот URL соответствует пути к вашему amo2json.php
-$api_url = 'https://paysaasbot.ru/chatgptbot_connector/amo2json.php'; 
+// Добавляем API ключ из .env.production для тестирования
+require_once __DIR__ . '/config.php'; // Подключаем config для доступа к константам
+$apiKey = defined('WEBHOOK_API_KEY') ? WEBHOOK_API_KEY : 'YOUR_DEFAULT_API_KEY'; // Получаем API ключ
+$api_url = 'https://paysaasbot.ru/chatgptbot_connector/amo2json_webhook.php?apikey=' . urlencode($apiKey); // Добавляем API ключ в URL
 
 // Sample webhook data for testing (имитация вебхука AmoCRM)
 $webhook_data_add = [

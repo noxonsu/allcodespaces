@@ -80,7 +80,9 @@ if (!isset($_GET['deleteall'])) {
                     'partnerId' => $item['partnerId'] ?? null,
                     'partner_name' => $item['partner_name'] ?? null,
                     'created_at' => $item['created_at'] ?? null,
-                    'last_updated' => $item['last_updated'] ?? null
+                    'last_updated' => $item['last_updated'] ?? null,
+                    'amount' => $item['amount'] ?? null, // Добавляем сумму
+                    'currency' => $item['currency'] ?? null // Добавляем валюту
                 ];
             } elseif (is_string($item) || is_numeric($item)) {
                 // Handle old format (simple array of IDs) if it somehow persists
@@ -90,7 +92,9 @@ if (!isset($_GET['deleteall'])) {
                     'partnerId' => null,
                     'partner_name' => null,
                     'created_at' => null,
-                    'last_updated' => null
+                    'last_updated' => null,
+                    'amount' => null, // Добавляем сумму
+                    'currency' => null // Добавляем валюту
                 ];
             }
         }

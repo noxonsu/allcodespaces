@@ -5,62 +5,7 @@ declare(strict_types=1);
 // Assume these files are in the same directory or adjust paths accordingly
 // require_once __DIR__ . '/../logger.php'; // Logger should be included where these functions are used
 // require_once __DIR__ . '/../config.php'; // Config should be included where these functions are used
-
-/**
- * Basic HTTP client function using cURL.
- *
- * @param string $url
- * @param array $options 'method', 'headers', 'body' (for POST, typically JSON string)
- * @return array ['statusCode', 'body', 'headers']
- * @throws Exception
- */
-function httpClient(string $url, array $options = []): array
-{
-    $method = strtoupper($options['method'] ?? 'GET');
-    $headers = $options['headers'] ?? [];
-    $body = $options['body'] ?? null;
-
-    $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, $url);
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_HEADER, true); // Include headers in the output
-    curl_setopt($ch, CURLOPT_TIMEOUT, 30); // 30 seconds timeout
-    curl_setopt($ch, CURLOPT_USERAGENT, 'GitHubCopilot-PHP-AmoCRM-Client/1.0');
-
-    if ($method === 'POST') {
-        curl_setopt($ch, CURLOPT_POST, true);
-        if ($body !== null) {
-            curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
-        }
-    } elseif ($method !== 'GET') {
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
-    }
-
-    if (!empty($headers)) {
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-    }
-
-    $response = curl_exec($ch);
-    $curlError = curl_error($ch);
-    $httpStatusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-    if ($curlError) {
-        curl_close($ch);
-        throw new Exception("cURL Error for $url: " . $curlError);
-    }
-
-    $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
-    $responseHeaders = substr($response, 0, $headerSize);
-    $responseBody = substr($response, $headerSize);
-
-    curl_close($ch);
-
-    return [
-        'statusCode' => $httpStatusCode,
-        'body' => $responseBody,
-        'headers' => $responseHeaders // You might want to parse this into an array
-    ];
-}
+require_once __DIR__ . '/request_utils.php'; // Include httpClient from here
 
 function getAuthUrl(): string
 {
@@ -222,9 +167,31 @@ function checkAmoAccess(): ?array
                 return $tokens;
             } elseif ($tokens) {
                 logMessage('[Auth] API AmoCRM request failed. Status: ' . $response['statusCode'] . '. Response: ' . $response['body']);
+                // Переименовываем неверный файл токенов
+                $backupPath = str_replace('.json', '~.json', AMO_TOKENS_PATH);
+                if (file_exists(AMO_TOKENS_PATH)) {
+                    if (rename(AMO_TOKENS_PATH, $backupPath)) {
+                        logMessage('[Auth] Неверный файл токенов переименован в: ' . $backupPath);
+                    } else {
+                        logMessage('[Auth] Не удалось переименовать файл токенов');
+                    }
+                }
+                $tokens = null;
             }
         } catch (Exception $apiError) {
             logMessage('[Auth] Error during AmoCRM API access check: ' . $apiError->getMessage());
+            // Переименовываем файл токенов при ошибке API
+            if ($tokens) {
+                $backupPath = str_replace('.json', '~.json', AMO_TOKENS_PATH);
+                if (file_exists(AMO_TOKENS_PATH)) {
+                    if (rename(AMO_TOKENS_PATH, $backupPath)) {
+                        logMessage('[Auth] Файл токенов переименован из-за ошибки API в: ' . $backupPath);
+                    } else {
+                        logMessage('[Auth] Не удалось переименовать файл токенов');
+                    }
+                }
+                $tokens = null;
+            }
         }
     }
 

@@ -1,4 +1,6 @@
-<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env|gpt_payment_api/data/.*\.json|data/.*">
+<FilesMatch "mycity.*|amo_tokens\.json|\.json|\.env|gpt_payment_api/data/.*\.json|data_test/.*|data_production/.*|logs_test/.*|logs_production/.*">
     Order allow,deny
     Deny from all
 </FilesMatch>
+
+SetEnv ENVIRONMENT test

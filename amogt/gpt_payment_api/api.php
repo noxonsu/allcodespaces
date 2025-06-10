@@ -1,11 +1,16 @@
 <?php
 // gpt_payment_api/api.php
+
+// Don't show logs in browser output, only save to disk
+define('dontshowlogs', 1);
+
 require_once __DIR__ . '/../config.php'; // Общий конфиг проекта, определяет BLOCKED_DEALS_PATH
 require_once __DIR__ . '/../logger.php';   // Логгер
 require_once __DIR__ . '/lib/auth_partner.php';
 require_once __DIR__ . '/lib/payment_core.php';
 require_once __DIR__ . '/lib/db.php'; 
 require_once __DIR__ . '/../lib/json_storage_utils.php';
+require_once __DIR__ . '/../lib/payment_link_parser.php'; // Добавляем для парсинга ссылок на оплату
 
 header('Content-Type: application/json');
 
@@ -191,6 +196,22 @@ switch ($action) {
                 continue;
             }
 
+            // Парсим сумму и валюту из paymentUrl используя parsePaymentLink для большей надежности
+            $parsedPaymentDetails = parsePaymentLink($paymentUrl); // Используем parsePaymentLink
+            $amount = null;
+            $currency = null;
+
+            if (!empty($parsedPaymentDetails) && isset($parsedPaymentDetails['amount']) && isset($parsedPaymentDetails['currency'])) {
+                $amount = $parsedPaymentDetails['amount'];
+                $currency = $parsedPaymentDetails['currency'];
+                logMessage("[GPT_API] submit_partner_lead: Successfully parsed payment details for lead at index $idx. Amount: $amount, Currency: $currency. URL: $paymentUrl", 'INFO', SUBMIT_LEAD_LOG_FILE);
+            } else {
+                // parsePaymentLink логирует ошибки самостоятельно, здесь просто добавляем в массив ошибок для ответа API
+                $errors[] = "Lead at index $idx: Failed to parse payment details from URL: $paymentUrl. Check STRIPE_LINK_PARSER_LOG_FILE for details.";
+                logMessage("[GPT_API] submit_partner_lead: Failed to parse payment details for lead at index $idx. URL: $paymentUrl. parsePaymentLink returned empty or invalid data. Check STRIPE_LINK_PARSER_LOG_FILE.", 'WARNING', SUBMIT_LEAD_LOG_FILE);
+                // Продолжаем, но без суммы/валюты
+            }
+
             $dealId = isset($lead['dealId']) ? (string)$lead['dealId'] : uniqid('lead_');
 
             $leadEntryData = [
@@ -199,18 +220,21 @@ switch ($action) {
                 'partnerId' => $partner_for_lead['id'],
                 'partner_name' => $partner_for_lead['name'],
                 'created_at' => $currentTime, 
-                'last_updated' => $currentTime, 
+                'last_updated' => $currentTime,
+                'amount' => $amount, // Добавляем распарсенную сумму
+                'currency' => $currency, // Добавляем распарсенную валюту
             ];
             
+            // Копируем все остальные пользовательские поля из входящего лида
             foreach($lead as $k => $v) {
-                if (!in_array($k, ['dealId', 'paymentUrl', 'created_at', 'last_updated', 'partnerId', 'partner_name'])) {
+                if (!in_array($k, ['dealId', 'paymentUrl', 'created_at', 'last_updated', 'partnerId', 'partner_name', 'amount', 'currency'])) {
                     $leadEntryData[$k] = $v;
                 }
             }
 
             $existingLeads[] = $leadEntryData;
             $addedToMainListCount++;
-            logMessage("[GPT_API] submit_partner_lead: Added new lead with generated ID $dealId to ALL_LEADS_FILE_PATH for partner {$partner_for_lead['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+            logMessage("[GPT_API] submit_partner_lead: Added new lead with generated ID $dealId to ALL_LEADS_FILE_PATH for partner {$partner_for_lead['name']}. Amount: $amount, Currency: $currency", 'INFO', SUBMIT_LEAD_LOG_FILE);
             
             $newlyRecievedApiIdsForFile[] = $dealId; 
             $processedCount++;

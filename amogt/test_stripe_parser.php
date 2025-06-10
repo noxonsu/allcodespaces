@@ -1,31 +1,19 @@
 <?php
 
-function getPaymentDetails($filePath) {
-  // Read HTML from the local file
-  $html = file_get_contents($filePath);
-  
-  if ($html === false) {
-    echo "Error reading file: " . $filePath . "\n";
-    return;
-  }
-  
-  echo "Page content loaded from " . $filePath . "\n";
-  
-  // Use a more flexible regex to find the CurrencyAmount span content
-  // This regex accounts for potential whitespace and other attributes within the span tag
-  if (preg_match('/<[^>]+class="CurrencyAmount">([^0-9]+)([\d.]+)<\/span>/s', $html, $matches)) {
-    $currency = trim($matches[1]);
-    $amount = trim($matches[2]);
-    
-    echo "Raw extracted text: {$matches[0]}\n";
-    echo "Currency: {$currency}\n";
-    echo "Amount: {$amount}\n";
-  } else {
-    echo "CurrencyAmount element not found using regex.\n";
-  }
-}
+require_once __DIR__ . '/config.php'; // Подключаем config.php для загрузки .env
+require_once __DIR__ . '/lib/payment_link_parser.php';
+require_once __DIR__ . '/logger.php'; // Для logMessage, если не включен через payment_link_parser.php
 
-$filePath = 'amogt/debug_page.html'; // Path to the local debug HTML file
-getPaymentDetails($filePath);
+
+
+$filePath = 'amogt/debug_page.html'; // Путь к локальному HTML-файлу для отладки
+$testUrl = 'https://pay.openai.com/c/pay/cs_live_a1aRkWMtKOYABBL3tpzkAHtib43SlgM9epwDVHcBU0d9GHeagFIhH2WTQH#fidpamZkaWAnPydgaycpJ3ZwZ3Zmd2x1cWxqa1BrbHRwYGtgdnZAa2RnaWBhJz9jZGl2YCknZHVsTmB8Jz8ndW5aaWxzYFowNE1Kd1ZyRjNtNGt9QmpMNmlRRGJXb1xTd38xYVA2Y1NKZGd8RmZOVzZ1Z0BPYnBGU0RpdEZ9YX1GUHNqV200XVJyV2RmU2xqc1A2bklOc3Vub20yTHRuUjU1bF1Udm9qNmsnKSdjd2poVmB3c2B3Jz9xd3BgKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdga2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl'; // Пример реальной ссылки
+
+echo "=== Testing parsePaymentPage with local file ===\n";
+
+
+$amountAndCurrency=parsePaymentLink($testUrl);
+print_r($amountAndCurrency);
+echo "\n=== Test Complete ===\n";
 
 ?>

@@ -1,5 +1,75 @@
 <?php
 
+if (!function_exists('httpClient')) {
+    /**
+     * Basic HTTP client function using cURL.
+     *
+     * @param string $url
+     * @param array $options 'method', 'headers', 'body' (for POST, typically JSON string), 'timeout', 'ssl_verify_peer', 'ssl_verify_host', 'verbose'
+     * @return array ['statusCode', 'body', 'error']
+     * @throws Exception
+     */
+    function httpClient(string $url, array $options = []): array
+    {
+        $method = strtoupper($options['method'] ?? 'GET');
+        $headers = $options['headers'] ?? [];
+        $body = $options['body'] ?? null;
+        $timeout = $options['timeout'] ?? 30; // Default to 30 seconds
+        $sslVerifyPeer = $options['ssl_verify_peer'] ?? true;
+        $sslVerifyHost = $options['ssl_verify_host'] ?? true;
+        $verbose = $options['verbose'] ?? false;
+
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HEADER, true); // Include headers in the output
+        curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+        curl_setopt($ch, CURLOPT_USERAGENT, 'GitHubCopilot-PHP-AmoCRM-Client/1.0');
+        curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $sslVerifyPeer);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $sslVerifyHost ? 2 : 0);
+        curl_setopt($ch, CURLOPT_VERBOSE, $verbose);
+
+        if ($method === 'POST') {
+            curl_setopt($ch, CURLOPT_POST, true);
+            if ($body !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+            }
+        } elseif ($method !== 'GET') {
+            curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+            if ($body !== null) {
+                curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+            }
+        }
+
+        if (!empty($headers)) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        }
+
+        $response = curl_exec($ch);
+        $curlError = curl_error($ch);
+        $httpStatusCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+
+        if ($curlError) {
+            curl_close($ch);
+            throw new Exception("cURL Error for $url: " . $curlError);
+        }
+
+        $headerSize = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+        $responseHeaders = substr($response, 0, $headerSize);
+        $responseBody = substr($response, $headerSize);
+
+        curl_close($ch);
+
+        return [
+            'statusCode' => $httpStatusCode,
+            'body' => $responseBody,
+            'headers' => $responseHeaders, // You might want to parse this into an array
+            'error' => $curlError // Include cURL error for consistency
+        ];
+    }
+}
+
 /**
  * Handles the common lifecycle of a locked, POST-only API endpoint.
  *

@@ -7,9 +7,9 @@ require_once __DIR__ . '/logger.php';
 require_once __DIR__ . '/lib/json_storage_utils.php';
 require_once __DIR__ . '/lib/amo_auth_utils.php'; // New include for AmoCRM auth functions
 
-define('ZENO_REPORT_LOG_FILE', __DIR__ . '/logs/zeno_report.log');
-define('ZENO_REPORTS_JSON_FILE', __DIR__ . '/data/zeno_report.json');
-define('RECIEVED_AMO_IDS_FILE_PATH', __DIR__ . '/data/recieved_amo_ids.txt'); // For IDs processed via Amo
+define('ZENO_REPORT_LOG_FILE', LOGS_DIR . '/zeno_report.log'); // Используем LOGS_DIR
+define('ZENO_REPORTS_JSON_FILE', DATA_DIR . '/zeno_report.json'); // Используем DATA_DIR
+define('ID_OF_DEALS_SENT_TO_AMO_FILE_PATH', DATA_DIR . '/id_of_deals_sent_to_amo.txt'); // Используем DATA_DIR
 
 // --- Global AmoCRM variables ---
 $amoCustomFieldsDefinitions = null; // To store AmoCRM custom field definitions
@@ -124,7 +124,7 @@ $amoUpdatePerformed = false;
 if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is NOT provided in POST
     
     // Check if this lead_id was already processed for AmoCRM
-    $recievedAmoIds = loadLineDelimitedFile(RECIEVED_AMO_IDS_FILE_PATH);
+    $recievedAmoIds = loadLineDelimitedFile(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH);
 
     if (in_array($leadId, $recievedAmoIds)) {
         $reportEntry['amo_update_skipped_reason'] = 'already_processed_for_amo';
@@ -134,8 +134,8 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
     } else {
         // Add to processed list BEFORE attempting AmoCRM update
         $recievedAmoIds[] = $leadId;
-        if (saveLineDelimitedFile(RECIEVED_AMO_IDS_FILE_PATH, $recievedAmoIds) === false) {
-            logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . RECIEVED_AMO_IDS_FILE_PATH, 'ERROR', ZENO_REPORT_LOG_FILE);
+        if (saveLineDelimitedFile(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH, $recievedAmoIds) === false) {
+            logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH, 'ERROR', ZENO_REPORT_LOG_FILE);
             // Decide if we should proceed or error out. For now, log and proceed.
             $reportEntry['amo_update_skipped_reason'] = 'failed_to_log_recieved_id';
         }
@@ -208,7 +208,7 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                                     if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
                                         foreach ($fieldDef['enums'] as $enum) {
                                             if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
-                                                $valPayload = ['enum_id' => $enum['id']]; break;
+                                                $valPayload = ['enum_id' => (int)$enum['id']]; break;
                                             }
                                         }
                                     } else if ($fieldDef['type'] === 'date') {
@@ -224,7 +224,7 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                         // Add static fields
                         $staticFields = [
                             'withdrawal_account' => 'Mastercard Prepaid', 'withdrawal_date' => $currentUnixTimestamp,
-                            'administrator' => 'Бот Zeno', 'paid_service' => 'chatgpt', 'payment_term' => '1'
+                            'administrator' => 'Бот', 'paid_service' => 'chatgpt', 'payment_term' => '1'
                         ];
                         foreach ($staticFields as $internalKey => $value) {
                              $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
@@ -242,13 +242,17 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                             $amoUpdatePayload['custom_fields_values'] = $customFieldsPayload;
                         }
 
-                        // Update stage if report status is not "ОШИБКА!"
-                        if ($reportStatus !== "ОШИБКА!") {
-                            $amoUpdatePayload['pipeline_id'] = 8824470; // "Воронка"
-                            $amoUpdatePayload['status_id'] = 73606602;  // "Финальный Операторский"
+                        // Update stage based on report status
+                        if ($reportStatus === "Выполнено") {
+                            $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID; // Используем константу
+                            $amoUpdatePayload['status_id'] = (int)AMO_SUCCESS_STATUS;  // Используем новую константу
+                        } else if ($reportStatus === "ОШИБКА!") {
+                             // Do not change status if report is an error
+                             // The deal remains in its current stage
                         }
                         
                         if (count($amoUpdatePayload) > 1) { // Has more than just 'id'
+                            logMessage("[ZenoReport] AmoCRM update payload for lead $leadId: " . json_encode($amoUpdatePayload, JSON_UNESCAPED_UNICODE), 'DEBUG', ZENO_REPORT_LOG_FILE);
                             $chUpdate = curl_init(AMO_API_URL_BASE . '/leads/' . $dealToUpdate['id']);
                             curl_setopt($chUpdate, CURLOPT_RETURNTRANSFER, true);
                             curl_setopt($chUpdate, CURLOPT_CUSTOMREQUEST, 'PATCH');
@@ -316,7 +320,8 @@ if (saveDataToFile(ZENO_REPORTS_JSON_FILE, $allReports)) {
 // Ensure directories exist
 $logDir = dirname(ZENO_REPORT_LOG_FILE); if (!is_dir($logDir)) mkdir($logDir, 0775, true);
 $reportDir = dirname(ZENO_REPORTS_JSON_FILE); if (!is_dir($reportDir)) mkdir($reportDir, 0775, true);
-$recAmoDir = dirname(RECIEVED_AMO_IDS_FILE_PATH); if (!is_dir($recAmoDir)) mkdir($recAmoDir, 0775, true);
+// RECIEVED_AMO_IDS_FILE_PATH уже использует DATA_DIR, поэтому его директория будет создана автоматически
+// $recAmoDir = dirname(RECIEVED_AMO_IDS_FILE_PATH); if (!is_dir($recAmoDir)) mkdir($recAmoDir, 0775, true);
 
 exit;
 ?>
