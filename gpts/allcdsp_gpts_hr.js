@@ -1,3 +1,6 @@
+// Set NAMEPROMPT first, before any other modules are loaded
+process.env.NAMEPROMPT = 'hr';
+
 // const TelegramBot = require('node-telegram-bot-api'); // Removed
 const { TelegramClient, Api } = require('telegram');
 const { StringSession } = require('telegram/sessions');
@@ -41,6 +44,10 @@ if (dotenvResult.error) {
 const config = require('./config'); // Import config
 const { NAMEPROMPT, USER_DATA_DIR, CHAT_HISTORIES_DIR } = config; // FREE_MESSAGE_LIMIT is now read directly in getPaymentStatus
 let { FREE_MESSAGE_LIMIT } = config; // Allow reassignment after dotenv reload
+
+// Log the actual USER_DATA_DIR being used
+console.log(`[Debug] USER_DATA_DIR from config: ${USER_DATA_DIR}`);
+console.log(`[Debug] NAMEPROMPT from config: ${NAMEPROMPT}`);
 
 // Log FREE_MESSAGE_LIMIT from config right after import
 console.log(`[Debug] Initial FREE_MESSAGE_LIMIT from config.js: ${FREE_MESSAGE_LIMIT}`);
