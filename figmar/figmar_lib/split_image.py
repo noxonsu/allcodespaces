@@ -22,6 +22,7 @@ def split_image_intellectually(
     Otherwise, splits into a fixed number of columns.
     """
     print(f"Processing image from {image_src}")
+    print(f"Image source path exists: {Path(image_src).exists()}") # Добавлено логирование
 
     actual_image_loaded = False
     img_cv = None
@@ -105,10 +106,45 @@ def split_image_intellectually(
         columns_metadata.append({
             "original_src": image_src,
             "x": boundary["x"],
-            "y": 0, # Assuming columns are full height
+            "y": 0,  # Assuming columns are full height
             "width": boundary["width"],
-            "height": image_height, # Full image height for each column
+            "height": image_height,  # Full image height for each column
+            "saved_path": None # Добавляем поле для пути к сохраненному файлу
         })
+
+    # --- Сохранение реальных обрезанных изображений колонок ---
+    try:
+        if actual_image_loaded and len(columns_metadata) > 0:
+            # Директория: ./columns_py_opencv_actual_images/<stem>/
+            base_output_dir = Path(__file__).parent / 'columns_py_opencv_actual_images'
+            output_dir_for_image = base_output_dir / Path(image_src).stem
+            output_dir_for_image.mkdir(parents=True, exist_ok=True)
+            print(f"Saving columns to: {output_dir_for_image}") # Добавлено логирование
+
+            for idx, col_meta in enumerate(columns_metadata):
+                x, y, w, h = col_meta['x'], col_meta['y'], col_meta['width'], col_meta['height']
+                # Safety checks
+                if w <= 0 or h <= 0:
+                    print(f"Skip saving column {idx + 1}: invalid dimensions w={w}, h={h}")
+                    continue
+                if x < 0 or y < 0 or x + w > image_width or y + h > image_height:
+                    print(f"Skip saving column {idx + 1}: crop out of bounds [{x}:{x+w}, {y}:{y+h}] for image {image_width}x{image_height}")
+                    continue
+
+                col_img = img_cv[y:y + h, x:x + w]
+                column_file = output_dir_for_image / f'column_{idx + 1}.png'
+                success = cv2.imwrite(str(column_file), col_img)
+                if success:
+                    print(f"Saved cropped column {idx + 1} to {column_file}")
+                    columns_metadata[idx]["saved_path"] = str(column_file) # Сохраняем путь
+                else:
+                    print(f"Failed to save cropped column {idx + 1} to {column_file}")
+        elif not actual_image_loaded:
+            print("Skipping column saving: actual image not loaded.") # Добавлено логирование
+        else:
+            print("Skipping column saving: no column metadata generated.") # Добавлено логирование
+    except Exception as e:
+        print(f"Error while saving cropped columns: {e}")
 
     return columns_metadata
 

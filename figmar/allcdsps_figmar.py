@@ -6,7 +6,13 @@ from dotenv import load_dotenv
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import CommandStart
 from aiogram.enums import ParseMode
-import re
+import sys # Добавляем импорт sys
+
+# Добавляем корневую директорию проекта в sys.path для абсолютных импортов
+sys.path.append(str(Path(__file__).parent.parent))
+
+# Импорт утилит из нового файла
+from figmar.figmar_lib.utils import escape_markdown, format_analysis_markdown, split_long_message, send_image_safely
 
 # --- Загрузка переменных окружения ---
 # Загружаем из .env в той же директории, что и бот
@@ -26,114 +32,27 @@ if not TELEGRAM_BOT_TOKEN:
 
 # --- Импорт библиотеки анализатора ---
 try:
-    from figma_analyzer import fetch_all_data_and_analyze_figma, analyze_figma_data_with_llm
+    from figmar.figmar_lib.analyzer import fetch_all_data_and_analyze_figma, analyze_figma_data_with_llm
 except ImportError as e:
-    logging.warning(f"Не удалось импортировать figma_analyzer: {e}. Попробуем figmar_lib.analyzer.")
-    try:
-        from figmar_lib.analyzer import fetch_all_data_and_analyze_figma, analyze_figma_data_with_llm
-    except ImportError as e:
-        logging.warning(f"Не удалось импортировать figmar_lib.analyzer: {e}. Попробуем импортировать из текущей директории.")
-        try:
-            # Попробуем импортировать из текущей директории
-            import sys
-            sys.path.append(str(Path(__file__).parent))
-            from figma_analyzer import fetch_all_data_and_analyze_figma, analyze_figma_data_with_llm
-        except ImportError as e:
-            logging.critical(f"Не удалось импортировать библиотеку анализатора ни одним способом: {e}. Убедитесь, что figma_analyzer.py доступен.")
-            
-            # Создаем заглушки для функций, чтобы бот мог запуститься
-            async def fetch_all_data_and_analyze_figma(url):
-                return {
-                    'summary': 'Модуль анализатора недоступен. Установите необходимые зависимости.',
-                    'dataPath': '',
-                    'intermediateAnalyses': []
-                }
-            
-            async def analyze_figma_data_with_llm(prompt, image_path):
-                return 'Модуль анализатора недоступен. Установите необходимые зависимости.'
-            
-            logging.warning("Используются заглушки для функций анализа.")
+    logging.critical(f"Не удалось импортировать библиотеку анализатора: {e}. Убедитесь, что figmar/figmar_lib/analyzer.py доступен.")
+    
+    # Создаем заглушки для функций, чтобы бот мог запуститься
+    async def fetch_all_data_and_analyze_figma(url, message):
+        await message.answer("Модуль анализатора недоступен. Установите необходимые зависимости.", parse_mode='MarkdownV2')
+        return {
+            'summary': 'Модуль анализатора недоступен. Установите необходимые зависимости.',
+            'dataPath': '',
+            'intermediateAnalyses': []
+        }
+    
+    async def analyze_figma_data_with_llm(prompt, image_path):
+        return 'Модуль анализатора недоступен. Установите необходимые зависимости.'
+    
+    logging.warning("Используются заглушки для функций анализа.")
 
 # --- Инициализация бота и диспетчера ---
 bot = Bot(token=TELEGRAM_BOT_TOKEN)
 dp = Dispatcher()
-
-# --- Вспомогательные функции для форматирования ---
-
-def escape_markdown(text):
-    """
-    Экранирует специальные символы для MarkdownV2 в Telegram
-    """
-    escape_chars = r'_*[]()~`>#+-=|{}.!'
-    return re.sub(f'([{re.escape(escape_chars)}])', r'\\\1', text)
-
-def format_analysis_markdown(text, title="Анализ"):
-    """
-    Форматирует текст анализа с использованием Markdown
-    """
-    if not text or not text.strip():
-        return f"*{escape_markdown(title)}*\n\nДанные отсутствуют"
-    
-    # Экранируем основной текст
-    escaped_text = escape_markdown(text)
-    
-    # Форматируем заголовок
-    formatted_title = f"*{escape_markdown(title)}*"
-    
-    # Добавляем разделители для лучшей читаемости
-    formatted_text = f"{formatted_title}\n\n{escaped_text}"
-    
-    return formatted_text
-
-def split_long_message(text, max_length=4096):
-    """
-    Разбивает длинные сообщения на части, сохраняя форматирование
-    """
-    if len(text) <= max_length:
-        return [text]
-    
-    messages = []
-    current_pos = 0
-    
-    while current_pos < len(text):
-        # Находим подходящее место для разрыва
-        end_pos = current_pos + max_length
-        
-        if end_pos >= len(text):
-            messages.append(text[current_pos:])
-            break
-        
-        # Ищем ближайший перенос строки перед лимитом
-        break_pos = text.rfind('\n', current_pos, end_pos)
-        if break_pos == -1 or break_pos == current_pos:
-            # Если нет переноса строки, ищем пробел
-            break_pos = text.rfind(' ', current_pos, end_pos)
-            if break_pos == -1 or break_pos == current_pos:
-                break_pos = end_pos
-        
-        messages.append(text[current_pos:break_pos])
-        current_pos = break_pos + (1 if break_pos < len(text) and text[break_pos] in '\n ' else 0)
-    
-    return messages
-
-async def send_formatted_message(message: types.Message, text: str, title: str = ""):
-    """
-    Отправляет отформатированное сообщение с разбивкой на части при необходимости
-    """
-    if title:
-        formatted_text = format_analysis_markdown(text, title)
-    else:
-        formatted_text = escape_markdown(text)
-    
-    message_parts = split_long_message(formatted_text)
-    
-    for part in message_parts:
-        try:
-            await message.answer(part, parse_mode=ParseMode.MARKDOWN_V2)
-        except Exception as e:
-            logging.warning(f"Ошибка отправки с Markdown, отправляю как обычный текст: {e}")
-            # Если не удалось отправить с разметкой, отправляем обычным текстом
-            await message.answer(text)
 
 # --- Обработчики сообщений ---
 
@@ -162,113 +81,38 @@ async def handle_text(message: types.Message):
             await message.reply("Получил ссылку на Figma. Начинаю анализ, это может занять несколько минут...")
         
         try:
-            result = await fetch_all_data_and_analyze_figma(text)
+            # Уведомляем о начале загрузки данных
+            progress_text = "📥 *Загружаю данные из Figma\\.\\.\\.*"
+            try:
+                await message.answer(progress_text, parse_mode=ParseMode.MARKDOWN_V2)
+            except Exception:
+                await message.answer("📥 Загружаю данные из Figma...")
+            
+            # Передаем объект message в функцию анализатора
+            result = await fetch_all_data_and_analyze_figma(text, message)
+            
             summary = result.get('summary', 'Анализ завершен, но отчет пуст.')
-            data_path = result.get('dataPath', '')
-            intermediate_analyses = result.get('intermediateAnalyses', [])
             
-            # Если нет промежуточных анализов из функции, попробуем загрузить из кеша
-            if not intermediate_analyses and data_path:
-                data_dir = Path(data_path)
-                for analysis_file in data_dir.glob('page_analysis_*.txt'):
-                    try:
-                        with open(analysis_file, 'r', encoding='utf-8') as f:
-                            cached_analysis = f.read().strip()
-                        if cached_analysis:
-                            # Извлекаем имя страницы из имени файла
-                            node_id = analysis_file.stem.replace('page_analysis_', '').replace('_', ':')
-                            page_name = f"Страница {node_id}"
-                            
-                            intermediate_analyses.append({
-                                'page_name': page_name,
-                                'node_id': node_id,
-                                'analysis': cached_analysis,
-                                'image_path': None
-                            })
-                    except Exception as e:
-                        logging.warning(f"Не удалось загрузить кешированный анализ {analysis_file}: {e}")
-            
-            # Отправляем изображения страниц, если они есть
-            if data_path:
-                data_dir = Path(data_path)
-                images_dir = data_dir / 'images'
-                columns_dir = Path(__file__).parent / 'columns_py_opencv_actual_images'
-                
-                # Отправляем оригинальные изображения страниц
-                if images_dir.exists():
-                    for image_file in images_dir.glob('*.png'):
-                        try:
-                            page_name = image_file.stem.replace('node_', '').replace('_', ':')
-                            caption = f"📄 *Страница:* `{escape_markdown(page_name)}`"
-                            await message.answer_photo(
-                                photo=types.FSInputFile(str(image_file)),
-                                caption=caption,
-                                parse_mode=ParseMode.MARKDOWN_V2
-                            )
-                        except Exception as e:
-                            logging.warning(f"Не удалось отправить изображение {image_file}: {e}")
-                            # Fallback без форматирования
-                            await message.answer_photo(
-                                photo=types.FSInputFile(str(image_file)),
-                                caption=f"📄 Страница: {image_file.stem.replace('node_', '').replace('_', ':')}"
-                            )
-                
-                # Отправляем разделенные колонки, если они есть
-                if columns_dir.exists():
-                    for node_dir in columns_dir.iterdir():
-                        if node_dir.is_dir():
-                            column_files = sorted(node_dir.glob('column_*.png'))
-                            if column_files:
-                                header_text = f"🔧 *Разделенные колонки для страницы* `{escape_markdown(node_dir.name)}`:"
-                                try:
-                                    await message.answer(header_text, parse_mode=ParseMode.MARKDOWN_V2)
-                                except Exception:
-                                    await message.answer(f"🔧 Разделенные колонки для страницы {node_dir.name}:")
-                                
-                                for column_file in column_files:
-                                    try:
-                                        caption = f"📱 *{escape_markdown(column_file.stem.replace('_', ' ').title())}*"
-                                        await message.answer_photo(
-                                            photo=types.FSInputFile(str(column_file)),
-                                            caption=caption,
-                                            parse_mode=ParseMode.MARKDOWN_V2
-                                        )
-                                    except Exception as e:
-                                        logging.warning(f"Не удалось отправить колонку {column_file}: {e}")
-                                        await message.answer_photo(
-                                            photo=types.FSInputFile(str(column_file)),
-                                            caption=f"📱 {column_file.stem.replace('_', ' ').title()}"
-                                        )
-            
-            # Отправляем промежуточные анализы страниц
-            if intermediate_analyses:
-                header_text = "📊 *Анализ отдельных страниц:*"
-                try:
-                    await message.answer(header_text, parse_mode=ParseMode.MARKDOWN_V2)
-                except Exception:
-                    await message.answer("📊 Анализ отдельных страниц:")
-                
-                for analysis_data in intermediate_analyses:
-                    page_name = analysis_data.get('page_name', 'Неизвестная страница')
-                    analysis_text = analysis_data.get('analysis', '')
-                    
-                    if analysis_text:
-                        await send_formatted_message(
-                            message, 
-                            analysis_text, 
-                            f"🔍 Анализ страницы '{page_name}'"
-                        )
-            
-            # Отправляем итоговый анализ
+            # Итоговый анализ и статистика отправляются после завершения fetch_all_data_and_analyze_figma
             await send_formatted_message(message, summary, "📋 Итоговый анализ")
+            
+            # Отправляем статистику
+            # images_sent и columns_sent теперь должны быть собраны внутри fetch_all_data_and_analyze_figma
+            # или переданы обратно в result. Для простоты пока уберем их из статистики здесь.
+            stats_text = f"✅ *Анализ завершен\\!*\n\n_Детальные отчеты отправлены выше\\._"
+            try:
+                await message.answer(stats_text, parse_mode=ParseMode.MARKDOWN_V2)
+            except Exception:
+                await message.answer(f"✅ Анализ завершен! Детальные отчеты отправлены выше.")
 
         except Exception as e:
             logging.error(f"Ошибка при анализе Figma URL: {e}")
-            error_text = f"❌ *Произошла ошибка при анализе:*\n\n`{escape_markdown(str(e))}`"
+            # Всегда отправляем сообщение об ошибке пользователю
+            error_text = f"❌ *Произошла ошибка при анализе:*\n\n`{escape_markdown(str(e))}`\n\n_Попробуйте еще раз или обратитесь к администратору\\._"
             try:
                 await message.reply(error_text, parse_mode=ParseMode.MARKDOWN_V2)
             except Exception:
-                await message.reply(f"Произошла ошибка при анализе: {e}")
+                await message.reply(f"❌ Произошла ошибка при анализе: {e}\n\nПопробуйте еще раз или обратитесь к администратору.")
     else:
         error_text = "❌ *Это не похоже на ссылку на Figma\\.*\n\nПожалуйста, отправьте корректную ссылку\\."
         try:
@@ -295,23 +139,32 @@ async def handle_photo(message: types.Message):
     
     try:
         # Скачиваем файл
+        download_text = "⬇️ *Скачиваю изображение\\.\\.\\.*"
+        try:
+            await message.answer(download_text, parse_mode=ParseMode.MARKDOWN_V2)
+        except Exception:
+            await message.answer("⬇️ Скачиваю изображение...")
+            
         await bot.download(message.photo[-1], destination=str(photo_path))
         
         # Отправляем обратно изображение с подтверждением
         confirmation_text = "✅ *Получил ваше изображение\\.*\n\nАнализирую\\.\\.\\."
-        try:
-            await message.answer_photo(
-                photo=types.FSInputFile(str(photo_path)),
-                caption=confirmation_text,
-                parse_mode=ParseMode.MARKDOWN_V2
-            )
-        except Exception:
-            await message.answer_photo(
-                photo=types.FSInputFile(str(photo_path)),
-                caption="✅ Получил ваше изображение. Анализирую..."
-            )
+        if await send_image_safely(message, photo_path, confirmation_text):
+            pass  # Изображение отправлено успешно
+        else:
+            # Если не удалось отправить изображение, просто уведомляем
+            try:
+                await message.answer(confirmation_text, parse_mode=ParseMode.MARKDOWN_V2)
+            except Exception:
+                await message.answer("✅ Получил ваше изображение. Анализирую...")
         
         # Загружаем промпт для анализа изображений
+        analyze_text = "🔍 *Анализирую изображение\\.\\.\\.*"
+        try:
+            await message.answer(analyze_text, parse_mode=ParseMode.MARKDOWN_V2)
+        except Exception:
+            await message.answer("🔍 Анализирую изображение...")
+            
         try:
             image_prompt_file = Path(__file__).parent / '.env.image_analyse_prompt'
             if image_prompt_file.exists():
@@ -328,14 +181,22 @@ async def handle_photo(message: types.Message):
         
         # Отправляем результат
         await send_formatted_message(message, analysis_result, "🖼️ Анализ изображения")
+        
+        # Уведомляем о завершении
+        complete_text = "✅ *Анализ изображения завершен\\!*"
+        try:
+            await message.answer(complete_text, parse_mode=ParseMode.MARKDOWN_V2)
+        except Exception:
+            await message.answer("✅ Анализ изображения завершен!")
 
     except Exception as e:
         logging.error(f"Ошибка при обработке изображения: {e}")
-        error_text = f"❌ *Произошла ошибка при обработке изображения:*\n\n`{escape_markdown(str(e))}`"
+        # Всегда отправляем сообщение об ошибке
+        error_text = f"❌ *Произошла ошибка при обработке изображения:*\n\n`{escape_markdown(str(e))}`\n\n_Попробуйте еще раз\\._"
         try:
             await message.reply(error_text, parse_mode=ParseMode.MARKDOWN_V2)
         except Exception:
-            await message.reply(f"Произошла ошибка при обработке изображения: {e}")
+            await message.reply(f"❌ Произошла ошибка при обработке изображения: {e}\n\nПопробуйте еще раз.")
     finally:
         # Удаляем временный файл
         if photo_path.exists():

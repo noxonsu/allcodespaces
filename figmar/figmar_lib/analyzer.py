@@ -6,9 +6,14 @@ from dotenv import load_dotenv
 from typing import List, Dict, Any, Optional, Union
 import base64
 import mimetypes # Для определения типа изображения по data URI
+import asyncio # Для asyncio.sleep
 
 # Импортируем функцию из split_image.py
 from .split_image import split_image_intellectually
+
+# Импортируем утилиты из figmar_lib.utils
+from .utils import escape_markdown, format_analysis_markdown, send_image_safely, send_formatted_message
+from aiogram import types # types нужен для сигнатуры fetch_all_data_and_analyze_figma
 
 
 # --- Константы ---
@@ -256,11 +261,13 @@ async def analyze_figma_data_with_llm(text_content: str, image_path: Optional[st
         return f"Ошибка анализа Figma через LLM: {e}"
 
 # --- Основная функция анализа Figma ---
-async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
+async def fetch_all_data_and_analyze_figma(figma_url: str, message: types.Message) -> Dict[str, Any]:
     """
     Основная функция для сбора данных из Figma и их анализа с помощью LLM.
+    Принимает объект message для отправки промежуточных статусов.
     """
     print(f"Начинаю анализ Figma URL: {figma_url}")
+    await message.answer(f"Начинаю анализ Figma URL: `{escape_markdown(figma_url)}`", parse_mode='MarkdownV2')
     
     try:
         url_parts = figma_url.split('/')
@@ -269,6 +276,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
     except (ValueError, IndexError):
         error_msg = f"Не удалось извлечь fileId из URL: {figma_url}"
         print(error_msg)
+        await message.answer(f"❌ *Ошибка*: Не удалось извлечь `fileId` из URL: `{escape_markdown(figma_url)}`", parse_mode='MarkdownV2')
         raise ValueError(error_msg)
 
     print(f"Работаем с fileId: {file_id}")
@@ -288,7 +296,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
 
     # 1. Получение информации о файле
     try:
-        print("\n--- Получение информации о файле ---")
+        await message.answer("--- *Получение информации о файле* ---", parse_mode='MarkdownV2')
         file_info = await get_figma_file(file_id, base_dir)
         if file_info and file_info.get('document'):
             analysis_prompt_parts.append("Информация о файле:\n")
@@ -297,6 +305,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
             
             pages = file_info['document'].get('children', [])
             analysis_prompt_parts.append(f"  Количество страниц (canvas): {len(pages)}\n")
+            await message.answer(f"✅ *Информация о файле получена\\!* Найдено страниц: `{len(pages)}`", parse_mode='MarkdownV2')
 
             node_ids_to_fetch_images = []
             if pages:
@@ -307,12 +316,25 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
             
             # 2. Получение изображений страниц
             if node_ids_to_fetch_images:
-                print(f"\n--- Получение изображений для {len(node_ids_to_fetch_images)} узлов (страниц) ---")
+                await message.answer(f"--- *Получение изображений для* `{len(node_ids_to_fetch_images)}` *страниц* ---", parse_mode='MarkdownV2')
                 node_images_paths = await get_figma_node_images(file_id, node_ids_to_fetch_images, base_dir)
                 
                 if node_images_paths:
                     valid_image_paths_count = sum(1 for path in node_images_paths.values() if path)
                     analysis_prompt_parts.append(f"  Получено изображений для страниц: {valid_image_paths_count} (из {len(node_ids_to_fetch_images)} запрошенных)\n")
+                    await message.answer(f"✅ *Изображения страниц загружены\\!* Отправляю их\\.\\.\\.", parse_mode='MarkdownV2')
+                    
+                    # Отправляем оригинальные изображения страниц
+                    for node_id, local_image_path in node_images_paths.items():
+                        if local_image_path:
+                            page_name = page_id_to_name_map.get(node_id, node_id)
+                            caption = f"📄 *Страница:* `{escape_markdown(page_name)}`"
+                            await send_image_safely(message, local_image_path, caption)
+                            await asyncio.sleep(0.5) # Небольшая пауза
+                        else:
+                            page_name = page_id_to_name_map.get(node_id, node_id)
+                            await message.answer(f"❌ Изображение для страницы `{escape_markdown(page_name)}` не доступно\\.", parse_mode='MarkdownV2')
+
                     analysis_prompt_parts.append("\nДетальный анализ изображений страниц:\n")
 
                     for node_id, local_image_path in node_images_paths.items():
@@ -333,13 +355,16 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                     existing_analysis = f.read().strip()
                                 if existing_analysis:
                                     analysis_prompt_parts.append(f"\nАнализ страницы '{page_name}' (ID: {node_id}):\n{existing_analysis}\n")
+                                    await message.answer(f"🔍 *Анализ страницы* `{escape_markdown(page_name)}` *загружен из кеша\\!*", parse_mode='MarkdownV2')
+                                    await send_formatted_message(message, existing_analysis, f"🔍 Анализ страницы '{page_name}'")
+                                    await asyncio.sleep(0.5)
                                     continue
                                 else:
                                     print(f"Файл анализа пустой, выполняем новый анализ.")
                             except Exception as e:
                                 print(f"Ошибка при чтении существующего анализа: {e}. Выполняем новый анализ.")
                         
-                        print(f"\n--- Анализ изображения для страницы '{page_name}' (ID: {node_id}) ---")
+                        await message.answer(f"--- *Анализ изображения для страницы* `{escape_markdown(page_name)}` *(ID: {escape_markdown(node_id)})* ---", parse_mode='MarkdownV2')
                         print(f"Используется локальный файл: {local_image_path}")
 
                         page_node = next((p for p in pages if p.get('id') == node_id), None)
@@ -390,7 +415,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                         page_image_analysis_response_parts = []
 
                         if actual_page_width > COLUMN_WIDTH_THRESHOLD:
-                            print(f"Страница '{page_name}' (ширина: {actual_page_width}px) определена как широкая.")
+                            await message.answer(f"Страница `{escape_markdown(page_name)}` *(ширина: {actual_page_width}px)* определена как широкая\\.", parse_mode='MarkdownV2')
                             
                             # Запрос к LLM №1: есть ли колонки?
                             is_multi_column_prompt = (
@@ -402,6 +427,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                             )
                             is_multi_column_response = await analyze_figma_data_with_llm(is_multi_column_prompt, local_image_path, max_tokens=50)
                             print(f"LLM ответ на вопрос о наличии колонок: '{is_multi_column_response}'")
+                            await message.answer(f"LLM ответ о наличии колонок: `{escape_markdown(is_multi_column_response)}`", parse_mode='MarkdownV2')
 
                             if 'да' in is_multi_column_response.lower():
                                 # Запрос к LLM №2: сколько колонок?
@@ -412,12 +438,14 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                 )
                                 count_columns_response = await analyze_figma_data_with_llm(count_columns_prompt, local_image_path, max_tokens=50)
                                 print(f"LLM ответ на вопрос о количестве колонок: '{count_columns_response}'")
+                                await message.answer(f"LLM ответ о количестве колонок: `{escape_markdown(count_columns_response)}`", parse_mode='MarkdownV2')
                                 
                                 try:
                                     num_expected_columns = int(count_columns_response.strip())
                                     if num_expected_columns <= 0:
                                         raise ValueError("Количество колонок должно быть положительным.")
                                     print(f"LLM определил {num_expected_columns} колонок.")
+                                    await message.answer(f"LLM определил `{num_expected_columns}` колонок\\.", parse_mode='MarkdownV2')
 
                                     # Вызов split_image.py
                                     # split_image_intellectually ожидает путь к исходному изображению
@@ -438,7 +466,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                     )
 
                                     if split_columns_meta and len(split_columns_meta) > 0:
-                                        page_image_analysis_response_parts.append(f"Изображение было разделено на {len(split_columns_meta)} колонок:\n")
+                                        await message.answer(f"Изображение было разделено на `{len(split_columns_meta)}` колонок\\.", parse_mode='MarkdownV2')
                                         for i, col_meta in enumerate(split_columns_meta):
                                             # Путь к сохраненной колонке
                                             # split_image.py сохраняет их как column_1.png, column_2.png и т.д.
@@ -446,11 +474,15 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                             
                                             # Формируем путь к файлу колонки, как это делает split_image.py в main()
                                             column_file_name = f"column_{i + 1}.png"
-                                            column_image_path = columns_output_dir_for_image / column_file_name
-
-                                            if column_image_path.exists():
-                                                print(f"Анализирую колонку {i+1}/{len(split_columns_meta)} (файл: {column_image_path})...")
+                                            if col_meta["saved_path"] and Path(col_meta["saved_path"]).exists():
+                                                column_image_path = Path(col_meta["saved_path"])
+                                                await message.answer(f"Анализирую колонку `{i+1}/{len(split_columns_meta)}` *(файл: {escape_markdown(str(column_image_path))})*\\.\\.\\.", parse_mode='MarkdownV2')
                                                 
+                                                # Отправляем изображение колонки перед её анализом
+                                                caption_col = f"📱 *Колонка:* `{escape_markdown(column_image_path.stem.replace('_', ' ').title())}`"
+                                                await send_image_safely(message, str(column_image_path), caption_col)
+                                                await asyncio.sleep(0.5) # Небольшая пауза после отправки изображения
+
                                                 # Промпт для анализа ОДНОЙ КОЛОНКИ
                                                 # Используем тот же IMAGE_ANALYSE_PROMPT_TEMPLATE, но с указанием, что это колонка
                                                 column_analysis_prompt = (
@@ -461,27 +493,42 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                                 
                                                 col_analysis_response = await analyze_figma_data_with_llm(column_analysis_prompt, str(column_image_path), 4000)
                                                 page_image_analysis_response_parts.append(f"\nАнализ колонки {i+1}:\n{col_analysis_response}\n")
+                                                await send_formatted_message(message, col_analysis_response, f"🔍 Анализ колонки {i+1} страницы '{page_name}'")
+                                                await asyncio.sleep(0.5)
                                             else:
-                                                print(f"Файл для колонки {i+1} не найден: {column_image_path}")
-                                                page_image_analysis_response_parts.append(f"\nАнализ колонки {i+1}: Файл не найден.\n")
+                                                print(f"Файл для колонки {i+1} не найден или не сохранен: {col_meta.get('saved_path', 'N/A')}")
+                                                page_image_analysis_response_parts.append(f"\nАнализ колонки {i+1}: Файл не найден или не сохранен.\n")
+                                                await message.answer(f"❌ Файл для колонки `{i+1}` не найден или не сохранен: `{escape_markdown(str(col_meta.get('saved_path', 'N/A')))}`", parse_mode='MarkdownV2')
                                     else:
                                         print("Не удалось разделить изображение на колонки, анализируем целиком.")
+                                        await message.answer("Не удалось разделить изображение на колонки, анализирую целиком\\.", parse_mode='MarkdownV2')
                                         # Добавляем указание для LLM, что изображение широкое, но не разделено
                                         wide_image_notice = (
                                             f"ВНИМАНИЕ: Это изображение страницы '{page_name}' (ID: {node_id}) ОЧЕНЬ ШИРОКОЕ "
                                             f"(ширина холста: {actual_page_width}px). Оно не было разделено на колонки. "
                                             "Пожалуйста, учти это при анализе и постарайся идентифицировать отдельные экраны, если они есть.\n\n"
                                         )
-                                        page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(wide_image_notice + current_page_analysis_prompt, local_image_path, 4000))
+                                        llm_response = await analyze_figma_data_with_llm(wide_image_notice + current_page_analysis_prompt, local_image_path, 4000)
+                                        page_image_analysis_response_parts.append(llm_response)
+                                        await send_formatted_message(message, llm_response, f"🔍 Анализ страницы '{page_name}' (целиком)")
                                 except ValueError as e:
                                     print(f"Не удалось получить корректное число колонок от LLM: {e}. Анализируем целиком.")
-                                    page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000))
+                                    await message.answer(f"❌ Не удалось получить корректное число колонок от LLM: `{escape_markdown(str(e))}`\\. Анализирую целиком\\.", parse_mode='MarkdownV2')
+                                    llm_response = await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000)
+                                    page_image_analysis_response_parts.append(llm_response)
+                                    await send_formatted_message(message, llm_response, f"🔍 Анализ страницы '{page_name}' (целиком)")
                             else: # LLM ответил "нет" на вопрос о колонках
                                 print("LLM не считает, что на изображении несколько колонок. Анализируем целиком.")
-                                page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000))
+                                await message.answer("LLM не считает, что на изображении несколько колонок\\. Анализирую целиком\\.", parse_mode='MarkdownV2')
+                                llm_response = await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000)
+                                page_image_analysis_response_parts.append(llm_response)
+                                await send_formatted_message(message, llm_response, f"🔍 Анализ страницы '{page_name}' (целиком)")
                         else: # Изображение не широкое
                             print(f"Страница '{page_name}' (ширина: {actual_page_width}px) не определена как широкая. Стандартный анализ.")
-                            page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000))
+                            await message.answer(f"Страница `{escape_markdown(page_name)}` *(ширина: {actual_page_width}px)* не определена как широкая\\. Стандартный анализ\\.", parse_mode='MarkdownV2')
+                            llm_response = await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000)
+                            page_image_analysis_response_parts.append(llm_response)
+                            await send_formatted_message(message, llm_response, f"🔍 Анализ страницы '{page_name}'")
                         
                         final_page_analysis = "".join(page_image_analysis_response_parts)
                         save_data_to_file(page_analysis_file_path, final_page_analysis, is_json=False)
@@ -490,18 +537,22 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
 
                 else: # if node_images_paths
                     analysis_prompt_parts.append("  Изображения страниц не получены.\n")
+                    await message.answer("❌ Изображения страниц не получены\\.", parse_mode='MarkdownV2')
             else: # if node_ids_to_fetch_images
                 analysis_prompt_parts.append("  Нет страниц для запроса изображений.\n")
+                await message.answer("❌ Нет страниц для запроса изображений\\.", parse_mode='MarkdownV2')
         else: # if file_info
             analysis_prompt_parts.append("  Не удалось получить детальную информацию о файле.\n")
             print("Не удалось получить детальную информацию о файле Figma.")
+            await message.answer("❌ Не удалось получить детальную информацию о файле Figma\\.", parse_mode='MarkdownV2')
     except Exception as e:
         print(f"Ошибка при получении информации о файле или изображениях: {e}")
         analysis_prompt_parts.append(f"  Ошибка при получении информации о файле или изображениях: {e}\n")
+        await message.answer(f"❌ Ошибка при получении информации о файле или изображениях: `{escape_markdown(str(e))}`", parse_mode='MarkdownV2')
 
     # 3. Получение комментариев
     try:
-        print("\n--- Получение комментариев ---")
+        await message.answer("\n--- *Получение комментариев* ---", parse_mode='MarkdownV2')
         comments_data = await get_figma_comments(file_id, base_dir)
         if comments_data and comments_data.get('comments'):
             comments_list = comments_data['comments']
@@ -511,13 +562,17 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                     analysis_prompt_parts.append(f"  {i + 1}. {comment.get('message', '')[:100]}...\n")
                 if len(comments_list) > 5:
                     analysis_prompt_parts.append(f"  ... и еще {len(comments_list) - 5} комментариев.\n")
+                await message.answer(f"✅ *Комментарии получены\\!* Найдено: `{len(comments_list)}`", parse_mode='MarkdownV2')
             else:
                 analysis_prompt_parts.append("  Комментариев нет.\n")
+                await message.answer("ℹ️ Комментариев нет\\.", parse_mode='MarkdownV2')
         else:
             analysis_prompt_parts.append("  Не удалось получить комментарии.\n")
+            await message.answer("❌ Не удалось получить комментарии\\.", parse_mode='MarkdownV2')
     except Exception as e:
         print(f"Ошибка при получении комментариев: {e}")
         analysis_prompt_parts.append(f"  Ошибка при получении комментариев: {e}\n")
+        await message.answer(f"❌ Ошибка при получении комментариев: `{escape_markdown(str(e))}`", parse_mode='MarkdownV2')
 
     # 4. Итоговый анализ
     analysis_prompt_parts.append("\n\n--- Итоговое задание для LLM ---\n")
@@ -541,6 +596,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
 """
         analysis_prompt_parts.append(fallback_prompt.strip())
         print("ВНИМАНИЕ: Используется резервный промпт, так как .env.final_analyse_prompt не загружен")
+        await message.answer("⚠️ *ВНИМАНИЕ*: Используется резервный промпт для итогового анализа\\.", parse_mode='MarkdownV2')
 
     final_analysis_prompt_text = "".join(analysis_prompt_parts)
     
@@ -549,22 +605,25 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
     save_data_to_file(final_prompt_file_path, final_analysis_prompt_text, is_json=False)
     print(f"Итоговый промпт сохранен в файл: {final_prompt_file_path}")
     
-    print("\n--- Итоговый анализ данных с помощью LLM ---")
-    print("Выполняю итоговый анализ данных Figma... (это может занять несколько минут)")
+    await message.answer("\n--- *Итоговый анализ данных с помощью LLM* ---", parse_mode='MarkdownV2')
+    await message.answer("Выполняю итоговый анализ данных Figma\\.\\.\\. *(это может занять несколько минут)*", parse_mode='MarkdownV2')
     
     # Проверяем, есть ли уже готовый итоговый анализ
     summary_file_path = base_dir / 'analysis_summary.txt'
     if summary_file_path.exists():
         print(f"Найден существующий итоговый анализ, загружаем из файла: {summary_file_path}")
+        await message.answer("🔍 *Найден существующий итоговый анализ, загружаю из файла\\!*", parse_mode='MarkdownV2')
         try:
             with open(summary_file_path, 'r', encoding='utf-8') as f:
                 llm_analysis_result = f.read().strip()
             if not llm_analysis_result:
                 print("Файл итогового анализа пустой, выполняем новый анализ.")
+                await message.answer("Файл итогового анализа пустой, выполняю новый анализ\\.", parse_mode='MarkdownV2')
                 llm_analysis_result = await analyze_figma_data_with_llm(final_analysis_prompt_text, None, 6000)
                 save_data_to_file(summary_file_path, llm_analysis_result, is_json=False)
         except Exception as e:
             print(f"Ошибка при чтении существующего итогового анализа: {e}. Выполняем новый анализ.")
+            await message.answer(f"❌ Ошибка при чтении существующего итогового анализа: `{escape_markdown(str(e))}`\\. Выполняю новый анализ\\.", parse_mode='MarkdownV2')
             llm_analysis_result = await analyze_figma_data_with_llm(final_analysis_prompt_text, None, 6000)
             save_data_to_file(summary_file_path, llm_analysis_result, is_json=False)
     else:
@@ -575,9 +634,11 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
     print("\n--- Завершено ---")
     print(f"Все данные сохранены в директории: {base_dir}")
     print(f"Результат анализа LLM сохранен в: {summary_file_path}")
+    await message.answer("✅ *Анализ завершен\\!* Все данные сохранены\\.", parse_mode='MarkdownV2')
     
-    print("\n--- Результат анализа ---")
-    print(llm_analysis_result)
+    # Итоговый анализ будет отправлен в allcdsps_figmar.py
+    # print("\n--- Результат анализа ---")
+    # print(llm_analysis_result)
 
     return {
         "summary": llm_analysis_result,

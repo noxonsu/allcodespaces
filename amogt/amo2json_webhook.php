@@ -15,8 +15,7 @@ if (!defined('AMO2JSON_INCLUDED')) {
 if (!defined('CONFIG_LOADED')) {
     require_once __DIR__ . '/config.php';
 }
-// Define constant to prevent logger from outputting to browser
-define('dontshowlogs', 1);
+
 if (!function_exists('logMessage')) {
     require_once __DIR__ . '/logger.php';
 }
@@ -166,17 +165,35 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
             $dealId = isset($leadData['id']) ? (string)$leadData['id'] : null;
             logMessage("Extracted deal ID: $dealId", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
 
-            // Extract payment URL from custom field
+            // Проверка статуса "Статус оплаты ChatGPT"
             if (isset($leadData['custom_fields'])) {
+                $skipProcessing = false;
+                $paymentStatusChecked = false;
+                
                 foreach ($leadData['custom_fields'] as $field) {
-                    $fieldIdToCheck = (isset($field['id'])) ? (string)$field['id'] : ((isset($field['field_id'])) ? (string)$field['field_id'] : null);
-                    logMessage("Checking custom field ID: $fieldIdToCheck", 'DEBUG', AMO2JSON_SCRIPT_LOG_FILE);
+                    $fieldIdToCheck = (isset($field['id'])) ? (string)$field['id'] : null;
+
+                    // Check for "Статус оплаты ChatGPT" FIRST
+                    if (defined('AMO_CF_ID_CHATGPT_PAYMENT_STATUS') && $fieldIdToCheck === AMO_CF_ID_CHATGPT_PAYMENT_STATUS) {
+                        $paymentStatusChecked = true;
+                        if (isset($field['values'][0]['value']) && trim($field['values'][0]['value']) !== '') {
+                            $statusValue = $field['values'][0]['value'];
+                            logMessage("Deal ID $dealId has a non-empty status ('" . htmlspecialchars($statusValue) . "') for ChatGPT payment (field " . AMO_CF_ID_CHATGPT_PAYMENT_STATUS . "). Skipping processing.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                            return ['status' => 'skipped_payment_status_not_empty', 'message' => "Deal ID $dealId skipped because ChatGPT payment status ('" . htmlspecialchars($statusValue) . "') is not empty.", 'http_code' => $successHttpCode];
+                        }
+                    }
                     
+                    // Extract payment URL from custom field
                     if (defined('AMO_CF_ID_PAYMENT_LINK') && $fieldIdToCheck === AMO_CF_ID_PAYMENT_LINK && isset($field['values'][0]['value'])) {
                         $paymentUrl = (string)$field['values'][0]['value'];
                         logMessage("Found payment URL in custom field: $paymentUrl", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                        break;
+                        // УБИРАЕМ break здесь - нужно проверить все поля
                     }
+                }
+                
+                // Дополнительная проверка если поле статуса оплаты не найдено
+                if (!$paymentStatusChecked) {
+                    logMessage("Payment status field (ID: " . (defined('AMO_CF_ID_CHATGPT_PAYMENT_STATUS') ? AMO_CF_ID_CHATGPT_PAYMENT_STATUS : 'undefined') . ") not found in webhook data", 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
                 }
             } elseif (isset($leadData['custom_fields_values'])) {
                 // Альтернативная структура для custom fields
@@ -267,9 +284,27 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
                     }
                 }
 
-                // 4. Парсинг ссылки на оплату - Вызываем парсинг, если есть dealId и paymentUrl
+                // 4. Парсинг ссылки на оплату - проверяем валидность и парсим
                 logMessage("--- BEFORE calling parsePaymentLink for deal $dealId with URL: $paymentUrl ---", 'DEBUG', AMO2JSON_SCRIPT_LOG_FILE);
-                $parseResult = parsePaymentLink($paymentUrl);
+                
+                $parseResult = null;
+                $commentSent = false;
+                
+                if (strpos($paymentUrl, 'c/pay/cs_live') === false) {
+                    logMessage("Payment URL for deal $dealId does not contain 'c/pay/cs_live' - not a valid Stripe payment link. Skipping parsing.", 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
+                    if ($tokens && defined('AMO_API_URL_BASE')) {
+                        $this->sendParsingComment($dealId, $accessToken, "⚠️ PHP парсер: URL оплаты не содержит 'c/pay/cs_live' - не является валидной Stripe ссылкой. Парсинг пропущен.");
+                    }
+                } else {
+                    $parseResult = parsePaymentLink($paymentUrl);
+                    if (!$parseResult || !isset($parseResult['amount']) || !isset($parseResult['currency']) || $parseResult['amount'] === null || $parseResult['currency'] === null) {
+                        logMessage("Payment parsing failed for deal $dealId. Parse result: " . json_encode($parseResult), 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
+                        if ($tokens && defined('AMO_API_URL_BASE')) {
+                            $this->sendParsingComment($dealId, $accessToken, "❌ PHP парсер не смог извлечь сумму из URL оплаты. URL: " . substr($paymentUrl, 0, 100) . (strlen($paymentUrl) > 100 ? '...' : ''));
+                        }
+                    }
+                }
+                
                 logMessage("--- AFTER calling parsePaymentLink for deal $dealId. Result: " . json_encode($parseResult), 'DEBUG', AMO2JSON_SCRIPT_LOG_FILE);
 
 
@@ -345,48 +380,54 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
             }
 
 
-            // Логика локального сохранения - выполняется всегда, если dealId и paymentUrl присутствуют
+            // Логика локального сохранения - выполняется только если dealId, paymentUrl присутствуют И парсинг успешен
             if ($dealId && $paymentUrl) {
-                if (!defined('ALL_LEADS_FILE_PATH')) {
-                    logMessage('ALL_LEADS_FILE_PATH not defined', 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
-                    // Не выходим, просто логируем ошибку и продолжаем, чтобы не прерывать обновление AmoCRM
+                // Проверяем, что парсинг был успешен и получены amount и currency
+                $amountToSave = ($parseResult && isset($parseResult['amount'])) ? (float)$parseResult['amount'] : null;
+                $currencyToSave = ($parseResult && isset($parseResult['currency'])) ? $parseResult['currency'] : null;
+                
+                if ($amountToSave === null || $currencyToSave === null) {
+                    logMessage("Skipping local save for deal $dealId - Amount ($amountToSave) or Currency ($currencyToSave) not defined from payment URL parsing.", 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
+                    // Не сохраняем в JSON, но продолжаем выполнение
                 } else {
-                    $localSaveAttempted = true;
-                    $deals = loadDataFromFile(ALL_LEADS_FILE_PATH);
-                    $dealFound = false;
-
-                    $amountToSave = ($parseResult && isset($parseResult['amount'])) ? (float)$parseResult['amount'] : null;
-                    $currencyToSave = ($parseResult && isset($parseResult['currency'])) ? $parseResult['currency'] : null;
-
-                    foreach ($deals as $key => $existingDeal) {
-                        if (isset($existingDeal['dealId']) && (string)$existingDeal['dealId'] === $dealId) {
-                            $deals[$key]['paymentUrl'] = $paymentUrl;
-                            $deals[$key]['last_updated'] = date('Y-m-d H:i:s');
-                            if ($amountToSave !== null) $deals[$key]['amount'] = $amountToSave;
-                            if ($currencyToSave !== null) $deals[$key]['currency'] = $currencyToSave;
-                            $dealFound = true;
-                            logMessage("Deal ID $dealId found, updating payment URL and details in JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                            break;
-                        }
-                    }
-
-                    if (!$dealFound) {
-                        $deals[] = [
-                            'dealId' => $dealId,
-                            'paymentUrl' => $paymentUrl,
-                            'created_at' => date('Y-m-d H:i:s'),
-                            'last_updated' => date('Y-m-d H:i:s'),
-                            'amount' => $amountToSave,
-                            'currency' => $currencyToSave
-                        ];
-                        logMessage("Deal ID $dealId not found, adding new entry to JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                    }
-
-                    if (saveDataToFile(ALL_LEADS_FILE_PATH, $deals)) {
-                        logMessage("Successfully updated/added deal ID $dealId to " . ALL_LEADS_FILE_PATH, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                        $localSaveSuccessful = true;
+                    if (!defined('ALL_LEADS_FILE_PATH')) {
+                        logMessage('ALL_LEADS_FILE_PATH not defined', 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                        // Не выходим, просто логируем ошибку и продолжаем, чтобы не прерывать обновление AmoCRM
                     } else {
-                        logMessage("Failed to save deal ID $dealId to " . ALL_LEADS_FILE_PATH . ".", 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                        $localSaveAttempted = true;
+                        $deals = loadDataFromFile(ALL_LEADS_FILE_PATH);
+                        $dealFound = false;
+
+                        foreach ($deals as $key => $existingDeal) {
+                            if (isset($existingDeal['dealId']) && (string)$existingDeal['dealId'] === $dealId) {
+                                $deals[$key]['paymentUrl'] = $paymentUrl;
+                                $deals[$key]['last_updated'] = date('Y-m-d H:i:s');
+                                $deals[$key]['amount'] = $amountToSave;
+                                $deals[$key]['currency'] = $currencyToSave;
+                                $dealFound = true;
+                                logMessage("Deal ID $dealId found, updating payment URL and details in JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                                break;
+                            }
+                        }
+
+                        if (!$dealFound) {
+                            $deals[] = [
+                                'dealId' => $dealId,
+                                'paymentUrl' => $paymentUrl,
+                                'created_at' => date('Y-m-d H:i:s'),
+                                'last_updated' => date('Y-m-d H:i:s'),
+                                'amount' => $amountToSave,
+                                'currency' => $currencyToSave
+                            ];
+                            logMessage("Deal ID $dealId not found, adding new entry to JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                        }
+
+                        if (saveDataToFile(ALL_LEADS_FILE_PATH, $deals)) {
+                            logMessage("Successfully updated/added deal ID $dealId to " . ALL_LEADS_FILE_PATH, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                            $localSaveSuccessful = true;
+                        } else {
+                            logMessage("Failed to save deal ID $dealId to " . ALL_LEADS_FILE_PATH . ".", 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                        }
                     }
                 }
             } else {

@@ -3,4 +3,4 @@
     Deny from all
 </FilesMatch>
 
-SetEnv ENVIRONMENT test
+SetEnv ENVIRONMENT production

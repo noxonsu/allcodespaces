@@ -65,6 +65,7 @@ function zenoFetchAndProcessAmoCustomFieldDefinitions() {
 // --- Main Request Handling ---
 header('Content-Type: application/json');
 
+// Быстрая валидация без блокировки
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
     http_response_code(405);
     echo json_encode(['status' => 'error', 'message' => 'Invalid request method. Only GET is accepted.']);
@@ -78,39 +79,101 @@ if (empty($leadId)) {
     exit;
 }
 
-// Assuming report data comes as GET parameters
 $reportStatus = $_GET['status'] ?? null;
 $reportAmount = $_GET['amount'] ?? null;
 $reportCurrency = $_GET['currency'] ?? null;
 $reportEmail = $_GET['email'] ?? null;
 $reportCard = $_GET['card'] ?? null;
-$partnerIdSubmitter = $_GET['partner_id'] ?? null; // Optional partner_id
+$partnerIdSubmitter = $_GET['partner_id'] ?? null;
 
 if (empty($reportStatus)) {
     http_response_code(400);
     echo json_encode(['status' => 'error', 'message' => "Missing required GET parameter: status."]);
     exit;
 }
-// Validate status value (example)
-$validStatuses = ["Выполнено", "ОШИБКА!"]; // Updated to use correct status values
-if (!in_array($reportStatus, $validStatuses)) {
+
+// Validate status value
+$validStatuses = ["Выполнено", "ОШИБКА!"];
+$isStatusValid = in_array($reportStatus, $validStatuses);
+if (defined('AMO_STATUS_COMPLETED_ENUM_ID') && $reportStatus == AMO_STATUS_COMPLETED_ENUM_ID) {
+    $isStatusValid = true;
+    $reportStatus = "Выполнено";
+}
+
+if (!$isStatusValid) {
     http_response_code(400);
-    echo json_encode(['status' => 'error', 'message' => "Invalid value for GET parameter 'status'. Allowed: " . implode(', ', $validStatuses)]);
+    echo json_encode(['status' => 'error', 'message' => "Invalid value for GET parameter 'status'. Allowed: " . implode(', ', $validStatuses) . " or corresponding enum IDs."]);
     exit;
 }
 
+// ТЕПЕРЬ проверяем лок-файл только для обработки AmoCRM
+define('ZENO_REPORT_LOCK_FILE', sys_get_temp_dir() . '/zeno_report.lock');
 
+$needsAmoProcessing = empty($partnerIdSubmitter); // Только если НЕ партнерский отчет
+
+if ($needsAmoProcessing) {
+    // Проверяем лок-файл только для AmoCRM операций
+    $lockAcquired = false;
+    $maxAttempts = 10;
+    $attempt = 0;
+    
+    while ($attempt < $maxAttempts) {
+        if (!file_exists(ZENO_REPORT_LOCK_FILE)) {
+            if (file_put_contents(ZENO_REPORT_LOCK_FILE, getmypid() . PHP_EOL . date('Y-m-d H:i:s')) !== false) {
+                $lockAcquired = true;
+                break;
+            }
+        }
+        $attempt++;
+        usleep(100000); // 0.1 секунды
+    }
+    
+    if (!$lockAcquired) {
+        // Сохраняем отчет без AmoCRM обработки
+        logMessage("[ZenoReport] Could not acquire lock for AmoCRM processing. Saving report without AmoCRM update.", 'WARNING', ZENO_REPORT_LOG_FILE);
+        $reportEntry = [
+            'report_id' => uniqid('zenorep_', true),
+            'lead_id' => $leadId,
+            'partner_id_submitter' => $partnerIdSubmitter,
+            'report_data' => [
+                'status' => $reportStatus,
+                'amount' => $reportAmount,
+                'currency' => $reportCurrency,
+                'email' => $reportEmail,
+                'card' => $reportCard,
+            ],
+            'reported_at' => date('Y-m-d H:i:s'),
+            'amo_update_skipped_reason' => 'lock_timeout',
+            'amo_update_status' => 'deferred',
+            'amo_update_message' => 'AmoCRM update deferred due to lock timeout'
+        ];
+        
+        $allReports = loadDataFromFile(ZENO_REPORTS_JSON_FILE);
+        $allReports[] = $reportEntry;
+        saveDataToFile(ZENO_REPORTS_JSON_FILE, $allReports);
+        
+        http_response_code(200);
+        echo json_encode([
+            'status' => 'success', 
+            'message' => 'Report saved, AmoCRM update deferred.',
+            'report_id' => $reportEntry['report_id'],
+            'amo_status' => 'deferred'
+        ]);
+        exit;
+    }
+}
+
+// Основная логика обработки (с AmoCRM или без)
 $reportEntry = [
     'report_id' => uniqid('zenorep_', true),
     'lead_id' => $leadId,
-    'partner_id_submitter' => $partnerIdSubmitter, // Who submitted this report
+    'partner_id_submitter' => $partnerIdSubmitter,
     'report_data' => [
         'status' => $reportStatus,
         'amount' => $reportAmount,
         'currency' => $reportCurrency,
         'email' => $reportEmail,
         'card' => $reportCard,
-        // Add any other POST params here if needed
     ],
     'reported_at' => date('Y-m-d H:i:s'),
     'amo_update_skipped_reason' => null,
@@ -118,7 +181,17 @@ $reportEntry = [
     'amo_update_message' => null
 ];
 
-$amoUpdatePerformed = false;
+// Cleanup function для лок-файла
+function cleanupLock() {
+    if (defined('ZENO_REPORT_LOCK_FILE') && file_exists(ZENO_REPORT_LOCK_FILE)) {
+        unlink(ZENO_REPORT_LOCK_FILE);
+    }
+}
+
+// Регистрируем cleanup на завершение скрипта
+if ($needsAmoProcessing && $lockAcquired) {
+    register_shutdown_function('cleanupLock');
+}
 
 // --- Logic for AmoCRM interaction ---
 if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is NOT provided in POST
@@ -134,8 +207,14 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
     } else {
         // Add to processed list BEFORE attempting AmoCRM update
         $recievedAmoIds[] = $leadId;
+        if (!is_writable(dirname(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH))) {
+            logMessage("[ZenoReport] CRITICAL: Directory for " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . " is not writable.", 'ERROR', ZENO_REPORT_LOG_FILE);
+        }
+        if (file_exists(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH) && !is_writable(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH)) {
+            logMessage("[ZenoReport] CRITICAL: File " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . " is not writable.", 'ERROR', ZENO_REPORT_LOG_FILE);
+        }
         if (saveLineDelimitedFile(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH, $recievedAmoIds) === false) {
-            logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH, 'ERROR', ZENO_REPORT_LOG_FILE);
+            logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . ". Check file permissions.", 'ERROR', ZENO_REPORT_LOG_FILE);
             // Decide if we should proceed or error out. For now, log and proceed.
             $reportEntry['amo_update_skipped_reason'] = 'failed_to_log_recieved_id';
         }
@@ -214,7 +293,9 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                                     } else if ($fieldDef['type'] === 'date') {
                                         $ts = strtotime($value);
                                         if ($ts) $valPayload = ['value' => $ts];
-                                    } else { // numeric, text, textarea etc.
+                                    } else if ($fieldDef['type'] === 'numeric') {
+                                        $valPayload = ['value' => (float)$value];
+                                    } else { // text, textarea etc.
                                         $valPayload = ['value' => (string)$value];
                                     }
                                     if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
@@ -245,10 +326,19 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                         // Update stage based on report status
                         if ($reportStatus === "Выполнено") {
                             $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID; // Используем константу
-                            $amoUpdatePayload['status_id'] = (int)AMO_SUCCESS_STATUS;  // Используем новую константу
+                            // Используем enum ID для статуса "Выполнено"
+                            if (defined('AMO_SUCCESS_STATUS')) {
+                                $amoUpdatePayload['status_id'] = (int)AMO_SUCCESS_STATUS;
+                            } else {
+                                // Fallback или логирование ошибки, если константа не определена
+                                logMessage("[ZenoReport] WARNING: AMO_SUCCESS_STATUS not defined. Cannot set success status.", 'WARNING', ZENO_REPORT_LOG_FILE);
+                            }
                         } else if ($reportStatus === "ОШИБКА!") {
-                             // Do not change status if report is an error
-                             // The deal remains in its current stage
+                             if (defined('AMO_STATUS_ERROR_ENUM_ID')) {
+                                $amoUpdatePayload['status_id'] = (int)AMO_STATUS_ERROR_ENUM_ID;
+                             } else {
+                                logMessage("[ZenoReport] ERROR: AMO_STATUS_ERROR_ENUM_ID not defined. Cannot set error status.", 'ERROR', ZENO_REPORT_LOG_FILE);
+                             }
                         }
                         
                         if (count($amoUpdatePayload) > 1) { // Has more than just 'id'
@@ -322,6 +412,11 @@ $logDir = dirname(ZENO_REPORT_LOG_FILE); if (!is_dir($logDir)) mkdir($logDir, 07
 $reportDir = dirname(ZENO_REPORTS_JSON_FILE); if (!is_dir($reportDir)) mkdir($reportDir, 0775, true);
 // RECIEVED_AMO_IDS_FILE_PATH уже использует DATA_DIR, поэтому его директория будет создана автоматически
 // $recAmoDir = dirname(RECIEVED_AMO_IDS_FILE_PATH); if (!is_dir($recAmoDir)) mkdir($recAmoDir, 0775, true);
+
+// В конце скрипта, перед exit:
+if ($needsAmoProcessing && $lockAcquired) {
+    cleanupLock();
+}
 
 exit;
 ?>
