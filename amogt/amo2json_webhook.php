@@ -40,6 +40,10 @@ define('AMO2JSON_SCRIPT_LOG_FILE', LOGS_DIR . '/amo2json.log');
 
 // Log script startup when called directly
 if (basename($_SERVER['SCRIPT_FILENAME']) === basename(__FILE__)) {
+    // Check for lock file before logging start
+    if (file_exists(AMO2JSON_LOCK_FILE)) {
+        logMessage("!!! AMO2JSON WEBHOOK SCRIPT ATTEMPTED TO START WHILE LOCKED !!!", 'WARNING', AMO2JSON_SCRIPT_LOG_FILE);
+    }
     logMessage("=== AMO2JSON WEBHOOK SCRIPT STARTED ===", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
     logMessage("Request method: " . ($_SERVER['REQUEST_METHOD'] ?? 'unknown'), 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
     logMessage("Request URI: " . ($_SERVER['REQUEST_URI'] ?? 'unknown'), 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
@@ -317,13 +321,8 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
                             if ($updateResponse['statusCode'] < 400) {
                                 logMessage("Successfully updated AmoCRM deal $dealId with payment details and moved to CHATGPT stage.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
                                 $amoUpdateSuccessful = true; // Устанавливаем флаг успешного обновления AmoCRM
-                                // Помечаем вебхук как обработанный (в RECIEVED_AMO_IDS_FILE_PATH) после успешного обновления AmoCRM
-                                if (!markEventAsProcessed($dealId, RECIEVED_AMO_IDS_FILE_PATH)) {
-                                    logMessage("CRITICAL: Deal ID $dealId was processed and updated in AmoCRM, but FAILED to be marked in " . RECIEVED_AMO_IDS_FILE_PATH, 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
-                                }
-                                // Возвращаем успешный статус, так как AmoCRM обновлен
-                                return ['status' => 'success_amo_update', 'message' => "Deal $dealId processed, AmoCRM updated.", 'http_code' => $successHttpCode];
-
+                                // НЕ помечаем вебхук как обработанный здесь
+                                // НЕ возвращаем статус здесь, чтобы продолжить выполнение и сохранить в JSON
                             } else {
                                 logMessage("Failed to update AmoCRM deal $dealId. Status: " . $updateResponse['statusCode'] . " Body: " . $updateResponse['body'], 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
                                 // Если обновление AmoCRM не удалось, не помечаем как обработанный
@@ -346,69 +345,78 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
             }
 
 
-            // Логика локального сохранения - выполняется, если dealId, paymentUrl присутствуют
-            // И если AmoCRM НЕ был успешно обновлен в этом вебхуке.
-            if ($dealId && $paymentUrl && !$amoUpdateSuccessful) {
+            // Логика локального сохранения - выполняется всегда, если dealId и paymentUrl присутствуют
+            if ($dealId && $paymentUrl) {
                 if (!defined('ALL_LEADS_FILE_PATH')) {
                     logMessage('ALL_LEADS_FILE_PATH not defined', 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
-                    return ['status' => 'error', 'message' => 'Configuration error (ALL_LEADS_FILE_PATH).', 'http_code' => 500];
-                }
-                
-                $deals = loadDataFromFile(ALL_LEADS_FILE_PATH);
-                $dealFound = false;
-
-                // Используем данные парсинга, если они успешны, иначе сохраняем null для amount/currency
-                $amountToSave = ($parseResult && isset($parseResult['amount'])) ? (float)$parseResult['amount'] : null;
-                $currencyToSave = ($parseResult && isset($parseResult['currency'])) ? $parseResult['currency'] : null;
-
-
-                foreach ($deals as $key => $existingDeal) {
-                    if (isset($existingDeal['dealId']) && (string)$existingDeal['dealId'] === $dealId) {
-                        $deals[$key]['paymentUrl'] = $paymentUrl;
-                        $deals[$key]['last_updated'] = date('Y-m-d H:i:s');
-                        // Обновляем сумму и валюту только если они были успешно спарсены в этом вебхуке
-                        if ($amountToSave !== null) $deals[$key]['amount'] = $amountToSave;
-                        if ($currencyToSave !== null) $deals[$key]['currency'] = $currencyToSave;
-                        $dealFound = true;
-                        logMessage("Deal ID $dealId found, updating payment URL and details in JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                        break;
-                    }
-                }
-
-                if (!$dealFound) {
-                    $deals[] = [
-                        'dealId' => $dealId,
-                        'paymentUrl' => $paymentUrl,
-                        'created_at' => date('Y-m-d H:i:s'),
-                        'last_updated' => date('Y-m-d H:i:s'),
-                        'amount' => $amountToSave,
-                        'currency' => $currencyToSave
-                    ];
-                    logMessage("Deal ID $dealId not found, adding new entry to JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                }
-
-                if (saveDataToFile(ALL_LEADS_FILE_PATH, $deals)) {
-                    logMessage("Successfully updated/added deal ID $dealId to " . ALL_LEADS_FILE_PATH, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                    
-                    // Помечаем вебхук как обработанный (в RECIEVED_AMO_IDS_FILE_PATH) после успешного локального сохранения
-                    if (!markEventAsProcessed($dealId, RECIEVED_AMO_IDS_FILE_PATH)) {
-                        logMessage("CRITICAL: Deal ID $dealId was processed and saved, but FAILED to be marked in " . RECIEVED_AMO_IDS_FILE_PATH, 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
-                    }
-                    // Возвращаем успешный статус, так как локальное сохранение прошло успешно
-                    return ['status' => 'success_local_save', 'message' => "Deal $dealId processed and saved to JSON.", 'http_code' => $successHttpCode];
+                    // Не выходим, просто логируем ошибку и продолжаем, чтобы не прерывать обновление AmoCRM
                 } else {
-                    logMessage("Failed to save deal ID $dealId to " . ALL_LEADS_FILE_PATH . ".", 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
-                    return ['status' => 'error', 'message' => "Failed to save deal $dealId to JSON.", 'http_code' => 500];
+                    $localSaveAttempted = true;
+                    $deals = loadDataFromFile(ALL_LEADS_FILE_PATH);
+                    $dealFound = false;
+
+                    $amountToSave = ($parseResult && isset($parseResult['amount'])) ? (float)$parseResult['amount'] : null;
+                    $currencyToSave = ($parseResult && isset($parseResult['currency'])) ? $parseResult['currency'] : null;
+
+                    foreach ($deals as $key => $existingDeal) {
+                        if (isset($existingDeal['dealId']) && (string)$existingDeal['dealId'] === $dealId) {
+                            $deals[$key]['paymentUrl'] = $paymentUrl;
+                            $deals[$key]['last_updated'] = date('Y-m-d H:i:s');
+                            if ($amountToSave !== null) $deals[$key]['amount'] = $amountToSave;
+                            if ($currencyToSave !== null) $deals[$key]['currency'] = $currencyToSave;
+                            $dealFound = true;
+                            logMessage("Deal ID $dealId found, updating payment URL and details in JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                            break;
+                        }
+                    }
+
+                    if (!$dealFound) {
+                        $deals[] = [
+                            'dealId' => $dealId,
+                            'paymentUrl' => $paymentUrl,
+                            'created_at' => date('Y-m-d H:i:s'),
+                            'last_updated' => date('Y-m-d H:i:s'),
+                            'amount' => $amountToSave,
+                            'currency' => $currencyToSave
+                        ];
+                        logMessage("Deal ID $dealId not found, adding new entry to JSON.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                    }
+
+                    if (saveDataToFile(ALL_LEADS_FILE_PATH, $deals)) {
+                        logMessage("Successfully updated/added deal ID $dealId to " . ALL_LEADS_FILE_PATH, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                        $localSaveSuccessful = true;
+                    } else {
+                        logMessage("Failed to save deal ID $dealId to " . ALL_LEADS_FILE_PATH . ".", 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                    }
                 }
             } else {
-                 // Если нет dealId, paymentUrl, или AmoCRM был успешно обновлен, возвращаем соответствующий статус
-                 $logMsg = "Skipping local save for amo2json - ";
-                 if (!$dealId) $logMsg .= "Deal ID not found. ";
-                 if (!$paymentUrl) $logMsg .= "Payment URL not found. ";
-                 if ($amoUpdateSuccessful) $logMsg .= "AmoCRM was successfully updated.";
-                 logMessage($logMsg, 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
-                 // Возвращаем 200, т.к. это не критическая ошибка, просто нет данных для сохранения или AmoCRM уже обновлен
-                 return ['status' => 'skipped_local_save', 'message' => $logMsg, 'http_code' => 200]; 
+                logMessage("Skipping local save for amo2json - Deal ID or Payment URL not found.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+            }
+
+            // Помечаем вебхук как обработанный, если локальное сохранение было успешным
+            if ($localSaveSuccessful) {
+                if (!isEventAlreadyProcessed($dealId, RECIEVED_AMO_IDS_FILE_PATH)) {
+                    if (!markEventAsProcessed($dealId, RECIEVED_AMO_IDS_FILE_PATH)) {
+                        logMessage("CRITICAL: Deal ID $dealId was processed (AmoCRM: " . ($amoUpdateSuccessful ? 'Yes' : 'No') . ", Local: Yes), but FAILED to be marked in " . RECIEVED_AMO_IDS_FILE_PATH, 'ERROR', AMO2JSON_SCRIPT_LOG_FILE);
+                    }
+                }
+            }
+
+            // Возвращаем статус на основе результатов
+            if ($localSaveSuccessful) {
+                $message = "Deal $dealId processed and saved to JSON.";
+                if ($amoUpdateAttempted) {
+                    $message .= $amoUpdateSuccessful ? " AmoCRM update was successful." : " AmoCRM update failed.";
+                } else {
+                    $message .= " AmoCRM update was skipped.";
+                }
+                return ['status' => 'success', 'message' => $message, 'http_code' => $successHttpCode];
+            } else {
+                // Если ни одна операция не удалась, но мы пытались
+                $errorMsg = "Failed to process deal $dealId.";
+                if ($amoUpdateAttempted) $errorMsg .= " AmoCRM update failed.";
+                if ($localSaveAttempted) $errorMsg .= " Local JSON save failed.";
+                return ['status' => 'error_processing', 'message' => $errorMsg, 'http_code' => 500];
             }
 
 
