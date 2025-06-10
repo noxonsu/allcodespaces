@@ -127,10 +127,37 @@ const GREETING_PHRASES = ["здравст", "привет", "добрый ден
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
 const BOT_SERVER_BASE_URL = process.env.BOT_SERVER_BASE_URL; // e.g., http://yourdomain.com or http://your_ip:15656
 const SERVER_PORT = 15656;
+// const PROMPT_EDITOR_PORT = 5006; // Removed
+const PROMPT_EDITOR_SECRET = process.env.PROMPT_EDITOR_SECRET || 'lalalalsecret';
 
 // Ensure directories exist
 fs.mkdirSync(USER_DATA_DIR, { recursive: true });
 fs.mkdirSync(CHAT_HISTORIES_DIR, { recursive: true });
+
+// --- Prompt Editor Server Setup --- // Combined with main Express app
+// const promptApp = express(); // Removed
+// promptApp.use(express.json()); // Moved to main app
+// promptApp.use(express.urlencoded({ extended: true })); // Moved to main app
+
+// Middleware to check secret
+const checkSecret = (req, res, next) => {
+    if (req.query.secret !== PROMPT_EDITOR_SECRET) {
+        return res.status(403).send('Access denied');
+    }
+    next();
+};
+
+// GET route to show the form // Will be added to main app
+// promptApp.get('/', checkSecret, (req, res) => { ... }); // Moved
+
+// POST route to save the prompt // Will be added to main app
+// promptApp.post('/', checkSecret, (req, res) => { ... }); // Moved
+
+// Start prompt editor server // Removed
+// promptApp.listen(PROMPT_EDITOR_PORT, () => {
+//     console.log(`[Prompt Editor] Server listening on port ${PROMPT_EDITOR_PORT}`);
+//     console.log(`[Prompt Editor] Access URL: http://localhost:${PROMPT_EDITOR_PORT}/?secret=${PROMPT_EDITOR_SECRET}`);
+// });
 
 // --- GramJS User Client Configuration & Initialization ---
 const gramJsApiId = parseInt(process.env.TELEGRAM_API_ID || "0"); // Provide default to avoid NaN if empty
@@ -187,16 +214,125 @@ if (process.env.MODEL) setModel(process.env.MODEL);
 // --- Express Server Setup ---
 const app = express();
 app.use(express.json()); // Middleware to parse JSON bodies
+app.use(express.urlencoded({ extended: true })); // For prompt editor form
 
 if (ADMIN_TELEGRAM_ID && BOT_SERVER_BASE_URL) {
     // Ensure CHAT_HISTORIES_DIR is absolute or resolve it correctly
     const absoluteChatHistoriesDir = path.resolve(__dirname, CHAT_HISTORIES_DIR);
     console.log(`[Express] Serving chat logs from: ${absoluteChatHistoriesDir}`);
-    app.use('/chatlogs', express.static(absoluteChatHistoriesDir));
+    app.use('/chatlogs', express.static(absoluteChatHistoriesDir)); // Chat logs accessible without secret
+
+    // GET route for prompt editor
+    app.get('/edit-prompt', checkSecret, (req, res) => {
+        const promptFilePath = path.join(__dirname, `.env.${NAMEPROMPT}_prompt`);
+        let currentPromptValue = ''; // Renamed to avoid conflict with systemPromptContent
+        
+        try {
+            if (fs.existsSync(promptFilePath)) {
+                currentPromptValue = fs.readFileSync(promptFilePath, 'utf8');
+            }
+        } catch (error) {
+            console.error('[Prompt Editor] Error reading prompt file:', error);
+        }
+        
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>HR Prompt Editor</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                textarea { width: 100%; height: 400px; margin: 10px 0; }
+                button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+                button:hover { background: #0056b3; }
+                .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+                .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+                .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+                nav a { margin-right: 15px; }
+            </style>
+        </head>
+        <body>
+            <nav>
+                <a href="/chatlogs/?secret=${req.query.secret}">View Chat Logs (if configured)</a>
+                <a href="/edit-prompt?secret=${req.query.secret}">Edit Prompt</a>
+            </nav>
+            <h1>HR System Prompt Editor</h1>
+            <form method="POST" action="/edit-prompt?secret=${PROMPT_EDITOR_SECRET}">
+                <label for="prompt">System Prompt:</label><br>
+                <textarea id="prompt" name="prompt" placeholder="Enter the system prompt here...">${currentPromptValue.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea><br>
+                <button type="submit">Save Prompt</button>
+            </form>
+            <p><small>File: .env.${NAMEPROMPT}_prompt</small></p>
+        </body>
+        </html>
+        `;
+        
+        res.send(html);
+    });
+
+    // POST route to save the prompt
+    app.post('/edit-prompt', checkSecret, (req, res) => {
+        const promptFilePath = path.join(__dirname, `.env.${NAMEPROMPT}_prompt`);
+        const newPrompt = req.body.prompt || '';
+        let statusMessage = '';
+        let statusClass = '';
+        
+        try {
+            fs.writeFileSync(promptFilePath, newPrompt, 'utf8');
+            console.log(`[Prompt Editor] Prompt file updated: ${promptFilePath}`);
+            
+            // Update the system prompt in the LLM module
+            systemPromptContent = newPrompt; // Update global variable
+            setSystemMessage(systemPromptContent); // Update in openai.js module
+            console.log('[Prompt Editor] System prompt reloaded in LLM module.');
+
+            statusMessage = 'Prompt saved successfully and reloaded!';
+            statusClass = 'success';
+        } catch (error) {
+            console.error('[Prompt Editor] Error saving prompt file:', error);
+            statusMessage = `Error saving prompt: ${error.message}`;
+            statusClass = 'error';
+        }
+
+        const html = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>HR Prompt Editor</title>
+            <style>
+                body { font-family: Arial, sans-serif; margin: 40px; }
+                textarea { width: 100%; height: 400px; margin: 10px 0; }
+                button { padding: 10px 20px; background: #007bff; color: white; border: none; cursor: pointer; }
+                button:hover { background: #0056b3; }
+                .status { margin: 10px 0; padding: 10px; border-radius: 4px; }
+                .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+                .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+                nav a { margin-right: 15px; }
+            </style>
+        </head>
+        <body>
+            <nav>
+                <a href="/chatlogs/?secret=${req.query.secret}">View Chat Logs (if configured)</a>
+                <a href="/edit-prompt?secret=${req.query.secret}">Edit Prompt</a>
+            </nav>
+            <h1>HR System Prompt Editor</h1>
+            <div class="status ${statusClass}">${statusMessage}</div>
+            <form method="POST" action="/edit-prompt?secret=${PROMPT_EDITOR_SECRET}">
+                <label for="prompt">System Prompt:</label><br>
+                <textarea id="prompt" name="prompt" placeholder="Enter the system prompt here...">${newPrompt.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea><br>
+                <button type="submit">Save Prompt</button>
+            </form>
+            <p><small>File: .env.${NAMEPROMPT}_prompt</small></p>
+        </body>
+        </html>
+        `;
+        res.send(html);
+    });
     
     app.listen(SERVER_PORT, () => {
-        console.log(`[Express] Server for chat logs listening on port ${SERVER_PORT}.`);
-        console.log(`[Express] Example log URL: ${BOT_SERVER_BASE_URL}/chatlogs/chat_<chatId>.log`);
+        console.log(`[Express] Server for chat logs and prompt editor listening on port ${SERVER_PORT}.`);
+        console.log(`[Express] Example log URL: ${BOT_SERVER_BASE_URL}/chatlogs/`);
+        console.log(`[Express] Prompt Editor URL: ${BOT_SERVER_BASE_URL}/edit-prompt?secret=${PROMPT_EDITOR_SECRET}`);
     });
 
 } else {
@@ -523,7 +659,7 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
             followUpSent: false,
             dialogStopped: false,
             pendingBotQuestion: null,
-            dialogMovedToUnclear: false
+            dialogMovedtoUnclear: false
         };
         
         fs.writeFileSync(userDataPath, JSON.stringify(newUserData, null, 2));
