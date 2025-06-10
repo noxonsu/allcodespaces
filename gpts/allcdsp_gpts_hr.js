@@ -121,7 +121,7 @@ const MAX_RESPONSE_DELAY = 10000; // Maximum 10 seconds delay
 const WORDS_PER_SECOND = 3; // Average typing speed for calculating dynamic delay
 const MIN_READ_DELAY = 1000; // Minimum 1 second before reading message
 const MAX_READ_DELAY = 5000; // Maximum 5 seconds before reading message
-const GREETING_PHRASES = ["здравствуйте", "привет", "добрый день", "доброе утро", "добрый вечер", "салам", "хелло", "хай", "hello", "hi", "доброго времени суток"];
+const GREETING_PHRASES = ["здравст", "привет", "добрый день", "добр", "добрый вечер", "салам", "хелло", "хай", "hello", "hi", "доброго времени суток"];
 
 // Admin and Server Configuration
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
@@ -423,11 +423,82 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
         return { action: 'sendError', context: 'system', specificErrorMsg: 'Invalid chat ID.' };
     }
 
+    // Check for /clear command
+    const isClearCommand = rawUserText.trim() === '/clear';
+    
+    if (isClearCommand) {
+        try {
+            const userFilePath = path.join(USER_DATA_DIR, `${consistentChatId}.json`);
+            
+            const newUserData = {
+                chatId: consistentChatId,
+                firstVisit: new Date().toISOString(),
+                username: fromUserDetails?.username || null,
+                firstName: fromUserDetails?.first_name || fromUserDetails?.firstName || null,
+                lastName: fromUserDetails?.last_name || fromUserDetails?.lastName || null,
+                languageCode: fromUserDetails?.language_code || fromUserDetails?.langCode || null,
+                longMemory: '',
+                lastMemoryUpdate: 0,
+                isPaid: false,
+                lastMessageTimestamp: null,
+                followUpSent: false,
+                dialogStopped: false,
+                pendingBotQuestion: null,
+                dialogMovedToUnclear: false
+            };
+            
+            fs.writeFileSync(userFilePath, JSON.stringify(newUserData, null, 2));
+            console.info(`[handleIncomingMessage ${consistentChatId}] Профиль пользователя очищен командой /clear.`);
+
+            const chatLogPath = path.join(CHAT_HISTORIES_DIR, `chat_${consistentChatId}.log`);
+            if (fs.existsSync(chatLogPath)) {
+                try {
+                    fs.unlinkSync(chatLogPath);
+                    console.info(`[handleIncomingMessage ${consistentChatId}] Лог чата очищен командой /clear.`);
+                } catch (unlinkError) {
+                    console.error(`Ошибка удаления лога чата для ${consistentChatId}:`, unlinkError);
+                }
+            }
+            
+            logChat(consistentChatId, {
+                type: 'system_event',
+                event: 'clear_command_profile_and_history_reset',
+                timestamp: messageDate.toISOString()
+            }, 'system');
+            
+            return { action: 'sendMessage', text: 'История и профиль очищены. Можете начать общение заново.' };
+        } catch (error) {
+            console.error(`Критическая ошибка при обработке /clear для чата ${consistentChatId}:`, error);
+            return { action: 'sendError', context: 'обработки команды /clear', specificErrorMsg: error.message };
+        }
+    }
+
     // Sanitize user text for regular messages
     const userTextForLogic = sanitizeString(rawUserText);
     if (!userTextForLogic) {
         console.info(`[handleIncomingMessage ${consistentChatId}] Игнорирование пустого текстового сообщения после очистки.`);
         return { action: 'noReplyNeeded' };
+    }
+    
+    // Check for greeting phrases
+    const lowerUserText = userTextForLogic.toLowerCase().trim();
+    const isGreeting = GREETING_PHRASES.some(phrase => 
+        lowerUserText === phrase || lowerUserText.startsWith(phrase + ' ') || lowerUserText.endsWith(' ' + phrase)
+    );
+    
+    if (isGreeting) {
+        console.info(`[handleIncomingMessage ${consistentChatId}] Обнаружено приветствие: "${userTextForLogic}".`);
+        logChat(consistentChatId, { 
+            type: 'user_message_received', 
+            text: userTextForLogic, 
+            detected_as: 'greeting',
+            timestamp: messageDate.toISOString() 
+        }, 'user');
+        logChat(consistentChatId, { 
+            event: 'greeting_detected_simple_response', 
+            user_text: userTextForLogic 
+        }, 'system');
+        return { action: 'sendMessage', text: 'Здравствуйте!' };
     }
     
     // --- User data initialization ---
