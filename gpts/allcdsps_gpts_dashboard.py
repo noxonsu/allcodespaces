@@ -43,27 +43,37 @@ def safe_read_json(file_path):
 def get_cost_data_from_files():
     """Собирает данные о расходах из файлов."""
     print(f"[DEBUG] Начинаем чтение данных о расходах из {COST_DATA_DIR}")
+    start_time = datetime.now()
+    
     cost_files = [f for f in safe_read_dir(COST_DATA_DIR) if f.startswith('costs_') and f.endswith('.json')]
     print(f"[DEBUG] Найдено файлов расходов: {len(cost_files)}")
+    
+    # Ограничиваем количество файлов для быстрой загрузки
+    cost_files = cost_files[:5]  # Только первые 5 файлов
+    print(f"[DEBUG] Обрабатываем только первые {len(cost_files)} файлов расходов")
     
     all_costs = []
     daily_costs = defaultdict(lambda: {'totalCost': 0, 'requests': 0, 'users': set()})
     bot_costs = defaultdict(lambda: {'totalCost': 0, 'requests': 0, 'chats': set()})
     model_costs = defaultdict(lambda: {'totalCost': 0, 'requests': 0, 'inputTokens': 0, 'outputTokens': 0})
     
-    for filename in cost_files:
+    for i, filename in enumerate(cost_files):
+        print(f"[DEBUG] Обрабатываем файл {i+1}/{len(cost_files)}: {filename}")
         file_path = os.path.join(COST_DATA_DIR, filename)
         cost_data = safe_read_json(file_path)
         
         if cost_data and isinstance(cost_data, list):
-            print(f"[DEBUG] Обрабатываем {filename}: {len(cost_data)} записей")
-            for entry in cost_data:
+            # Ограничиваем количество записей в файле
+            limited_data = cost_data[:1000]  # Максимум 1000 записей на файл
+            print(f"[DEBUG] Обрабатываем {filename}: {len(limited_data)} записей из {len(cost_data)}")
+            
+            for entry in limited_data:
                 all_costs.append(entry)
                 
                 try:
                     date = datetime.fromisoformat(entry.get('timestamp')).strftime('%Y-%m-%d')
                 except (TypeError, ValueError):
-                    continue # Пропускаем записи с некорректной меткой времени
+                    continue
                 
                 daily_costs[date]['totalCost'] += entry.get('cost', 0)
                 daily_costs[date]['requests'] += 1
@@ -88,7 +98,8 @@ def get_cost_data_from_files():
         data['uniqueChats'] = len(data['chats'])
         del data['chats']
     
-    print(f"[DEBUG] Данные о расходах загружены: {len(all_costs)} записей")
+    processing_time = (datetime.now() - start_time).total_seconds()
+    print(f"[DEBUG] Данные о расходах загружены за {processing_time:.2f}s: {len(all_costs)} записей")
     return {
         'allCosts': all_costs,
         'dailyCosts': dict(daily_costs),
@@ -101,6 +112,7 @@ def get_cost_data_from_files():
 def calculate_landing_stats(all_chat_log_file_paths):
     """Рассчитывает статистику лендинга на основе логов чатов."""
     print(f"[DEBUG] Анализируем лендинг для {len(all_chat_log_file_paths)} файлов логов")
+    start_time = datetime.now()
     
     stats = {
         'totalUsersReachedLanding': 0,
@@ -109,14 +121,14 @@ def calculate_landing_stats(all_chat_log_file_paths):
         'landingDetails': []
     }
 
-    # Ограничиваем количество файлов для быстрой загрузки
-    files_to_process = all_chat_log_file_paths[:100]  # Обрабатываем только первые 100 файлов
-    if len(all_chat_log_file_paths) > 100:
-        print(f"[DEBUG] Ограничиваем анализ лендинга до {len(files_to_process)} файлов из {len(all_chat_log_file_paths)}")
+    # Еще больше ограничиваем для быстрой диагностики
+    files_to_process = all_chat_log_file_paths[:20]  # Только 20 файлов
+    print(f"[DEBUG] Ограничиваем анализ лендинга до {len(files_to_process)} файлов из {len(all_chat_log_file_paths)}")
 
     for i, chat_log_path in enumerate(files_to_process):
-        if i % 20 == 0:
-            print(f"[DEBUG] Обработано лендинг файлов: {i}/{len(files_to_process)}")
+        if i % 5 == 0:
+            elapsed = (datetime.now() - start_time).total_seconds()
+            print(f"[DEBUG] Обработано лендинг файлов: {i}/{len(files_to_process)} за {elapsed:.1f}s")
             
         try:
             filename = os.path.basename(chat_log_path)
@@ -125,7 +137,7 @@ def calculate_landing_stats(all_chat_log_file_paths):
                 continue
             chat_id = chat_id_match.group(1)
 
-            user_name = None
+            user_name = f"User_{chat_id}"  # Упрощаем для быстроты
             reached_landing = False
             proceeded_from_landing = False
             landing_shown_time = None
@@ -133,11 +145,11 @@ def calculate_landing_stats(all_chat_log_file_paths):
             is_paid = False
 
             if os.path.exists(chat_log_path):
-                # Читаем только первые 100 строк для оптимизации
+                # Читаем только первые 20 строк для максимальной скорости
                 with open(chat_log_path, 'r', encoding='utf-8') as f:
                     log_lines = []
                     for line_num, line in enumerate(f):
-                        if line_num >= 100:  # Ограничиваем чтение
+                        if line_num >= 20:  # Очень ограниченное чтение
                             break
                         line = line.strip()
                         if line:
@@ -147,38 +159,30 @@ def calculate_landing_stats(all_chat_log_file_paths):
                     try:
                         log_entry = json.loads(line)
                         
-                        # Извлечение имени пользователя
-                        if not user_name and log_entry.get('role') == 'user' and log_entry.get('content') and isinstance(log_entry['content'], list):
-                            for content_item in log_entry['content']:
-                                if content_item.get('type') == 'input_text' and content_item.get('text') and content_item['text'].startswith('Пользователь предоставил имя: '):
-                                    user_name = content_item['text'][len('Пользователь предоставил имя: '):].strip()
-                                    break
-                        elif not user_name and log_entry.get('type') == 'user' and log_entry.get('role') == 'user' and log_entry.get('content') and isinstance(log_entry['content'], str) and log_entry['content'].startswith('Пользователь предоставил имя: '):
-                            user_name = log_entry['content'][len('Пользователь предоставил имя: '):].strip()
-
-                        # Проверка, был ли показан лендинг
+                        # Упрощенная проверка лендинга
                         if log_entry.get('type') == 'system' and log_entry.get('content') and log_entry['content'].get('type') == 'landing_shown':
                             reached_landing = True
                             landing_shown_time = log_entry.get('timestamp', datetime.now().isoformat())
                         
-                        # Проверка, продолжил ли пользователь
+                        # Упрощенная проверка продолжения
                         if reached_landing and not proceeded_from_landing:
                             if log_entry.get('type') == 'callback_query' and log_entry.get('action') == 'try_free_clicked':
                                 proceeded_from_landing = True
                                 first_message_after_landing = log_entry.get('timestamp', datetime.now().isoformat())
-                            elif log_entry.get('role') == 'user' and \
-                                 (not log_entry.get('type') or (log_entry.get('type') != 'name_provided' and (not log_entry.get('content') or 'Пользователь предоставил имя:' not in json.dumps(log_entry['content'])))) and \
-                                 log_entry.get('timestamp') and landing_shown_time and \
-                                 datetime.fromisoformat(log_entry['timestamp']) > datetime.fromisoformat(landing_shown_time):
-                                proceeded_from_landing = True
-                                first_message_after_landing = log_entry['timestamp']
+                            elif log_entry.get('role') == 'user' and log_entry.get('timestamp') and landing_shown_time:
+                                try:
+                                    if datetime.fromisoformat(log_entry['timestamp']) > datetime.fromisoformat(landing_shown_time):
+                                        proceeded_from_landing = True
+                                        first_message_after_landing = log_entry['timestamp']
+                                except:
+                                    pass
                     except json.JSONDecodeError:
-                        pass # Пропускаем некорректные строки
+                        pass
         except Exception as e:
             print(f"Ошибка обработки файла логов чата {chat_log_path}: {e}")
             continue
         
-        if reached_landing and user_name: 
+        if reached_landing: 
             stats['totalUsersReachedLanding'] += 1
             stats['landingDetails'].append({
                 'chatId': chat_id,
@@ -196,14 +200,21 @@ def calculate_landing_stats(all_chat_log_file_paths):
     if stats['totalUsersReachedLanding'] > 0:
         stats['conversionRate'] = round((stats['totalUsersProceededFromLanding'] / stats['totalUsersReachedLanding']) * 100, 1)
 
-    print(f"[DEBUG] Лендинг статистика: {stats['totalUsersReachedLanding']} дошли, {stats['totalUsersProceededFromLanding']} прошли дальше")
+    processing_time = (datetime.now() - start_time).total_seconds()
+    print(f"[DEBUG] Лендинг статистика за {processing_time:.2f}s: {stats['totalUsersReachedLanding']} дошли, {stats['totalUsersProceededFromLanding']} прошли дальше")
     return stats
 
 def get_dialog_stats():
     """Собирает статистику диалогов из логов."""
     print(f"[DEBUG] Начинаем сбор статистики диалогов из {USER_DATA_DIR}")
+    start_time = datetime.now()
+    
     bot_subdirectories = [entry for entry in safe_read_dir(USER_DATA_DIR) if os.path.isdir(os.path.join(USER_DATA_DIR, entry))]
     print(f"[DEBUG] Найдено поддиректорий ботов: {len(bot_subdirectories)}")
+
+    # Ограничиваем количество ботов для диагностики
+    bot_subdirectories = bot_subdirectories[:3]  # Только первые 3 бота
+    print(f"[DEBUG] Обрабатываем только первые {len(bot_subdirectories)} ботов: {bot_subdirectories}")
 
     all_chat_log_file_paths = []
     bot_distribution = defaultdict(int)
@@ -213,7 +224,10 @@ def get_dialog_stats():
     total_bot_messages = 0
     all_user_chat_ids = set()
 
-    for bot_name in bot_subdirectories:
+    for bot_idx, bot_name in enumerate(bot_subdirectories):
+        print(f"[DEBUG] Обрабатываем бота {bot_idx+1}/{len(bot_subdirectories)}: {bot_name}")
+        bot_start_time = datetime.now()
+        
         bot_chat_histories_dir = os.path.join(USER_DATA_DIR, bot_name, 'chat_histories')
         if os.path.exists(bot_chat_histories_dir):
             chat_files_for_bot = [os.path.join(bot_chat_histories_dir, f) for f in safe_read_dir(bot_chat_histories_dir) if f.startswith('chat_') and f.endswith('.log')]
@@ -222,9 +236,11 @@ def get_dialog_stats():
             all_chat_log_file_paths.extend(chat_files_for_bot)
             bot_distribution[bot_name] += len(chat_files_for_bot)
 
-            # Ограничиваем количество обрабатываемых файлов для оптимизации
-            files_to_process = chat_files_for_bot[:50]  # Максимум 50 файлов на бота
-            for log_file_path in files_to_process:
+            # Еще больше ограничиваем для диагностики
+            files_to_process = chat_files_for_bot[:10]  # Максимум 10 файлов на бота
+            print(f"[DEBUG] Обрабатываем {len(files_to_process)} файлов из {len(chat_files_for_bot)} для бота {bot_name}")
+            
+            for file_idx, log_file_path in enumerate(files_to_process):
                 try:
                     filename = os.path.basename(log_file_path)
                     chat_id_match = re.match(r'chat_(\d+)\.log', filename)
@@ -233,11 +249,11 @@ def get_dialog_stats():
                     if current_chat_id:
                         all_user_chat_ids.add(current_chat_id)
 
-                    # Читаем только первые 50 строк для быстрой обработки
+                    # Читаем только первые 10 строк для быстрой диагностики
                     with open(log_file_path, 'r', encoding='utf-8') as f:
                         lines = []
                         for line_num, line in enumerate(f):
-                            if line_num >= 50:
+                            if line_num >= 10:
                                 break
                             line = line.strip()
                             if line:
@@ -254,13 +270,19 @@ def get_dialog_stats():
                                 total_bot_messages += 1
                             
                             if entry.get('timestamp') and current_chat_id:
-                                date = datetime.fromisoformat(entry['timestamp']).strftime('%Y-%m-%d')
-                                daily_stats[date]['messages'] += 1
-                                daily_stats[date]['users'].add(current_chat_id)
+                                try:
+                                    date = datetime.fromisoformat(entry['timestamp']).strftime('%Y-%m-%d')
+                                    daily_stats[date]['messages'] += 1
+                                    daily_stats[date]['users'].add(current_chat_id)
+                                except:
+                                    pass
                         except json.JSONDecodeError:
-                            pass # Пропускаем некорректные строки
+                            pass
                 except Exception as e:
                     print(f"Ошибка чтения файла чата {log_file_path}: {e}")
+        
+        bot_elapsed = (datetime.now() - bot_start_time).total_seconds()
+        print(f"[DEBUG] Бот {bot_name} обработан за {bot_elapsed:.2f}s")
     
     for date, data in daily_stats.items():
         data['uniqueUsers'] = len(data['users'])
@@ -274,7 +296,8 @@ def get_dialog_stats():
     unclear_dialogs = 0
     active_dialogs = len(all_user_chat_ids) 
 
-    print(f"[DEBUG] Статистика диалогов собрана: {len(all_user_chat_ids)} пользователей, {total_messages} сообщений")
+    processing_time = (datetime.now() - start_time).total_seconds()
+    print(f"[DEBUG] Статистика диалогов собрана за {processing_time:.2f}s: {len(all_user_chat_ids)} пользователей, {total_messages} сообщений")
     return {
         'totalUsers': len(all_user_chat_ids),
         'activeDialogs': active_dialogs,
@@ -353,18 +376,24 @@ def get_cost_metrics():
 @app.route('/api/stats')
 def api_stats():
     start_time = datetime.now()
-    print(f"[DEBUG] Начинаем генерацию статистики в {start_time}")
+    print(f"[DEBUG] ========== Начинаем генерацию статистики в {start_time} ==========")
     
     try:
-        print(f"[DEBUG] Загружаем статистику диалогов...")
-        dialog_stats = get_dialog_stats()
-        
-        print(f"[DEBUG] Загружаем метрики расходов...")
+        print(f"[DEBUG] 1/3 Загружаем метрики расходов...")
+        cost_start = datetime.now()
         cost_metrics = get_cost_metrics()
+        cost_time = (datetime.now() - cost_start).total_seconds()
+        print(f"[DEBUG] 1/3 Метрики расходов загружены за {cost_time:.2f}s")
+        
+        print(f"[DEBUG] 2/3 Загружаем статистику диалогов...")
+        dialog_start = datetime.now()
+        dialog_stats = get_dialog_stats()
+        dialog_time = (datetime.now() - dialog_start).total_seconds()
+        print(f"[DEBUG] 2/3 Статистика диалогов загружена за {dialog_time:.2f}s")
         
         end_time = datetime.now()
         processing_time = (end_time - start_time).total_seconds()
-        print(f"[DEBUG] Статистика сгенерирована за {processing_time:.2f} секунд")
+        print(f"[DEBUG] 3/3 ГОТОВО! Статистика сгенерирована за {processing_time:.2f} секунд")
         
         return jsonify({
             'success': True,
@@ -372,12 +401,14 @@ def api_stats():
                 'dialogs': dialog_stats,
                 'costs': cost_metrics,
                 'timestamp': datetime.now().isoformat(),
-                'dataSource': 'user_data subdirectories and cost_data directory',
-                'processingTime': processing_time
+                'dataSource': 'user_data subdirectories and cost_data directory (LIMITED FOR DEBUGGING)',
+                'processingTime': processing_time,
+                'costTime': cost_time,
+                'dialogTime': dialog_time
             }
         })
     except Exception as e:
-        print(f"Ошибка генерации статистики: {e}")
+        print(f"[ERROR] Ошибка генерации статистики: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({
