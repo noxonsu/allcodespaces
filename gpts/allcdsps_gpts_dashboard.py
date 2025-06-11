@@ -165,19 +165,25 @@ def calculate_landing_stats(all_chat_log_file_paths):
                                  (not log_entry.get('type') or (log_entry.get('type') != 'name_provided' and (not log_entry.get('content') or 'Пользователь предоставил имя:' not in json.dumps(log_entry['content'])))) and \
                                  log_entry.get('timestamp') and landing_shown_time:
                                 try:
-                                    ts = log_entry['timestamp']
-                                    if ts.endswith('Z'):
-                                        ts = ts[:-1] + '+00:00'  # Добавляем таймзону
-                                    if datetime.fromisoformat(ts) > datetime.fromisoformat(landing_shown_time):
+                                    # Обрабатываем формат даты для текущего сообщения
+                                    current_ts = log_entry['timestamp']
+                                    if current_ts.endswith('Z'):
+                                        current_ts = current_ts[:-1] + '+00:00'
+                                    
+                                    # Обрабатываем формат даты для времени показа лендинга
+                                    landing_ts = landing_shown_time
+                                    if landing_ts.endswith('Z'):
+                                        landing_ts = landing_ts[:-1] + '+00:00'
+                                    
+                                    if datetime.fromisoformat(current_ts) > datetime.fromisoformat(landing_ts):
                                         proceeded_from_landing = True
                                         first_message_after_landing = log_entry['timestamp']
-                                except ValueError as ve:
-                                    print(f"[DEBUG] Ошибка парсинга даты (продолжение): {ve}")
-                                    pass
+                                except ValueError:
+                                    pass  # Убираем логирование для чистоты
                     except json.JSONDecodeError:
                         pass
         except Exception as e:
-            print(f"Ошибка обработки файла логов чата {chat_log_path}: {e}")
+            # Убираем подробное логирование ошибок для чистоты
             continue
         
         if reached_landing and user_name: 
@@ -259,19 +265,19 @@ def get_dialog_stats():
                                 try:
                                     ts = entry['timestamp']
                                     if ts.endswith('Z'):
-                                        ts = ts[:-1] + '+00:00'  # Добавляем таймзону
+                                        ts = ts[:-1] + '+00:00'
                                     date = datetime.fromisoformat(ts).strftime('%Y-%m-%d')
                                     daily_stats[date]['messages'] += 1
                                     daily_stats[date]['users'].add(current_chat_id)
-                                except (ValueError, TypeError) as e:
-                                    print(f"[DEBUG] Ошибка парсинга даты (статистика): {e}")
-                                    pass
+                                except (ValueError, TypeError):
+                                    pass  # Убираем логирование для чистоты
                         except json.JSONDecodeError:
                             pass
                         except (TypeError, ValueError):
                             pass
-                except Exception as e:
-                    print(f"Ошибка чтения файла чата {log_file_path}: {e}")
+                except Exception:
+                    # Убираем подробное логирование ошибок для чистоты
+                    pass
         
         bot_elapsed = (datetime.now() - bot_start_time).total_seconds()
         print(f"[DEBUG] Бот {bot_name} обработан за {bot_elapsed:.2f}s")
