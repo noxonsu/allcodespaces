@@ -456,7 +456,7 @@ def serve_dashboard():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bot Dashboard - Cost Analytics</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+   
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
