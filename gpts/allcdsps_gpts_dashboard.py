@@ -448,7 +448,7 @@ def api_daily_chart(days):
         }), 500
 
 # Serve dashboard HTML
-@app.route('/')
+@app.route('/dashboard')
 def serve_dashboard():
     html_content = """<!DOCTYPE html>
 <html lang="en">
