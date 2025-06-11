@@ -42,7 +42,9 @@ def safe_read_json(file_path):
 
 def get_cost_data_from_files():
     """Собирает данные о расходах из файлов."""
+    print(f"[DEBUG] Начинаем чтение данных о расходах из {COST_DATA_DIR}")
     cost_files = [f for f in safe_read_dir(COST_DATA_DIR) if f.startswith('costs_') and f.endswith('.json')]
+    print(f"[DEBUG] Найдено файлов расходов: {len(cost_files)}")
     
     all_costs = []
     daily_costs = defaultdict(lambda: {'totalCost': 0, 'requests': 0, 'users': set()})
@@ -54,6 +56,7 @@ def get_cost_data_from_files():
         cost_data = safe_read_json(file_path)
         
         if cost_data and isinstance(cost_data, list):
+            print(f"[DEBUG] Обрабатываем {filename}: {len(cost_data)} записей")
             for entry in cost_data:
                 all_costs.append(entry)
                 
@@ -85,6 +88,7 @@ def get_cost_data_from_files():
         data['uniqueChats'] = len(data['chats'])
         del data['chats']
     
+    print(f"[DEBUG] Данные о расходах загружены: {len(all_costs)} записей")
     return {
         'allCosts': all_costs,
         'dailyCosts': dict(daily_costs),
@@ -96,6 +100,8 @@ def get_cost_data_from_files():
 
 def calculate_landing_stats(all_chat_log_file_paths):
     """Рассчитывает статистику лендинга на основе логов чатов."""
+    print(f"[DEBUG] Анализируем лендинг для {len(all_chat_log_file_paths)} файлов логов")
+    
     stats = {
         'totalUsersReachedLanding': 0,
         'totalUsersProceededFromLanding': 0,
@@ -103,7 +109,15 @@ def calculate_landing_stats(all_chat_log_file_paths):
         'landingDetails': []
     }
 
-    for chat_log_path in all_chat_log_file_paths:
+    # Ограничиваем количество файлов для быстрой загрузки
+    files_to_process = all_chat_log_file_paths[:100]  # Обрабатываем только первые 100 файлов
+    if len(all_chat_log_file_paths) > 100:
+        print(f"[DEBUG] Ограничиваем анализ лендинга до {len(files_to_process)} файлов из {len(all_chat_log_file_paths)}")
+
+    for i, chat_log_path in enumerate(files_to_process):
+        if i % 20 == 0:
+            print(f"[DEBUG] Обработано лендинг файлов: {i}/{len(files_to_process)}")
+            
         try:
             filename = os.path.basename(chat_log_path)
             chat_id_match = re.match(r'chat_(\d+)\.log', filename)
@@ -116,11 +130,18 @@ def calculate_landing_stats(all_chat_log_file_paths):
             proceeded_from_landing = False
             landing_shown_time = None
             first_message_after_landing = None
-            is_paid = False # Эта информация не в логах
+            is_paid = False
 
             if os.path.exists(chat_log_path):
+                # Читаем только первые 100 строк для оптимизации
                 with open(chat_log_path, 'r', encoding='utf-8') as f:
-                    log_lines = [line.strip() for line in f if line.strip()]
+                    log_lines = []
+                    for line_num, line in enumerate(f):
+                        if line_num >= 100:  # Ограничиваем чтение
+                            break
+                        line = line.strip()
+                        if line:
+                            log_lines.append(line)
                 
                 for line in log_lines:
                     try:
@@ -175,11 +196,14 @@ def calculate_landing_stats(all_chat_log_file_paths):
     if stats['totalUsersReachedLanding'] > 0:
         stats['conversionRate'] = round((stats['totalUsersProceededFromLanding'] / stats['totalUsersReachedLanding']) * 100, 1)
 
+    print(f"[DEBUG] Лендинг статистика: {stats['totalUsersReachedLanding']} дошли, {stats['totalUsersProceededFromLanding']} прошли дальше")
     return stats
 
 def get_dialog_stats():
     """Собирает статистику диалогов из логов."""
+    print(f"[DEBUG] Начинаем сбор статистики диалогов из {USER_DATA_DIR}")
     bot_subdirectories = [entry for entry in safe_read_dir(USER_DATA_DIR) if os.path.isdir(os.path.join(USER_DATA_DIR, entry))]
+    print(f"[DEBUG] Найдено поддиректорий ботов: {len(bot_subdirectories)}")
 
     all_chat_log_file_paths = []
     bot_distribution = defaultdict(int)
@@ -193,12 +217,14 @@ def get_dialog_stats():
         bot_chat_histories_dir = os.path.join(USER_DATA_DIR, bot_name, 'chat_histories')
         if os.path.exists(bot_chat_histories_dir):
             chat_files_for_bot = [os.path.join(bot_chat_histories_dir, f) for f in safe_read_dir(bot_chat_histories_dir) if f.startswith('chat_') and f.endswith('.log')]
+            print(f"[DEBUG] Бот {bot_name}: найдено {len(chat_files_for_bot)} файлов чатов")
             
             all_chat_log_file_paths.extend(chat_files_for_bot)
-            
             bot_distribution[bot_name] += len(chat_files_for_bot)
 
-            for log_file_path in chat_files_for_bot:
+            # Ограничиваем количество обрабатываемых файлов для оптимизации
+            files_to_process = chat_files_for_bot[:50]  # Максимум 50 файлов на бота
+            for log_file_path in files_to_process:
                 try:
                     filename = os.path.basename(log_file_path)
                     chat_id_match = re.match(r'chat_(\d+)\.log', filename)
@@ -207,8 +233,15 @@ def get_dialog_stats():
                     if current_chat_id:
                         all_user_chat_ids.add(current_chat_id)
 
+                    # Читаем только первые 50 строк для быстрой обработки
                     with open(log_file_path, 'r', encoding='utf-8') as f:
-                        lines = [line.strip() for line in f if line.strip()]
+                        lines = []
+                        for line_num, line in enumerate(f):
+                            if line_num >= 50:
+                                break
+                            line = line.strip()
+                            if line:
+                                lines.append(line)
                     
                     for line in lines:
                         try:
@@ -233,6 +266,7 @@ def get_dialog_stats():
         data['uniqueUsers'] = len(data['users'])
         del data['users']
     
+    print(f"[DEBUG] Запускаем анализ лендинга...")
     landing_stats = calculate_landing_stats(all_chat_log_file_paths)
     
     paid_users = 0 
@@ -240,6 +274,7 @@ def get_dialog_stats():
     unclear_dialogs = 0
     active_dialogs = len(all_user_chat_ids) 
 
+    print(f"[DEBUG] Статистика диалогов собрана: {len(all_user_chat_ids)} пользователей, {total_messages} сообщений")
     return {
         'totalUsers': len(all_user_chat_ids),
         'activeDialogs': active_dialogs,
@@ -317,9 +352,19 @@ def get_cost_metrics():
 # API Routes
 @app.route('/api/stats')
 def api_stats():
+    start_time = datetime.now()
+    print(f"[DEBUG] Начинаем генерацию статистики в {start_time}")
+    
     try:
+        print(f"[DEBUG] Загружаем статистику диалогов...")
         dialog_stats = get_dialog_stats()
+        
+        print(f"[DEBUG] Загружаем метрики расходов...")
         cost_metrics = get_cost_metrics()
+        
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        print(f"[DEBUG] Статистика сгенерирована за {processing_time:.2f} секунд")
         
         return jsonify({
             'success': True,
@@ -327,11 +372,14 @@ def api_stats():
                 'dialogs': dialog_stats,
                 'costs': cost_metrics,
                 'timestamp': datetime.now().isoformat(),
-                'dataSource': 'user_data subdirectories and cost_data directory'
+                'dataSource': 'user_data subdirectories and cost_data directory',
+                'processingTime': processing_time
             }
         })
     except Exception as e:
         print(f"Ошибка генерации статистики: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
@@ -816,4 +864,14 @@ if __name__ == '__main__':
     print(f"[Dashboard] Сервер запускается на http://localhost:{PORT}")
     print(f"[Dashboard] Чтение данных о расходах из: {COST_DATA_DIR}")
     print(f"[Dashboard] Чтение данных пользователя (логов) из поддиректорий в: {USER_DATA_DIR}")
+    
+    # Проверяем существование директорий
+    print(f"[DEBUG] Проверяем директории:")
+    print(f"[DEBUG] COST_DATA_DIR существует: {os.path.exists(COST_DATA_DIR)}")
+    print(f"[DEBUG] USER_DATA_DIR существует: {os.path.exists(USER_DATA_DIR)}")
+    
+    if os.path.exists(USER_DATA_DIR):
+        subdirs = safe_read_dir(USER_DATA_DIR)
+        print(f"[DEBUG] Поддиректории в USER_DATA_DIR: {subdirs}")
+    
     app.run(host='0.0.0.0', port=PORT, debug=True)
