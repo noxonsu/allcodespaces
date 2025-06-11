@@ -163,10 +163,17 @@ def calculate_landing_stats(all_chat_log_file_paths):
                                 first_message_after_landing = log_entry.get('timestamp', datetime.now().isoformat())
                             elif log_entry.get('role') == 'user' and \
                                  (not log_entry.get('type') or (log_entry.get('type') != 'name_provided' and (not log_entry.get('content') or 'Пользователь предоставил имя:' not in json.dumps(log_entry['content'])))) and \
-                                 log_entry.get('timestamp') and landing_shown_time and \
-                                 datetime.fromisoformat(log_entry['timestamp']) > datetime.fromisoformat(landing_shown_time):
-                                proceeded_from_landing = True
-                                first_message_after_landing = log_entry['timestamp']
+                                 log_entry.get('timestamp') and landing_shown_time:
+                                try:
+                                    ts = log_entry['timestamp']
+                                    if ts.endswith('Z'):
+                                        ts = ts[:-1] + '+00:00'  # Добавляем таймзону
+                                    if datetime.fromisoformat(ts) > datetime.fromisoformat(landing_shown_time):
+                                        proceeded_from_landing = True
+                                        first_message_after_landing = log_entry['timestamp']
+                                except ValueError as ve:
+                                    print(f"[DEBUG] Ошибка парсинга даты (продолжение): {ve}")
+                                    pass
                     except json.JSONDecodeError:
                         pass
         except Exception as e:
@@ -249,9 +256,16 @@ def get_dialog_stats():
                                 total_bot_messages += 1
                             
                             if entry.get('timestamp') and current_chat_id:
-                                date = datetime.fromisoformat(entry['timestamp']).strftime('%Y-%m-%d')
-                                daily_stats[date]['messages'] += 1
-                                daily_stats[date]['users'].add(current_chat_id)
+                                try:
+                                    ts = entry['timestamp']
+                                    if ts.endswith('Z'):
+                                        ts = ts[:-1] + '+00:00'  # Добавляем таймзону
+                                    date = datetime.fromisoformat(ts).strftime('%Y-%m-%d')
+                                    daily_stats[date]['messages'] += 1
+                                    daily_stats[date]['users'].add(current_chat_id)
+                                except (ValueError, TypeError) as e:
+                                    print(f"[DEBUG] Ошибка парсинга даты (статистика): {e}")
+                                    pass
                         except json.JSONDecodeError:
                             pass
                         except (TypeError, ValueError):
