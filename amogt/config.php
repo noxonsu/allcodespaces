@@ -60,12 +60,14 @@ define('AMO_TOKEN', getenv('AMO_TOKEN')); // Опциональный прямо
 define('AMO_MAIN_PIPELINE_ID', getenv('AMO_MAIN_PIPELINE_ID'));
 define('AMO_CHATGPT_STATUS_ID', getenv('AMO_CHATGPT_STATUS_ID'));
 define('AMO_FINAL_OPERATOR_STATUS_ID', getenv('AMO_FINAL_OPERATOR_STATUS_ID'));
+define('AMO_STATUS_ERROR_ENUM_ID', getenv('AMO_STATUS_ERROR_ENUM_ID')); // Добавляем константу для статуса ошибки
 
 // ID пользовательских полей AmoCRM (загружаются из .env)
 define('AMO_CF_ID_PAYMENT_LINK', getenv('AMO_CF_ID_PAYMENT_LINK'));
 define('AMO_CF_ID_REQUEST_AMOUNT', getenv('AMO_CF_ID_REQUEST_AMOUNT'));
 define('AMO_CF_ID_REQUEST_CURRENCY', getenv('AMO_CF_ID_REQUEST_CURRENCY'));
 define('AMO_CF_ID_CHATGPT_PAYMENT_STATUS', getenv('AMO_CF_ID_CHATGPT_PAYMENT_STATUS'));
+define('AMO_CF_ID_PROMOCODE', getenv('AMO_CF_ID_PROMOCODE')); // Новая константа для ID поля "Промокод"
 
 // Enum ID валют AmoCRM (загружаются из .env)
 define('AMO_CURRENCY_ENUM_ID_USD', getenv('AMO_CURRENCY_ENUM_ID_USD'));
@@ -74,7 +76,7 @@ define('AMO_CURRENCY_ENUM_ID_KZT', getenv('AMO_CURRENCY_ENUM_ID_KZT'));
 define('AMO_CURRENCY_ENUM_ID_RUB', getenv('AMO_CURRENCY_ENUM_ID_RUB'));
 define('AMO_CURRENCY_ENUM_ID_GBP', getenv('AMO_CURRENCY_ENUM_ID_GBP'));
 define('AMO_CURRENCY_ENUM_ID_TL', getenv('AMO_CURRENCY_ENUM_ID_TL'));
-define('AMO_CURRENCY_ENUM_ID_TRY', getenv('AMO_CURRENCY_ENUM_ID_TRY'));
+    define('AMO_CURRENCY_ENUM_ID_TRY', getenv('AMO_CURRENCY_ENUM_ID_TRY'));
 
 // Дополнительные константы
 define('WEBHOOK_API_KEY', getenv('WEBHOOK_API_KEY'));
@@ -92,6 +94,7 @@ $AMO_CUSTOM_FIELD_NAMES = [
     'email' => getenv('AMO_CF_NAME_EMAIL') ?: "Почта",
     'payment_term' => getenv('AMO_CF_NAME_PAYMENT_TERM') ?: "Срок оплаты",
     'status' => getenv('AMO_CF_NAME_STATUS') ?: "Статус",
+    'promocode' => getenv('AMO_CF_NAME_PROMOCODE') ?: "Промокод", // Добавляем имя для промокода
     'payment_link' => "Ссылка на оплату", // имя поля для ссылки на оплату
 ];
 
@@ -107,6 +110,7 @@ $requiredEnvVars = [
     'AMO_CF_ID_PAYMENT_LINK' => AMO_CF_ID_PAYMENT_LINK,
     'AMO_CF_ID_REQUEST_AMOUNT' => AMO_CF_ID_REQUEST_AMOUNT,
     'AMO_CF_ID_REQUEST_CURRENCY' => AMO_CF_ID_REQUEST_CURRENCY,
+    'AMO_CF_ID_PROMOCODE' => AMO_CF_ID_PROMOCODE,
     'AMO_CURRENCY_ENUM_ID_USD' => AMO_CURRENCY_ENUM_ID_USD,
     'AMO_CURRENCY_ENUM_ID_EUR' => AMO_CURRENCY_ENUM_ID_EUR,
     'AMO_CURRENCY_ENUM_ID_KZT' => AMO_CURRENCY_ENUM_ID_KZT,
@@ -114,10 +118,20 @@ $requiredEnvVars = [
     'AMO_CURRENCY_ENUM_ID_GBP' => AMO_CURRENCY_ENUM_ID_GBP,
     'AMO_CURRENCY_ENUM_ID_TL' => AMO_CURRENCY_ENUM_ID_TL,
     'AMO_CURRENCY_ENUM_ID_TRY' => AMO_CURRENCY_ENUM_ID_TRY,
-    'WEBHOOK_API_KEY' => WEBHOOK_API_KEY, // Добавляем WEBHOOK_API_KEY в список обязательных
-    'AMO_SUCCESS_STATUS' => AMO_SUCCESS_STATUS, // Добавляем AMO_SUCCESS_STATUS в список обязательных
+    'WEBHOOK_API_KEY' => WEBHOOK_API_KEY,
+    'AMO_SUCCESS_STATUS' => AMO_SUCCESS_STATUS,
     'AMO_CF_ID_CHATGPT_PAYMENT_STATUS' => AMO_CF_ID_CHATGPT_PAYMENT_STATUS,
+    // Добавляем недостающую константу для статуса ошибки
+    'AMO_STATUS_ERROR_ENUM_ID' => defined('AMO_STATUS_ERROR_ENUM_ID') ? constant('AMO_STATUS_ERROR_ENUM_ID') : null,
 ];
+
+// Добавляем определение константы AMO_STATUS_ERROR_ENUM_ID если её нет
+if (!defined('AMO_STATUS_ERROR_ENUM_ID')) {
+    define('AMO_STATUS_ERROR_ENUM_ID', getenv('AMO_STATUS_ERROR_ENUM_ID'));
+}
+
+// Обновляем массив проверки
+$requiredEnvVars['AMO_STATUS_ERROR_ENUM_ID'] = AMO_STATUS_ERROR_ENUM_ID;
 
 $missingVar = false;
 $errorMessages = [];
@@ -125,10 +139,10 @@ foreach ($requiredEnvVars as $key => $value) {
     // Check if the environment variable itself is set (getenv returns false if not set)
     // And if it is set, check if its value (after being assigned to the constant) is empty.
     if (getenv($key) === false) {
-        $errorMessages[] = "Критическая ошибка: Переменная окружения $key не установлена в файле $envFile.";
+        $errorMessages[] = "КРИТИЧЕСКАЯ ОШИБКА: Переменная окружения $key не установлена в файле $envFile.";
         $missingVar = true;
     } elseif (empty($value) && getenv($key) !== '0' && getenv($key) !== false ) { // Allow '0' as a valid value
-        $errorMessages[] = "Критическая ошибка: Переменная окружения $key ($value) определена в $envFile, но ее значение пустое или не удалось определить.";
+        $errorMessages[] = "КРИТИЧЕСКАЯ ОШИБКА: Переменная окружения $key ($value) определена в $envFile, но ее значение пустое или не удалось определить.";
         $missingVar = true;
     }
 }
@@ -137,12 +151,13 @@ if ($missingVar) {
     foreach ($errorMessages as $msg) {
         error_log($msg); // Log to error log
         if (php_sapi_name() !== 'cli') { // Don't echo HTML in CLI
-             echo "<p>$msg</p>\n";
+             echo "<p style='color: red; font-weight: bold;'>$msg</p>\n";
         } else {
-            echo "$msg\n";
+            echo "\033[31m$msg\033[0m\n"; // Red text in CLI
         }
     }
-    exit(1);
+    // Принудительно завершаем выполнение
+    die("Выполнение остановлено из-за отсутствующих критически важных переменных окружения.");
 }
 
 if (!AMO_DOMAIN) { // This check might be redundant if AMO_DOMAIN is in $requiredEnvVars and checked above

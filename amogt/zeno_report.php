@@ -172,7 +172,6 @@ $reportEntry = [
         'status' => $reportStatus,
         'amount' => $reportAmount,
         'currency' => $reportCurrency,
-        'email' => $reportEmail,
         'card' => $reportCard,
     ],
     'reported_at' => date('Y-m-d H:i:s'),
@@ -273,73 +272,73 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                             'amount' => 'amount_issued', 'currency' => 'currency', 
                             'email' => 'email', 'card' => 'card', 'status' => 'status'
                         ];
-                        $reportDataForAmo = $reportEntry['report_data'];
+$reportDataForAmo = $reportEntry['report_data'];
 
-                        foreach ($mapPostToInternal as $postKey => $internalKey) {
-                            if (isset($reportDataForAmo[$postKey]) && $reportDataForAmo[$postKey] !== null) {
-                                $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
-                                if ($internalKey === 'status') $amoFieldName = $statusAmoFieldName; // Use corrected status field name
+foreach ($mapPostToInternal as $postKey => $internalKey) {
+    if (isset($reportDataForAmo[$postKey]) && $reportDataForAmo[$postKey] !== null) {
+        $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
+        if ($internalKey === 'status') $amoFieldName = $statusAmoFieldName; // Use corrected status field name
 
-                                if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
-                                    $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
-                                    $value = $reportDataForAmo[$postKey];
-                                    $valPayload = null;
-                                    if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
-                                        foreach ($fieldDef['enums'] as $enum) {
-                                            if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
-                                                $valPayload = ['enum_id' => (int)$enum['id']]; break;
-                                            }
-                                        }
-                                    } else if ($fieldDef['type'] === 'date') {
-                                        $ts = strtotime($value);
-                                        if ($ts) $valPayload = ['value' => $ts];
-                                    } else if ($fieldDef['type'] === 'numeric') {
-                                        $valPayload = ['value' => (float)$value];
-                                    } else { // text, textarea etc.
-                                        $valPayload = ['value' => (string)$value];
-                                    }
-                                    if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
-                                }
-                            }
-                        }
-                        // Add static fields
-                        $staticFields = [
-                            'withdrawal_account' => 'Mastercard Prepaid', 'withdrawal_date' => $currentUnixTimestamp,
-                            'administrator' => 'Бот', 'paid_service' => 'chatgpt', 'payment_term' => '1'
-                        ];
-                        foreach ($staticFields as $internalKey => $value) {
-                             $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
-                             if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
-                                $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
-                                $valPayload = null;
-                                if ($fieldDef['type'] === 'date') $valPayload = ['value' => (int)$value]; // for timestamp
-                                else $valPayload = ['value' => (string)$value];
-                                if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
-                             }
-                        }
-                        
-                        $amoUpdatePayload = ['id' => $dealToUpdate['id']];
-                        if (!empty($customFieldsPayload)) {
-                            $amoUpdatePayload['custom_fields_values'] = $customFieldsPayload;
-                        }
+        if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
+            $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
+            $value = $reportDataForAmo[$postKey];
+            $valPayload = null;
+            if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
+                foreach ($fieldDef['enums'] as $enum) {
+                    if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
+                        $valPayload = ['enum_id' => (int)$enum['id']]; break;
+                    }
+                }
+            } else if ($fieldDef['type'] === 'date') {
+                $ts = strtotime($value);
+                if ($ts) $valPayload = ['value' => $ts];
+            } else if ($fieldDef['type'] === 'numeric') {
+                $valPayload = ['value' => (float)$value];
+            } else { // text, textarea etc.
+                $valPayload = ['value' => (string)$value];
+            }
+            if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+        }
+    }
+}
+// Add static fields
+$staticFields = [
+    'withdrawal_account' => 'Mastercard Prepaid', 'withdrawal_date' => $currentUnixTimestamp,
+    'administrator' => 'Бот', 'paid_service' => 'chatgpt', 'payment_term' => '1'
+];
+foreach ($staticFields as $internalKey => $value) {
+     $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
+     if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
+        $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
+        $valPayload = null;
+        if ($fieldDef['type'] === 'date') $valPayload = ['value' => (int)$value]; // for timestamp
+        else $valPayload = ['value' => (string)$value];
+        if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+     }
+}
 
-                        // Update stage based on report status
-                        if ($reportStatus === "Выполнено") {
-                            $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID; // Используем константу
-                            // Используем enum ID для статуса "Выполнено"
-                            if (defined('AMO_SUCCESS_STATUS')) {
-                                $amoUpdatePayload['status_id'] = (int)AMO_SUCCESS_STATUS;
-                            } else {
-                                // Fallback или логирование ошибки, если константа не определена
-                                logMessage("[ZenoReport] WARNING: AMO_SUCCESS_STATUS not defined. Cannot set success status.", 'WARNING', ZENO_REPORT_LOG_FILE);
-                            }
-                        } else if ($reportStatus === "ОШИБКА!") {
-                             if (defined('AMO_STATUS_ERROR_ENUM_ID')) {
-                                $amoUpdatePayload['status_id'] = (int)AMO_STATUS_ERROR_ENUM_ID;
-                             } else {
-                                logMessage("[ZenoReport] ERROR: AMO_STATUS_ERROR_ENUM_ID not defined. Cannot set error status.", 'ERROR', ZENO_REPORT_LOG_FILE);
-                             }
-                        }
+$amoUpdatePayload = ['id' => $dealToUpdate['id']];
+if (!empty($customFieldsPayload)) {
+    $amoUpdatePayload['custom_fields_values'] = $customFieldsPayload;
+}
+
+// Update stage based on report status
+if ($reportStatus === "Выполнено") {
+    $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID; // Используем константу
+    // Используем enum ID для статуса "Выполнено"
+    if (defined('AMO_FINAL_OPERATOR_STATUS_ID')) { // Изменено на AMO_FINAL_OPERATOR_STATUS_ID
+        $amoUpdatePayload['status_id'] = (int)AMO_FINAL_OPERATOR_STATUS_ID;
+    } else {
+        // Fallback или логирование ошибки, если константа не определена
+        logMessage("[ZenoReport] WARNING: AMO_FINAL_OPERATOR_STATUS_ID not defined. Cannot set success status.", 'WARNING', ZENO_REPORT_LOG_FILE);
+    }
+} else if ($reportStatus === "ОШИБКА!") {
+     if (defined('AMO_STATUS_ERROR_ENUM_ID')) {
+        $amoUpdatePayload['status_id'] = (int)AMO_STATUS_ERROR_ENUM_ID;
+     } else {
+        logMessage("[ZenoReport] ERROR: AMO_STATUS_ERROR_ENUM_ID not defined. Cannot set error status.", 'ERROR', ZENO_REPORT_LOG_FILE);
+     }
+}
                         
                         if (count($amoUpdatePayload) > 1) { // Has more than just 'id'
                             logMessage("[ZenoReport] AmoCRM update payload for lead $leadId: " . json_encode($amoUpdatePayload, JSON_UNESCAPED_UNICODE), 'DEBUG', ZENO_REPORT_LOG_FILE);

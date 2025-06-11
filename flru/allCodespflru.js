@@ -68,24 +68,46 @@ async function saveProcessedProject(projectUrl) {
   }
 }
 
+function extractRegistrationDate(htmlContent) {
+  const $ = cheerio.load(htmlContent);
+  const registrationText = $('div.mt-8.text-7:contains("Зарегистрирован на сайте")').text();
+  const match = registrationText.match(/Зарегистрирован на сайте\s*(.+)/);
+  return match ? match[1].trim() : null;
+}
+
 async function fetchProjectDetails(projectUrl) {
   try {
     const response = await axios.get(projectUrl);
     const $ = cheerio.load(response.data);
     const description = $('div.b-post__txt').text().trim();
-    return description || 'Описание не найдено';
+    const registrationDate = extractRegistrationDate(response.data);
+    return { description: description || 'Описание не найдено', registrationDate };
   } catch (error) {
     console.error(`Ошибка при получении деталей проекта ${projectUrl}:`, error.message);
-    return 'Ошибка при получении описания';
+    return { description: 'Ошибка при получении описания', registrationDate: null };
   }
 }
 
-async function analyzeProject(projectTitle, projectDescription) {
+async function analyzeProject(projectTitle, projectDescription, registrationDate) {
   try {
+    // Проверка даты регистрации
+    let isOldEnough = false;
+    if (registrationDate) {
+      const match = registrationDate.match(/(\d+)\s*лет/);
+      if (match && parseInt(match[1]) >= 2) {
+        isOldEnough = true;
+      }
+    }
+
+    if (!isOldEnough) {
+      console.log(`Заказчик зарегистрирован менее 2 лет (${registrationDate}). Пропускаем проект.`);
+      return 'Нет';
+    }
+
     const userMessageContent = [
       {
         type: 'input_text',
-        text: `Название проекта: ${projectTitle}\n Описание: ${projectDescription}`,
+        text: `Название проекта: ${projectTitle}\n Описание: ${projectDescription}\n Дата регистрации заказчика: ${registrationDate}`,
       },
     ];
 
@@ -134,16 +156,16 @@ async function processFeed() {
 
       console.log(`Обработка проекта: ${projectTitle}`);
 
-      // Используем описание напрямую из RSS
-      const projectDescription = item.content || item.contentSnippet || item.description || 'Описание отсутствует';
+      const { description: projectDescription, registrationDate } = await fetchProjectDetails(projectUrl);
 
-      const analysis = await analyzeProject(projectTitle, projectDescription);
+      const analysis = await analyzeProject(projectTitle, projectDescription, registrationDate);
 
       console.log(`Проект: ${projectTitle}`);
-      console.log(`Дескрипшин: ${projectDescription}`);
+      console.log(`Описание: ${projectDescription}`);
+      console.log(`Дата регистрации: ${registrationDate}`);
       console.log(`Анализ: ${analysis}`);
       if (analysis !== 'Нет' && analysis !== 'Ошибка анализа') {
-        const message = `Новый проект: ${projectTitle}\nURL: ${projectUrl}\n Дескрипшин ${projectDescription}\nАнализ: ${analysis}`;
+        const message = `Новый проект: ${projectTitle}\nURL: ${projectUrl}\nОписание: ${projectDescription}\nДата регистрации заказчика: ${registrationDate}\nАнализ: ${analysis}`;
         try {
           await bot.sendMessage(29165285, message);
           console.log(`Сообщение отправлено в Telegram для проекта: ${projectTitle}`);
