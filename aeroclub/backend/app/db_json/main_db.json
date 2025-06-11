@@ -17,6 +17,18 @@
       "numeric_id": 1001,
       "address": "\u043c\u043e\u0441\u043a\u0432\u0430",
       "qr_code_link": "https://t.me/aeroclubappbot/?start=1001"
+    },
+    {
+      "id": "ea129689-efe6-42cd-b2c1-4246f5a590f1",
+      "numeric_id": 1002,
+      "address": "\u043f\u0438\u0442\u0435\u0440",
+      "qr_code_link": "https://t.me/aeroclubappbot/?start=1002"
+    },
+    {
+      "id": "6f608ee0-6a54-4e3f-bc80-f9f19e4d6895",
+      "numeric_id": 1003,
+      "address": "\u0438\u043c\u0441",
+      "qr_code_link": "https://t.me/aeroclubappbot/?start=1003"
     }
   ],
   "menu_items": [

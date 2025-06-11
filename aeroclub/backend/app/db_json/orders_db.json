@@ -1,0 +1,236 @@
+[
+  {
+    "id": "7df180f0-dd02-433d-95e9-edadb136b2bf",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:12:32.672543+00:00",
+    "updated_at": "2025-06-06T21:12:32.672543+00:00"
+  },
+  {
+    "id": "1a06c01e-d3f5-42ab-8580-0cc8833f8d6d",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:16:53.851302+00:00",
+    "updated_at": "2025-06-06T21:16:53.851302+00:00"
+  },
+  {
+    "id": "89432dfa-f8c5-4e03-8bcf-b8fb7984bfcd",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:17:34.177338+00:00",
+    "updated_at": "2025-06-06T21:17:34.177338+00:00"
+  },
+  {
+    "id": "48c0a873-9fe9-4a25-9baa-becbe4f1a8a8",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:20:44.700440+00:00",
+    "updated_at": "2025-06-06T21:20:44.700440+00:00"
+  },
+  {
+    "id": "ab5e5e97-6266-4658-8ca8-275bbcaff0e8",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:46:40.803175+00:00",
+    "updated_at": "2025-06-06T21:46:40.803175+00:00"
+  },
+  {
+    "id": "fca6cd1f-92d5-4716-8836-f78e237c43b6",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:47:14.518960+00:00",
+    "updated_at": "2025-06-06T21:47:14.518960+00:00"
+  },
+  {
+    "id": "2ae1aba3-9a01-42d6-9832-02de57933860",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:51:31.691188+00:00",
+    "updated_at": "2025-06-06T21:51:31.691188+00:00"
+  },
+  {
+    "id": "245c2929-755f-43b5-a8c5-543b51e9041d",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:51:54.583284+00:00",
+    "updated_at": "2025-06-06T21:51:54.583284+00:00"
+  },
+  {
+    "id": "016cb2ce-08bb-405b-a8da-89a26657b576",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:52:16.618768+00:00",
+    "updated_at": "2025-06-06T21:52:16.618768+00:00"
+  },
+  {
+    "id": "e47b8357-1c73-480b-8d63-937439226669",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:52:46.640315+00:00",
+    "updated_at": "2025-06-06T21:52:46.640315+00:00"
+  },
+  {
+    "id": "aa6c3bc9-9b4b-4d9c-98c9-8f5fc949dcc5",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T21:55:59.261263+00:00",
+    "updated_at": "2025-06-06T21:55:59.261263+00:00"
+  },
+  {
+    "id": "dd6823ed-94e1-4b3d-a6c3-bc4c5c3be175",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": null,
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "pending",
+    "created_at": "2025-06-06T22:00:06.515793+00:00",
+    "updated_at": "2025-06-06T22:00:06.515793+00:00"
+  },
+  {
+    "id": "5919e5c2-3235-485f-95c3-47f6b236e57f",
+    "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+    "spot": null,
+    "telegram_user_id": "29165285",
+    "items": [
+      {
+        "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+        "name_snapshot": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+        "quantity": 1,
+        "price_snapshot": 2322.0
+      }
+    ],
+    "total_amount": 2322.0,
+    "status": "processing",
+    "created_at": "2025-06-06T22:00:24.526956+00:00",
+    "updated_at": "2025-06-06T22:00:32.659058+00:00"
+  }
+]

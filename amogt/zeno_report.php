@@ -20,9 +20,9 @@ global $AMO_CUSTOM_FIELD_NAMES; // From config.php
 $amoTokens = checkAmoAccess();
 if ($amoTokens && !empty($amoTokens['access_token'])) {
     $currentAccessToken = $amoTokens['access_token'];
-    logMessage('[ZenoReport] AmoCRM access token obtained for Zeno Report.', 'INFO', ZENO_REPORT_LOG_FILE);
+    logMessage('[ZenoReport] AmoCRM access token obtained for Zeno Report.', 'INFO', $dealSpecificLogFile);
 } else {
-    logMessage('[ZenoReport] Failed to obtain AmoCRM access token for Zeno Report. AmoCRM updates will be skipped.', 'ERROR', ZENO_REPORT_LOG_FILE);
+    logMessage('[ZenoReport] Failed to obtain AmoCRM access token for Zeno Report. AmoCRM updates will be skipped.', 'ERROR', $dealSpecificLogFile);
 }
 
 // --- Helper function to load AmoCRM custom field definitions ---
@@ -31,7 +31,7 @@ function zenoFetchAndProcessAmoCustomFieldDefinitions() {
     if ($amoCustomFieldsDefinitions !== null) return true; // Already loaded
 
     if (!$currentAccessToken) {
-        logMessage('[ZenoAmoCF] Cannot fetch AmoCRM custom fields: API token is not available.', 'ERROR', ZENO_REPORT_LOG_FILE);
+        logMessage('[ZenoAmoCF] Cannot fetch AmoCRM custom fields: API token is not available.', 'ERROR', $dealSpecificLogFile);
         return false;
     }
     // Simplified version, assuming AMO_API_URL_BASE is defined in config.php
@@ -45,7 +45,7 @@ function zenoFetchAndProcessAmoCustomFieldDefinitions() {
     curl_close($ch);
 
     if ($httpCode !== 200 || $response === false) {
-        logMessage("[ZenoAmoCF] Failed to fetch custom fields. HTTP: $httpCode, Response: " . substr($response,0,200), 'ERROR', ZENO_REPORT_LOG_FILE);
+        logMessage("[ZenoAmoCF] Failed to fetch custom fields. HTTP: $httpCode, Response: " . substr($response,0,200), 'ERROR', $dealSpecificLogFile);
         return false;
     }
     $data = json_decode($response, true);
@@ -54,10 +54,10 @@ function zenoFetchAndProcessAmoCustomFieldDefinitions() {
         foreach ($data['_embedded']['custom_fields'] as $field) {
             $amoCustomFieldsDefinitions[$field['name']] = $field;
         }
-        logMessage('[ZenoAmoCF] Successfully fetched and processed AmoCRM custom field definitions.', 'INFO', ZENO_REPORT_LOG_FILE);
+        logMessage('[ZenoAmoCF] Successfully fetched and processed AmoCRM custom field definitions. Loaded fields: ' . implode(', ', array_keys($amoCustomFieldsDefinitions)), 'INFO', $dealSpecificLogFile);
         return true;
     }
-    logMessage('[ZenoAmoCF] Failed to decode or find custom_fields in AmoCRM response.', 'ERROR', ZENO_REPORT_LOG_FILE);
+    logMessage('[ZenoAmoCF] Failed to decode or find custom_fields in AmoCRM response. Last JSON error: ' . json_last_error_msg(), 'ERROR', $dealSpecificLogFile);
     return false;
 }
 
@@ -79,12 +79,29 @@ if (empty($leadId)) {
     exit;
 }
 
+// Define deal-specific log file
+$dealSpecificLogFile = LOGS_DIR . '/zeno_report_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $leadId) . '.log';
+// Ensure log directory for deal-specific log exists
+$dealSpecificLogDir = dirname($dealSpecificLogFile);
+if (!is_dir($dealSpecificLogDir)) {
+    mkdir($dealSpecificLogDir, 0775, true);
+}
+
+// Логируем все полученные GET параметры
+$getParamsJson = json_encode($_GET, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+logMessage('[ZenoReport] Received GET parameters: ' . $getParamsJson, 'INFO', $dealSpecificLogFile);
+logMessage("=== Received GET parameters for Lead ID: $leadId ===" . PHP_EOL . $getParamsJson . PHP_EOL, 'INFO', $dealSpecificLogFile);
+
+
 $reportStatus = $_GET['status'] ?? null;
 $reportAmount = $_GET['amount'] ?? null;
 $reportCurrency = $_GET['currency'] ?? null;
 $reportEmail = $_GET['email'] ?? null;
 $reportCard = $_GET['card'] ?? null;
 $partnerIdSubmitter = $_GET['partner_id'] ?? null;
+
+// Log specific parameters for troubleshooting
+logMessage("[ZenoReport] Extracted parameters - Amount: '$reportAmount', Currency: '$reportCurrency', Email: '$reportEmail'", 'DEBUG', $dealSpecificLogFile);
 
 if (empty($reportStatus)) {
     http_response_code(400);
@@ -110,7 +127,7 @@ if (!$isStatusValid) {
 define('ZENO_REPORT_LOCK_FILE', sys_get_temp_dir() . '/zeno_report.lock');
 
 $needsAmoProcessing = empty($partnerIdSubmitter); // Только если НЕ партнерский отчет
-
+logMessage("----");
 if ($needsAmoProcessing) {
     // Проверяем лок-файл только для AmoCRM операций
     $lockAcquired = false;
@@ -130,7 +147,7 @@ if ($needsAmoProcessing) {
     
     if (!$lockAcquired) {
         // Сохраняем отчет без AmoCRM обработки
-        logMessage("[ZenoReport] Could not acquire lock for AmoCRM processing. Saving report without AmoCRM update.", 'WARNING', ZENO_REPORT_LOG_FILE);
+        logMessage("[ZenoReport] Could not acquire lock for AmoCRM processing. Saving report without AmoCRM update.", 'WARNING', $dealSpecificLogFile);
         $reportEntry = [
             'report_id' => uniqid('zenorep_', true),
             'lead_id' => $leadId,
@@ -172,6 +189,7 @@ $reportEntry = [
         'status' => $reportStatus,
         'amount' => $reportAmount,
         'currency' => $reportCurrency,
+        'email' => $reportEmail, // Added missing email field
         'card' => $reportCard,
     ],
     'reported_at' => date('Y-m-d H:i:s'),
@@ -202,18 +220,18 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
         $reportEntry['amo_update_skipped_reason'] = 'already_processed_for_amo';
         $reportEntry['amo_update_status'] = 'skipped';
         $reportEntry['amo_update_message'] = "AmoCRM update already performed for this lead ID.";
-        logMessage("[ZenoReport] AmoCRM update for lead $leadId skipped: already processed.", 'INFO', ZENO_REPORT_LOG_FILE);
+        logMessage("[ZenoReport] AmoCRM update for lead $leadId skipped: already processed.", 'INFO', $dealSpecificLogFile);
     } else {
         // Add to processed list BEFORE attempting AmoCRM update
         $recievedAmoIds[] = $leadId;
         if (!is_writable(dirname(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH))) {
-            logMessage("[ZenoReport] CRITICAL: Directory for " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . " is not writable.", 'ERROR', ZENO_REPORT_LOG_FILE);
+            logMessage("[ZenoReport] CRITICAL: Directory for " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . " is not writable.", 'ERROR', $dealSpecificLogFile);
         }
         if (file_exists(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH) && !is_writable(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH)) {
-            logMessage("[ZenoReport] CRITICAL: File " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . " is not writable.", 'ERROR', ZENO_REPORT_LOG_FILE);
+            logMessage("[ZenoReport] CRITICAL: File " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . " is not writable.", 'ERROR', $dealSpecificLogFile);
         }
         if (saveLineDelimitedFile(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH, $recievedAmoIds) === false) {
-            logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . ". Check file permissions.", 'ERROR', ZENO_REPORT_LOG_FILE);
+            logMessage("[ZenoReport] CRITICAL: Failed to write lead $leadId to " . ID_OF_DEALS_SENT_TO_AMO_FILE_PATH . ". Check file permissions.", 'ERROR', $dealSpecificLogFile);
             // Decide if we should proceed or error out. For now, log and proceed.
             $reportEntry['amo_update_skipped_reason'] = 'failed_to_log_recieved_id';
         }
@@ -221,6 +239,7 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
         if (!zenoFetchAndProcessAmoCustomFieldDefinitions()) {
             $reportEntry['amo_update_status'] = 'failed';
             $reportEntry['amo_update_message'] = "Failed to fetch AmoCRM custom field definitions.";
+            logMessage("[ZenoReport] Failed to fetch AmoCRM custom field definitions. Update aborted for deal $leadId.", 'ERROR', $dealSpecificLogFile);
         } else {
             // Find the deal in AmoCRM by $leadId (which is dealId)
             $urlSearch = AMO_API_URL_BASE . '/leads/' . $leadId; // Direct lookup by ID
@@ -235,7 +254,7 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
             if ($httpCodeSearch === 200 && $amoDealResponse) {
                 $dealToUpdate = json_decode($amoDealResponse, true);
                 if ($dealToUpdate && isset($dealToUpdate['id'])) {
-                    logMessage("[ZenoReport] Found deal in AmoCRM: ID {$dealToUpdate['id']} for report on lead $leadId.", 'INFO', ZENO_REPORT_LOG_FILE);
+                    logMessage("[ZenoReport] Found deal in AmoCRM: ID {$dealToUpdate['id']} for report on lead $leadId.", 'INFO', $dealSpecificLogFile);
                     
                     // Check current "Status оплаты ChatGPT" field in AmoCRM
                     $statusAmoFieldName = $AMO_CUSTOM_FIELD_NAMES['status'] ?? 'Статус оплаты ChatGPT'; // Default or from config
@@ -261,33 +280,90 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                         $reportEntry['amo_update_skipped_reason'] = 'amo_status_not_empty';
                         $reportEntry['amo_update_status'] = 'skipped';
                         $reportEntry['amo_update_message'] = "AmoCRM status field '$statusAmoFieldName' is already set to '$currentAmoStatusValue'. No update performed.";
-                        logMessage("[ZenoReport] AmoCRM update for lead $leadId skipped: status field not empty ('$currentAmoStatusValue').", 'INFO', ZENO_REPORT_LOG_FILE);
+                        logMessage("[ZenoReport] AmoCRM update for lead $leadId skipped: status field not empty ('$currentAmoStatusValue').", 'INFO', $dealSpecificLogFile);
                     } else {
                         // Proceed with AmoCRM update
                         $customFieldsPayload = [];
                         $currentUnixTimestamp = time();
                         
                         // Simplified field mapping based on POST data
+                        // Email will be mapped to 'promocode' internal key
+                        // Currency will use "Валюта получения" directly
                         $mapPostToInternal = [
-                            'amount' => 'amount_issued', 'currency' => 'currency', 
-                            'email' => 'email', 'card' => 'card', 'status' => 'status'
+                            'amount' => 'amount_issued', 
+                            // 'currency' will be handled specially below
+                            'email' => 'promocode', // Email from GET maps to 'promocode' internal key
+                            'card' => 'card', 
+                            'status' => 'status'
                         ];
 $reportDataForAmo = $reportEntry['report_data'];
+
+// Handle currency separately using "Валюта получения"
+if (isset($reportDataForAmo['currency']) && $reportDataForAmo['currency'] !== null) {
+    $currencyAmoFieldName = "Валюта получения"; // Directly use the name provided by user
+    logMessage("[ZenoReport] Processing field 'currency' -> using Amo field name '$currencyAmoFieldName', value: '{$reportDataForAmo['currency']}'", 'DEBUG', $dealSpecificLogFile);
+    if (isset($amoCustomFieldsDefinitions[$currencyAmoFieldName])) {
+        $fieldDef = $amoCustomFieldsDefinitions[$currencyAmoFieldName];
+        $value = $reportDataForAmo['currency'];
+        $valPayload = null;
+        if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
+            $enumValues = array_map(function($enum) { return $enum['value'] . " (ID: " . $enum['id'] . ")"; }, $fieldDef['enums']);
+            logMessage("[ZenoReport] Field '{$currencyAmoFieldName}' has type '{$fieldDef['type']}' with enum options: " . implode(", ", $enumValues), 'DEBUG', $dealSpecificLogFile);
+            foreach ($fieldDef['enums'] as $enum) {
+                if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
+                    $valPayload = ['enum_id' => (int)$enum['id']];
+                    logMessage("[ZenoReport] Found matching enum for '{$value}' in '{$currencyAmoFieldName}': ID {$enum['id']}", 'DEBUG', $dealSpecificLogFile);
+                    break;
+                }
+            }
+            if (!$valPayload) {
+                logMessage("[ZenoReport] No matching enum found for value '{$value}' in field '{$currencyAmoFieldName}'", 'WARNING', $dealSpecificLogFile);
+            }
+        } else {
+             $valPayload = ['value' => (string)$value]; // Fallback for non-enum or if type is different
+        }
+        if ($valPayload) {
+            $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+            logMessage("[ZenoReport] Added field '{$currencyAmoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', $dealSpecificLogFile);
+        }
+    } else {
+        logMessage("[ZenoReport] Field 'currency' -> Amo field name '$currencyAmoFieldName' not found in AmoCRM custom field definitions", 'WARNING', $dealSpecificLogFile);
+    }
+}
+
 
 foreach ($mapPostToInternal as $postKey => $internalKey) {
     if (isset($reportDataForAmo[$postKey]) && $reportDataForAmo[$postKey] !== null) {
         $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
-        if ($internalKey === 'status') $amoFieldName = $statusAmoFieldName; // Use corrected status field name
+        // Special handling for status field name was already here
+        if ($internalKey === 'status') $amoFieldName = $statusAmoFieldName; 
 
+        // Log field mapping information
+        logMessage("[ZenoReport] Processing field '$postKey' -> '$internalKey' -> '$amoFieldName', value: '{$reportDataForAmo[$postKey]}'", 'DEBUG', $dealSpecificLogFile);
+        
         if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
             $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
             $value = $reportDataForAmo[$postKey];
             $valPayload = null;
+            
+            // For enum fields like currency, log available options
             if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
+                $enumValues = array_map(function($enum) { 
+                    return $enum['value'] . " (ID: " . $enum['id'] . ")"; 
+                }, $fieldDef['enums']);
+                logMessage("[ZenoReport] Field '{$amoFieldName}' has type '{$fieldDef['type']}' with enum options: " . 
+                           implode(", ", $enumValues), 'DEBUG', $dealSpecificLogFile);
+                
                 foreach ($fieldDef['enums'] as $enum) {
                     if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
-                        $valPayload = ['enum_id' => (int)$enum['id']]; break;
+                        $valPayload = ['enum_id' => (int)$enum['id']]; 
+                        logMessage("[ZenoReport] Found matching enum for '{$value}': ID {$enum['id']}", 'DEBUG', $dealSpecificLogFile);
+                        break;
                     }
+                }
+                
+                if (!$valPayload) {
+                    logMessage("[ZenoReport] No matching enum found for value '{$value}' in field '{$amoFieldName}'", 'WARNING', $dealSpecificLogFile);
                 }
             } else if ($fieldDef['type'] === 'date') {
                 $ts = strtotime($value);
@@ -297,10 +373,18 @@ foreach ($mapPostToInternal as $postKey => $internalKey) {
             } else { // text, textarea etc.
                 $valPayload = ['value' => (string)$value];
             }
-            if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+            if ($valPayload) {
+                $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+                logMessage("[ZenoReport] Added field '{$amoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', $dealSpecificLogFile);
+            }
+        } else {
+            logMessage("[ZenoReport] Field '{$postKey}' -> '$internalKey}' -> '$amoFieldName' not found in AmoCRM custom field definitions", 'WARNING', $dealSpecificLogFile);
         }
+    } else {
+        logMessage("[ZenoReport] Field '{$postKey}' is not set or null in the report data", 'DEBUG', $dealSpecificLogFile);
     }
 }
+
 // Add static fields
 $staticFields = [
     'withdrawal_account' => 'Mastercard Prepaid', 'withdrawal_date' => $currentUnixTimestamp,
@@ -308,12 +392,45 @@ $staticFields = [
 ];
 foreach ($staticFields as $internalKey => $value) {
      $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
+     logMessage("[ZenoReport] Processing static field '$internalKey' -> '$amoFieldName', value: '{$value}'", 'DEBUG', $dealSpecificLogFile);
+
      if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
         $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
         $valPayload = null;
-        if ($fieldDef['type'] === 'date') $valPayload = ['value' => (int)$value]; // for timestamp
-        else $valPayload = ['value' => (string)$value];
-        if ($valPayload) $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+
+        if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
+            $foundEnum = false;
+            foreach ($fieldDef['enums'] as $enum) {
+                if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
+                    $valPayload = ['enum_id' => (int)$enum['id']];
+                    logMessage("[ZenoReport] Static field '{$amoFieldName}': Found matching enum for '{$value}': ID {$enum['id']}", 'DEBUG', $dealSpecificLogFile);
+                    $foundEnum = true;
+                    break;
+                }
+            }
+            if (!$foundEnum) {
+                logMessage("[ZenoReport] Static field '{$amoFieldName}' ('{$fieldDef['type']}'): No matching enum found for value '{$value}'. Available enums: " . json_encode($fieldDef['enums']), 'WARNING', $dealSpecificLogFile);
+            }
+        } else if ($fieldDef['type'] === 'date') { // Handles date type with Unix timestamp
+            $valPayload = ['value' => (int)$value]; 
+        } else if ($fieldDef['type'] === 'numeric') {
+            if (is_numeric($value)) {
+                $valPayload = ['value' => (float)$value];
+            } else {
+                logMessage("[ZenoReport] Static field '{$amoFieldName}' ('numeric'): Value '{$value}' is not numeric.", 'WARNING', $dealSpecificLogFile);
+            }
+        } else if ($fieldDef['type'] === 'checkbox') {
+             $valPayload = ['value' => (bool)$value];
+        } else { // text, textarea, url etc.
+            $valPayload = ['value' => (string)$value];
+        }
+        
+        if ($valPayload) {
+            $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+            logMessage("[ZenoReport] Added static field '{$amoFieldName}' (ID: {$fieldDef['id']}) to update payload with value: ".json_encode($valPayload), 'DEBUG', $dealSpecificLogFile);
+        }
+     } else {
+        logMessage("[ZenoReport] Static field definition for '$internalKey' (mapped to Amo field name '$amoFieldName') not found or amoFieldName is null. Cannot add to payload.", 'WARNING', $dealSpecificLogFile);
      }
 }
 
@@ -324,24 +441,54 @@ if (!empty($customFieldsPayload)) {
 
 // Update stage based on report status
 if ($reportStatus === "Выполнено") {
-    $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID; // Используем константу
-    // Используем enum ID для статуса "Выполнено"
-    if (defined('AMO_FINAL_OPERATOR_STATUS_ID')) { // Изменено на AMO_FINAL_OPERATOR_STATUS_ID
+    if (defined('AMO_MAIN_PIPELINE_ID') && defined('AMO_FINAL_OPERATOR_STATUS_ID')) {
+        $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID;
         $amoUpdatePayload['status_id'] = (int)AMO_FINAL_OPERATOR_STATUS_ID;
+        logMessage("[ZenoReport] Setting deal to Pipeline ID: " . AMO_MAIN_PIPELINE_ID . ", Status ID: " . AMO_FINAL_OPERATOR_STATUS_ID, 'DEBUG', $dealSpecificLogFile);
     } else {
-        // Fallback или логирование ошибки, если константа не определена
-        logMessage("[ZenoReport] WARNING: AMO_FINAL_OPERATOR_STATUS_ID not defined. Cannot set success status.", 'WARNING', ZENO_REPORT_LOG_FILE);
+        logMessage("[ZenoReport] WARNING: AMO_MAIN_PIPELINE_ID or AMO_FINAL_OPERATOR_STATUS_ID not defined. Cannot set success stage.", 'WARNING', $dealSpecificLogFile);
     }
 } else if ($reportStatus === "ОШИБКА!") {
-     if (defined('AMO_STATUS_ERROR_ENUM_ID')) {
-        $amoUpdatePayload['status_id'] = (int)AMO_STATUS_ERROR_ENUM_ID;
-     } else {
-        logMessage("[ZenoReport] ERROR: AMO_STATUS_ERROR_ENUM_ID not defined. Cannot set error status.", 'ERROR', ZENO_REPORT_LOG_FILE);
-     }
+    // Если статус "ОШИБКА!", не меняем pipeline_id и status_id сделки.
+    // Пользовательское поле "Статус оплаты ChatGPT" будет обновлено ранее в $customFieldsPayload.
+    // Если необходимо перевести сделку в определенный этап при ошибке, нужно добавить соответствующую логику и константы.
+    // Например, можно переводить в AMO_CHATGPT_STATUS_ID, если это логично для процесса.
+    // Пока оставляем без изменения этапа.
+    logMessage("[ZenoReport] Report status is ОШИБКА!. Deal stage (pipeline_id, status_id) will not be changed. Custom field 'Статус оплаты ChatGPT' should reflect the error.", 'INFO', $dealSpecificLogFile);
+    // Убедимся, что pipeline_id не будет пустым, если он был в исходной сделке
+    if (isset($dealToUpdate['pipeline_id'])) {
+         $amoUpdatePayload['pipeline_id'] = (int)$dealToUpdate['pipeline_id'];
+    }
+    // Также для status_id, если он не меняется
+    if (isset($dealToUpdate['status_id']) && !isset($amoUpdatePayload['status_id'])) {
+        $amoUpdatePayload['status_id'] = (int)$dealToUpdate['status_id'];
+    }
 }
                         
+                        // Log the complete payload before sending to AmoCRM
                         if (count($amoUpdatePayload) > 1) { // Has more than just 'id'
-                            logMessage("[ZenoReport] AmoCRM update payload for lead $leadId: " . json_encode($amoUpdatePayload, JSON_UNESCAPED_UNICODE), 'DEBUG', ZENO_REPORT_LOG_FILE);
+                            // Ensure pipeline_id is set if status_id is being changed
+                            if (isset($amoUpdatePayload['status_id']) && !isset($amoUpdatePayload['pipeline_id'])) {
+                                if (isset($dealToUpdate['pipeline_id'])) {
+                                    $amoUpdatePayload['pipeline_id'] = (int)$dealToUpdate['pipeline_id'];
+                                    logMessage("[ZenoReport] Pipeline ID was not set but status_id is. Using existing pipeline_id: " . $dealToUpdate['pipeline_id'], 'DEBUG', $dealSpecificLogFile);
+                                } else if (defined('AMO_MAIN_PIPELINE_ID')) {
+                                     $amoUpdatePayload['pipeline_id'] = (int)AMO_MAIN_PIPELINE_ID; // Fallback to main pipeline
+                                     logMessage("[ZenoReport] Pipeline ID was not set but status_id is. Using AMO_MAIN_PIPELINE_ID as fallback.", 'DEBUG', $dealSpecificLogFile);
+                                } else {
+                                    logMessage("[ZenoReport] WARNING: Pipeline ID is not set and status_id is being updated. This might cause an error if the status_id is not valid for the deal's current pipeline.", 'WARNING', $dealSpecificLogFile);
+                                }
+                            }
+
+                            $amoUpdatePayloadJson = json_encode($amoUpdatePayload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                            logMessage("[ZenoReport] AmoCRM update payload for lead $leadId: " . $amoUpdatePayloadJson, 'DEBUG', $dealSpecificLogFile);
+                            logMessage("=== AmoCRM Update Payload for Lead ID: $leadId ===" . PHP_EOL . $amoUpdatePayloadJson . PHP_EOL, 'INFO', $dealSpecificLogFile);
+                            
+                            // Add debug logging for individual field values
+                            $logPipelineId = isset($amoUpdatePayload['pipeline_id']) ? $amoUpdatePayload['pipeline_id'] : 'not_set';
+                            $logStatusId = isset($amoUpdatePayload['status_id']) ? $amoUpdatePayload['status_id'] : 'not_set';
+                            logMessage("[ZenoReport] Field values: Pipeline ID: {$logPipelineId}, Status ID: {$logStatusId}", 'DEBUG', $dealSpecificLogFile);
+                            
                             $chUpdate = curl_init(AMO_API_URL_BASE . '/leads/' . $dealToUpdate['id']);
                             curl_setopt($chUpdate, CURLOPT_RETURNTRANSFER, true);
                             curl_setopt($chUpdate, CURLOPT_CUSTOMREQUEST, 'PATCH');
@@ -351,31 +498,39 @@ if ($reportStatus === "Выполнено") {
                             $httpCodeUpdate = curl_getinfo($chUpdate, CURLINFO_HTTP_CODE);
                             curl_close($chUpdate);
 
+                            $amoUpdateResponseLog = "=== AmoCRM Update Response for Lead ID: $leadId ===" . PHP_EOL .
+                                                  "HTTP Code: $httpCodeUpdate" . PHP_EOL .
+                                                  "Response: " . $updateResponse . PHP_EOL;
+                            logMessage($amoUpdateResponseLog, ($httpCodeUpdate >= 200 && $httpCodeUpdate < 300) ? 'INFO' : 'ERROR', $dealSpecificLogFile);
+
                             if ($httpCodeUpdate >= 200 && $httpCodeUpdate < 300) {
                                 $reportEntry['amo_update_status'] = 'success';
                                 $reportEntry['amo_update_message'] = "AmoCRM deal updated successfully.";
-                                logMessage("[ZenoReport] Successfully updated AmoCRM deal ID {$dealToUpdate['id']} for lead $leadId.", 'INFO', ZENO_REPORT_LOG_FILE);
+                                logMessage("[ZenoReport] Successfully updated AmoCRM deal ID {$dealToUpdate['id']} for lead $leadId.", 'INFO', $dealSpecificLogFile);
                                 $amoUpdatePerformed = true;
                             } else {
                                 $reportEntry['amo_update_status'] = 'failed';
                                 $reportEntry['amo_update_message'] = "AmoCRM update failed. HTTP: $httpCodeUpdate. Response: " . substr($updateResponse,0,200);
-                                logMessage("[ZenoReport] Failed to update AmoCRM deal ID {$dealToUpdate['id']}. HTTP: $httpCodeUpdate. Resp: " . $updateResponse, 'ERROR', ZENO_REPORT_LOG_FILE);
+                                logMessage("[ZenoReport] Failed to update AmoCRM deal ID {$dealToUpdate['id']}. HTTP: $httpCodeUpdate. Resp: " . $updateResponse, 'ERROR', $dealSpecificLogFile);
                             }
                         } else {
                              $reportEntry['amo_update_status'] = 'skipped';
                              $reportEntry['amo_update_message'] = "No data to update in AmoCRM.";
-                             logMessage("[ZenoReport] No data to update in AmoCRM for lead $leadId.", 'INFO', ZENO_REPORT_LOG_FILE);
+                             logMessage("[ZenoReport] No data to update in AmoCRM for lead $leadId.", 'INFO', $dealSpecificLogFile);
+                             logMessage("=== No data to update in AmoCRM for Lead ID: $leadId ===", 'INFO', $dealSpecificLogFile);
                         }
                     }
                 } else {
                     $reportEntry['amo_update_status'] = 'failed';
                     $reportEntry['amo_update_message'] = "Deal with ID $leadId not found in AmoCRM or invalid response.";
-                    logMessage("[ZenoReport] Deal $leadId not found in AmoCRM. HTTP: $httpCodeSearch. Resp: " . substr($amoDealResponse,0,200), 'WARNING', ZENO_REPORT_LOG_FILE);
+                    logMessage("[ZenoReport] Deal $leadId not found in AmoCRM. HTTP: $httpCodeSearch. Resp: " . substr($amoDealResponse,0,200), 'WARNING', $dealSpecificLogFile);
+                    logMessage("=== Deal with ID $leadId not found in AmoCRM or invalid response ===" . PHP_EOL . "HTTP Code: $httpCodeSearch" . PHP_EOL . "Response: " . substr($amoDealResponse,0,200) . PHP_EOL, 'WARNING', $dealSpecificLogFile);
                 }
             } else {
                  $reportEntry['amo_update_status'] = 'failed';
                  $reportEntry['amo_update_message'] = "Failed to search deal $leadId in AmoCRM. HTTP: $httpCodeSearch.";
-                 logMessage("[ZenoReport] Failed to search deal $leadId in AmoCRM. HTTP: $httpCodeSearch.", 'ERROR', ZENO_REPORT_LOG_FILE);
+                 logMessage("[ZenoReport] Failed to search deal $leadId in AmoCRM. HTTP: $httpCodeSearch.", 'ERROR', $dealSpecificLogFile);
+                 logMessage("=== Failed to search deal $leadId in AmoCRM ===" . PHP_EOL . "HTTP Code: $httpCodeSearch" . PHP_EOL, 'ERROR', $dealSpecificLogFile);
             }
         }
     }
@@ -383,14 +538,14 @@ if ($reportStatus === "Выполнено") {
     $reportEntry['amo_update_skipped_reason'] = 'partner_report';
     $reportEntry['amo_update_status'] = 'skipped';
     $reportEntry['amo_update_message'] = "Report for partner lead, AmoCRM update not applicable.";
-    logMessage("[ZenoReport] Report for partner lead $leadId (partner: $partnerIdSubmitter). AmoCRM update skipped.", 'INFO', ZENO_REPORT_LOG_FILE);
+    logMessage("[ZenoReport] Report for partner lead $leadId (partner: $partnerIdSubmitter). AmoCRM update skipped.", 'INFO', $dealSpecificLogFile);
 }
 
 // Save the report to zeno_report.json
 $allReports = loadDataFromFile(ZENO_REPORTS_JSON_FILE);
 $allReports[] = $reportEntry;
 if (saveDataToFile(ZENO_REPORTS_JSON_FILE, $allReports)) {
-    logMessage("[ZenoReport] Report for lead $leadId saved to " . ZENO_REPORTS_JSON_FILE, 'INFO', ZENO_REPORT_LOG_FILE);
+    logMessage("[ZenoReport] Report for lead $leadId saved to " . ZENO_REPORTS_JSON_FILE, 'INFO', $dealSpecificLogFile);
     http_response_code(200);
     echo json_encode([
         'status' => 'success', 
@@ -401,7 +556,7 @@ if (saveDataToFile(ZENO_REPORTS_JSON_FILE, $allReports)) {
         'amo_message' => $reportEntry['amo_update_message']
     ]);
 } else {
-    logMessage("[ZenoReport] CRITICAL: Failed to save report for lead $leadId to " . ZENO_REPORTS_JSON_FILE, 'ERROR', ZENO_REPORT_LOG_FILE);
+    logMessage("[ZenoReport] CRITICAL: Failed to save report for lead $leadId to " . ZENO_REPORTS_JSON_FILE, 'ERROR', $dealSpecificLogFile);
     http_response_code(500);
     echo json_encode(['status' => 'error', 'message' => 'Failed to save report.']);
 }
