@@ -15,7 +15,7 @@ const rateLimits = new Map(); // Лимиты запросов
 const USER_DATA_DIR = path.join(__dirname, 'user_data');
 const CHAT_HISTORIES_DIR = path.join(__dirname, 'chat_histories');
 const MAX_HISTORY = 20; // Максимум сообщений в истории
-const DISABLE_MEMORY_UPDATES = process.env.DISABLE_MEMORY_UPDATES === 'true' || false; // Global flag for backward compatibility
+const DISABLE_MEMORY_UPDATES = process.env.DISABLE_MEMORY_UPDATES !== 'false'; // Global flag - memory disabled by default unless explicitly enabled
 console.log(openaiApiKey)
 // Обеспечение существования директорий
 if (!fs.existsSync(USER_DATA_DIR)) {
@@ -126,7 +126,7 @@ function loadChatHistoryFromFile(chatId) {
 }
 
 async function updateLongMemory(chatId, options = {}) {
-    const nomemory = options.nomemory || DISABLE_MEMORY_UPDATES;
+    const nomemory = options.nomemory !== false && DISABLE_MEMORY_UPDATES; // Default to true unless explicitly set to false
     
     // Skip immediately if chatId is 1 or nomemory flag is set
     if (chatId === 1 || nomemory) {
