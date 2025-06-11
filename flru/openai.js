@@ -15,6 +15,7 @@ const rateLimits = new Map(); // Лимиты запросов
 const USER_DATA_DIR = path.join(__dirname, 'user_data');
 const CHAT_HISTORIES_DIR = path.join(__dirname, 'chat_histories');
 const MAX_HISTORY = 20; // Максимум сообщений в истории
+const DISABLE_MEMORY_UPDATES = process.env.DISABLE_MEMORY_UPDATES === 'true' || false; // Global flag for backward compatibility
 console.log(openaiApiKey)
 // Обеспечение существования директорий
 if (!fs.existsSync(USER_DATA_DIR)) {
@@ -124,10 +125,12 @@ function loadChatHistoryFromFile(chatId) {
     return history.slice(-MAX_HISTORY);
 }
 
-async function updateLongMemory(chatId) {
-    // Skip immediately if chatId is 1
-    if (chatId === 1) {
-        console.info(`[LongMemory ${chatId}] Пропуск обновления для chatId = 1`);
+async function updateLongMemory(chatId, options = {}) {
+    const nomemory = options.nomemory || DISABLE_MEMORY_UPDATES;
+    
+    // Skip immediately if chatId is 1 or nomemory flag is set
+    if (chatId === 1 || nomemory) {
+        console.info(`[LongMemory ${chatId}] Пропуск обновления ${nomemory ? '(nomemory=true)' : '(chatId = 1)'}`);
         return;
     }
 
@@ -235,15 +238,15 @@ async function updateLongMemory(chatId) {
 }
 
 // --- LLM Switching Logic ---
-async function callLLM(chatId, userMessageContent) {
+async function callLLM(chatId, userMessageContent, options = {}) {
     if (model === 'deepseek') {
-        return callDeepSeek(chatId, userMessageContent);
+        return callDeepSeek(chatId, userMessageContent, options);
     } else {
-        return callOpenAI(chatId, userMessageContent);
+        return callOpenAI(chatId, userMessageContent, options);
     }
 }
 
-async function callOpenAI(chatId, userMessageContent) {
+async function callOpenAI(chatId, userMessageContent, options = {}) {
     if (!validateChatId(chatId)) {
         console.error(`Некорректный chat ID: ${chatId}`);
         throw new Error('Некорректный chat ID');
@@ -300,7 +303,7 @@ async function callOpenAI(chatId, userMessageContent) {
     logChat(chatId, { role: 'user', content: userMessageContent }, 'user');
     const conversationHistory = loadChatHistoryFromFile(chatId);
 
-    updateLongMemory(chatId).catch(err => console.error(`Ошибка обновления памяти для ${chatId}:`, err));
+    updateLongMemory(chatId, options).catch(err => console.error(`Ошибка обновления памяти для ${chatId}:`, err));
 
     const apiInput = [JSON.parse(JSON.stringify(systemMessage)), ...conversationHistory, userMessageForApi];
     const modelName = process.env.OPENAIMODEL || 'gpt-4o-mini';
@@ -343,7 +346,7 @@ async function callOpenAI(chatId, userMessageContent) {
     }
 }
 
-async function callDeepSeek(chatId, userMessageContent) {
+async function callDeepSeek(chatId, userMessageContent, options = {}) {
     if (!validateChatId(chatId)) {
         console.error(`Некорректный chat ID: ${chatId}`);
         throw new Error('Некорректный chat ID');
