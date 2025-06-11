@@ -48,10 +48,6 @@ def get_cost_data_from_files():
     cost_files = [f for f in safe_read_dir(COST_DATA_DIR) if f.startswith('costs_') and f.endswith('.json')]
     print(f"[DEBUG] Найдено файлов расходов: {len(cost_files)}")
     
-    # Ограничиваем количество файлов для быстрой загрузки
-    cost_files = cost_files[:5]  # Только первые 5 файлов
-    print(f"[DEBUG] Обрабатываем только первые {len(cost_files)} файлов расходов")
-    
     all_costs = []
     daily_costs = defaultdict(lambda: {'totalCost': 0, 'requests': 0, 'users': set()})
     bot_costs = defaultdict(lambda: {'totalCost': 0, 'requests': 0, 'chats': set()})
@@ -63,11 +59,9 @@ def get_cost_data_from_files():
         cost_data = safe_read_json(file_path)
         
         if cost_data and isinstance(cost_data, list):
-            # Ограничиваем количество записей в файле
-            limited_data = cost_data[:1000]  # Максимум 1000 записей на файл
-            print(f"[DEBUG] Обрабатываем {filename}: {len(limited_data)} записей из {len(cost_data)}")
+            print(f"[DEBUG] Обрабатываем {filename}: {len(cost_data)} записей")
             
-            for entry in limited_data:
+            for entry in cost_data:
                 all_costs.append(entry)
                 
                 try:
@@ -121,14 +115,10 @@ def calculate_landing_stats(all_chat_log_file_paths):
         'landingDetails': []
     }
 
-    # Еще больше ограничиваем для быстрой диагностики
-    files_to_process = all_chat_log_file_paths[:20]  # Только 20 файлов
-    print(f"[DEBUG] Ограничиваем анализ лендинга до {len(files_to_process)} файлов из {len(all_chat_log_file_paths)}")
-
-    for i, chat_log_path in enumerate(files_to_process):
-        if i % 5 == 0:
+    for i, chat_log_path in enumerate(all_chat_log_file_paths):
+        if i % 100 == 0:
             elapsed = (datetime.now() - start_time).total_seconds()
-            print(f"[DEBUG] Обработано лендинг файлов: {i}/{len(files_to_process)} за {elapsed:.1f}s")
+            print(f"[DEBUG] Обработано лендинг файлов: {i}/{len(all_chat_log_file_paths)} за {elapsed:.1f}s")
             
         try:
             filename = os.path.basename(chat_log_path)
@@ -137,7 +127,7 @@ def calculate_landing_stats(all_chat_log_file_paths):
                 continue
             chat_id = chat_id_match.group(1)
 
-            user_name = f"User_{chat_id}"  # Упрощаем для быстроты
+            user_name = None
             reached_landing = False
             proceeded_from_landing = False
             landing_shown_time = None
@@ -145,44 +135,45 @@ def calculate_landing_stats(all_chat_log_file_paths):
             is_paid = False
 
             if os.path.exists(chat_log_path):
-                # Читаем только первые 20 строк для максимальной скорости
                 with open(chat_log_path, 'r', encoding='utf-8') as f:
-                    log_lines = []
-                    for line_num, line in enumerate(f):
-                        if line_num >= 20:  # Очень ограниченное чтение
-                            break
-                        line = line.strip()
-                        if line:
-                            log_lines.append(line)
+                    log_lines = [line.strip() for line in f if line.strip()]
                 
                 for line in log_lines:
                     try:
                         log_entry = json.loads(line)
                         
-                        # Упрощенная проверка лендинга
+                        # Извлечение имени пользователя
+                        if not user_name and log_entry.get('role') == 'user' and log_entry.get('content') and isinstance(log_entry['content'], list):
+                            for content_item in log_entry['content']:
+                                if content_item.get('type') == 'input_text' and content_item.get('text') and content_item['text'].startswith('Пользователь предоставил имя: '):
+                                    user_name = content_item['text'][len('Пользователь предоставил имя: '):].strip()
+                                    break
+                        elif not user_name and log_entry.get('type') == 'user' and log_entry.get('role') == 'user' and log_entry.get('content') and isinstance(log_entry['content'], str) and log_entry['content'].startswith('Пользователь предоставил имя: '):
+                            user_name = log_entry['content'][len('Пользователь предоставил имя: '):].strip()
+
+                        # Проверка, был ли показан лендинг
                         if log_entry.get('type') == 'system' and log_entry.get('content') and log_entry['content'].get('type') == 'landing_shown':
                             reached_landing = True
                             landing_shown_time = log_entry.get('timestamp', datetime.now().isoformat())
                         
-                        # Упрощенная проверка продолжения
+                        # Проверка, продолжил ли пользователь
                         if reached_landing and not proceeded_from_landing:
                             if log_entry.get('type') == 'callback_query' and log_entry.get('action') == 'try_free_clicked':
                                 proceeded_from_landing = True
                                 first_message_after_landing = log_entry.get('timestamp', datetime.now().isoformat())
-                            elif log_entry.get('role') == 'user' and log_entry.get('timestamp') and landing_shown_time:
-                                try:
-                                    if datetime.fromisoformat(log_entry['timestamp']) > datetime.fromisoformat(landing_shown_time):
-                                        proceeded_from_landing = True
-                                        first_message_after_landing = log_entry['timestamp']
-                                except:
-                                    pass
+                            elif log_entry.get('role') == 'user' and \
+                                 (not log_entry.get('type') or (log_entry.get('type') != 'name_provided' and (not log_entry.get('content') or 'Пользователь предоставил имя:' not in json.dumps(log_entry['content'])))) and \
+                                 log_entry.get('timestamp') and landing_shown_time and \
+                                 datetime.fromisoformat(log_entry['timestamp']) > datetime.fromisoformat(landing_shown_time):
+                                proceeded_from_landing = True
+                                first_message_after_landing = log_entry['timestamp']
                     except json.JSONDecodeError:
                         pass
         except Exception as e:
             print(f"Ошибка обработки файла логов чата {chat_log_path}: {e}")
             continue
         
-        if reached_landing: 
+        if reached_landing and user_name: 
             stats['totalUsersReachedLanding'] += 1
             stats['landingDetails'].append({
                 'chatId': chat_id,
@@ -212,10 +203,6 @@ def get_dialog_stats():
     bot_subdirectories = [entry for entry in safe_read_dir(USER_DATA_DIR) if os.path.isdir(os.path.join(USER_DATA_DIR, entry))]
     print(f"[DEBUG] Найдено поддиректорий ботов: {len(bot_subdirectories)}")
 
-    # Ограничиваем количество ботов для диагностики
-    bot_subdirectories = bot_subdirectories[:3]  # Только первые 3 бота
-    print(f"[DEBUG] Обрабатываем только первые {len(bot_subdirectories)} ботов: {bot_subdirectories}")
-
     all_chat_log_file_paths = []
     bot_distribution = defaultdict(int)
     daily_stats = defaultdict(lambda: {'messages': 0, 'users': set()})
@@ -236,11 +223,10 @@ def get_dialog_stats():
             all_chat_log_file_paths.extend(chat_files_for_bot)
             bot_distribution[bot_name] += len(chat_files_for_bot)
 
-            # Еще больше ограничиваем для диагностики
-            files_to_process = chat_files_for_bot[:10]  # Максимум 10 файлов на бота
-            print(f"[DEBUG] Обрабатываем {len(files_to_process)} файлов из {len(chat_files_for_bot)} для бота {bot_name}")
-            
-            for file_idx, log_file_path in enumerate(files_to_process):
+            for file_idx, log_file_path in enumerate(chat_files_for_bot):
+                if file_idx % 100 == 0:
+                    print(f"[DEBUG] Бот {bot_name}: обработано {file_idx}/{len(chat_files_for_bot)} файлов")
+                
                 try:
                     filename = os.path.basename(log_file_path)
                     chat_id_match = re.match(r'chat_(\d+)\.log', filename)
@@ -249,15 +235,8 @@ def get_dialog_stats():
                     if current_chat_id:
                         all_user_chat_ids.add(current_chat_id)
 
-                    # Читаем только первые 10 строк для быстрой диагностики
                     with open(log_file_path, 'r', encoding='utf-8') as f:
-                        lines = []
-                        for line_num, line in enumerate(f):
-                            if line_num >= 10:
-                                break
-                            line = line.strip()
-                            if line:
-                                lines.append(line)
+                        lines = [line.strip() for line in f if line.strip()]
                     
                     for line in lines:
                         try:
@@ -270,13 +249,12 @@ def get_dialog_stats():
                                 total_bot_messages += 1
                             
                             if entry.get('timestamp') and current_chat_id:
-                                try:
-                                    date = datetime.fromisoformat(entry['timestamp']).strftime('%Y-%m-%d')
-                                    daily_stats[date]['messages'] += 1
-                                    daily_stats[date]['users'].add(current_chat_id)
-                                except:
-                                    pass
+                                date = datetime.fromisoformat(entry['timestamp']).strftime('%Y-%m-%d')
+                                daily_stats[date]['messages'] += 1
+                                daily_stats[date]['users'].add(current_chat_id)
                         except json.JSONDecodeError:
+                            pass
+                        except (TypeError, ValueError):
                             pass
                 except Exception as e:
                     print(f"Ошибка чтения файла чата {log_file_path}: {e}")
@@ -401,7 +379,7 @@ def api_stats():
                 'dialogs': dialog_stats,
                 'costs': cost_metrics,
                 'timestamp': datetime.now().isoformat(),
-                'dataSource': 'user_data subdirectories and cost_data directory (LIMITED FOR DEBUGGING)',
+                'dataSource': 'user_data subdirectories and cost_data directory (FULL DATA)',
                 'processingTime': processing_time,
                 'costTime': cost_time,
                 'dialogTime': dialog_time
@@ -456,6 +434,7 @@ def serve_dashboard():
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bot Dashboard - Cost Analytics</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { 
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
@@ -494,6 +473,7 @@ def serve_dashboard():
         .cost { color: #27ae60; }
         .warning { color: #e74c3c; }
         .info { color: #3498db; }
+        .chart-container { height: 300px; margin-top: 20px; }
         .refresh-btn {
             background: #667eea;
             color: white;
@@ -565,18 +545,13 @@ def serve_dashboard():
         .status-proceeded { color: #28a745; font-weight: bold; }
         .status-landing { color: #ffc107; font-weight: bold; }
         .status-paid { color: #17a2b8; font-weight: bold; }
-        .debug { background: #f8f9fa; padding: 10px; margin: 10px 0; border-left: 4px solid #007bff; }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>🤖 Bot Analytics Dashboard (Simplified)</h1>
+            <h1>🤖 Bot Analytics Dashboard</h1>
             <p>Cost and Dialog Analytics | Last Updated: <span id="lastUpdate">Loading...</span></p>
-        </div>
-        
-        <div class="debug">
-            <strong>Debug Info:</strong> <span id="debugInfo">Initializing...</span>
         </div>
         
         <button class="refresh-btn" onclick="loadDashboard()">🔄 Refresh Data</button>
@@ -587,43 +562,24 @@ def serve_dashboard():
     </div>
 
     <script>
-        console.log('[DEBUG] Script started');
-        document.getElementById('debugInfo').textContent = 'Script loaded, preparing to fetch data...';
+        let chartInstance = null;
         
         async function loadDashboard() {
-            console.log('[DEBUG] loadDashboard called');
-            document.getElementById('debugInfo').textContent = 'Fetching /api/stats...';
-            
             try {
                 document.getElementById('content').innerHTML = '<div class="loading"><p>Loading dashboard data...</p></div>';
-                console.log('[DEBUG] About to fetch /api/stats');
                 
                 const response = await fetch('/api/stats');
-                console.log('[DEBUG] Got response:', response.status);
-                document.getElementById('debugInfo').textContent = `Got response: ${response.status}, parsing JSON...`;
-                
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    console.error('[DEBUG] API error:', response.status, errorText);
-                    throw new Error(`API request failed: ${response.status} - ${errorText}`);
-                }
-                
                 const result = await response.json();
-                console.log('[DEBUG] Parsed JSON, success:', result.success);
-                document.getElementById('debugInfo').textContent = `Data loaded successfully in ${result.data.processingTime}s, rendering...`;
                 
                 if (!result.success) {
-                    throw new Error(result.error || 'API returned success:false');
+                    throw new Error(result.error || 'Failed to load stats');
                 }
                 
-                console.log('[DEBUG] Calling renderDashboard');
                 renderDashboard(result.data);
                 document.getElementById('lastUpdate').textContent = new Date(result.data.timestamp).toLocaleString();
-                document.getElementById('debugInfo').textContent = `Dashboard rendered successfully. Processing time: ${result.data.processingTime}s`;
                 
             } catch (error) {
-                console.error('[DEBUG] Error in loadDashboard:', error);
-                document.getElementById('debugInfo').textContent = `Error: ${error.message}`;
+                console.error('Error loading dashboard:', error);
                 document.getElementById('content').innerHTML = `
                     <div class="card">
                         <h3 style="color: #e74c3c;">❌ Error Loading Dashboard</h3>
@@ -635,171 +591,277 @@ def serve_dashboard():
         }
         
         function renderDashboard(data) {
-            console.log('[DEBUG] renderDashboard called with data:', data);
+            const { dialogs, costs } = data;
             
-            try {
-                const { dialogs, costs } = data;
-                
-                let costCards = '';
-                if (costs && costs.available) {
-                    const modelDistributionHtml = Object.entries(costs.byModel || {}).map(([model, stats]) => `
-                        <div class="metric">
-                            <span>${model}</span>
-                            <span class="metric-value cost">$${(stats.totalCost || 0).toFixed(4)} (${stats.requests || 0} req)</span>
-                        </div>
-                    `).join('');
-
-                    costCards = `
-                        <div class="card summary-card">
-                            <h3>💰 Total Cost Overview</h3>
-                            <div class="summary-number">$${(costs.totalCost || 0).toFixed(4)}</div>
-                            <p>${costs.totalRequests || 0} total requests</p>
-                        </div>
-                        
-                        <div class="card">
-                            <h3>📅 Daily Cost Overview</h3>
-                            <div class="metric">
-                                <span>Today</span>
-                                <span class="metric-value cost">$${(costs.today.totalCost || 0).toFixed(4)} (${costs.today.requests || 0} req)</span>
-                            </div>
-                            <div class="metric">
-                                <span>Yesterday</span>
-                                <span class="metric-value">$${(costs.yesterday.totalCost || 0).toFixed(4)} (${costs.yesterday.requests || 0} req)</span>
-                            </div>
-                        </div>
-                        
-                        <div class="card">
-                            <h3>🔧 Cost by Bot</h3>
-                            ${Object.entries(costs.byBot || {}).map(([bot, stats]) => `
-                                <div class="metric">
-                                    <span>${bot}</span>
-                                    <span class="metric-value cost">$${(stats.totalCost || 0).toFixed(4)}</span>
-                                </div>
-                            `).join('')}
-                        </div>
-                        
-                        <div class="card">
-                            <h3>🤖 Cost by Model</h3>
-                            ${modelDistributionHtml || '<p style="color: #666;">No model data available</p>'}
-                        </div>
-                    `;
-                } else {
-                    costCards = `
-                        <div class="card">
-                            <h3>💰 Cost Tracking</h3>
-                            <p style="color: #666;">${(costs && costs.message) || 'Cost tracking not available'}</p>
-                        </div>
-                    `;
-                }
-                
-                const landingTableRows = (dialogs.landing.landingDetails || []).slice(0, 10).map(user => {
-                    const userName = user.userName || user.firstName || `ID: ${user.chatId}`;
-                    const reachedDate = user.reachedAt ? new Date(user.reachedAt).toLocaleDateString('ru-RU') : '-';
-                    const proceededDate = user.proceededAt ? new Date(user.proceededAt).toLocaleDateString('ru-RU') : '-';
-                    const statusClass = user.isPaid ? 'status-paid' : (user.proceeded ? 'status-proceeded' : 'status-landing');
-                    const status = user.isPaid ? '💰 Оплачено' : (user.proceeded ? '✅ Прошел дальше' : '⏳ На лендинге');
-                    
-                    return `
-                        <tr>
-                            <td>${userName}</td>
-                            <td>${reachedDate}</td>
-                            <td>${user.proceeded ? proceededDate : '-'}</td>
-                            <td class="${statusClass}">${status}</td>
-                        </tr>
-                    `;
-                }).join('');
-                
-                const botDistributionHtml = Object.entries(dialogs.botDistribution || {}).map(([bot, count]) => `
+            let costCards = '';
+            if (costs && costs.available) {
+                const modelDistributionHtml = Object.entries(costs.byModel || {}).map(([model, stats]) => `
                     <div class="metric">
-                        <span>${bot}</span>
-                        <span class="metric-value">${count} chats</span>
+                        <span>${model}</span>
+                        <span class="metric-value cost">$${(stats.totalCost || 0).toFixed(4)} (${stats.requests || 0} req, ${(stats.inputTokens || 0) + (stats.outputTokens || 0)} tokens)</span>
                     </div>
                 `).join('');
-                
-                console.log('[DEBUG] Setting innerHTML');
-                document.getElementById('content').innerHTML = `
-                    <div class="grid">
-                        ${costCards}
-                        
-                        <div class="card landing-stats">
-                            <h3>🎯 Аналитика лендинга</h3>
-                            <div class="conversion-rate">${dialogs.landing.conversionRate || 0}%</div>
-                            <div style="margin-bottom: 20px;">Конверсия лендинга</div>
-                            
-                            <div class="landing-metric">
-                                <span class="landing-number">${dialogs.landing.totalUsersReachedLanding || 0}</span>
-                                <span class="landing-label">Дошли до лендинга</span>
-                            </div>
-                            
-                            <div class="landing-metric">
-                                <span class="landing-number">${dialogs.landing.totalUsersProceededFromLanding || 0}</span>
-                                <span class="landing-label">Прошли дальше</span>
-                            </div>
+
+                costCards = `
+                    <div class="card summary-card">
+                        <h3>💰 Total Cost Overview</h3>
+                        <div class="summary-number">$${(costs.totalCost || 0).toFixed(4)}</div>
+                        <p>${costs.totalRequests || 0} total requests</p>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>📅 Daily Cost Overview</h3>
+                        <div class="metric">
+                            <span>Today</span>
+                            <span class="metric-value cost">$${(costs.today.totalCost || 0).toFixed(4)} (${costs.today.requests || 0} requests, ${costs.today.uniqueUsers || 0} users)</span>
                         </div>
-                        
-                        <div class="card">
-                            <h3>👥 Dialog Statistics</h3>
-                            <div class="metric">
-                                <span>Total Users</span>
-                                <span class="metric-value info">${dialogs.totalUsers || 0}</span>
-                            </div>
-                            <div class="metric">
-                                <span>Total Messages</span>
-                                <span class="metric-value">${dialogs.totalMessages || 0}</span>
-                            </div>
-                            <div class="metric">
-                                <span>User Messages</span>
-                                <span class="metric-value info">${dialogs.totalUserMessages || 0}</span>
-                            </div>
-                            <div class="metric">
-                                <span>Bot Messages</span>
-                                <span class="metric-value">${dialogs.totalBotMessages || 0}</span>
-                            </div>
+                        <div class="metric">
+                            <span>Yesterday</span>
+                            <span class="metric-value">$${(costs.yesterday.totalCost || 0).toFixed(4)} (${costs.yesterday.requests || 0} requests, ${costs.yesterday.uniqueUsers || 0} users)</span>
                         </div>
-                        
-                        <div class="card">
-                            <h3>🤖 Chats by Bot</h3>
-                            ${botDistributionHtml || '<p style="color: #666;">No data available</p>'}
+                        <div class="metric">
+                            <span>This Week</span>
+                            <span class="metric-value">$${(costs.weekly.totalCost || 0).toFixed(4)} (${costs.weekly.requests || 0} requests, ${costs.weekly.uniqueUsers || 0} users)</span>
+                        </div>
+                        <div class="metric">
+                            <span>This Month</span>
+                            <span class="metric-value">$${(costs.monthly.totalCost || 0).toFixed(4)} (${costs.monthly.requests || 0} requests, ${costs.monthly.uniqueUsers || 0} users)</span>
                         </div>
                     </div>
                     
                     <div class="card">
-                        <h3>📊 Детализация лендинга (первые 10)</h3>
-                        <table class="landing-table">
-                            <thead>
-                                <tr>
-                                    <th>Пользователь</th>
-                                    <th>Дошел до лендинга</th>
-                                    <th>Прошел дальше</th>
-                                    <th>Статус</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${landingTableRows || '<tr><td colspan="4" style="text-align: center; color: #666;">Нет данных по лендингу</td></tr>'}
-                            </tbody>
-                        </table>
+                        <h3>🔧 Cost by Bot</h3>
+                        ${Object.entries(costs.byBot || {}).map(([bot, stats]) => `
+                            <div class="metric">
+                                <span>${bot}</span>
+                                <span class="metric-value cost">$${(stats.totalCost || 0).toFixed(4)} (${stats.requests || 0} req, ${stats.uniqueChats || 0} chats)</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="card">
+                        <h3>🤖 Cost by Model</h3>
+                        ${modelDistributionHtml || '<p style="color: #666;">No model data available</p>'}
                     </div>
                 `;
-                console.log('[DEBUG] Dashboard rendered successfully');
-                
-            } catch (error) {
-                console.error('[DEBUG] Error in renderDashboard:', error);
-                document.getElementById('content').innerHTML = `
+            } else {
+                costCards = `
                     <div class="card">
-                        <h3 style="color: #e74c3c;">❌ Error Rendering Dashboard</h3>
-                        <p>${error.message}</p>
-                        <p>Check console for more details.</p>
+                        <h3>💰 Cost Tracking</h3>
+                        <p style="color: #666;">${(costs && costs.message) || 'Cost tracking not available or no data'}</p>
                     </div>
                 `;
             }
+            
+            const landingTableRows = (dialogs.landing.landingDetails || []).map(user => {
+                const userName = user.userName || user.firstName || `ID: ${user.chatId}`;
+                const reachedDate = user.reachedAt ? new Date(user.reachedAt).toLocaleDateString('ru-RU') : '-';
+                const proceededDate = user.proceededAt ? new Date(user.proceededAt).toLocaleDateString('ru-RU') : '-';
+                const statusClass = user.isPaid ? 'status-paid' : (user.proceeded ? 'status-proceeded' : 'status-landing');
+                const status = user.isPaid ? '💰 Оплачено' : (user.proceeded ? '✅ Прошел дальше' : '⏳ На лендинге');
+                
+                return `
+                    <tr>
+                        <td>${userName}</td>
+                        <td>${reachedDate}</td>
+                        <td>${user.proceeded ? proceededDate : '-'}</td>
+                        <td class="${statusClass}">${status}</td>
+                    </tr>
+                `;
+            }).join('');
+            
+            const botDistributionHtml = Object.entries(dialogs.botDistribution || {}).map(([bot, count]) => `
+                <div class="metric">
+                    <span>${bot} (chats)</span>
+                    <span class="metric-value">${count}</span>
+                </div>
+            `).join('');
+            
+            document.getElementById('content').innerHTML = `
+                <div class="grid">
+                    ${costCards}
+                    
+                    <div class="card landing-stats">
+                        <h3>🎯 Аналитика лендинга</h3>
+                        <div class="conversion-rate">${dialogs.landing.conversionRate || 0}%</div>
+                        <div style="margin-bottom: 20px;">Конверсия лендинга</div>
+                        
+                        <div class="landing-metric">
+                            <span class="landing-number">${dialogs.landing.totalUsersReachedLanding || 0}</span>
+                            <span class="landing-label">Дошли до лендинга</span>
+                        </div>
+                        
+                        <div class="landing-metric">
+                            <span class="landing-number">${dialogs.landing.totalUsersProceededFromLanding || 0}</span>
+                            <span class="landing-label">Прошли дальше</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>👥 Dialog Statistics (from logs)</h3>
+                        <div class="metric">
+                            <span>Total Unique Users (Chats)</span>
+                            <span class="metric-value info">${dialogs.totalUsers || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Active Dialogs (approximated)</span>
+                            <span class="metric-value status status-active">${dialogs.activeDialogs || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Paid Users (N/A from logs)</span>
+                            <span class="metric-value cost">${dialogs.paidUsers || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Stopped Dialogs (N/A from logs)</span>
+                            <span class="metric-value status status-stopped">${dialogs.stoppedDialogs || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Unclear Dialogs (N/A from logs)</span>
+                            <span class="metric-value status status-unclear">${dialogs.unclearDialogs || 0}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>💬 Message Statistics</h3>
+                        <div class="metric">
+                            <span>Total Messages</span>
+                            <span class="metric-value">${dialogs.totalMessages || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>User Messages</span>
+                            <span class="metric-value info">${dialogs.totalUserMessages || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Bot Messages</span>
+                            <span class="metric-value">${dialogs.totalBotMessages || 0}</span>
+                        </div>
+                        <div class="metric">
+                            <span>Avg. Messages/User (Chat)</span>
+                            <span class="metric-value">${(dialogs.totalUsers || 0) > 0 ? ((dialogs.totalMessages || 0) / dialogs.totalUsers).toFixed(1) : '0'}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card">
+                        <h3>🤖 Chats by Bot Category</h3>
+                        ${botDistributionHtml || '<p style="color: #666;">No data available</p>'}
+                    </div>
+                </div>
+                
+                <div class="card">
+                    <h3>📊 Детализация лендинга</h3>
+                    <table class="landing-table">
+                        <thead>
+                            <tr>
+                                <th>Пользователь</th>
+                                <th>Дошел до лендинга</th>
+                                <th>Прошел дальше</th>
+                                <th>Статус</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${landingTableRows || '<tr><td colspan="4" style="text-align: center; color: #666;">Нет данных по лендингу</td></tr>'}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="card">
+                    <h3>📊 Daily Cost & Usage Chart (Last 7 Days)</h3>
+                    <div class="chart-container">
+                        <canvas id="costChart"></canvas>
+                    </div>
+                </div>
+            `;
+            
+            loadChart();
         }
         
-        console.log('[DEBUG] About to call loadDashboard');
-        document.getElementById('debugInfo').textContent = 'Calling loadDashboard...';
-        loadDashboard();
+        async function loadChart(days = 7) {
+            try {
+                const response = await fetch(`/api/daily-chart/${days}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    renderChart(result.data);
+                } else {
+                    console.error('Failed to load chart data or data is empty:', result.error);
+                     document.getElementById('costChart').parentElement.innerHTML = '<p style="color: #e74c3c; text-align: center;">Error loading chart data.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading chart data:', error);
+                document.getElementById('costChart').parentElement.innerHTML = '<p style="color: #e74c3c; text-align: center;">Error loading chart data.</p>';
+            }
+        }
         
-        // Убираем автообновление для отладки
-        // setInterval(loadDashboard, 5 * 60 * 1000);
+        function renderChart(data) {
+            const ctx = document.getElementById('costChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(d => new Date(d.date).toLocaleDateString('ru-RU')),
+                    datasets: [
+                        {
+                            label: 'Cost ($)',
+                            data: data.map(d => d.cost),
+                            borderColor: '#27ae60',
+                            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Requests',
+                            data: data.map(d => d.requests),
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Unique Users (from logs)',
+                            data: data.map(d => d.users),
+                            borderColor: '#e74c3c',
+                            backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                            tension: 0.4,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Cost ($)'
+                            }
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: 'Requests / Users'
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    }
+                }
+            });
+        }
+        
+        loadDashboard();
+        setInterval(loadDashboard, 5 * 60 * 1000);
     </script>
 </body>
 </html>"""
