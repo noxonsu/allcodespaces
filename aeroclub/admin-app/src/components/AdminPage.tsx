@@ -234,7 +234,7 @@ const AdminPage: React.FC = () => {
     const token = localStorage.getItem('accessToken');
     if (!token) { alert("Ошибка авторизации."); return; }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/orders/${orderId}/status`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status: newStatus }) });
+      const response = await fetch(`${API_BASE_URL}/api/v1/orders/${orderId}/status?new_status=${newStatus}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
       if (response.ok) {
         openSuccessModal(`Статус заказа #${orderId} успешно обновлен на "${newStatus}".`);
         setIsOrderInfoModalOpen(false);
