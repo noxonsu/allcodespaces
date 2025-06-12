@@ -236,6 +236,7 @@ const AdminPage: React.FC = () => {
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/orders/${orderId}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status: newStatus }) });
       if (response.ok) {
+        setIsConfirmStatusChangeModalOpen(false); // Закрыть модальное окно подтверждения
         openSuccessModal(`Статус заказа #${orderId} успешно обновлен на "${newStatus}".`);
         setIsOrderInfoModalOpen(false);
         fetchOrders();
