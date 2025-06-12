@@ -80,6 +80,7 @@ class OrderItemCreate(OrderItemBase):
     pass
 
 class OrderItem(OrderItemBase):
+    menu_item_name: Optional[str] = None # Добавляем для отображения наименования
     model_config = ConfigDict(from_attributes=True)
 
 # Order Schemas
@@ -98,6 +99,7 @@ class Order(OrderBase):
     id: uuid.UUID = Field(default_factory=uuid.uuid4)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    location_name: Optional[str] = None # Добавляем для отображения имени локации
     items: List[OrderItem] # Use the OrderItem schema here
 
     model_config = ConfigDict(from_attributes=True)

@@ -10,6 +10,7 @@ const figmaColorToCss = (color: { r: number; g: number; b: number; a?: number })
 interface OrderItem {
   name: string;
   quantity: number;
+  menu_item_name?: string; // Добавляем опциональное поле menu_item_name
 }
 
 interface Order {
@@ -19,6 +20,7 @@ interface Order {
   spot: string;
   items: OrderItem[];
   status?: string;
+  location_name?: string; // Добавляем опциональное поле location_name
 }
 
 interface OrderInfoModalProps {
@@ -58,7 +60,7 @@ const OrderInfoModal: React.FC<OrderInfoModalProps> = ({ isOpen, onClose, order,
           Информация по заказу
         </h2>
         <p className="order-location-spot" style={{ color: colors.textSlightlyLighter, fontFamily: '"Tilda Sans-Medium", sans-serif' }}>
-          {`${order.location} | ${order.spot}`}
+          {`${order.location_name || order.location} | ${order.spot}`}
         </p>
         
         <div className="order-details-section">
@@ -73,7 +75,7 @@ const OrderInfoModal: React.FC<OrderInfoModalProps> = ({ isOpen, onClose, order,
             <tbody>
               {order.items.map((item, index) => (
                 <tr key={index}>
-                  <td style={{color: colors.tableCell, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>{item.name}</td>
+                  <td style={{color: colors.tableCell, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>{item.menu_item_name || item.name}</td>
                   <td style={{color: colors.tableCell, fontFamily: '"Tilda Sans-Medium", sans-serif'}}>{item.quantity}</td>
                 </tr>
               ))}

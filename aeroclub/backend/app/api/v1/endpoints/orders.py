@@ -70,9 +70,11 @@ async def read_orders(
     # Convert List[OrderInDB] to List[schemas.Order]
     result_orders = []
     for order_db in orders_db[skip : skip + limit]:
+        # Ensure location_name and menu_item_name are passed to the Pydantic model
         order_items_pydantic = [schemas.OrderItem(**item) for item in order_db["items"]]
         order_data_copy = order_db.copy()
         order_data_copy["items"] = order_items_pydantic
+        order_data_copy["location_name"] = order_db.get("location_name") # Add location_name from crud
         result_orders.append(schemas.Order(**order_data_copy))
         
     return result_orders
@@ -90,9 +92,11 @@ async def read_order(
     if not order_db:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found")
     
+    # Ensure location_name and menu_item_name are passed to the Pydantic model
     order_items_pydantic = [schemas.OrderItem(**item) for item in order_db["items"]]
     order_data_copy = order_db.copy()
     order_data_copy["items"] = order_items_pydantic
+    order_data_copy["location_name"] = order_db.get("location_name") # Add location_name from crud
     return schemas.Order(**order_data_copy)
 
 

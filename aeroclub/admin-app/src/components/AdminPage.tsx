@@ -112,7 +112,8 @@ const AdminPage: React.FC = () => {
           spot: order.spot_name || 'Не указано',
           items: order.items.map((item: any) => ({ name: item.menu_item_name, quantity: item.quantity })),
           status: order.status || 'pending',
-        }));
+          createdAt: new Date(order.created_at), // Добавляем поле для сортировки
+        })).sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()); // Сортируем по убыванию даты создания
         setOrders(formattedOrders);
       } else { console.error("Failed to fetch orders:", response.statusText); setOrders([]); }
     } catch (error) { console.error("Error fetching orders:", error); setOrders([]); }

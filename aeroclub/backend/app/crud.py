@@ -283,7 +283,30 @@ def get_orders(
     telegram_user_id: Optional[str] = None
 ) -> List[models_db.OrderInDB]:
     db_orders = read_orders_db()
-    filtered_orders = db_orders
+    
+    # Enrich orders with location_name and menu_item_name
+    enriched_orders = []
+    for order_db in db_orders:
+        order_data_copy = order_db.copy()
+        
+        # Add location_name
+        location_name = None
+        if order_data_copy.get("location_id"):
+            location = get_location_by_id(order_data_copy["location_id"])
+            if location:
+                location_name = location["address"]
+        order_data_copy["location_name"] = location_name
+
+        # Add menu_item_name to each item
+        enriched_items = []
+        for item in order_data_copy["items"]:
+            item_copy = item.copy()
+            item_copy["menu_item_name"] = item_copy.get("name_snapshot") # Use name_snapshot for menu_item_name
+            enriched_items.append(item_copy)
+        order_data_copy["items"] = enriched_items
+        enriched_orders.append(order_data_copy)
+
+    filtered_orders = enriched_orders
 
     if location_id:
         # If location_id is int, it's a numeric_id, find the corresponding UUID
@@ -311,9 +334,27 @@ def get_orders(
 
 def get_order_by_id(order_id: str) -> Optional[models_db.OrderInDB]:
     db_orders = read_orders_db()
-    for order in db_orders:
-        if order["id"] == order_id:
-            return order
+    for order_db in db_orders:
+        if order_db["id"] == order_id:
+            order_data_copy = order_db.copy()
+            
+            # Add location_name
+            location_name = None
+            if order_data_copy.get("location_id"):
+                location = get_location_by_id(order_data_copy["location_id"])
+                if location:
+                    location_name = location["address"]
+            order_data_copy["location_name"] = location_name
+
+            # Add menu_item_name to each item
+            enriched_items = []
+            for item in order_data_copy["items"]:
+                item_copy = item.copy()
+                item_copy["menu_item_name"] = item_copy.get("name_snapshot") # Use name_snapshot for menu_item_name
+                enriched_items.append(item_copy)
+            order_data_copy["items"] = enriched_items
+            
+            return order_data_copy
     return None
 
 def create_order(order_in: schemas.OrderCreate) -> models_db.OrderInDB:
