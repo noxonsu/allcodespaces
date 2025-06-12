@@ -13,7 +13,7 @@
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "PORT=3003 react-scripts start",
+    "start": "cross-env PORT=3003 REACT_APP_DEBUG=true REACT_APP_BUILD_DATE=$(date +%Y-%m-%d) REACT_APP_BUILD_TIME=$(date +%H:%M:%S) react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
