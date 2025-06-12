@@ -190,3 +190,12 @@ python-multipart
     ```bash
     ./venv/bin/uvicorn app.main:app --host 0.0.0.0 --reload
     ```
+
+
+# devops
+отвечай на русском. не используй cdn, всегда только локальные ресурсы. не меняй .env сам никогда. 
+
+если ты в папке (проекте) aeroclub. 
+то при тестах для отладки. 
+1. команда обновить backend "rsync -avz /workspaces/allcodespaces/aeroclub/backend/ root@78.47.125.10:/root/allcodespaces/aeroclub/backend/"
+2. команда смотреть логи backend ssh root@78.47.125.10 "PATH=/root/.nvm/versions/node/v14.15.3/bin:$PATH /root/.nvm/versions/node/v14.15.3/bin/pm2 logs 45"

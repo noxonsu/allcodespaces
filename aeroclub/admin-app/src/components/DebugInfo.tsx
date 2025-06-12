@@ -73,7 +73,7 @@ const DebugInfo: React.FC = () => {
       boxSizing: 'border-box'
     }}>
       <div>
-        <strong>Время билда (МСК):</strong> {buildDateTime}
+        <strong>Время билда (сервер):</strong> {buildDateTime}
       </div>
       <div style={{ marginTop: '5px' }}>
         <strong>Логи:</strong>

@@ -9,8 +9,8 @@ from . import schemas
 from .core.security import get_password_hash
 
 # Define paths to JSON database files
-# The db_json directory is at the same level as the 'app' directory's parent
-DB_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'app', 'db_json')
+# The db_json directory is now in the root of the 'aeroclub' project
+DB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'db_json')
 MAIN_DB_PATH = os.path.join(DB_DIR, 'main_db.json')
 ORDERS_DB_PATH = os.path.join(DB_DIR, 'orders_db.json')
 
