@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import './App.css';
 import AdminPage from './components/AdminPage';
 import LoginPage from './components/LoginPage'; // Import the LoginPage component
+import DebugInfo from './components/DebugInfo'; // Import the DebugInfo component
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/" element={<Navigate replace to="/login" />} /> {/* Default to login */}
         </Routes>
+        {process.env.REACT_APP_DEBUG === 'true' && <DebugInfo />}
       </div>
     </Router>
   );

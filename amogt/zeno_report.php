@@ -195,7 +195,8 @@ $reportEntry = [
     'reported_at' => date('Y-m-d H:i:s'),
     'amo_update_skipped_reason' => null,
     'amo_update_status' => 'skipped',
-    'amo_update_message' => null
+    'amo_update_message' => null,
+    'amo_request_payload' => null // Initialize new field for AmoCRM request payload
 ];
 
 // Cleanup function для лок-файла
@@ -287,47 +288,61 @@ if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is 
                         $currentUnixTimestamp = time();
                         
                         // Simplified field mapping based on POST data
-                        // Email will be mapped to 'promocode' internal key
-                        // Currency will use "Валюта получения" directly
+                        // 'email' and 'currency' are handled specially below
                         $mapPostToInternal = [
                             'amount' => 'amount_issued', 
-                            // 'currency' will be handled specially below
-                            'email' => 'promocode', // Email from GET maps to 'promocode' internal key
                             'card' => 'card', 
                             'status' => 'status'
                         ];
 $reportDataForAmo = $reportEntry['report_data'];
 
-// Handle currency separately using "Валюта получения"
+// Handle email separately, mapping to "Комментарий (для списания)"
+if (isset($reportDataForAmo['email']) && $reportDataForAmo['email'] !== null) {
+    $emailCommentAmoFieldName = "Комментарий (для списания)"; // Directly use the name provided by user
+    logMessage("[ZenoReport] Processing field 'email' -> using Amo field name '$emailCommentAmoFieldName', value: '{$reportDataForAmo['email']}'", 'DEBUG', ZENO_REPORT_LOG_FILE);
+    if (isset($amoCustomFieldsDefinitions[$emailCommentAmoFieldName])) {
+        $fieldDef = $amoCustomFieldsDefinitions[$emailCommentAmoFieldName];
+        $value = $reportDataForAmo['email'];
+        $valPayload = ['value' => (string)$value];
+        if ($valPayload) {
+            $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
+            logMessage("[ZenoReport] Added field '{$emailCommentAmoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', ZENO_REPORT_LOG_FILE);
+        }
+    } else {
+        logMessage("[ZenoReport] Field 'email' -> Amo field name '$emailCommentAmoFieldName' not found in AmoCRM custom field definitions", 'WARNING', ZENO_REPORT_LOG_FILE);
+    }
+}
+
+// Handle currency separately using "Валюта (выдано)"
 if (isset($reportDataForAmo['currency']) && $reportDataForAmo['currency'] !== null) {
-    $currencyAmoFieldName = "Валюта получения"; // Directly use the name provided by user
-    logMessage("[ZenoReport] Processing field 'currency' -> using Amo field name '$currencyAmoFieldName', value: '{$reportDataForAmo['currency']}'", 'DEBUG', $dealSpecificLogFile);
-    if (isset($amoCustomFieldsDefinitions[$currencyAmoFieldName])) {
-        $fieldDef = $amoCustomFieldsDefinitions[$currencyAmoFieldName];
+    $issuedCurrencyAmoFieldName = $AMO_CUSTOM_FIELD_NAMES['issued_currency'] ?? "Валюта (выдано)"; // Используем имя из config.php или дефолтное
+    logMessage("[ZenoReport] Processing field 'currency' -> using Amo field name '$issuedCurrencyAmoFieldName', value: '{$reportDataForAmo['currency']}'", 'DEBUG', ZENO_REPORT_LOG_FILE);
+    if (isset($amoCustomFieldsDefinitions[$issuedCurrencyAmoFieldName])) {
+        $fieldDef = $amoCustomFieldsDefinitions[$issuedCurrencyAmoFieldName];
         $value = $reportDataForAmo['currency'];
         $valPayload = null;
         if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
             $enumValues = array_map(function($enum) { return $enum['value'] . " (ID: " . $enum['id'] . ")"; }, $fieldDef['enums']);
-            logMessage("[ZenoReport] Field '{$currencyAmoFieldName}' has type '{$fieldDef['type']}' with enum options: " . implode(", ", $enumValues), 'DEBUG', $dealSpecificLogFile);
+            logMessage("[ZenoReport] Field '{$issuedCurrencyAmoFieldName}' has type '{$fieldDef['type']}' with enum options: " . implode(", ", $enumValues), 'DEBUG', ZENO_REPORT_LOG_FILE);
             foreach ($fieldDef['enums'] as $enum) {
-                if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
+                if (strtolower((string)$enum['value']) === strtolower((string)$value)) { // Сравнение без учета регистра
                     $valPayload = ['enum_id' => (int)$enum['id']];
-                    logMessage("[ZenoReport] Found matching enum for '{$value}' in '{$currencyAmoFieldName}': ID {$enum['id']}", 'DEBUG', $dealSpecificLogFile);
+                    logMessage("[ZenoReport] Found matching enum for '{$value}' in '{$issuedCurrencyAmoFieldName}': ID {$enum['id']}", 'DEBUG', ZENO_REPORT_LOG_FILE);
                     break;
                 }
             }
             if (!$valPayload) {
-                logMessage("[ZenoReport] No matching enum found for value '{$value}' in field '{$currencyAmoFieldName}'", 'WARNING', $dealSpecificLogFile);
+                logMessage("[ZenoReport] No matching enum found for value '{$value}' in field '{$issuedCurrencyAmoFieldName}'", 'WARNING', ZENO_REPORT_LOG_FILE);
             }
         } else {
              $valPayload = ['value' => (string)$value]; // Fallback for non-enum or if type is different
         }
         if ($valPayload) {
             $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
-            logMessage("[ZenoReport] Added field '{$currencyAmoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', $dealSpecificLogFile);
+            logMessage("[ZenoReport] Added field '{$issuedCurrencyAmoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', ZENO_REPORT_LOG_FILE);
         }
     } else {
-        logMessage("[ZenoReport] Field 'currency' -> Amo field name '$currencyAmoFieldName' not found in AmoCRM custom field definitions", 'WARNING', $dealSpecificLogFile);
+        logMessage("[ZenoReport] Field 'currency' -> Amo field name '$issuedCurrencyAmoFieldName' not found in AmoCRM custom field definitions", 'WARNING', ZENO_REPORT_LOG_FILE);
     }
 }
 
@@ -479,6 +494,8 @@ if ($reportStatus === "Выполнено") {
                                     logMessage("[ZenoReport] WARNING: Pipeline ID is not set and status_id is being updated. This might cause an error if the status_id is not valid for the deal's current pipeline.", 'WARNING', $dealSpecificLogFile);
                                 }
                             }
+
+                            $reportEntry['amo_request_payload'] = $amoUpdatePayload; // Store the payload that will be sent
 
                             $amoUpdatePayloadJson = json_encode($amoUpdatePayload, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
                             logMessage("[ZenoReport] AmoCRM update payload for lead $leadId: " . $amoUpdatePayloadJson, 'DEBUG', $dealSpecificLogFile);

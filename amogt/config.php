@@ -67,7 +67,6 @@ define('AMO_CF_ID_PAYMENT_LINK', getenv('AMO_CF_ID_PAYMENT_LINK'));
 define('AMO_CF_ID_REQUEST_AMOUNT', getenv('AMO_CF_ID_REQUEST_AMOUNT'));
 define('AMO_CF_ID_REQUEST_CURRENCY', getenv('AMO_CF_ID_REQUEST_CURRENCY'));
 define('AMO_CF_ID_CHATGPT_PAYMENT_STATUS', getenv('AMO_CF_ID_CHATGPT_PAYMENT_STATUS'));
-define('AMO_CF_ID_PROMOCODE', getenv('AMO_CF_ID_PROMOCODE')); // Новая константа для ID поля "Промокод"
 
 // Enum ID валют AmoCRM (загружаются из .env)
 define('AMO_CURRENCY_ENUM_ID_USD', getenv('AMO_CURRENCY_ENUM_ID_USD'));
@@ -94,8 +93,9 @@ $AMO_CUSTOM_FIELD_NAMES = [
     'email' => getenv('AMO_CF_NAME_EMAIL') ?: "Почта",
     'payment_term' => getenv('AMO_CF_NAME_PAYMENT_TERM') ?: "Срок оплаты",
     'status' => getenv('AMO_CF_NAME_STATUS') ?: "Статус",
-    'promocode' => getenv('AMO_CF_NAME_PROMOCODE') ?: "Промокод", // Добавляем имя для промокода
     'payment_link' => "Ссылка на оплату", // имя поля для ссылки на оплату
+    'issued_currency' => getenv('AMO_CF_NAME_ISSUED_CURRENCY') ?: "Валюта (выдано)",
+    'comment_for_withdrawal' => getenv('AMO_CF_NAME_COMMENT_FOR_WITHDRAWAL') ?: "Комментарий (для списания)", // Новое поле для email
 ];
 
 // Проверка обязательных переменных окружения
@@ -110,7 +110,6 @@ $requiredEnvVars = [
     'AMO_CF_ID_PAYMENT_LINK' => AMO_CF_ID_PAYMENT_LINK,
     'AMO_CF_ID_REQUEST_AMOUNT' => AMO_CF_ID_REQUEST_AMOUNT,
     'AMO_CF_ID_REQUEST_CURRENCY' => AMO_CF_ID_REQUEST_CURRENCY,
-    'AMO_CF_ID_PROMOCODE' => AMO_CF_ID_PROMOCODE,
     'AMO_CURRENCY_ENUM_ID_USD' => AMO_CURRENCY_ENUM_ID_USD,
     'AMO_CURRENCY_ENUM_ID_EUR' => AMO_CURRENCY_ENUM_ID_EUR,
     'AMO_CURRENCY_ENUM_ID_KZT' => AMO_CURRENCY_ENUM_ID_KZT,
@@ -123,13 +122,15 @@ $requiredEnvVars = [
     'AMO_CF_ID_CHATGPT_PAYMENT_STATUS' => AMO_CF_ID_CHATGPT_PAYMENT_STATUS,
     // Добавляем недостающую константу для статуса ошибки
     'AMO_STATUS_ERROR_ENUM_ID' => defined('AMO_STATUS_ERROR_ENUM_ID') ? constant('AMO_STATUS_ERROR_ENUM_ID') : null,
+    'AMO_CF_ID_ISSUED_CURRENCY' => AMO_CF_ID_ISSUED_CURRENCY, // Добавляем новую константу
+    'AMO_CF_ID_COMMENT_FOR_WITHDRAWAL' => getenv('AMO_CF_ID_COMMENT_FOR_WITHDRAWAL'), // Новая константа для ID поля "Комментарий (для списания)"
 ];
 
 // Добавляем определение константы AMO_STATUS_ERROR_ENUM_ID если её нет
 if (!defined('AMO_STATUS_ERROR_ENUM_ID')) {
     define('AMO_STATUS_ERROR_ENUM_ID', getenv('AMO_STATUS_ERROR_ENUM_ID'));
 }
-
+define('AMO_CF_ID_ISSUED_CURRENCY', getenv('AMO_CF_ID_ISSUED_CURRENCY'));
 // Обновляем массив проверки
 $requiredEnvVars['AMO_STATUS_ERROR_ENUM_ID'] = AMO_STATUS_ERROR_ENUM_ID;
 
