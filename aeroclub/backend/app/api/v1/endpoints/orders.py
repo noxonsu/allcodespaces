@@ -96,10 +96,10 @@ async def read_order(
     return schemas.Order(**order_data_copy)
 
 
-@router.put("/{order_id}/status", response_model=schemas.Order)
+@router.post("/{order_id}/status", response_model=schemas.Order)
 async def update_order_status(
     order_id: uuid.UUID,
-    new_status: str = Query(..., description="The new status for the order (e.g., processing, completed, cancelled)"),
+    status_update: schemas.OrderStatusUpdate, # Получаем статус из тела запроса
     current_admin: models_db.UserInDB = Depends(deps.get_current_admin_user) # Only admin can change status
 ):
     """
@@ -111,13 +111,13 @@ async def update_order_status(
 
     # Basic validation for status, more complex validation could be added
     allowed_statuses = ["pending", "processing", "completed", "cancelled"]
-    if new_status not in allowed_statuses:
+    if status_update.status not in allowed_statuses: # Используем status_update.status
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid status. Allowed statuses are: {', '.join(allowed_statuses)}"
         )
 
-    updated_order_db = crud.update_order_status(order_id=str(order_id), status=new_status)
+    updated_order_db = crud.update_order_status(order_id=str(order_id), status=status_update.status) # Используем status_update.status
     if not updated_order_db:
         # This should ideally not happen if the first check passed
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found during status update")

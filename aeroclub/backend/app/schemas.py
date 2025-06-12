@@ -31,6 +31,11 @@ class User(UserInDBBase):
 class UserInDB(UserInDBBase):
     hashed_password: str
 
+class UserUpdate(BaseModel):
+    login: Optional[str] = None
+    password: Optional[str] = None
+    location_id: Optional[uuid.UUID] = None
+
 # MenuItem Schemas
 class MenuItemBase(BaseModel):
     name: str
@@ -100,3 +105,6 @@ class Order(OrderBase):
 class OrderConfirmation(BaseModel):
     order_id: uuid.UUID
     telegram_user_id: str
+
+class OrderStatusUpdate(BaseModel):
+    status: str

@@ -67,3 +67,45 @@ async def read_users(
             location_name=user_data.get("location_name")
         ))
     return response_users
+
+
+@router.post("/{user_id}", response_model=schemas.User)
+async def update_user(
+    user_id: uuid.UUID,
+    user_in: schemas.UserUpdate,
+    current_admin: models_db.UserInDB = Depends(deps.get_current_admin_user)
+):
+    """
+    Update a user. Only accessible by admin users.
+    """
+    user_db = crud.get_user_by_id(str(user_id))
+    if not user_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # Check if login is being changed and if the new login already exists
+    if user_in.login and user_in.login != user_db.get("login"):
+        existing_user = crud.get_user_by_login(login=user_in.login)
+        if existing_user and str(existing_user.get("id")) != str(user_id):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with login '{user_in.login}' already exists.",
+            )
+    
+    updated_user_db = crud.update_user(user_id=str(user_id), user_in=user_in)
+    if not updated_user_db:
+        # This might happen if the user was deleted between the get and update,
+        # or if update_user itself has an issue.
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, # Or 500 if it's an internal update issue
+            detail="User not found during update or update failed.",
+        )
+    
+    return schemas.User(
+        id=updated_user_db["id"],
+        login=updated_user_db["login"],
+        location_id=uuid.UUID(updated_user_db["location_id"]) if updated_user_db.get("location_id") else None,
+        location_name=updated_user_db.get("location_name") # Assuming crud.update_user can return this
+    )

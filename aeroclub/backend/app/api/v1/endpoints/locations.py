@@ -57,7 +57,7 @@ async def read_location(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
     return schemas.Location(**location_db)
 
-@router.put("/{location_id}", response_model=schemas.Location)
+@router.post("/{location_id}", response_model=schemas.Location) # Changed PUT to POST
 async def update_location(
     location_id: uuid.UUID,
     location_in: schemas.LocationCreate, # Using LocationCreate as it only contains address

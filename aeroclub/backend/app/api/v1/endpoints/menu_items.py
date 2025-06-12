@@ -79,7 +79,7 @@ async def read_menu_item(
     return schemas.MenuItem(**item_db)
 
 
-@router.put("/{item_id}", response_model=schemas.MenuItem)
+@router.post("/{item_id}", response_model=schemas.MenuItem) # Changed PUT to POST
 async def update_menu_item(
     item_id: uuid.UUID,
     name: Optional[str] = Form(None),

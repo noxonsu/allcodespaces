@@ -186,7 +186,7 @@ const AdminPage: React.FC = () => {
     if (updatedData.newImageFile) formData.append('image', updatedData.newImageFile);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/menu-items/${updatedData.id}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
+      const response = await fetch(`${API_BASE_URL}/api/v1/menu-items/${updatedData.id}`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }, body: formData });
       if (response.ok) {
         const updatedItem = await response.json();
         openSuccessModal(`Напиток "${updatedItem.name}" успешно обновлен.`);
@@ -234,7 +234,7 @@ const AdminPage: React.FC = () => {
     const token = localStorage.getItem('accessToken');
     if (!token) { alert("Ошибка авторизации."); return; }
     try {
-      const response = await fetch(`${API_BASE_URL}/api/v1/orders/${orderId}/status?new_status=${newStatus}`, { method: 'PUT', headers: { 'Authorization': `Bearer ${token}` } });
+      const response = await fetch(`${API_BASE_URL}/api/v1/orders/${orderId}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status: newStatus }) });
       if (response.ok) {
         openSuccessModal(`Статус заказа #${orderId} успешно обновлен на "${newStatus}".`);
         setIsOrderInfoModalOpen(false);
@@ -305,7 +305,7 @@ const AdminPage: React.FC = () => {
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/v1/users/${userId}`, {
-        method: 'PUT',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
