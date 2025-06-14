@@ -5,6 +5,7 @@ from typing import List, Dict, Any
 def split_image_intellectually(
     image_src: str,
     expected_columns: int,
+    output_base_dir: Path, # Изменяем project_id на output_base_dir
 ) -> List[Dict[str, Any]]:
     """
     Разрезает изображение на ожидаемое число вертикальных колонок.
@@ -20,7 +21,7 @@ def split_image_intellectually(
     col_width = width // expected_columns
 
     # Директория для сохранения колонок
-    out_dir = Path('columns_py_opencv_actual_images') / Path(image_src).stem
+    out_dir = output_base_dir / Path(image_src).stem # Используем переданную директорию
     out_dir.mkdir(parents=True, exist_ok=True)
 
     columns: List[Dict[str, Any]] = []

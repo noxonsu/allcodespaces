@@ -334,12 +334,14 @@ if (isset($reportDataForAmo['currency']) && $reportDataForAmo['currency'] !== nu
             if (!$valPayload) {
                 logMessage("[ZenoReport] No matching enum found for value '{$value}' in field '{$issuedCurrencyAmoFieldName}'", 'WARNING', ZENO_REPORT_LOG_FILE);
             }
-        } else {
-             $valPayload = ['value' => (string)$value]; // Fallback for non-enum or if type is different
+        } else { // Default for text, textarea, string etc. for currency
+            $valPayload = ['value' => (string)$value];
         }
-        if ($valPayload) {
-            $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
-            logMessage("[ZenoReport] Added field '{$issuedCurrencyAmoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', ZENO_REPORT_LOG_FILE);
+        if ($valPayload) { // This if block for currency was incomplete in the snippet, assuming it adds to $customFieldsPayload
+            $customFieldsPayload[] = [
+                'field_id' => $fieldDef['id'],
+                'values' => [$valPayload]
+            ];
         }
     } else {
         logMessage("[ZenoReport] Field 'currency' -> Amo field name '$issuedCurrencyAmoFieldName' not found in AmoCRM custom field definitions", 'WARNING', ZENO_REPORT_LOG_FILE);
@@ -351,49 +353,132 @@ foreach ($mapPostToInternal as $postKey => $internalKey) {
     if (isset($reportDataForAmo[$postKey]) && $reportDataForAmo[$postKey] !== null) {
         $amoFieldName = $AMO_CUSTOM_FIELD_NAMES[$internalKey] ?? null;
         // Special handling for status field name was already here
-        if ($internalKey === 'status') $amoFieldName = $statusAmoFieldName; 
+        if ($internalKey === 'status') { // Assuming $statusAmoFieldName is defined elsewhere if status is handled here
+            // $amoFieldName = $statusAmoFieldName; // Example, if status has special mapping
+        }
 
         // Log field mapping information
         logMessage("[ZenoReport] Processing field '$postKey' -> '$internalKey' -> '$amoFieldName', value: '{$reportDataForAmo[$postKey]}'", 'DEBUG', $dealSpecificLogFile);
         
         if ($amoFieldName && isset($amoCustomFieldsDefinitions[$amoFieldName])) {
             $fieldDef = $amoCustomFieldsDefinitions[$amoFieldName];
-            $value = $reportDataForAmo[$postKey];
+            $currentValue = $reportDataForAmo[$postKey];
             $valPayload = null;
-            
-            // For enum fields like currency, log available options
+
             if (in_array($fieldDef['type'], ['select', 'multiselect', 'radiobutton']) && isset($fieldDef['enums'])) {
-                $enumValues = array_map(function($enum) { 
-                    return $enum['value'] . " (ID: " . $enum['id'] . ")"; 
-                }, $fieldDef['enums']);
-                logMessage("[ZenoReport] Field '{$amoFieldName}' has type '{$fieldDef['type']}' with enum options: " . 
-                           implode(", ", $enumValues), 'DEBUG', $dealSpecificLogFile);
-                
+                $foundEnum = false;
+                $currentScalarValue = is_scalar($currentValue) ? mb_strtolower((string)$currentValue) : null;
+
                 foreach ($fieldDef['enums'] as $enum) {
-                    if (strtolower((string)$enum['value']) === strtolower((string)$value)) {
-                        $valPayload = ['enum_id' => (int)$enum['id']]; 
-                        logMessage("[ZenoReport] Found matching enum for '{$value}': ID {$enum['id']}", 'DEBUG', $dealSpecificLogFile);
+                    if ($currentScalarValue !== null && mb_strtolower((string)$enum['value']) === $currentScalarValue) {
+                        $valPayload = ['enum_id' => $enum['id']];
+                        $foundEnum = true;
                         break;
                     }
+                    // Also check if currentValue is an enum ID
+                    if (is_numeric($currentValue) && $enum['id'] == $currentValue) {
+                         $valPayload = ['enum_id' => $enum['id']];
+                         $foundEnum = true;
+                         break;
+                    }
+                }
+                if (!$foundEnum) {
+                    logMessage("[ZenoReport] Enum value '{$currentValue}' not found for field '{$amoFieldName}'. Skipping.", 'WARNING', $dealSpecificLogFile);
+                }
+                 // For multiselect, AmoCRM expects an array of value objects
+                if ($valPayload && $fieldDef['type'] === 'multiselect') {
+                    $valPayload = [$valPayload];
+                }
+
+            } else if ($fieldDef['type'] === 'date' || $fieldDef['type'] === 'birthday') {
+                if (is_numeric($currentValue)) { // Already a timestamp
+                    $valPayload = ['value' => (int)$currentValue];
+                } else {
+                    $timestamp = strtotime((string)$currentValue);
+                    if ($timestamp !== false) {
+                        $valPayload = ['value' => $timestamp];
+                    } else {
+                        logMessage("[ZenoReport] Invalid date format for field '$amoFieldName': '$currentValue'. Skipping.", 'WARNING', $dealSpecificLogFile);
+                    }
+                }
+            } else if ($fieldDef['type'] === 'numeric') {
+                $numericInput = (string)$currentValue;
+                $cleanedNum = '';
+                $isAmountField = ($postKey === 'amount'); // Check if we are processing the 'amount' field
+
+                if ($isAmountField) {
+                    // Specific cleaning for the 'amount' field (e.g., "19,17 €" or "1.234,56 €")
+                    // 1. Remove anything that's not a digit, a comma, or a period.
+                    $tempNum_step1 = preg_replace('/[^\d,.]/', '', $numericInput);
+                    
+                    // 2. Remove periods (assuming they are thousand separators if comma is decimal)
+                    $tempNum_step2 = str_replace('.', '', $tempNum_step1);
+                    
+                    // 3. Replace comma with period (for decimal point)
+                    $cleanedNum = str_replace(',', '.', $tempNum_step2);
+                    logMessage("[ZenoReport] Amount cleaning: Original: '{$numericInput}', Step 1 (keep d,.): '{$tempNum_step1}', Step 2 (remove .): '{$tempNum_step2}', Final Cleaned: '{$cleanedNum}'", 'DEBUG', $dealSpecificLogFile);
+
+                } else {
+                    // Generic cleaning for other numeric fields (assuming dot as decimal, comma as thousand)
+                    // Remove thousand separators (commas)
+                    $tempNum = str_replace(',', '', $numericInput);
+                    // Remove any other non-numeric characters except dot
+                    $cleanedNum = preg_replace('/[^0-9.]/', '', $tempNum);
+                }
+
+                // Validate if the cleaned string is a valid number
+                if ($cleanedNum !== '' && $cleanedNum !== '.' && is_numeric($cleanedNum)) {
+                    $valPayload = ['value' => (float)$cleanedNum];
+                    logMessage("[ZenoReport] Field '$postKey' (mapped to '$amoFieldName') successfully cleaned. Original: '{$currentValue}', Cleaned: '{$cleanedNum}', Payload Value: ".(float)$cleanedNum, 'DEBUG', $dealSpecificLogFile);
+                } else {
+                    logMessage("[ZenoReport] Field '$postKey' (mapped to '$amoFieldName') resulted in an invalid numeric value after cleaning: Original '{$currentValue}' -> Cleaned '{$cleanedNum}'. Skipping field.", 'WARNING', $dealSpecificLogFile);
+                    // $valPayload remains null or not set, so this field will be skipped
+                }
+            } else if ($fieldDef['type'] === 'text' && $amoFieldName === 'Сумма выдана') {
+                $numericInput = (string)$currentValue;
+                logMessage("[ZenoReport] Initial value for 'Сумма выдана': '$numericInput'", 'DEBUG', $dealSpecificLogFile);
+
+                // 1. Remove leading/trailing whitespace
+                $tempNum = trim($numericInput);
+
+                // 2. Remove currency symbols and any other characters that are not digits, a comma, or a period.
+                //    Example: "19,01 €" -> "19,01", "$20.00" -> "20.00"
+                $tempNum = preg_replace('/[^\d,.]/', '', $tempNum);
+                logMessage("[ZenoReport] After preg_replace (keep digits, comma, period): '$tempNum'", 'DEBUG', $dealSpecificLogFile);
+
+                // 3. Standardize to use '.' as the decimal separator.
+                //    This will convert "19,01" to "19.01".
+                //    If the input was already "20.00", it remains "20.00".
+                $cleanedNum = str_replace(',', '.', $tempNum);
+                logMessage("[ZenoReport] After str_replace(',', '.'): '$cleanedNum'", 'DEBUG', $dealSpecificLogFile);
+
+                if ($cleanedNum !== '' && $cleanedNum !== '.' && is_numeric($cleanedNum)) {
+                    $valPayload = ['value' => (string)$cleanedNum]; // Set payload for text field
+                    logMessage("[ZenoReport] Field '$amoFieldName' (type: text) successfully processed for 'Сумма выдана'. Cleaned: '{$cleanedNum}', Payload Value: ".(string)$cleanedNum, 'DEBUG', $dealSpecificLogFile);
+                } else {
+                    logMessage("[ZenoReport] Field '$amoFieldName' (type: text) for 'Сумма выдана' resulted in an invalid string after cleaning: Original '{$currentValue}' -> Cleaned '{$cleanedNum}'. Skipping field.", 'WARNING', $dealSpecificLogFile);
                 }
                 
-                if (!$valPayload) {
-                    logMessage("[ZenoReport] No matching enum found for value '{$value}' in field '{$amoFieldName}'", 'WARNING', $dealSpecificLogFile);
-                }
-            } else if ($fieldDef['type'] === 'date') {
-                $ts = strtotime($value);
-                if ($ts) $valPayload = ['value' => $ts];
-            } else if ($fieldDef['type'] === 'numeric') {
-                $valPayload = ['value' => (float)$value];
-            } else { // text, textarea etc.
-                $valPayload = ['value' => (string)$value];
+            } else if ($fieldDef['type'] === 'checkbox') {
+                $valPayload = ['value' => filter_var($currentValue, FILTER_VALIDATE_BOOLEAN)];
+            } else { // Default for text, textarea, string, url, etc.
+                $valPayload = ['value' => (string)$currentValue];
             }
+
             if ($valPayload) {
-                $customFieldsPayload[] = ['field_id' => $fieldDef['id'], 'values' => [$valPayload]];
-                logMessage("[ZenoReport] Added field '{$amoFieldName}' (ID: {$fieldDef['id']}) to update payload", 'DEBUG', $dealSpecificLogFile);
+                 // Multiselect values should be an array of objects, e.g., [ {"enum_id": 123}, {"value": "abc"} ]
+                // Single select/radio button uses a single object. Other fields also use a single object.
+                $valuesForAmo = ($fieldDef['type'] === 'multiselect' && is_array($valPayload) && isset($valPayload[0])) ? $valPayload : [$valPayload];
+                
+                $customFieldsPayload[] = [
+                    'field_id' => $fieldDef['id'],
+                    'values' => $valuesForAmo
+                ];
+            } else {
+                 logMessage("[ZenoReport] No payload generated for field '$amoFieldName' (type: {$fieldDef['type']}) with input value '{$currentValue}'. Field will be skipped.", 'INFO', $dealSpecificLogFile);
             }
         } else {
-            logMessage("[ZenoReport] Field '{$postKey}' -> '$internalKey}' -> '$amoFieldName' not found in AmoCRM custom field definitions", 'WARNING', $dealSpecificLogFile);
+            logMessage("[ZenoReport] AmoCRM field name '$amoFieldName' (for internal key '$internalKey' / post key '$postKey') not found in AmoCRM custom field definitions or AMO_CUSTOM_FIELD_NAMES. Skipping.", 'WARNING', $dealSpecificLogFile);
         }
     } else {
         logMessage("[ZenoReport] Field '{$postKey}' is not set or null in the report data", 'DEBUG', $dealSpecificLogFile);

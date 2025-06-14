@@ -5,9 +5,13 @@ from dotenv import load_dotenv
 import requests
 import json
 from typing import List, Dict, Any, Set
+import sys # Добавляем импорт sys
+
+# Добавляем корневую директорию проекта в sys.path для абсолютных импортов
+sys.path.append(str(Path(__file__).parent.parent))
 
 # Импортируем нужные функции из figma_analyzer
-from figma_analyzer import ensure_dir_exists
+# from figma_analyzer import ensure_dir_exists # Эта функция не используется напрямую здесь, но может быть в analyzer.py
 
 # Загружаем переменные окружения
 dotenv_path = Path(__file__).parent / '.env'
@@ -49,135 +53,61 @@ async def process_figma_file(figma_url: str):
     file_data = file_resp.json()
     print("Данные из Figma API получены.")
 
-    # 2. Собираем все imageRef из документа
-    image_refs = set()
-    collect_image_refs(file_data["document"], image_refs)
-    print(f"Найдено уникальных изображений (imageRef): {len(image_refs)}")
-
-    # 3. Получаем URL для скачивания всех найденных изображений
-    image_urls = {}
-    if image_refs:
-        print("Запрос URL для скачивания изображений...")
-        images_resp = requests.get(f"https://api.figma.com/v1/files/{file_key}/images", headers=headers)
-        images_resp.raise_for_status()
-        image_urls = images_resp.json().get("meta", {}).get("images", {})
-        print(f"Получено URL для {len(image_urls)} изображений.")
-
-    # --- Подготовка директорий ---
-    base_export_dir = Path(__file__).parent / "figma_data_exports"
-    file_export_dir = base_export_dir / file_key
-    assets_dir = file_export_dir / "assets"
-    ensure_dir_exists(assets_dir)
-
-    # 4. Скачиваем и сохраняем изображения
-    saved_asset_paths = {}
-    for ref, url in image_urls.items():
-        if ref in image_refs:
-            try:
-                image_resp = requests.get(url, stream=True)
-                image_resp.raise_for_status()
-                # Определяем расширение файла из URL или используем .png по умолчанию
-                file_extension = Path(url.split('?')[0]).suffix or '.png'
-                asset_path = assets_dir / f"{ref.replace(':', '_')}{file_extension}"
-                with open(asset_path, 'wb') as f:
-                    for chunk in image_resp.iter_content(chunk_size=8192):
-                        f.write(chunk)
-                saved_asset_paths[ref] = str(asset_path.relative_to(Path(__file__).parent))
-                print(f"Сохранено: {asset_path}")
-            except requests.exceptions.RequestException as e:
-                print(f"Ошибка скачивания изображения {ref}: {e}")
-
-    # 5. Строим обогащенное дерево JSON
-    styles_lookup = file_data.get("styles", {})
-
-    def build_node_tree(node: Dict[str, Any]) -> Dict[str, Any]:
-        node_data = {
-            "id": node.get("id"),
-            "name": node.get("name"),
-            "type": node.get("type"),
-        }
-        if node.get("type") == "TEXT":
-            node_data["characters"] = node.get("characters")
-        
-        if "styles" in node:
-            node_data["applied_styles"] = {
-                style_type: styles_lookup.get(style_id, {"name": "Not Found"})
-                for style_type, style_id in node["styles"].items()
-            }
-
-        if "fills" in node and isinstance(node["fills"], list):
-            image_fills = []
-            for fill in node["fills"]:
-                if fill.get("type") == "IMAGE" and fill.get("imageRef") in saved_asset_paths:
-                    image_fills.append({
-                        "type": "IMAGE",
-                        "imageRef": fill["imageRef"],
-                        "asset_path": saved_asset_paths[fill["imageRef"]]
-                    })
-            if image_fills:
-                node_data["image_fills"] = image_fills
-
-        if "children" in node and isinstance(node["children"], list):
-            node_data["children"] = [build_node_tree(child) for child in node["children"]]
-        
-        return node_data
-
-    print("\nПостроение итоговой структуры JSON...")
-    final_data = build_node_tree(file_data["document"])
+    from figmar.figma_lib.analyzer import fetch_all_data_and_analyze_figma
     
-    # Сохраняем итоговый JSON
-    output_path = file_export_dir / "layout_with_assets.json"
-    print(f"Сохранение итоговых данных в: {output_path}")
-    with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(final_data, f, ensure_ascii=False, indent=2)
+    result = await fetch_all_data_and_analyze_figma(figma_url)
     
-    print("Итоговый JSON успешно сохранен.")
-    return str(output_path)
+    # Получаем пути к файлам из результата
+    summary_file_path = result.get("summaryFilePath")
+    intermediate_analyses = result.get("intermediateAnalyses", [])
+    data_path = result.get("dataPath")
+    
+    if summary_file_path:
+        print(f"\nОбработка завершена. Итоговый анализ сохранен в: {summary_file_path}")
+        with open(summary_file_path, 'r', encoding='utf-8') as f:
+            print("\n--- Содержимое итогового анализа ---")
+            print(f.read())
+    else:
+        print("\nОбработка завершилась с ошибками.")
 
-async def main():
-    """
-    Тестовый запуск анализатора с захардкоженным URL.
-    """
-    test_figma_url = "https://www.figma.com/design/XikMzTgQEhpCAhZpi02UBl/%D0%90%D1%8D%D1%80%D0%BE%D0%BA%D0%BB%D1%83%D0%B1--Copy---Copy-?node-id=165-1919&p=f&t=adRTTeKZH7YEaDmV-0"
-
-    print("\n--- Запуск полного анализа Figma (JSON + Assets) ---")
-    print(f"URL: {test_figma_url}")
-    print("Это может занять несколько минут...")
-
-    try:
-        output_file = await process_figma_file(test_figma_url)
-        if output_file:
-            print(f"\nОбработка завершена. Итоговый JSON с путями к ассетам сохранен в: {output_file}")
+    if data_path:
+        final_prompt_file_path = Path(data_path) / 'final_analysis_prompt.txt'
+        if final_prompt_file_path.exists():
+            with open(final_prompt_file_path, 'r', encoding='utf-8') as f:
+                print("\n--- Содержимое финального промпта для LLM ---")
+                print(f.read())
         else:
-            print("\nОбработка завершилась с ошибками.")
+            print(f"\nФайл финального промпта не найден: {final_prompt_file_path}")
 
-    except ValueError as ve:
-        print(f"\nОшибка значения: {ve}")
-        print("Проверьте правильность URL и наличие API ключей в .env файле.")
-    except Exception as e:
-        print(f"\nПроизошла непредвиденная ошибка: {e}")
+    if intermediate_analyses:
+        print("\n--- Промежуточные анализы колонок ---")
+        for i, analysis_data in enumerate(intermediate_analyses):
+            page_name = analysis_data.get('page_name', 'Неизвестная страница')
+            analysis_text = analysis_data.get('analysis', '')
+            image_path_col = analysis_data.get('image_path_col', 'N/A')
+            print(f"\n--- Анализ колонки {i+1} (Страница: '{page_name}', Изображение: {image_path_col}) ---")
+            print(analysis_text)
+    else:
+        print("\n--- Промежуточные анализы колонок не найдены ---")
 
-
-if __name__ == "__main__":
-    asyncio.run(main())
-
+    return summary_file_path # Возвращаем путь к summary файлу для демонстрации
 
 async def main():
     """
     Тестовый запуск анализатора с захардкоженным URL.
     """
-    test_figma_url = "https://www.figma.com/design/XikMzTgQEhpCAhZpi02UBl/%D0%90%D1%8D%D1%80%D0%BE%D0%BA%D0%BB%D1%83%D0%B1--Copy---Copy-?node-id=165-1919&p=f&t=adRTTeKZH7YEaDmV-0"
+    test_figma_url = "https://www.figma.com/design/4BL6aRRqpgas2vz6tgj17M/Untitled--3-?node-id=0-1&t=KzTuYppbDUnOXdHB-2" # Измененный URL для нового кэша
 
     print("\n--- Запуск полного анализа Figma (JSON + Images) ---")
     print(f"URL: {test_figma_url}")
     print("Это может занять несколько минут...")
 
     try:
-        output_directory = await process_figma_file(test_figma_url)
-        if output_directory:
-            print(f"\nОбработка завершена. Все данные сохранены в директории: {output_directory}")
+        output_file_path = await process_figma_file(test_figma_url)
+        if output_file_path:
+            print(f"\nТестовый запуск завершен. Результаты выше.")
         else:
-            print("\nОбработка завершилась с ошибками.")
+            print("\nТестовый запуск завершился с ошибками.")
 
     except ValueError as ve:
         print(f"\nОшибка значения: {ve}")

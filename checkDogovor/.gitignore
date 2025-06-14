@@ -1,0 +1,24 @@
+# Ignored directories for uploaded files and cached analysis results
+data/uploads/
+data/cache/
+
+# Environment variables file
+.env
+
+# Python bytecode
+__pycache__/
+*.pyc
+
+# Virtual environment
+venv/
+.venv/
+
+# Logs
+*.log
+
+# IDE specific files
+.vscode/
+.idea/
+
+# Wakatime project file
+.wakatime-project

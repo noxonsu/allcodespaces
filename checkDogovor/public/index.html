@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сервис проверки договоров</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+    <header>
+        <h1>Добро пожаловать в Сервис проверки договоров</h1>
+    </header>
+    <section id="seo-description" style="padding: 20px; background-color: #f9f9f9; border-bottom: 1px solid #eee;">
+        <p>Добро пожаловать в наш инновационный сервис, использующий <strong>нейросеть для проверки договора</strong>. Мы предлагаем быструю и точную <strong>проверку договора онлайн</strong>, предоставляя вам надежный <strong>сервис проверки договоров</strong>, оптимизированный под ключевые запросы. Наша платформа поможет вам выявить потенциальные риски и получить рекомендации по улучшению формулировок в ваших юридических документах.</p>
+    </section>
+    <main>
+        <section id="upload-section">
+            <h2>Загрузить другой договор</h2>
+            <input type="file" id="contract-upload" accept=".pdf,.doc,.docx">
+            <button id="analyze-button">Анализировать</button>
+            <div id="analysis-progress" style="margin-top: 10px; font-weight: bold;"></div>
+            <div id="progress-bar-container" style="width: 100%; background-color: #f3f3f3; border-radius: 5px; margin-top: 10px; display: none;">
+                <div id="progress-bar" style="width: 0%; height: 20px; background-color: #4CAF50; border-radius: 5px; text-align: center; line-height: 20px; color: white;">0%</div>
+            </div>
+        </section>
+        <section id="seo-links" style="padding: 20px; background-color: #f9f9f9; border-top: 1px solid #eee; margin-top: 20px;">
+            <h2>Полезные ссылки по проверке договоров</h2>
+            <ul>
+                <li><a href="/analiz-dogovora-arendy">Анализ договора аренды</a></li>
+            </ul>
+        </section>
+        <section id="main-content" class="two-column-layout">
+            <div id="contract-view-container">
+                <h2>Договор</h2>
+                <div id="contract-text-display">
+                    <!-- Текст договора будет загружен сюда -->
+                </div>
+            </div>
+            <div id="analysis-panel-container">
+                <h2>Анализ договора</h2>
+                <div id="analysis-results">
+                    <!-- Результаты анализа будут отображены здесь -->
+                </div>
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2025 Сервис проверки договоров</p>
+    </footer>
+    <script src="/js/app.js"></script>
+</body>
+</html>

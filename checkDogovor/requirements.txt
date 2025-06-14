@@ -1,0 +1,7 @@
+Flask
+python-dotenv
+requests
+PyYAML
+markdown
+beautifulsoup4
+markitdown[all] # Добавляем markitdown со всеми зависимостями

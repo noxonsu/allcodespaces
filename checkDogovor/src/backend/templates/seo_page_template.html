@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <meta name="keywords" content="{{ meta_keywords }}">
+    <meta name="description" content="{{ meta_description }}">
+    {% if related_keywords %}
+    <meta name="related-keywords" content="{{ related_keywords | join(', ') }}">
+    {% endif %}
+    <link rel="stylesheet" href="{{ url_for('serve_css', filename='style.css') }}">
+    <link rel="icon" href="{{ url_for('favicon') }}" type="image/x-icon">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 900px;
+            margin: 20px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            color: #0056b3;
+        }
+        .contract-form, .analysis-results, .related-keywords-section, .page-content {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        textarea {
+            width: 100%;
+            min-height: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            box-sizing: border-box;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .analysis-sentence {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-bottom: 1px dashed #eee;
+        }
+        .analysis-sentence:last-child {
+            border-bottom: none;
+        }
+        .analysis-sentence strong {
+            color: #d9534f; /* Красный для рисков */
+        }
+        .related-keywords-list {
+            list-style: none;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .related-keywords-list li {
+            background-color: #e0f7fa;
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: #00796b;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>{{ title }}</h1>
+        
+        <div class="contract-form">
+            <h2>Текст договора (пример)</h2>
+            <textarea readonly>{{ contract_text }}</textarea>
+        </div>
+
+        <div class="analysis-results">
+            <h2>Пример анализа договора</h2>
+            <p>{{ analysis_results.summary }}</p>
+            {% if analysis_results.sentences %}
+                {% for item in analysis_results.sentences %}
+                    <div class="analysis-sentence">
+                        <strong>Предложение:</strong> {{ item.original_sentence }}<br>
+                        <strong>Анализ:</strong> {{ item.analysis }}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>Нет данных для анализа или договор пуст.</p>
+            {% endif %}
+        </div>
+
+        {% if related_keywords %}
+        <div class="related-keywords-section">
+            <h2>Связанные ключевые слова</h2>
+            <ul class="related-keywords-list">
+                {% for keyword in related_keywords %}
+                    <li>{{ keyword }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div class="page-content">
+            <h2>Подробнее о {{ main_keyword }}</h2>
+            <p>{{ page_text_content }}</p>
+        </div>
+    </div>
+</body>
+</html>

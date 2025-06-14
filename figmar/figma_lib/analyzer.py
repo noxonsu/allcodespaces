@@ -153,9 +153,85 @@ async def get_figma_comments(file_id: str, base_dir: Path) -> Optional[Dict[str,
         save_data_to_file(base_dir / 'comments.json', {"comments": []})
     return data
 
+async def download_image_fills(file_id: str, base_dir: Path) -> Dict[str, str]:
+    """
+    Скачивает изображения, используемые в заливках (image fills), и сохраняет их.
+    Возвращает словарь с imageRef: локальный_путь.
+    """
+    print(f"\n--- Скачивание изображений-заливок для fileId: {file_id} ---")
+    image_fills_dir = base_dir / 'image_fills'
+    ensure_dir_exists(image_fills_dir)
+
+    # 1. Получаем все imageRef из файла
+    # file_info уже должен быть получен в fetch_all_data_and_analyze_figma
+    # Если его нет, то нужно получить его здесь, но это дублирование
+    # Лучше передать file_info как аргумент
+    
+    # Для простоты, пока будем получать file_info здесь, если его нет
+    file_info_for_refs = None
+    try:
+        file_info_for_refs = make_figma_api_request(f"https://api.figma.com/v1/files/{file_id}", file_id, "getFigmaFileForImageRefs")
+    except Exception as e:
+        print(f"Ошибка при получении file_info для imageRef: {e}")
+        return {}
+
+    image_refs = set()
+    if file_info_for_refs and file_info_for_refs.get('document'):
+        def collect_refs_recursive(node: Dict[str, Any]):
+            if "fills" in node and isinstance(node["fills"], list):
+                for fill in node["fills"]:
+                    if fill.get("type") == "IMAGE" and "imageRef" in fill:
+                        image_refs.add(fill["imageRef"])
+            if "children" in node and isinstance(node["children"], list):
+                for child in node["children"]:
+                    collect_refs_recursive(child)
+        collect_refs_recursive(file_info_for_refs['document'])
+    
+    print(f"Найдено уникальных imageRef: {len(image_refs)}")
+
+    if not image_refs:
+        print("Нет imageRef для скачивания.")
+        return {}
+
+    # 2. Получаем URL для скачивания всех найденных изображений
+    image_urls_map = {}
+    try:
+        url = f"https://api.figma.com/v1/files/{file_id}/images"
+        data = make_figma_api_request(url, file_id, "getImageFills")
+        if data and data.get('meta') and data['meta'].get('images'):
+            image_urls_map = data['meta']['images']
+            print(f"Получено URL для {len(image_urls_map)} imageRef.")
+        else:
+            print("Не удалось получить URL изображений-заливок или ответ не содержит data.meta.images.")
+    except Exception as e:
+        print(f"Ошибка при запросе URL изображений-заливок: {e}")
+        return {}
+
+    # 3. Скачиваем и сохраняем изображения
+    saved_image_fill_paths = {}
+    for ref, url in image_urls_map.items():
+        if url:
+            try:
+                image_resp = requests.get(url, timeout=60)
+                image_resp.raise_for_status()
+                file_extension = Path(url.split('?')[0]).suffix or '.png'
+                asset_path = image_fills_dir / f"{ref.replace(':', '_')}{file_extension}"
+                save_data_to_file(asset_path, image_resp.content, is_json=False)
+                saved_image_fill_paths[ref] = str(asset_path.resolve())
+                print(f"Сохранено изображение-заливка: {asset_path}")
+            except requests.exceptions.RequestException as e:
+                print(f"Ошибка скачивания изображения-заливки {ref} ({url}): {e}")
+            except Exception as e:
+                print(f"Непредвиденная ошибка при обработке изображения-заливки {ref}: {e}")
+        else:
+            print(f"URL для imageRef {ref} отсутствует, пропускаем скачивание.")
+    
+    print(f"Скачано {len(saved_image_fill_paths)} изображений-заливок.")
+    return saved_image_fill_paths
+
 
 # --- Функция для вызова OpenAI API ---
-def _call_openai_for_figma_analysis(prompt_text: str, image_path: Optional[str] = None, max_tokens: int = 4000) -> str:
+def _call_openai_for_figma_analysis(prompt_text: str, image_path: Optional[str] = None, max_tokens: int = 16384) -> str:
     """Выполняет вызов OpenAI API для анализа Figma."""
     if not OPENAI_API_KEY:
         print("Ключ OpenAI API не настроен!")
@@ -243,7 +319,7 @@ def _call_openai_for_figma_analysis(prompt_text: str, image_path: Optional[str] 
 
 
 # --- Функция для анализа данных с помощью LLM ---
-async def analyze_figma_data_with_llm(text_content: str, image_path: Optional[str] = None, max_tokens: int = 1500) -> str:
+async def analyze_figma_data_with_llm(text_content: str, image_path: Optional[str] = None, max_tokens: int = 16384) -> str:
     """Анализирует данные Figma с помощью LLM."""
     if not OPENAI_API_KEY:
         print('OPENAI_API_KEY для LLM не найден, пропускаем анализ Figma через AI')
@@ -281,7 +357,7 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
     
     # Используем Path.cwd() для получения текущей рабочей директории, если скрипт запускается из корня проекта
     # или Path(__file__).parent если структура проекта подразумевает запуск из директории figmar/
-    base_project_dir = Path(__file__).parent # Предполагаем, что скрипт в figmar/
+    base_project_dir = Path(__file__).parent.parent # Теперь это директория figmar/
     base_dir = base_project_dir / 'figma_data' / file_id.replace(r'[^a-zA-Z0-9-_]', '_')
     ensure_dir_exists(base_dir)
     print(f"Данные будут сохранены в: {base_dir}")
@@ -304,6 +380,14 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
             
             pages = file_info['document'].get('children', [])
             analysis_prompt_parts.append(f"  Количество страниц (canvas): {len(pages)}\n")
+
+            image_fills_paths = {} # Инициализируем пустым словарем
+            if DOWNLOAD_IMAGE_FILLS: # Условное скачивание
+                print("Флаг DOWNLOAD_IMAGE_FILLS установлен в True. Скачиваю изображения-заливки.")
+                image_fills_paths = await download_image_fills(file_id, base_dir)
+            else:
+                print("Флаг DOWNLOAD_IMAGE_FILLS установлен в False. Пропускаю скачивание изображений-заливок.")
+            analysis_prompt_parts.append(f"  Скачано изображений-заливок (image fills): {len(image_fills_paths)}\n")
 
             node_ids_to_fetch_images = []
             if pages:
@@ -436,44 +520,52 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                     # split_image_intellectually ожидает путь к исходному изображению
                                     # и сохраняет нарезанные части в ./columns_py_opencv_actual_images/image_name_stem/column_X.png
                                     
-                                    # Определяем директорию для сохранения колонок
+                                    # Определяем директорию для сохранения колонок: figma_data/<file_id>/columns_py_opencv_actual_images/<image_name_stem>/
                                     original_image_path_obj = Path(local_image_path)
                                     image_name_stem = original_image_path_obj.stem
-                                    columns_output_base_dir = base_project_dir / 'columns_py_opencv_actual_images'
-                                    columns_output_dir_for_image = columns_output_base_dir / image_name_stem
+                                    columns_output_dir_for_image = base_dir / 'columns_py_opencv_actual_images' / image_name_stem
                                     ensure_dir_exists(columns_output_dir_for_image) # Убедимся, что директория существует
 
                                     # split_image_intellectually использует cv2.imread, поэтому передаем путь к файлу
                                     split_columns_meta = split_image_intellectually(
                                         image_src=str(local_image_path), # Путь к оригинальному изображению страницы
                                         expected_columns=num_expected_columns,
-                                        # mock_image_width и height не так важны, если actual_image_loaded в split_image_intellectually
+                                        output_base_dir=base_dir / 'columns_py_opencv_actual_images', # Передаем базовую директорию для колонок
                                     )
 
                                     if split_columns_meta and len(split_columns_meta) > 0:
                                         page_image_analysis_response_parts.append(f"Изображение было разделено на {len(split_columns_meta)} колонок:\n")
                                         for i, col_meta in enumerate(split_columns_meta):
-                                            # Путь к сохраненной колонке
-                                            # split_image.py сохраняет их как column_1.png, column_2.png и т.д.
-                                            # в директории ./columns_py_opencv_actual_images/<image_name_without_ext>/
+                                            column_image_path = Path(col_meta['path']) # Путь к сохраненной колонке из split_image_intellectually
                                             
-                                            # Формируем путь к файлу колонки, как это делает split_image.py в main()
-                                            column_file_name = f"column_{i + 1}.png"
-                                            column_image_path = columns_output_dir_for_image / column_file_name
+                                            # Сохраняем анализ каждой колонки в отдельный файл
+                                            column_analysis_file_name = f"column_analysis_{node_id.replace(':', '_')}_col_{i+1}.txt"
+                                            column_analysis_file_path = base_dir / 'column_analyses' / column_analysis_file_name
+                                            ensure_dir_exists(column_analysis_file_path.parent)
 
                                             if column_image_path.exists():
                                                 print(f"Анализирую колонку {i+1}/{len(split_columns_meta)} (файл: {column_image_path})...")
                                                 
                                                 # Промпт для анализа ОДНОЙ КОЛОНКИ
-                                                # Используем тот же IMAGE_ANALYSE_PROMPT_TEMPLATE, но с указанием, что это колонка
                                                 column_analysis_prompt = (
                                                     f"Это изображение одной из {len(split_columns_meta)} колонок (колонка {i+1}) "
                                                     f"оригинальной страницы '{page_name}'. \n\n"
                                                     f"{current_page_analysis_prompt}" # Базовый промпт анализа страницы
                                                 )
                                                 
-                                                col_analysis_response = await analyze_figma_data_with_llm(column_analysis_prompt, str(column_image_path), 4000)
+                                                col_analysis_response = await analyze_figma_data_with_llm(column_analysis_prompt, str(column_image_path), 16384) # Устанавливаем max_tokens на 16384
+                                                save_data_to_file(column_analysis_file_path, col_analysis_response, is_json=False)
+                                                print(f"Анализ колонки {i+1} сохранен в: {column_analysis_file_path.name}")
                                                 page_image_analysis_response_parts.append(f"\nАнализ колонки {i+1}:\n{col_analysis_response}\n")
+                                                
+                                                # Добавляем путь к изображению колонки в intermediate_analyses
+                                                intermediate_analyses.append({
+                                                    'page_name': page_name,
+                                                    'node_id': node_id,
+                                                    'analysis': col_analysis_response,
+                                                    'image_path': str(column_image_path),
+                                                    'image_path_col': str(column_image_path) # Добавляем для удобства
+                                                })
                                             else:
                                                 print(f"Файл для колонки {i+1} не найден: {column_image_path}")
                                                 page_image_analysis_response_parts.append(f"\nАнализ колонки {i+1}: Файл не найден.\n")
@@ -485,18 +577,47 @@ async def fetch_all_data_and_analyze_figma(figma_url: str) -> Dict[str, Any]:
                                             f"(ширина холста: {actual_page_width}px). Оно не было разделено на колонки. "
                                             "Пожалуйста, учти это при анализе и постарайся идентифицировать отдельные экраны, если они есть.\n\n"
                                         )
-                                        page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(wide_image_notice + current_page_analysis_prompt, local_image_path, 4000))
+                                        full_page_analysis_response = await analyze_figma_data_with_llm(wide_image_notice + current_page_analysis_prompt, local_image_path, 16384) # Устанавливаем max_tokens на 16384
+                                        page_image_analysis_response_parts.append(full_page_analysis_response)
+                                        intermediate_analyses.append({
+                                            'page_name': page_name,
+                                            'node_id': node_id,
+                                            'analysis': full_page_analysis_response,
+                                            'image_path': local_image_path
+                                        })
                                 except ValueError as e:
                                     print(f"Не удалось получить корректное число колонок от LLM: {e}. Анализируем целиком.")
-                                    page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000))
+                                    full_page_analysis_response = await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 16384) # Устанавливаем max_tokens на 16384
+                                    page_image_analysis_response_parts.append(full_page_analysis_response)
+                                    intermediate_analyses.append({
+                                        'page_name': page_name,
+                                        'node_id': node_id,
+                                        'analysis': full_page_analysis_response,
+                                        'image_path': local_image_path
+                                    })
                             else: # LLM ответил "нет" на вопрос о колонках
                                 print("LLM не считает, что на изображении несколько колонок. Анализируем целиком.")
-                                page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000))
+                                full_page_analysis_response = await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 16384) # Устанавливаем max_tokens на 16384
+                                page_image_analysis_response_parts.append(full_page_analysis_response)
+                                intermediate_analyses.append({
+                                    'page_name': page_name,
+                                    'node_id': node_id,
+                                    'analysis': full_page_analysis_response,
+                                    'image_path': local_image_path
+                                })
                         else: # Изображение не широкое
                             print(f"Страница '{page_name}' (ширина: {actual_page_width}px) не определена как широкая. Стандартный анализ.")
-                            page_image_analysis_response_parts.append(await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 4000))
+                            full_page_analysis_response = await analyze_figma_data_with_llm(current_page_analysis_prompt, local_image_path, 16384) # Устанавливаем max_tokens на 16384
+                            page_image_analysis_response_parts.append(full_page_analysis_response)
+                            intermediate_analyses.append({
+                                'page_name': page_name,
+                                'node_id': node_id,
+                                'analysis': full_page_analysis_response,
+                                'image_path': local_image_path
+                            })
                         
                         final_page_analysis = "".join(page_image_analysis_response_parts)
+                        # Сохраняем общий анализ страницы, который теперь включает анализы колонок
                         save_data_to_file(page_analysis_file_path, final_page_analysis, is_json=False)
                         print(f"Промежуточный анализ для страницы '{page_name}' сохранен в: {page_analysis_file_name}")
                         analysis_prompt_parts.append(f"\nАнализ страницы '{page_name}' (ID: {node_id}):\n{final_page_analysis}\n")

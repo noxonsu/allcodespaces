@@ -12,7 +12,7 @@ import sys # Добавляем импорт sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 # Импорт утилит из нового файла
-from figmar.figmar_lib.utils import escape_markdown, format_analysis_markdown, split_long_message, send_image_safely, send_formatted_message
+from figmar.figma_lib.utils import escape_markdown, format_analysis_markdown, split_long_message, send_image_safely, send_formatted_message
 
 # --- Загрузка переменных окружения ---
 # Загружаем из .env в той же директории, что и бот
@@ -32,9 +32,9 @@ if not TELEGRAM_BOT_TOKEN:
 
 # --- Импорт библиотеки анализатора ---
 try:
-    from figmar.figmar_lib.analyzer import fetch_all_data_and_analyze_figma, analyze_figma_data_with_llm
+    from figmar.figma_lib.analyzer import fetch_all_data_and_analyze_figma, analyze_figma_data_with_llm
 except ImportError as e:
-    logging.critical(f"Не удалось импортировать библиотеку анализатора: {e}. Убедитесь, что figmar/figmar_lib/analyzer.py доступен.")
+    logging.critical(f"Не удалось импортировать библиотеку анализатора: {e}. Убедитесь, что figmar/figma_lib/analyzer.py доступен.")
     
     # Создаем заглушки для функций, чтобы бот мог запуститься
     async def fetch_all_data_and_analyze_figma(url): # Удаляем message из сигнатуры

@@ -1,0 +1,109 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: #f4f4f4;
+    color: #333;
+}
+
+header {
+    background-color: #0056b3;
+    color: white;
+    padding: 10px 0;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+main {
+    background-color: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+section {
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #eee;
+}
+
+section:last-child {
+    border-bottom: none;
+}
+
+h1, h2 {
+    color: #0056b3;
+}
+
+#upload-section input[type="file"] {
+    margin-right: 10px;
+}
+
+#analyze-button {
+    background-color: #007bff;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+#analyze-button:hover {
+    background-color: #0056b3;
+}
+
+.two-column-layout {
+    display: flex;
+    gap: 20px;
+}
+
+#contract-view-container, #analysis-panel-container {
+    flex: 1;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff;
+    min-height: 400px; /* Increased min-height */
+    overflow-y: auto;
+}
+
+#contract-text-display p {
+    margin: 0; /* Убираем отступы между предложениями */
+    line-height: 1.6;
+    padding: 5px;
+    border-radius: 3px;
+    white-space: pre-wrap; /* Сохраняем переносы строк и пробелы */
+}
+
+#contract-text-display p:hover {
+    background-color: #e6f7ff;
+    cursor: pointer;
+}
+
+#analysis-results h3 {
+    color: #007bff;
+    margin-top: 0;
+}
+
+#analysis-results ul {
+    list-style: none;
+    padding: 0;
+}
+
+#analysis-results li {
+    margin-bottom: 10px;
+    padding: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+#analysis-results li:last-child {
+    border-bottom: none;
+}
+
+footer {
+    text-align: center;
+    margin-top: 30px;
+    color: #666;
+    font-size: 0.9em;
+}
