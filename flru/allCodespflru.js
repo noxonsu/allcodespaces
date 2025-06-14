@@ -355,15 +355,15 @@ async function analyzeProject(projectTitle, projectDescription, registrationDate
         totalYears = parseInt(monthMatch[1]) / 12;
       }
       
-      if (totalYears >= 2) {
+      if (totalYears >= 1) {
         isOldEnough = true;
       }
     }
 
     // Если аккаунт слишком новый - пропускаем БЕЗ обращения к OpenAI
     if (!isOldEnough) {
-      console.log(`Заказчик зарегистрирован менее 2 лет (${registrationDate}). Пропускаем проект.`);
-      return 'Пропустить. Заказчик зарегистрирован менее 2 лет назад.';
+      console.log(`Заказчик зарегистрирован менее 1 года (${registrationDate}). Пропускаем проект.`);
+      return 'Пропустить. Заказчик зарегистрирован менее 1 года назад.';
     }
 
     // ТОЛЬКО если аккаунт старый - обращаемся к OpenAI (тратим деньги)

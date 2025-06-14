@@ -378,6 +378,11 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
                     if ($tokens && defined('AMO_API_URL_BASE')) {
                         sendParsingComment($dealId, $accessToken, "⚠️ PHP парсер: URL оплаты не содержит 'c/pay/cs_live' - не является валидной Stripe ссылкой. Парсинг пропущен.");
                     }
+                    return [
+                        'status' => 'skipped_invalid_url', 
+                            'message' => "Deal $dealId: Invalid payment URL - not saved to JSON", 
+                            'http_code' => $successHttpCode
+                        ];
                 } elseif (defined('AMO2JSON_SKIP_PAYMENT_PARSING') && AMO2JSON_SKIP_PAYMENT_PARSING === true) {
                     logMessage("Payment parsing is DISABLED by AMO2JSON_SKIP_PAYMENT_PARSING flag for deal $dealId. Skipping parsing.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
                     if ($tokens && defined('AMO_API_URL_BASE')) {
