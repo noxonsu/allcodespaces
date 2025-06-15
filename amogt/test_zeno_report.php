@@ -2,7 +2,7 @@
 // amogt/test_zeno_report.php
 
 // Configuration
-$zeno_report_url = 'https://paysaasbot.ru/chatgptbot_connector/zeno_report.php';
+$zeno_report_url = './zeno_report.php';
 
 // Delay between requests to avoid AmoCRM rate limiting (in seconds)
 $delay_between_requests = 3;
@@ -47,38 +47,33 @@ foreach ($scenarios_to_run as $index => $scenario) {
     }
     
     echo "\n--- Running Scenario: " . $scenario['name'] . " ---\n";
-    $url = $zeno_report_url . '?id=' . $scenario['lead_id'];
-    $query_string = http_build_query($scenario['data']);
-    $url = $zeno_report_url . '?id=' . $scenario['lead_id'] . '&' . $query_string;
+    echo "Simulating GET request for Lead ID: " . $scenario['lead_id'] . "\n";
 
-    echo "URL: $url\n";
+    // Simulate $_GET parameters
+    $_GET = array_merge(['id' => $scenario['lead_id']], $scenario['data']);
 
-    $curl = curl_init();
-    curl_setopt_array($curl, [
-        CURLOPT_URL => $url,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT => 30,
-        CURLOPT_FOLLOWLOCATION => true,
-        CURLOPT_SSL_VERIFYPEER => false,
-        CURLOPT_VERBOSE => false
-    ]);
+    // Capture output of zeno_report.php
+    ob_start();
+    require __DIR__ . '/zeno_report.php';
+    $response = ob_get_clean();
 
-    echo "Sending request...\n";
-    $response = curl_exec($curl);
-    $http_code = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-    $curl_error = curl_error($curl);
-
-    curl_close($curl);
-
-    if ($curl_error) {
-        echo "cURL Error: $curl_error\n";
-        continue;
+    // zeno_report.php sets HTTP headers and exits, so we need to parse its output
+    // and capture the JSON response.
+    // We'll assume the last JSON block in the output is the response.
+    $response_data = null;
+    $json_start = strrpos($response, '{');
+    $json_end = strrpos($response, '}');
+    if ($json_start !== false && $json_end !== false && $json_end > $json_start) {
+        $json_string = substr($response, $json_start, $json_end - $json_start + 1);
+        $response_data = json_decode($json_string, true);
     }
 
-    echo "HTTP Code: $http_code\n";
-    echo "Response Body:\n";
+    // Since zeno_report.php exits, we can't get HTTP code directly.
+    // We'll rely on the 'status' field in the JSON response.
+    $http_code = 'N/A (simulated)';
+    $curl_error = null; // No cURL error in this simulation
 
-    $response_data = json_decode($response, true);
+    echo "Response Body:\n";
 
     if (json_last_error() === JSON_ERROR_NONE) {
         echo json_encode($response_data, JSON_PRETTY_PRINT) . "\n";

@@ -87,10 +87,11 @@
         <div class="analysis-results">
             <h2>Пример анализа договора</h2>
             <p>{{ analysis_results.summary }}</p>
-            {% if analysis_results.sentences %}
-                {% for item in analysis_results.sentences %}
+            <p>Тест вывода анализа: {{ analysis_results.summary }}</p> {# Простой вывод summary #}
+            {% if analysis_results.paragraphs %}
+                {% for item in analysis_results.paragraphs %}
                     <div class="analysis-sentence">
-                        <strong>Предложение:</strong> {{ item.original_sentence }}<br>
+                        <strong>Абзац:</strong> {{ item.original_paragraph }}<br>
                         <strong>Анализ:</strong> {{ item.analysis }}
                     </div>
                 {% endfor %}

@@ -55,9 +55,9 @@ def main():
         print(f"Ошибка: Не удалось сгенерировать корректный слаг из ключевого слова '{keyword}'.")
         sys.exit(1)
 
-    # Формируем путь относительно директории скрипта, а затем поднимаемся до checkDogovor
+    # Формируем путь относительно директории скрипта, а затем поднимаемся до hababru
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..')) # checkDogovor
+    project_root = os.path.abspath(os.path.join(script_dir, '..', '..', '..')) # hababru
     
     seo_pages_base_dir = os.path.join(project_root, 'content', 'seo_pages')
     seo_page_dir = os.path.join(seo_pages_base_dir, slug)

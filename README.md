@@ -23,7 +23,7 @@
 ## Структура Проекта
 
 ```
-checkDogovor/
+hababru/
 ├── public/                   # Статические ресурсы и скомпилированный фронтенд
 │   ├── css/                  # Стили CSS
 │   │   └── style.css
@@ -89,10 +89,10 @@ checkDogovor/
 ## План Работы (Выполнено)
 
 1.  **Инициализация Проекта:**
-    *   Создана корневая директория `checkDogovor/`.
-    *   Создана базовая структура папок внутри `checkDogovor/`.
-    *   Создан файл `checkDogovor/.env` с `DEEPSEEK_API_KEY`, `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`, `YANDEX_REDIRECT_URI`.
-    *   Создан файл `checkDogovor/README.md` с этим подробным описанием.
+    *   Создана корневая директория `hababru/`.
+    *   Создана базовая структура папок внутри `hababru/`.
+    *   Создан файл `hababru/.env` с `DEEPSEEK_API_KEY`, `YANDEX_CLIENT_ID`, `YANDEX_CLIENT_SECRET`, `YANDEX_REDIRECT_URI`.
+    *   Создан файл `hababru/README.md` с этим подробным описанием.
     *   Подготовлен файл `data/sample_contracts/default_nda.txt` с примером договора.
     *   Созданы все необходимые `__init__.py` файлы для корректной работы пакетов Python.
     *   Установлены зависимости из `requirements.txt`.
@@ -136,18 +136,18 @@ checkDogovor/
 
 Для отладки и проверки анализа конкретного файла, вы можете использовать тестовый режим.
 Перейдите по URL вида: `http://127.0.0.1:5001/?test=имя_файла.pdf`
-Где `имя_файла.pdf` - это имя файла, который вы разместили в корневой директории проекта `checkDogovor/`, в `checkDogovor/src/` или в поддиректории `content/seo_pages/`.
-Например, если вы загрузили `договор_тест.pdf` в `checkDogovor/`, то URL для теста будет: `http://127.0.0.1:5001/?test=договор_тест.pdf`.
-Если файл находится в `checkDogovor/src/`, то URL будет: `http://127.0.0.1:5001/?test=src/имя_файла.pdf`.
+Где `имя_файла.pdf` - это имя файла, который вы разместили в корневой директории проекта `hababru/`, в `hababru/src/` или в поддиректории `content/seo_pages/`.
+Например, если вы загрузили `договор_тест.pdf` в `hababru/`, то URL для теста будет: `http://127.0.0.1:5001/?test=договор_тест.pdf`.
+Если файл находится в `hababru/src/`, то URL будет: `http://127.0.0.1:5001/?test=src/имя_файла.pdf`.
 Если файл находится в `content/seo_pages/proverka-dogovora-arendy/`, то URL будет: `http://127.0.0.1:5001/?test=proverka-dogovora-arendy/dogovor_arendy_kommercheskoy_nedvizhimosti_primer.pdf`.
 Сервис попытается загрузить, проанализировать и отобразить этот договор, используя асинхронный механизм анализа.
 
 ## Примеры договоров для SEO-страниц
 
-Примеры договоров, специфичные для каждой SEO-оптимизированной страницы, теперь размещаются в соответствующих поддиректориях внутри `checkDogovor/content/seo_pages/`.
+Примеры договоров, специфичные для каждой SEO-оптимизированной страницы, теперь размещаются в соответствующих поддиректориях внутри `hababru/content/seo_pages/`.
 Название поддиректории должно соответствовать ключевому слову или URL SEO-страницы. Например:
-*   Для SEO-страницы `proverka-dogovora-arendy` примеры договоров размещаются в `checkDogovor/content/seo_pages/proverka-dogovora-arendy/`.
-*   Для SEO-страницы `analiz-dogovora-postavki` примеры договоров размещаются в `checkDogovor/content/seo_pages/analiz-dogovora-postavki/`.
+*   Для SEO-страницы `proverka-dogovora-arendy` примеры договоров размещаются в `hababru/content/seo_pages/proverka-dogovora-arendy/`.
+*   Для SEO-страницы `analiz-dogovora-postavki` примеры договоров размещаются в `hababru/content/seo_pages/analiz-dogovora-postavki/`.
 
 Это позволит в будущем реализовать логику загрузки релевантных примеров для каждой конкретной SEO-страницы.
 
@@ -156,10 +156,10 @@ checkDogovor/
 1.  **Клонирование репозитория:**
     ```bash
     git clone <URL_репозитория>
-    cd checkDogovor
+    cd hababru
     ```
 2.  **Настройка переменных окружения:**
-    *   Создайте файл `.env` в корневой директории проекта `checkDogovor/`.
+    *   Создайте файл `.env` в корневой директории проекта `hababru/`.
     *   Добавьте следующие переменные:
         ```
         DEEPSEEK_API_KEY=ВАШ_DEEPSEEK_API_KEY
@@ -178,21 +178,56 @@ checkDogovor/
     *   **Рекомендуемый способ (для отладки проблем с маршрутизацией):**
         Для запуска приложения, включая попытку освободить порт, если он занят:
         ```bash
-        cd checkDogovor
+        cd hababru
         (kill $(lsof -t -i:5001) || true) && export FLASK_APP=src.backend.main && export FLASK_DEBUG=1 && flask run --host='0.0.0.0' --port 5001
         ```
         (Конструкция `(kill ... || true)` пытается освободить порт 5001 и продолжает выполнение, даже если порт не был занят или команда `kill` завершилась с ошибкой. `export FLASK_DEBUG=1` включает режим отладки Flask для более подробных логов.)
     *   **Альтернативный способ (если Flask CLI не работает):**
         ```bash
-        cd checkDogovor
+        cd hababru
         python -m src.backend.main
         ```
         (При использовании `python -m src.backend.main` приложение также пытается освободить порт 5001 перед запуском, как это настроено в `src/backend/main.py`. Для включения режима отладки измените `app.run(debug=True, port=5001)` в `src/backend/main.py`.)
     *   **Для продакшн-среды (после установки `gunicorn`):**
         ```bash
-        cd checkDogovor
+        cd hababru
         gunicorn -w 4 src.backend.main:app
         ```
+    *   **Запуск с PM2 (для продакшн-среды):**
+        Для запуска приложения `hababru` с использованием `pm2` (с именем `habab_allcdsps`) выполните следующие шаги:
+        1.  Установите `pm2` глобально, если он еще не установлен:
+            ```bash
+            npm install -g pm2
+            ```
+        2.  Перейдите в директорию проекта `hababru`:
+            ```bash
+            cd hababru
+            ```
+        3.  Запустите приложение с `pm2`, указав имя `habab_allcdsps`:
+            ```bash
+            pm2 start src/backend/main.py --name habab_allcdsps --interpreter python -- --port 5001
+            ```
+            (Флаг `--interpreter python` указывает `pm2` использовать интерпретатор Python для запуска скрипта. `-- --port 5001` передает аргумент `--port 5001` в скрипт `main.py`, если он его поддерживает для указания порта.)
+        4.  Для просмотра статуса запущенных процессов `pm2`:
+            ```bash
+            pm2 list
+            ```
+        5.  Для остановки процесса `habab_allcdsps`:
+            ```bash
+            pm2 stop habab_allcdsps
+            ```
+        6.  Для перезапуска процесса `habab_allcdsps`:
+            ```bash
+            pm2 restart habab_allcdsps
+            ```
+        7.  Для удаления процесса `habab_allcdsps` из списка `pm2`:
+            ```bash
+            pm2 delete habab_allcdsps
+            ```
+        8.  Для сохранения текущего списка процессов `pm2` для автоматического запуска после перезагрузки системы:
+            ```bash
+            pm2 save
+            ```
     *   **Предупреждение о FFmpeg**: При запуске Flask-приложения вы можете увидеть предупреждение `RuntimeWarning: Couldn't find ffmpeg or avconv - defaulting to ffmpeg, but may not work`. Это предупреждение относится к библиотеке `pydub` и обычно возникает, если `ffmpeg` или `avconv` не установлены в системе. Для основной функциональности парсинга PDF/DOCX это предупреждение не является критичным и не влияет на работу сервиса.
 5.  **Доступ к сервису:**
     *   Основной интерфейс будет доступен по адресу `http://127.0.0.1:5001/` (или другой порт, указанный в конфигурации Flask).

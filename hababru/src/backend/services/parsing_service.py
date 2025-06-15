@@ -35,27 +35,26 @@ class ParsingService:
                 print(f"Ошибка при конвертации файла '{filename}' в Markdown с помощью MarkItDown: {e}")
             return None
 
-    def segment_text_into_sentences(self, text: str) -> list:
+    def segment_text_into_paragraphs(self, text: str) -> list:
         """
-        Разбивает текст на предложения, используя DeepSeekService.
+        Разбивает текст на пункты/абзацы, используя DeepSeekService.
         :param text: Входной текст.
-        :return: Список предложений.
+        :return: Список пунктов/абзацев.
         """
         logger = self._get_logger()
         if logger:
-            logger.info(f"ParsingService: Сегментация текста на предложения с помощью DeepSeekService (первые 100 символов): '{text[:100]}...'")
+            logger.info(f"ParsingService: Сегментация текста на пункты с помощью DeepSeekService (первые 250 символов): '{text[:250]}...'")
         
         if not text:
             return []
 
         try:
-            sentences = self.deepseek_service.segment_text_with_deepseek(text)
+            paragraphs = self.deepseek_service.segment_text_into_paragraphs(text)
             if logger:
-                logger.info(f"ParsingService: Сегментация текста завершена, получено {len(sentences)} предложений.")
-            return sentences
+                logger.info(f"ParsingService: Сегментация текста завершена, получено {len(paragraphs)} пунктов.")
+            return paragraphs
         except Exception as e:
+            error_msg = f"ParsingService: Ошибка при сегментации текста на пункты с DeepSeekService: {e}"
             if logger:
-                logger.error(f"ParsingService: Ошибка при сегментации текста с DeepSeekService: {e}")
-            else:
-                print(f"Ошибка при сегментации текста с DeepSeekService: {e}")
-            return []
+                logger.error(error_msg)
+            raise RuntimeError(error_msg) from e

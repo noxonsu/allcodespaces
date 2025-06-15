@@ -15,7 +15,7 @@ from .services.parsing_service import ParsingService # Для анализа н�
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', '.env'))
 
 app = Flask(__name__, 
-            root_path=os.path.join(os.path.dirname(__file__), '..', '..'), # Указываем корневую директорию checkDogovor
+            root_path=os.path.join(os.path.dirname(__file__), '..', '..'), # Указываем корневую директорию hababru
             static_folder='public', # Теперь это относительный путь от root_path
             template_folder=os.path.join(os.path.dirname(__file__), 'templates')) # Этот путь остается относительным от текущего файла
 
@@ -91,7 +91,7 @@ def seo_page(slug):
     app.logger.info(f"Запрос на SEO-страницу: /{slug}")
     # Проверяем, не является ли slug именем статического файла или зарезервированным маршрутом
     # Это очень упрощенная проверка, в реальном приложении нужна более надежная логика
-    if slug in ['css', 'js', 'assets', 'favicon.ico', 'robots.txt', 'api', 'data', 'dataaquisitionnoxon', 'dataaquisitionnoxon.pub', 'exportLinks.php', 'insertCategories.php', 'openai_admin.js', 'package.json', 'processed_videos_log.csv', 'README.md', 'robots.txt', 'sensoica_shortcode.php', 'showTasks.php', '1csync', 'ads', 'aeroclub', 'aml', 'amogt', 'apifront', 'asterisk', 'checkDogovor', 'chemistry', 'content', 'data', 'fbads', 'figmar', 'flru', 'gpts', 'hims', 'megaplan', 'nastya', 'plugins', 'sashanoxonbot', 'themes', 'tts', 'wa', 'youtube']:
+    if slug in ['css', 'js', 'assets', 'favicon.ico', 'robots.txt', 'api', 'data', 'dataaquisitionnoxon', 'dataaquisitionnoxon.pub', 'exportLinks.php', 'insertCategories.php', 'openai_admin.js', 'package.json', 'processed_videos_log.csv', 'README.md', 'robots.txt', 'sensoica_shortcode.php', 'showTasks.php', '1csync', 'ads', 'aeroclub', 'aml', 'amogt', 'apifront', 'asterisk', 'hababru', 'chemistry', 'content', 'data', 'fbads', 'figmar', 'flru', 'gpts', 'hims', 'megaplan', 'nastya', 'plugins', 'sashanoxonbot', 'themes', 'tts', 'wa', 'youtube']:
         app.logger.warning(f"Запрос на зарезервированный slug: {slug}")
         abort(404)
     
@@ -119,7 +119,7 @@ def seo_page(slug):
 #     except Exception as e:
 #         app.logger.warning(f"Не удалось убить процесс на порту 5001: {e}")
     
-#     app.run(debug=True, port=5001) # Изменяем порт на 5001
+#     app.run(debug=True, port=5002) # Изменяем порт на 5002
 
 if __name__ == '__main__':
     # Убиваем любой процесс, использующий порт 5001 перед запуском
@@ -130,4 +130,4 @@ if __name__ == '__main__':
     except Exception as e:
         app.logger.warning(f"Не удалось убить процесс на порту 5001: {e}")
     
-    app.run(debug=True, port=5001) # Изменяем порт на 5001
+    app.run(debug=True, port=5002) # Изменяем порт на 5002

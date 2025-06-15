@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const progressBarContainer = document.getElementById('progress-bar-container'); // Контейнер прогресс-бара
     const progressBar = document.getElementById('progress-bar'); // Сам прогресс-бар
 
-    let currentContractSentences = []; // Для хранения предложений текущего договора
+    let currentContractParagraphs = []; // Для хранения пунктов/абзацев текущего договора
     let currentAnalysisData = null; // Для хранения результатов анализа (объект или массив)
     let currentFullContractTextMd = ""; // Для хранения полного текста договора в Markdown
     let pollingIntervalId = null; // Для хранения ID интервала опроса
@@ -51,93 +51,93 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!analysisResults || analysisResults.length === 0) {
             console.warn('displayContractAndAnalysis: analysisResults пуст или некорректен.');
-            analysisResultsDiv.innerHTML = `<p>Анализ для этого договора не найден, не загружен или содержит ошибки.</p>`;
-            if (currentFullContractTextMd) {
-                currentContractSentences = currentFullContractTextMd.split('\n').filter(s => s.trim().length > 5);
-                currentAnalysisData = currentContractSentences.map(sentence => ({ sentence, analysis: "Анализ не удался или отсутствует." }));
-
-                contractTextDisplayDiv.innerHTML = '';
-                currentContractSentences.forEach((sentence, index) => {
-                    const p = document.createElement('p');
-                    p.textContent = sentence;
-                    p.dataset.sentenceIndex = index;
-                    p.addEventListener('mouseover', () => highlightSentenceAndShowAnalysis(index));
-                    p.addEventListener('mouseout', () => removeHighlight(index));
-                    contractTextDisplayDiv.appendChild(p);
-                });
-                if (currentAnalysisData.length > 0) showSentenceAnalysis(0);
-            }
-        } else {
-            currentContractSentences = analysisResults.map(item => item.sentence);
-            currentAnalysisData = analysisResults;
-
-            console.log('displayContractAndAnalysis: Предложения для отображения из анализа:', currentContractSentences);
+        analysisResultsDiv.innerHTML = `<p>Анализ для этого договора не найден, не загружен или содержит ошибки.</p>`;
+        if (currentFullContractTextMd) {
+            currentContractParagraphs = currentFullContractTextMd.split('\n').filter(p => p.trim().length > 5); // Используем paragraphs
+            currentAnalysisData = currentContractParagraphs.map(paragraph => ({ paragraph, analysis: "Анализ не удался или отсутствует." })); // Изменено на paragraph
 
             contractTextDisplayDiv.innerHTML = '';
-            currentContractSentences.forEach((sentence, index) => {
+            currentContractParagraphs.forEach((paragraph, index) => { // Изменено на paragraph
                 const p = document.createElement('p');
-                p.textContent = sentence;
-                p.dataset.sentenceIndex = index;
-                p.addEventListener('mouseover', () => highlightSentenceAndShowAnalysis(index));
+                p.textContent = paragraph;
+                p.dataset.paragraphIndex = index; // Изменено на paragraphIndex
+                p.addEventListener('mouseover', () => highlightParagraphAndShowAnalysis(index)); // Изменено
                 p.addEventListener('mouseout', () => removeHighlight(index));
                 contractTextDisplayDiv.appendChild(p);
             });
-
-            if (currentAnalysisData && currentAnalysisData.length > 0) {
-                showSentenceAnalysis(0);
-            } else {
-                analysisResultsDiv.innerHTML = `<p>Анализ для этого договора не найден или еще не загружен.</p>`;
-            }
+            if (currentAnalysisData.length > 0) showParagraphAnalysis(0); // Изменено
         }
+    } else {
+        currentContractParagraphs = analysisResults.map(item => item.paragraph); // Изменено на paragraph
+        currentAnalysisData = analysisResults;
 
-        mainContentSection.style.display = 'flex';
-        uploadSection.style.display = 'block';
-        console.log('displayContractAndAnalysis: Отображение завершено.');
-    }
+        console.log('displayContractAndAnalysis: Пункты/абзацы для отображения из анализа:', currentContractParagraphs); // Изменено
 
-    function highlightSentenceAndShowAnalysis(index) {
-        const sentenceElements = contractTextDisplayDiv.querySelectorAll('p');
-        sentenceElements.forEach((el, i) => {
-            if (i === index) {
-                el.style.backgroundColor = '#e6f7ff';
-            } else {
-                el.style.backgroundColor = 'transparent';
-            }
+        contractTextDisplayDiv.innerHTML = '';
+        currentContractParagraphs.forEach((paragraph, index) => { // Изменено на paragraph
+            const p = document.createElement('p');
+            p.textContent = paragraph;
+            p.dataset.paragraphIndex = index; // Изменено на paragraphIndex
+            p.addEventListener('mouseover', () => highlightParagraphAndShowAnalysis(index)); // Изменено
+            p.addEventListener('mouseout', () => removeHighlight(index));
+            contractTextDisplayDiv.appendChild(p);
         });
-        showSentenceAnalysis(index);
+
+        if (currentAnalysisData && currentAnalysisData.length > 0) {
+            showParagraphAnalysis(0); // Изменено
+        } else {
+            analysisResultsDiv.innerHTML = `<p>Анализ для этого договора не найден или еще не загружен.</p>`;
+        }
     }
 
-    function removeHighlight(index) {
-        // const sentenceElement = contractTextDisplayDiv.querySelector(`p[data-sentence-index="${index}"]`);
-        // if (sentenceElement) {
-        //     sentenceElement.style.backgroundColor = 'transparent';
+    mainContentSection.style.display = 'flex';
+    uploadSection.style.display = 'block';
+    console.log('displayContractAndAnalysis: Отображение завершено.');
+}
+
+function highlightParagraphAndShowAnalysis(index) { // Изменено
+    const paragraphElements = contractTextDisplayDiv.querySelectorAll('p'); // Изменено
+    paragraphElements.forEach((el, i) => { // Изменено
+        if (i === index) {
+            el.style.backgroundColor = '#e6f7ff';
+        } else {
+            el.style.backgroundColor = 'transparent';
+        }
+    });
+    showParagraphAnalysis(index); // Изменено
+}
+
+function removeHighlight(index) {
+        // const paragraphElement = contractTextDisplayDiv.querySelector(`p[data-paragraph-index="${index}"]`); // Изменено
+        // if (paragraphElement) {
+        //     paragraphElement.style.backgroundColor = 'transparent';
         // }
     }
 
-    function showSentenceAnalysis(index) {
+    function showParagraphAnalysis(index) { // Изменено
         analysisResultsDiv.innerHTML = '';
         if (currentAnalysisData && currentAnalysisData[index]) {
             const analysisItem = currentAnalysisData[index];
-            let sentenceText = currentContractSentences[index];
+            let paragraphText = currentContractParagraphs[index]; // Изменено
             let analysisText = "";
 
             if (typeof analysisItem === 'string') {
                 analysisText = analysisItem;
             } else if (typeof analysisItem === 'object' && analysisItem.analysis) {
-                sentenceText = analysisItem.sentence || sentenceText;
+                paragraphText = analysisItem.paragraph || paragraphText; // Изменено
                 analysisText = analysisItem.analysis;
             } else {
                 analysisText = "Формат анализа не распознан.";
             }
 
             analysisResultsDiv.innerHTML = `
-                <h3>Анализ предложения ${index + 1}:</h3>
-                <p><strong>Предложение:</strong> ${sentenceText}</p>
+                <h3>Анализ пункта/абзаца ${index + 1}:</h3>
+                <p><strong>Пункт/абзац:</strong> ${paragraphText}</p>
                 <p><strong>Анализ:</strong></p>
                 <div>${analysisText}</div>
             `;
         } else {
-            analysisResultsDiv.innerHTML = `<p>Анализ для этого предложения отсутствует.</p>`;
+            analysisResultsDiv.innerHTML = `<p>Анализ для этого пункта/абзаца отсутствует.</p>`;
         }
     }
 
@@ -196,17 +196,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
-                const { status, processed_sentences, total_sentences, progress_percentage, results, error } = statusData;
+                const { status, processed_items, total_items, progress_percentage, results, error } = statusData; // Изменено
                 let statusText = `Статус: ${status}`;
 
                 if (status === "PROCESSING" || status === "PENDING") {
-                    statusText = `Прогресс: ${processed_sentences} из ${total_sentences} предложений (${progress_percentage}%)`;
-                    updateProgressBar(processed_sentences, total_sentences, progress_percentage, statusText);
+                    statusText = `Прогресс: ${processed_items} из ${total_items} пунктов (${progress_percentage}%)`; // Изменено
+                    updateProgressBar(processed_items, total_items, progress_percentage, statusText); // Изменено
                 } else if (status === "COMPLETED") {
                     clearInterval(pollingIntervalId);
                     pollingIntervalId = null;
-                    statusText = `Анализ завершен: ${processed_sentences} из ${total_sentences} предложений (100%)`;
-                    updateProgressBar(processed_sentences, total_sentences, 100, statusText);
+                    statusText = `Анализ завершен: ${processed_items} из ${total_items} пунктов (100%)`; // Изменено
+                    updateProgressBar(processed_items, total_items, 100, statusText); // Изменено
                     console.log('Анализ завершен, результаты:', results);
                     displayContractAndAnalysis(contractTextMd, results.analysis_results);
                 } else if (status === "FAILED") {

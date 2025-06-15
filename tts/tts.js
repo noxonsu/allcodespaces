@@ -31,12 +31,14 @@ const MAX_CHARS = CHARS_PER_MINUTE * MAX_MINUTES; // 27,000 символов
 const inputFile = path.resolve("./saturn.txt");
 const outputDir = path.resolve("./output_audio");
 const textChunksDir = path.resolve("./text_chunks");
+const summariesDir = path.resolve("./summaries");
 
 // Функция для создания директорий, если они не существуют
 async function ensureDirs() {
   try {
     await fs.mkdir(outputDir, { recursive: true });
     await fs.mkdir(textChunksDir, { recursive: true });
+    await fs.mkdir(summariesDir, { recursive: true });
   } catch (error) {
     console.error("Ошибка при создании директорий:", error.message);
     process.exit(1);
@@ -127,7 +129,7 @@ async function createAudioChunk(text, index) {
     try {
       await fs.access(speechFile);
       console.log(`Аудиофайл уже существует, пропускаем: ${speechFile}`);
-      return true;
+      return false; // Возвращаем false, если файл уже существует
     } catch {
       // Файл не существует, создаем его
     }
@@ -142,18 +144,79 @@ async function createAudioChunk(text, index) {
     const buffer = Buffer.from(await mp3.arrayBuffer());
     await fs.writeFile(speechFile, buffer);
     console.log(`Аудиофайл успешно сохранен: ${speechFile}`);
-    return true;
+    return true; // Возвращаем true, если файл был создан
   } catch (error) {
     console.error(`Ошибка при создании аудиофайла ${speechFile}:`, error.message);
     return false;
   }
 }
 
-// Функция для отправки аудио в Telegram
-async function sendAudioToTelegram(filePath, caption) {
+// Функция для создания краткого описания текста
+async function createSummary(text, index) {
+  const originalFileName = path.basename(inputFile, path.extname(inputFile));
+  const summaryFile = path.resolve(summariesDir, `${originalFileName}_summary_${index + 1}.txt`);
+  
   try {
-    await bot.sendAudio(CHAT_ID, filePath, { caption });
-    console.log(`Аудиофайл "${path.basename(filePath)}" успешно отправлен в Telegram.`);
+    // Проверяем, существует ли уже краткое описание
+    try {
+      const existingSummary = await fs.readFile(summaryFile, "utf8");
+      console.log(`Краткое описание уже существует для части ${index + 1}`);
+      return existingSummary.trim();
+    } catch {
+      // Файл не существует, создаем краткое описание
+    }
+
+    console.log(`Создание краткого описания для части ${index + 1}...`);
+    
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: "Ты помощник, который создает краткие описания текста в одном предложении. Опиши основную суть текста простым и понятным языком."
+        },
+        {
+          role: "user",
+          content: `Создай краткое описание следующего текста в одном предложении (сразу суть не начинай со слов "Текст описывает" и т.п.):\n\n${text.substring(0, 2000)}...`
+        }
+      ],
+      max_tokens: 100,
+      temperature: 0.3
+    });
+
+    const summary = response.choices[0].message.content.trim();
+    
+    // Сохраняем краткое описание в файл
+    await fs.writeFile(summaryFile, summary);
+    console.log(`Краткое описание сохранено: ${summaryFile}`);
+    
+    return summary;
+  } catch (error) {
+    console.error(`Ошибка при создании краткого описания для части ${index + 1}:`, error.message);
+    return `Аудио-фрагмент ${index + 1}`;
+  }
+}
+
+// Функция для загрузки существующего краткого описания
+async function loadSummary(originalFileName, index) {
+  try {
+    const summaryFile = path.resolve(summariesDir, `${originalFileName}_summary_${index + 1}.txt`);
+    const summary = await fs.readFile(summaryFile, "utf8");
+    return summary.trim();
+  } catch (error) {
+    return null;
+  }
+}
+
+// Функция для отправки аудио в Telegram
+async function sendAudioToTelegram(filePath, caption, text) {
+  try {
+    // Ограничиваем длину текста для Telegram (максимум 1024 символа для caption)
+    const truncatedText = text.length > 800 ? text.substring(0, 800) + "..." : text;
+    const fullCaption = `${caption}\n\n📝 ${truncatedText}`;
+    
+    await bot.sendAudio(CHAT_ID, filePath, { caption: fullCaption });
+    console.log(`Аудиофайл "${path.basename(filePath)}" успешно отправлен в Telegram с описанием.`);
     return true;
   } catch (error) {
     console.error(`Ошибка при отправке аудиофайла "${path.basename(filePath)}" в Telegram:`, error.message);
@@ -192,19 +255,46 @@ async function textToSpeech() {
 
     // Создание аудиофайлов для каждой части
     let successCount = 0;
+    let sentCount = 0;
+    
     for (let i = 0; i < textChunks.length; i++) {
       console.log(`Обработка части ${i + 1} (${textChunks[i].length} символов)...`);
+      
+      // Создаем аудиофайл (возвращает true только если файл был создан заново)
       const audioCreated = await createAudioChunk(textChunks[i], i);
+      
+      // Увеличиваем счетчик успешно обработанных файлов
+      const speechFile = path.resolve(outputDir, `${originalFileName}_part_${i + 1}.mp3`);
+      try {
+        await fs.access(speechFile);
+        successCount++; // Файл существует
+      } catch {
+        // Файл не существует, что-то пошло не так
+      }
+      
+      // Отправляем в Telegram только если файл был создан заново
       if (audioCreated) {
-        successCount++;
-        const speechFile = path.resolve(outputDir, `${originalFileName}_part_${i + 1}.mp3`);
-        // Отправляем аудио в Telegram
-        await sendAudioToTelegram(speechFile, `Аудио-фрагмент ${i + 1} из ${textChunks.length}`);
+        // Создаем или загружаем краткое описание
+        let summary = await loadSummary(originalFileName, i);
+        if (!summary) {
+          summary = await createSummary(textChunks[i], i);
+        }
+        
+        // Отправляем аудио в Telegram с кратким описанием
+        const sent = await sendAudioToTelegram(
+          speechFile, 
+          `Аудио-фрагмент ${i + 1} из ${textChunks.length}`,
+          summary
+        );
+        
+        if (sent) {
+          sentCount++;
+        }
       }
     }
 
     console.log(
-      `Обработка завершена: ${successCount} из ${textChunks.length} аудиофайлов успешно создано или уже существовало.`
+      `Обработка завершена: ${successCount} из ${textChunks.length} аудиофайлов доступны. ${sentCount} новых файлов отправлено в Telegram.`
     );
   } catch (error) {
     console.error("Ошибка при обработке:", error.message);

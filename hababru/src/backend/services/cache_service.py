@@ -54,38 +54,40 @@ def save_analysis_to_cache(contract_text, analysis_results):
     except Exception as e:
         print(f"Ошибка при сохранении кэша в {cache_file_path}: {e}")
 
-def create_analysis_task(contract_text, total_sentences):
+def create_analysis_task(contract_text, total_items, item_type="sentence"): # Добавляем item_type
     """
     Создает новую задачу анализа и возвращает ее ID.
     :param contract_text: Текст договора.
-    :param total_sentences: Общее количество предложений для анализа.
+    :param total_items: Общее количество элементов (предложений/пунктов) для анализа.
+    :param item_type: Тип элементов ('sentence' или 'paragraph').
     :return: task_id (строка)
     """
     task_id = str(uuid.uuid4())
     with _status_lock:
         _analysis_tasks_status[task_id] = {
             "status": "PENDING",
-            "total_sentences": total_sentences,
-            "processed_sentences": 0,
+            "total_items": total_items, # Изменено на total_items
+            "processed_items": 0,      # Изменено на processed_items
             "progress_percentage": 0,
             "results": None,
             "error": None,
-            "contract_text_hash": _generate_cache_key(contract_text) # Храним хеш для связи с кэшем
+            "contract_text_hash": _generate_cache_key(contract_text), # Храним хеш для связи с кэшем
+            "item_type": item_type # Добавляем тип элемента
         }
     return task_id
 
-def update_analysis_task_progress(task_id, processed_sentences):
+def update_analysis_task_progress(task_id, processed_items): # Изменено на processed_items
     """
     Обновляет прогресс выполнения задачи анализа.
     :param task_id: ID задачи.
-    :param processed_sentences: Количество уже проанализированных предложений.
+    :param processed_items: Количество уже проанализированных элементов.
     """
     with _status_lock:
         if task_id in _analysis_tasks_status:
             status_data = _analysis_tasks_status[task_id]
-            status_data["processed_sentences"] = processed_sentences
-            if status_data["total_sentences"] > 0:
-                status_data["progress_percentage"] = int((processed_sentences / status_data["total_sentences"]) * 100)
+            status_data["processed_items"] = processed_items # Изменено на processed_items
+            if status_data["total_items"] > 0: # Изменено на total_items
+                status_data["progress_percentage"] = int((processed_items / status_data["total_items"]) * 100)
             status_data["status"] = "PROCESSING"
         else:
             print(f"Ошибка: Задача с ID {task_id} не найдена для обновления прогресса.")
@@ -100,7 +102,7 @@ def complete_analysis_task(task_id, results):
         if task_id in _analysis_tasks_status:
             status_data = _analysis_tasks_status[task_id]
             status_data["status"] = "COMPLETED"
-            status_data["processed_sentences"] = status_data["total_sentences"] # Устанавливаем на максимум
+            status_data["processed_items"] = status_data["total_items"] # Устанавливаем на максимум
             status_data["progress_percentage"] = 100
             status_data["results"] = results
         else:

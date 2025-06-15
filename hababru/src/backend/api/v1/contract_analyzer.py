@@ -40,57 +40,66 @@ def _run_analysis_task(task_id, full_contract_text, app_context):
                 cache_service.complete_analysis_task(task_id, cached_analysis)
                 return
 
-            # 2. Сегментация текста на предложения
-            logger.info(f'TASK {task_id}: Сегментация текста на предложения с помощью DeepSeek...')
+            # 2. Сегментация текста на пункты/абзацы
+            logger.info(f'TASK {task_id}: Сегментация текста на пункты с помощью DeepSeek...')
             _deepseek_service = get_deepseek_service()
-            sentences = _deepseek_service.segment_text_with_deepseek(full_contract_text)
-            logger.info(f'TASK {task_id}: Получено {len(sentences)} предложений после сегментации.')
+            paragraphs = _deepseek_service.segment_text_into_paragraphs(full_contract_text)
+            logger.info(f'TASK {task_id}: Получено {len(paragraphs)} пунктов после сегментации.')
 
-            if not sentences and full_contract_text:
-                logger.warning(f'TASK {task_id}: Сегментация не дала результатов, но текст есть. Используем текст как одно предложение.')
-                sentences = [full_contract_text]
-            elif not sentences and not full_contract_text:
+            if not paragraphs and full_contract_text:
+                logger.warning(f'TASK {task_id}: Сегментация не дала результатов, но текст есть. Используем текст как один пункт.')
+                paragraphs = [full_contract_text]
+            elif not paragraphs and not full_contract_text:
                 error_msg = "Текст договора пуст или не удалось его обработать и сегментировать."
                 logger.error(f'TASK {task_id}: {error_msg}')
                 cache_service.fail_analysis_task(task_id, error_msg)
                 return
 
-            total_sentences = len(sentences)
+            total_paragraphs = len(paragraphs)
             cache_service.update_analysis_task_progress(task_id, 0) # Инициализируем прогресс
             
-            # 3. Анализ каждого предложения с DeepSeek API
-            logger.info(f'TASK {task_id}: Анализ каждого предложения с DeepSeek API...')
+            # 3. Анализ каждого пункта с DeepSeek API
+            logger.info(f'TASK {task_id}: Анализ каждого пункта с DeepSeek API...')
             _deepseek_service = get_deepseek_service()
             analysis_results_list = []
-            for i, sentence in enumerate(sentences):
-                logger.info(f'TASK {task_id}: Анализ предложения {i+1}/{total_sentences}: "{sentence[:50]}..."')
-                analysis_text = _deepseek_service.analyze_sentence_in_context(sentence, full_contract_text)
-                
-                if analysis_text:
-                    # Конвертируем Markdown в HTML
-                    analysis_html = markdown.markdown(analysis_text)
+            for i, paragraph in enumerate(paragraphs):
+                logger.info(f'TASK {task_id}: Анализ пункта {i+1}/{total_paragraphs}: "{paragraph[:50]}..."')
+                try:
+                    analysis_text = _deepseek_service.analyze_paragraph_in_context(paragraph, full_contract_text)
+                    
+                    if analysis_text:
+                        logger.info(f'TASK {task_id}: DeepSeek анализ для пункта {i+1} получен (первые 50 символов): "{analysis_text[:50]}..."')
+                        # Конвертируем Markdown в HTML
+                        analysis_html = markdown.markdown(analysis_text)
+                        analysis_results_list.append({
+                            "paragraph": paragraph,
+                            "analysis": analysis_html 
+                        })
+                        logger.info(f'TASK {task_id}: Анализ пункта {i+1} успешно сконвертирован в HTML.')
+                    else:
+                        analysis_results_list.append({
+                            "paragraph": paragraph,
+                            "analysis": "Не удалось получить анализ для этого пункта."
+                        })
+                        logger.warning(f'TASK {task_id}: Не удалось получить анализ для пункта {i+1}. DeepSeek вернул пустой ответ.')
+                except Exception as deepseek_e:
+                    logger.error(f'TASK {task_id}: Ошибка при вызове DeepSeek API для пункта {i+1}: {deepseek_e}', exc_info=True)
                     analysis_results_list.append({
-                        "sentence": sentence,
-                        "analysis": analysis_html 
+                        "paragraph": paragraph,
+                        "analysis": f"Ошибка при анализе пункта: {deepseek_e}"
                     })
-                    logger.info(f'TASK {task_id}: Анализ предложения {i+1} успешно получен и сконвертирован в HTML.')
-                else:
-                    analysis_results_list.append({
-                        "sentence": sentence,
-                        "analysis": "Не удалось получить анализ для этого предложения."
-                    })
-                    logger.warning(f'TASK {task_id}: Не удалось получить анализ для предложения {i+1}.')
                 
                 cache_service.update_analysis_task_progress(task_id, i + 1) # Обновляем прогресс
                 
+                # Сохранение результатов в кэш после каждого пункта
+                current_response_data = {"analysis_results": analysis_results_list, "contract_text_md": full_contract_text}
+                cache_service.save_analysis_to_cache(full_contract_text, current_response_data)
+                logger.info(f'TASK {task_id}: Результаты анализа пункта {i+1} сохранены в кэш.')
+                
             response_data = {"analysis_results": analysis_results_list, "contract_text_md": full_contract_text}
-            logger.info(f'TASK {task_id}: Анализ всех предложений завершен.')
+            logger.info(f'TASK {task_id}: Анализ всех пунктов завершен.')
 
-            # 4. Сохранение результатов в кэш
-            logger.info(f'TASK {task_id}: Сохранение результатов в кэш...')
-            cache_service.save_analysis_to_cache(full_contract_text, response_data)
-            logger.info(f'TASK {task_id}: Результаты сохранены в кэш.')
-
+            # Окончательное завершение задачи
             cache_service.complete_analysis_task(task_id, response_data)
             logger.info(f'TASK {task_id}: Задача анализа завершена успешно.')
 
@@ -163,21 +172,21 @@ def start_analysis():
         # Возвращаем кэшированные результаты вместе со статусом COMPLETED
         return jsonify({"task_id": task_id, "status": "COMPLETED", "message": "Анализ уже в кэше.", "results": cached_analysis}), 200
 
-    # 3. Сегментация текста для определения общего количества предложений
-    current_app.logger.info('API: Предварительная сегментация текста для определения общего количества предложений...')
+    # 3. Сегментация текста для определения общего количества пунктов
+    current_app.logger.info('API: Предварительная сегментация текста для определения общего количества пунктов...')
     _deepseek_service = get_deepseek_service()
-    sentences = _deepseek_service.segment_text_with_deepseek(full_contract_text)
-    if not sentences and full_contract_text:
-        current_app.logger.warning('API: Предварительная сегментация не дала результатов, но текст есть. Используем текст как одно предложение.')
-        sentences = [full_contract_text]
-    elif not sentences and not full_contract_text:
+    paragraphs = _deepseek_service.segment_text_into_paragraphs(full_contract_text) # Изменено
+    if not paragraphs and full_contract_text:
+        current_app.logger.warning('API: Предварительная сегментация не дала результатов, но текст есть. Используем текст как один пункт.')
+        paragraphs = [full_contract_text]
+    elif not paragraphs and not full_contract_text:
         current_app.logger.error('API: Текст договора пуст или не удалось его обработать и сегментировать для запуска анализа.')
         return jsonify({"error": "Текст договора пуст или не удалось его обработать и сегментировать для запуска анализа."}), 400
 
-    total_sentences = len(sentences)
+    total_paragraphs = len(paragraphs) # Изменено
     
     # 3. Создание задачи анализа
-    task_id = cache_service.create_analysis_task(full_contract_text, total_sentences)
+    task_id = cache_service.create_analysis_task(full_contract_text, total_paragraphs, item_type="paragraph") # Изменено
     current_app.logger.info(f'API: Запущена новая задача анализа с ID: {task_id}')
 
     # 4. Запуск анализа в отдельном потоке
@@ -208,7 +217,7 @@ def get_analysis_status(task_id):
 def get_sample_contract():
     current_app.logger.info('API: Получен запрос на /get_sample_contract')
     
-    # Определяем корневую директорию проекта checkDogovor
+    # Определяем корневую директорию проекта hababru
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
     
     sample_text_path = os.path.join(
@@ -235,11 +244,11 @@ def get_test_contract():
         current_app.logger.error('API: Отсутствует параметр "file" для тестового договора.')
         return jsonify({"error": "Отсутствует параметр 'file'"}), 400
 
-    # Определяем корневую директорию проекта checkDogovor
+    # Определяем корневую директорию проекта hababru
     # Это более надежный способ, чем использование '..'
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')) # Изменено на 4 '..'
     
-    # Попытка найти файл в корневой директории проекта checkDogovor/
+    # Попытка найти файл в корневой директории проекта hababru/
     file_path_root = os.path.join(project_root, file_param)
     
     # Попытка найти файл в content/seo_pages/

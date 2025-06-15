@@ -4,6 +4,7 @@ from flask import render_template
 from .deepseek_service import DeepSeekService
 from .yandex_wordstat_service import YandexWordstatService
 from .parsing_service import ParsingService # Для анализа на лету
+from .cache_service import get_cached_analysis, save_analysis_to_cache # Импортируем функции кэширования
 
 class SeoService:
     def __init__(self, deepseek_service: DeepSeekService, yandex_wordstat_service: YandexWordstatService, parsing_service: ParsingService, content_base_path: str):
@@ -50,10 +51,23 @@ class SeoService:
         else:
             print(f"Внимание: Файл договора не найден для SEO-страницы: {contract_file_path}")
 
-        # Имитация анализа договора "на лету"
-        # В реальной системе здесь будет вызов вашей существующей логики анализа
-        # Для демонстрации, пока просто заглушка или упрощенный анализ
-        analysis_results = self._perform_on_the_fly_analysis(generated_contract_text)
+        analysis_results = None
+        if generated_contract_text:
+            # Попытка получить кэшированный анализ
+            analysis_results = get_cached_analysis(generated_contract_text)
+            if analysis_results:
+                if logger:
+                    logger.info("SeoService: Анализ договора найден в кэше.")
+            else:
+                if logger:
+                    logger.info("SeoService: Анализ договора не найден в кэше, выполняем анализ 'на лету'.")
+                # Выполнение анализа "на лету"
+                analysis_results = self._perform_on_the_fly_analysis(generated_contract_text)
+                # Сохранение результатов в кэш
+                save_analysis_to_cache(generated_contract_text, analysis_results)
+        else:
+            analysis_results = {"summary": "Договор пуст, анализ невозможен.", "paragraphs": []}
+
 
         # Подготовка данных для шаблона
         template_data = {
@@ -67,47 +81,50 @@ class SeoService:
             "main_keyword": front_matter.get("main_keyword", slug)
         }
         
+        if logger:
+            logger.info(f"SeoService: Данные, передаваемые в шаблон для '{slug}':")
+            logger.info(f"  title: {template_data['title']}")
+            logger.info(f"  meta_keywords: {template_data['meta_keywords']}")
+            logger.info(f"  meta_description: {template_data['meta_description']}")
+            logger.info(f"  related_keywords: {template_data['related_keywords']}")
+            logger.info(f"  contract_text (первые 250): {template_data['contract_text'][:250]}...")
+            logger.info(f"  analysis_results (summary): {template_data['analysis_results'].get('summary', 'N/A')}")
+            logger.info(f"  analysis_results (paragraphs count): {len(template_data['analysis_results'].get('paragraphs', []))}")
+            # Логируем первые 250 символов анализа первого абзаца, если он есть
+            if template_data['analysis_results'].get('paragraphs') and len(template_data['analysis_results']['paragraphs']) > 0:
+                first_paragraph_analysis = template_data['analysis_results']['paragraphs'][0].get('analysis', 'N/A')
+                logger.info(f"  first_paragraph_analysis (первые 250): {first_paragraph_analysis[:250]}...")
+            else:
+                logger.info(f"  analysis_results.paragraphs пуст или отсутствует.")
+
         return render_template('seo_page_template.html', **template_data)
 
     def _perform_on_the_fly_analysis(self, contract_text: str):
-        # Это заглушка для вашей существующей системы анализа.
-        # В реальной системе здесь будет вызов, аналогичный тому, что происходит при ?test=dubna.pdf
-        # Например, можно было бы вызвать метод из contract_analyzer.py или parsing_service.py
-        # и deepseek_service.py для получения анализа.
-        
+        logger = self._get_logger()
         if not contract_text:
-            return {"summary": "Договор пуст, анализ невозможен.", "sentences": []}
+            return {"summary": "Договор пуст, анализ невозможен.", "paragraphs": []}
 
-        # Это заглушка для вашей существующей системы анализа.
-        # В реальной системе здесь будет вызов, аналогичный тому, что происходит при ?test=dubna.pdf
-        # Например, можно было бы вызвать метод из contract_analyzer.py или parsing_service.py
-        # и deepseek_service.py для получения анализа.
+        paragraphs = self.parsing_service.segment_text_into_paragraphs(contract_text)
         
-        if not contract_text:
-            return {"summary": "Договор пуст, анализ невозможен.", "sentences": []}
-
-        # Пример очень упрощенного анализа:
-        sentences = self.parsing_service.segment_text_into_sentences(contract_text)
-        
-        # Имитация анализа каждого предложения с DeepSeek
-        analyzed_sentences = []
-        for i, sentence in enumerate(sentences[:5]): # Анализируем только первые 5 предложений для примера
-            prompt = f"Проанализируй следующее предложение из договора на предмет потенциальных рисков и дай краткую рекомендацию по улучшению формулировки. Предложение: '{sentence}'"
+        # Имитация анализа каждого абзаца с DeepSeek
+        analyzed_paragraphs = []
+        for i, paragraph in enumerate(paragraphs): # Анализируем все абзацы
+            prompt = f"Проанализируй следующий абзац из договора на предмет потенциальных рисков и дай краткую рекомендацию по улучшению формулировки. Абзац: '{paragraph}'"
             try:
                 analysis_response = self.deepseek_service.generate_text(prompt)
-                analyzed_sentences.append({
-                    "original_sentence": sentence,
+                analyzed_paragraphs.append({
+                    "original_paragraph": paragraph,
                     "analysis": analysis_response
                 })
             except Exception as e:
                 if logger:
-                    logger.error(f"SeoService: Ошибка при анализе предложения с DeepSeek: {e}")
-                analyzed_sentences.append({
-                    "original_sentence": sentence,
+                    logger.error(f"SeoService: Ошибка при анализе абзаца с DeepSeek: {e}")
+                analyzed_paragraphs.append({
+                    "original_paragraph": paragraph,
                     "analysis": "Ошибка анализа."
                 })
         
         return {
             "summary": "Это имитация анализа договора. Для полного анализа используйте основной интерфейс.",
-            "sentences": analyzed_sentences
+            "paragraphs": analyzed_paragraphs
         }

@@ -386,7 +386,7 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
                 } elseif (defined('AMO2JSON_SKIP_PAYMENT_PARSING') && AMO2JSON_SKIP_PAYMENT_PARSING === true) {
                     logMessage("Payment parsing is DISABLED by AMO2JSON_SKIP_PAYMENT_PARSING flag for deal $dealId. Skipping parsing.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
                     if ($tokens && defined('AMO_API_URL_BASE')) {
-                        sendParsingComment($dealId, $accessToken, "ℹ️ PHP парсер: Парсинг оплаты временно отключен (флаг AMO2JSON_SKIP_PAYMENT_PARSING).");
+                        sendParsingComment($dealId, $accessToken, "ℹ️ PHP парсер: Парсинг заброшенной суммы и валюты отключен (флаг AMO2JSON_SKIP_PAYMENT_PARSING).");
                     }
                 } else {
                     logMessage("--- BEFORE calling parsePaymentLink for deal $dealId with URL: $paymentUrl ---", 'DEBUG', AMO2JSON_SCRIPT_LOG_FILE);
