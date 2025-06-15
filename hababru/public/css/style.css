@@ -1,8 +1,9 @@
 body {
     font-family: Arial, sans-serif;
+    line-height: 1.6;
     margin: 0;
     padding: 20px;
-    background-color: #f4f4f4;
+    background-color: #fff; /* Изменено на белый */
     color: #333;
 }
 
@@ -14,11 +15,23 @@ header {
     margin-bottom: 20px;
 }
 
+/* Общий контейнер для SEO-страниц, если он будет использоваться */
+.container {
+    max-width: 900px;
+    margin: 20px auto;
+    background: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
 main {
     background-color: white;
     padding: 20px;
     border-radius: 8px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    max-width: 1200px; /* Можно увеличить для основного контента */
+    margin: 0 auto;
 }
 
 section {
@@ -53,52 +66,110 @@ h1, h2 {
     background-color: #0056b3;
 }
 
+/* Стили для двухколоночного макета договора и анализа */
 .two-column-layout {
     display: flex;
     gap: 20px;
+    margin-bottom: 20px; /* Добавлено из SEO-стилей */
 }
 
-#contract-view-container, #analysis-panel-container {
+#contract-view-container, 
+.contract-form, /* Для совместимости со старой структурой SEO, если где-то останется */
+#analysis-panel-container,
+.analysis-results /* Для совместимости */ {
     flex: 1;
     padding: 15px;
     border: 1px solid #ddd;
     border-radius: 5px;
-    background-color: #fff;
-    min-height: 400px; /* Increased min-height */
+    background-color: #fff; /* Изменено на белый */
+    min-height: 400px; 
     overflow-y: auto;
 }
 
-#contract-text-display p {
-    margin: 0; /* Убираем отступы между предложениями */
-    line-height: 1.6;
-    padding: 5px;
+#contract-text-display {
+    min-height: 300px; /* Из SEO-стилей */
+    border: 1px solid #ccc; /* Из SEO-стилей */
+    padding: 10px; /* Из SEO-стилей */
+    box-sizing: border-box; /* Из SEO-стилей */
+    font-family: 'Courier New', Courier, monospace; /* Из SEO-стилей */
+    white-space: pre-wrap; /* Из SEO-стилей */
+    word-wrap: break-word; /* Из SEO-стилей */
+    cursor: pointer; /* Из SEO-стилей */
+}
+
+/* Стили для отдельных параграфов/сегментов договора */
+.contract-paragraph {
+    display: block; /* Из SEO-стилей */
+    padding: 5px; /* Увеличено с 2px 0 для лучшей кликабельности */
     border-radius: 3px;
-    white-space: pre-wrap; /* Сохраняем переносы строк и пробелы */
+    line-height: 1.6;
+    margin: 0 0 5px 0; /* Добавлен небольшой отступ снизу */
+    white-space: pre-wrap; 
 }
 
-#contract-text-display p:hover {
-    background-color: #e6f7ff;
-    cursor: pointer;
+.contract-paragraph:hover {
+    background-color: #e6f7ff; /* Подсветка при наведении */
 }
 
-#analysis-results h3 {
-    color: #007bff;
+/* Стили для панели анализа */
+#analysis-results,
+.analysis-panel /* Для совместимости */ {
+    min-height: 300px; /* Из SEO-стилей */
+    /* border: 1px solid #ccc; Убрано, т.к. родитель уже имеет рамку */
+    padding: 10px; /* Из SEO-стилей */
+    box-sizing: border-box; /* Из SEO-стилей */
+    background-color: #fff; /* Из SEO-стилей, чтобы отличался от родителя */
+    overflow-y: auto; /* Из SEO-стилей */
+}
+
+#analysis-results h3,
+.analysis-panel h3 {
+    color: #0056b3; /* Из SEO-стилей, было #007bff */
     margin-top: 0;
 }
 
-#analysis-results ul {
+#analysis-results p,
+.analysis-panel p {
+    margin-bottom: 10px; /* Из SEO-стилей */
+}
+
+/* Стили для связанных ключевых слов (из SEO-примера) */
+.related-keywords-section {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff; /* Изменено на белый */
+}
+
+.related-keywords-list {
     list-style: none;
     padding: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 
-#analysis-results li {
-    margin-bottom: 10px;
-    padding: 8px;
-    border-bottom: 1px solid #f0f0f0;
+.related-keywords-list li {
+    background-color: #e0f7fa;
+    padding: 5px 10px;
+    border-radius: 3px;
+    color: #00796b;
+    font-size: 0.9em;
 }
 
-#analysis-results li:last-child {
-    border-bottom: none;
+/* Стили для основного контента страницы (из SEO-примера) */
+.page-content {
+    margin-bottom: 20px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    background-color: #fff; /* Изменено на белый */
+}
+
+/* Стили для выделения рисков (из SEO-примера) */
+.analysis-sentence strong { /* Предполагается, что это для выделения рисков */
+    color: #d9534f; 
 }
 
 footer {
@@ -106,4 +177,26 @@ footer {
     margin-top: 30px;
     color: #666;
     font-size: 0.9em;
+}
+
+/* Стили для прогресс-бара (из index.html) */
+#analysis-progress {
+    margin-top: 10px;
+    font-weight: bold;
+}
+#progress-bar-container {
+    width: 100%;
+    background-color: #e9e9e9; /* Слегка изменен для контраста, если основной фон белый */
+    border-radius: 5px;
+    margin-top: 10px;
+    display: none; /* Изначально скрыт */
+}
+#progress-bar {
+    width: 0%;
+    height: 20px;
+    background-color: #4CAF50;
+    border-radius: 5px;
+    text-align: center;
+    line-height: 20px;
+    color: white;
 }

@@ -1,14 +1,16 @@
 import os
 import yaml
 from flask import render_template
-from .deepseek_service import DeepSeekService
+from .llm_service import LLMService # Изменено на LLMService
 from .yandex_wordstat_service import YandexWordstatService
 from .parsing_service import ParsingService # Для анализа на лету
-from .cache_service import get_cached_analysis, save_analysis_to_cache # Импортируем функции кэширования
+# Импортируем новые функции кэширования для SEO
+from .cache_service import get_cached_paragraph_analysis, save_paragraph_analysis_to_cache, _generate_hash # Удаляем get_seo_cached_analysis, save_seo_analysis_to_cache
+import markdown # Добавляем импорт markdown
 
 class SeoService:
-    def __init__(self, deepseek_service: DeepSeekService, yandex_wordstat_service: YandexWordstatService, parsing_service: ParsingService, content_base_path: str):
-        self.deepseek_service = deepseek_service
+    def __init__(self, llm_service: LLMService, yandex_wordstat_service: YandexWordstatService, parsing_service: ParsingService, content_base_path: str): # Изменено на llm_service
+        self.llm_service = llm_service # Изменено на llm_service
         self.yandex_wordstat_service = yandex_wordstat_service
         self.parsing_service = parsing_service
         self.content_base_path = content_base_path
@@ -51,80 +53,101 @@ class SeoService:
         else:
             print(f"Внимание: Файл договора не найден для SEO-страницы: {contract_file_path}")
 
-        analysis_results = None
+        analysis_results = {"summary": "Договор пуст, анализ невозможен.", "paragraphs": []}
         if generated_contract_text:
-            # Попытка получить кэшированный анализ
-            analysis_results = get_cached_analysis(generated_contract_text)
-            if analysis_results:
-                if logger:
-                    logger.info("SeoService: Анализ договора найден в кэше.")
-            else:
-                if logger:
-                    logger.info("SeoService: Анализ договора не найден в кэше, выполняем анализ 'на лету'.")
-                # Выполнение анализа "на лету"
-                analysis_results = self._perform_on_the_fly_analysis(generated_contract_text)
-                # Сохранение результатов в кэш
-                save_analysis_to_cache(generated_contract_text, analysis_results)
+            if logger:
+                logger.info("SeoService: Выполняем анализ 'на лету' для SEO-страницы, полагаясь на гранулированное кэширование абзацев.")
+            # Выполнение анализа "на лету", который теперь использует кэш сегментации и кэш абзацев
+            analysis_results = self._perform_on_the_fly_analysis(generated_contract_text)
         else:
-            analysis_results = {"summary": "Договор пуст, анализ невозможен.", "paragraphs": []}
+            if logger:
+                logger.warning("SeoService: Текст договора для SEO-страницы пуст, анализ невозможен.")
 
 
-        # Подготовка данных для шаблона
+        # Подготовка данных для шаблона index_template.html
+        # Важно: contract_text_raw и analysis_results_raw должны быть строками, содержащими JSON, или None
+        import json # Добавляем импорт json для сериализации
+
+        contract_text_raw_json = json.dumps(generated_contract_text) if generated_contract_text else None
+        analysis_results_raw_json = json.dumps(analysis_results) if analysis_results else None
+
         template_data = {
-            "title": front_matter.get("title", slug),
+            "is_seo_page": True,
+            "page_title": front_matter.get("title", slug),
+            "page_h1": front_matter.get("title", slug), # Используем title для H1 на SEO-страницах
             "meta_keywords": ", ".join(front_matter.get("meta_keywords", [])),
             "meta_description": front_matter.get("meta_description", ""),
-            "related_keywords": front_matter.get("related_keywords", []), # Передаем как список для итерации
-            "contract_text": generated_contract_text,
-            "analysis_results": analysis_results,
-            "page_text_content": page_text_content,
-            "main_keyword": front_matter.get("main_keyword", slug)
+            "related_keywords_meta": front_matter.get("related_keywords", []), # Для meta name="related-keywords"
+            "related_keywords_list": front_matter.get("related_keywords", []), # Для отображения списка на странице
+            "page_text_content": markdown.markdown(page_text_content), # Конвертируем Markdown в HTML
+            "main_keyword": front_matter.get("main_keyword", slug),
+            "contract_text_raw": contract_text_raw_json, # Передаем как JSON-строку
+            "analysis_results_raw": analysis_results_raw_json # Передаем как JSON-строку
         }
         
         if logger:
-            logger.info(f"SeoService: Данные, передаваемые в шаблон для '{slug}':")
-            logger.info(f"  title: {template_data['title']}")
+            logger.info(f"SeoService: Данные, передаваемые в шаблон 'index_template.html' для '{slug}':")
+            logger.info(f"  is_seo_page: {template_data['is_seo_page']}")
+            logger.info(f"  page_title: {template_data['page_title']}")
             logger.info(f"  meta_keywords: {template_data['meta_keywords']}")
             logger.info(f"  meta_description: {template_data['meta_description']}")
-            logger.info(f"  related_keywords: {template_data['related_keywords']}")
-            logger.info(f"  contract_text (первые 250): {template_data['contract_text'][:250]}...")
-            logger.info(f"  analysis_results (summary): {template_data['analysis_results'].get('summary', 'N/A')}")
-            logger.info(f"  analysis_results (paragraphs count): {len(template_data['analysis_results'].get('paragraphs', []))}")
-            # Логируем первые 250 символов анализа первого абзаца, если он есть
-            if template_data['analysis_results'].get('paragraphs') and len(template_data['analysis_results']['paragraphs']) > 0:
-                first_paragraph_analysis = template_data['analysis_results']['paragraphs'][0].get('analysis', 'N/A')
-                logger.info(f"  first_paragraph_analysis (первые 250): {first_paragraph_analysis[:250]}...")
-            else:
-                logger.info(f"  analysis_results.paragraphs пуст или отсутствует.")
+            logger.info(f"  related_keywords_list: {template_data['related_keywords_list']}")
+            logger.info(f"  page_text_content (первые 100): {template_data['page_text_content'][:100]}...")
+            logger.info(f"  main_keyword: {template_data['main_keyword']}")
+            logger.info(f"  contract_text_raw (json, первые 100): {template_data['contract_text_raw'][:100] if template_data['contract_text_raw'] else 'None'}...")
+            logger.info(f"  analysis_results_raw (json, первые 100): {template_data['analysis_results_raw'][:100] if template_data['analysis_results_raw'] else 'None'}...")
 
-        return render_template('seo_page_template.html', **template_data)
+        return render_template('index_template.html', **template_data)
 
     def _perform_on_the_fly_analysis(self, contract_text: str):
         logger = self._get_logger()
         if not contract_text:
             return {"summary": "Договор пуст, анализ невозможен.", "paragraphs": []}
 
-        paragraphs = self.parsing_service.segment_text_into_paragraphs(contract_text)
+        # Используем llm_service для сегментации, чтобы она кэшировалась
+        paragraphs = self.llm_service.segment_text_into_paragraphs(contract_text) # Изменено на llm_service
         
-        # Имитация анализа каждого абзаца с DeepSeek
+        # Анализ каждого абзаца с LLM, используя analyze_paragraph_in_context
         analyzed_paragraphs = []
+        file_hash = _generate_hash(contract_text) # Генерируем хеш для всего договора
+
         for i, paragraph in enumerate(paragraphs): # Анализируем все абзацы
-            prompt = f"Проанализируй следующий абзац из договора на предмет потенциальных рисков и дай краткую рекомендацию по улучшению формулировки. Абзац: '{paragraph}'"
-            try:
-                analysis_response = self.deepseek_service.generate_text(prompt)
-                analyzed_paragraphs.append({
-                    "original_paragraph": paragraph,
-                    "analysis": analysis_response
-                })
-            except Exception as e:
+            if logger:
+                logger.info(f"SeoService: Подготовка к анализу пункта {i+1}/{len(paragraphs)} для file_hash: {file_hash}, paragraph_hash: {_generate_hash(paragraph)}")
+
+            analysis_html = get_cached_paragraph_analysis(file_hash, paragraph) # Пытаемся получить HTML из кэша
+
+            if analysis_html:
                 if logger:
-                    logger.error(f"SeoService: Ошибка при анализе абзаца с DeepSeek: {e}")
-                analyzed_paragraphs.append({
-                    "original_paragraph": paragraph,
-                    "analysis": "Ошибка анализа."
-                })
+                    logger.info(f"SeoService: Анализ пункта {i+1} найден в индивидуальном кэше (HTML).")
+            else:
+                if logger:
+                    logger.info(f"SeoService: Анализ пункта {i+1} не найден в кэше, выполняем через LLM.")
+                try:
+                    # Получаем анализ в Markdown от LLM
+                    analysis_markdown = self.llm_service.analyze_paragraph_in_context(paragraph, contract_text) # Изменено на llm_service
+                    if analysis_markdown:
+                        # Конвертируем в HTML
+                        analysis_html = markdown.markdown(analysis_markdown)
+                        # Сохраняем HTML в индивидуальный кэш абзацев
+                        save_paragraph_analysis_to_cache(file_hash, paragraph, analysis_html)
+                        if logger:
+                            logger.info(f"SeoService: Анализ пункта {i+1} выполнен, сконвертирован в HTML и сохранен в индивидуальный кэш.")
+                    else:
+                        analysis_html = "Не удалось получить анализ для этого пункта."
+                        if logger:
+                            logger.warning(f"SeoService: Не удалось получить анализ (Markdown) для пункта {i+1}. LLM вернул пустой ответ.")
+                except Exception as e:
+                    if logger:
+                        logger.error(f"SeoService: Ошибка при анализе абзаца {i+1} с LLM: {e}", exc_info=True) # Изменено на LLM
+                    analysis_html = f"Ошибка анализа пункта: {e}"
+            
+            analyzed_paragraphs.append({
+                "original_paragraph": paragraph,
+                "analysis": analysis_html # Добавляем HTML
+            })
         
         return {
-            "summary": "Это имитация анализа договора. Для полного анализа используйте основной интерфейс.",
+            "summary": "Это анализ договора, выполненный 'на лету'.",
             "paragraphs": analyzed_paragraphs
         }

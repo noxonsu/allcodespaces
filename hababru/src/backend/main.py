@@ -1,12 +1,13 @@
 import os
-from flask import Flask, render_template, send_from_directory, abort
+from flask import Flask, render_template, send_from_directory, abort, jsonify # Добавляем jsonify
 from dotenv import load_dotenv
 import subprocess
 import os
+import io # Добавляем io
 
 # Импорты сервисов
 from .api.v1.contract_analyzer import contract_analyzer_bp
-from .services.deepseek_service import DeepSeekService
+from .services.llm_service import LLMService # Изменено на LLMService
 from .services.yandex_wordstat_service import YandexWordstatService
 from .services.seo_service import SeoService
 from .services.parsing_service import ParsingService # Для анализа на лету
@@ -20,18 +21,21 @@ app = Flask(__name__,
             template_folder=os.path.join(os.path.dirname(__file__), 'templates')) # Этот путь остается относительным от текущего файла
 
 # Инициализация сервисов
-deepseek_service = DeepSeekService(api_key=os.getenv('DEEPSEEK_API_KEY'))
+llm_service = LLMService( # Изменено на llm_service
+    deepseek_api_key=os.getenv('DEEPSEEK_API_KEY'),
+    openai_api_key=os.getenv('OPENAI_API_KEY') # Добавлен ключ OpenAI
+)
 yandex_wordstat_service = YandexWordstatService(
     client_id=os.getenv('YANDEX_CLIENT_ID'),
     client_secret=os.getenv('YANDEX_CLIENT_SECRET'),
     redirect_uri=os.getenv('YANDEX_REDIRECT_URI'),
     oauth_token=os.getenv('YANDEX_OAUTH_TOKEN')
 )
-parsing_service = ParsingService(deepseek_service=deepseek_service) # Для анализа на лету
+parsing_service = ParsingService(llm_service=llm_service) # Изменено на llm_service
 
 # Инициализация SeoService с зависимостями
 seo_service = SeoService(
-    deepseek_service=deepseek_service,
+    llm_service=llm_service, # Изменено на llm_service
     yandex_wordstat_service=yandex_wordstat_service,
     parsing_service=parsing_service, # Передаем для анализа на лету
     content_base_path=os.path.join(app.root_path, 'content', 'seo_pages')
@@ -39,7 +43,7 @@ seo_service = SeoService(
 
 # Сохраняем экземпляры сервисов в конфигурации приложения, чтобы они были доступны в Blueprint
 app.config['PARSING_SERVICE'] = parsing_service
-app.config['DEEPSEEK_SERVICE'] = deepseek_service
+app.config['LLM_SERVICE'] = llm_service # Изменено на LLM_SERVICE
 
 # Регистрация Blueprint для API
 app.register_blueprint(contract_analyzer_bp, url_prefix='/api/v1')
@@ -47,7 +51,10 @@ app.register_blueprint(contract_analyzer_bp, url_prefix='/api/v1')
 # Маршрут для главной страницы приложения
 @app.route('/')
 def index():
-    return send_from_directory(app.static_folder, 'index.html')
+    # Передаем данные для рендеринга главной страницы через index_template.html
+    # is_seo_page=False означает, что это не SEO-страница
+    # Остальные SEO-специфичные переменные будут иметь значения по умолчанию (None или пустые строки)
+    return render_template('index_template.html', is_seo_page=False)
 
 # Маршрут для обслуживания статических файлов (CSS, JS, assets)
 @app.route('/css/<path:filename>')
@@ -84,6 +91,45 @@ def serve_generated_contract(slug, filename):
     
     file_path = os.path.join(app.root_path, 'content', 'seo_pages', slug)
     return send_from_directory(file_path, filename)
+
+@app.route('/get_test_contract', methods=['GET'])
+def get_test_contract():
+    app.logger.info('API: Получен запрос на /get_test_contract (без параметров)')
+
+    # Определяем корневую директорию проекта hababru
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    
+    # Явно указываем путь к файлу generated_contract.txt
+    file_to_parse = os.path.join(
+        project_root, 'content', 'seo_pages', 'analiz-dogovora-arendy', 'generated_contract.txt'
+    )
+    
+    app.logger.info(f'API: Попытка загрузить тестовый файл по явному пути: {file_to_parse}')
+
+    if not os.path.exists(file_to_parse) or not os.path.isfile(file_to_parse):
+        app.logger.error(f'API: Тестовый файл не найден по явному пути: {file_to_parse}')
+        return jsonify({"error": "Тестовый файл не найден"}), 404
+
+    app.logger.info(f'API: Конечный путь к файлу для парсинга: {file_to_parse}')
+    try:
+        with open(file_to_parse, 'rb') as f:
+            file_stream = io.BytesIO(f.read())
+        
+        filename = os.path.basename(file_to_parse)
+        _parsing_service = app.config.get('PARSING_SERVICE') # Получаем сервис из app.config
+        app.logger.info(f'API: Конвертация тестового файла {filename} в Markdown...')
+        app.logger.info(f'API: Имя файла для парсинга: {filename}')
+        contract_text = _parsing_service.parse_document_to_markdown(file_stream, filename)
+
+        if contract_text:
+            app.logger.info('API: Тестовый файл успешно сконвертирован в Markdown.')
+            return jsonify({"contract_text": contract_text}), 200
+        else:
+            app.logger.error('API: Не удалось обработать тестовый файл.')
+            return jsonify({"error": "Не удалось обработать тестовый файл"}), 500
+    except Exception as e:
+        app.logger.error(f'API: Ошибка при чтении или обработке тестового файла: {e}', exc_info=True)
+        return jsonify({"error": f"Ошибка при обработке тестового файла: {str(e)}"}), 500
 
 # Маршрут для SEO-страниц
 @app.route('/<slug>')

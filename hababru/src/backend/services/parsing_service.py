@@ -3,11 +3,11 @@ import os
 from markitdown import MarkItDown
 from flask import current_app # Для логирования
 
-from .deepseek_service import DeepSeekService # Импортируем DeepSeekService
+from .llm_service import LLMService # Импортируем LLMService
 
 class ParsingService:
-    def __init__(self, deepseek_service: DeepSeekService):
-        self.deepseek_service = deepseek_service
+    def __init__(self, llm_service: LLMService): # Изменено на llm_service
+        self.llm_service = llm_service # Изменено на llm_service
 
     def _get_logger(self):
         return current_app.logger if current_app else None
@@ -43,18 +43,18 @@ class ParsingService:
         """
         logger = self._get_logger()
         if logger:
-            logger.info(f"ParsingService: Сегментация текста на пункты с помощью DeepSeekService (первые 250 символов): '{text[:250]}...'")
+            logger.info(f"ParsingService: Сегментация текста на пункты с помощью LLMService (первые 250 символов): '{text[:250]}...'")
         
         if not text:
             return []
 
         try:
-            paragraphs = self.deepseek_service.segment_text_into_paragraphs(text)
+            paragraphs = self.llm_service.segment_text_into_paragraphs(text) # Изменено на llm_service
             if logger:
                 logger.info(f"ParsingService: Сегментация текста завершена, получено {len(paragraphs)} пунктов.")
             return paragraphs
         except Exception as e:
-            error_msg = f"ParsingService: Ошибка при сегментации текста на пункты с DeepSeekService: {e}"
+            error_msg = f"ParsingService: Ошибка при сегментации текста на пункты с LLMService: {e}" # Изменено на LLMService
             if logger:
                 logger.error(error_msg)
             raise RuntimeError(error_msg) from e
