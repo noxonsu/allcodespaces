@@ -371,7 +371,8 @@ async function callOpenAI(chatId, messages) {
     };
 
     console.info(`[API Call ${chatId}] Отправка в OpenAI. Модель: ${modelName}. История: ${conversationHistory.length} сообщений.`);
-    console.debug(`[API Call ${chatId}] Payload:`, JSON.stringify(payload, null, 2));
+    const payloadString = JSON.stringify(payload, null, 2);
+    console.debug(`[API Call ${chatId}] Payload (first 250 chars):`, payloadString.substring(0, 250));
 
     try {
         const response = await axios.post(

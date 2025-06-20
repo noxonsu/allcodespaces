@@ -7,7 +7,7 @@ bower_components/
 .env
 .env.*
 !.env.example
-
+boxforcam
 # IDE and editor files
 .idea/
 .vscode/

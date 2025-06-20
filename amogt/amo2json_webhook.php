@@ -400,18 +400,39 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
                     logMessage("--- AFTER calling parsePaymentLink for deal $dealId. Result: " . json_encode($parseResult), 'DEBUG', AMO2JSON_SCRIPT_LOG_FILE);
                 }
                 
-                // 5. Логика обновления AmoCRM - только если токены получены, сделка в основной воронке И НЕ на этапе CHATGPT И парсинг успешен (или пропущен)
-                $shouldUpdateAmo = $tokens && defined('AMO_MAIN_PIPELINE_ID') && defined('AMO_CHATGPT_STATUS_ID') && 
-                    $currentPipelineId === AMO_MAIN_PIPELINE_ID && $currentStatusId !== AMO_CHATGPT_STATUS_ID;
-                
-                // Если парсинг не пропущен, требуем успешный результат парсинга
+                // 5. Логика обновления AmoCRM
+                $forbiddenStatuses = [
+                    '71325870', // Финальный Админский
+                    '142',      // Успешно реализовано
+                    '143',      // Закрыто и не реализовано
+                    '73606602', // Финальный Операторский
+                    // Также не обрабатываем, если уже в CHATGPT, это добавится ниже, если AMO_CHATGPT_STATUS_ID определен
+                ];
+
+                if (defined('AMO_CHATGPT_STATUS_ID')) {
+                    $forbiddenStatuses[] = (string)AMO_CHATGPT_STATUS_ID;
+                }
+
+                $shouldUpdateAmo = $tokens &&
+                                   defined('AMO_MAIN_PIPELINE_ID') &&
+                                   $currentPipelineId === AMO_MAIN_PIPELINE_ID &&
+                                   !in_array((string)$currentStatusId, $forbiddenStatuses, true);
+
+                // Если парсинг не пропущен (т.е. AMO2JSON_SKIP_PAYMENT_PARSING не true),
+                // то для обновления AmoCRM также требуем успешный результат парсинга суммы и валюты.
                 if (!defined('AMO2JSON_SKIP_PAYMENT_PARSING') || AMO2JSON_SKIP_PAYMENT_PARSING !== true) {
-                    $shouldUpdateAmo = $shouldUpdateAmo && $parseResult && isset($parseResult['amount']) && isset($parseResult['currency']) && isset($parseResult['currencyAmoId']) && 
-                        $parseResult['amount'] !== null && $parseResult['currency'] !== null && $parseResult['currencyAmoId'] !== null;
+                    $parsingSuccessful = $parseResult && 
+                                         isset($parseResult['amount']) && $parseResult['amount'] !== null &&
+                                         isset($parseResult['currency']) && $parseResult['currency'] !== null &&
+                                         isset($parseResult['currencyAmoId']) && $parseResult['currencyAmoId'] !== null;
+                    if (!$parsingSuccessful) {
+                        logMessage("Deal $dealId: Payment parsing was not successful or data is missing. AmoCRM update for amount/currency will be skipped.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                    }
+                    $shouldUpdateAmo = $shouldUpdateAmo && $parsingSuccessful;
                 }
                 
                 if ($shouldUpdateAmo) {
-                    logMessage("Deal $dealId is in pipeline $currentPipelineId and not in CHATGPT stage ($currentStatusId). Attempting AmoCRM update.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                    logMessage("Deal $dealId (Pipeline: $currentPipelineId, Status: $currentStatusId) meets criteria. Attempting AmoCRM update.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
 
                     // Если парсинг пропущен, используем значения по умолчанию или пропускаем обновление полей
                     if (defined('AMO2JSON_SKIP_PAYMENT_PARSING') && AMO2JSON_SKIP_PAYMENT_PARSING === true) {
@@ -485,7 +506,24 @@ function handleAmo2JsonWebhook(int $successHttpCode): array {
                         // return ['status' => 'error_config_missing', 'message' => 'Missing AmoCRM custom field constants.', 'http_code' => 500]; // Не завершаем скрипт здесь
                     }
                 } else { // Условия для обновления AmoCRM не выполнены
-                    logMessage("AmoCRM update conditions not met for deal $dealId (Pipeline: $currentPipelineId, Status: $currentStatusId). Skipping AmoCRM update.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
+                    $reason = "Unknown reason";
+                    if (!$tokens) {
+                        $reason = "Tokens not available.";
+                    } elseif (!defined('AMO_MAIN_PIPELINE_ID') || $currentPipelineId !== AMO_MAIN_PIPELINE_ID) {
+                        $reason = "Not in main pipeline (Current: $currentPipelineId, Expected: " . (defined('AMO_MAIN_PIPELINE_ID') ? AMO_MAIN_PIPELINE_ID : 'undefined') . ").";
+                    } elseif (in_array((string)$currentStatusId, $forbiddenStatuses, true)) {
+                        $reason = "Current status ($currentStatusId) is in the forbidden list.";
+                    } elseif (!defined('AMO2JSON_SKIP_PAYMENT_PARSING') || AMO2JSON_SKIP_PAYMENT_PARSING !== true) {
+                        // Check parsing result again if it was the cause
+                        $parsingSuccessful = $parseResult && 
+                                             isset($parseResult['amount']) && $parseResult['amount'] !== null &&
+                                             isset($parseResult['currency']) && $parseResult['currency'] !== null &&
+                                             isset($parseResult['currencyAmoId']) && $parseResult['currencyAmoId'] !== null;
+                        if (!$parsingSuccessful) {
+                             $reason = "Payment parsing was not successful or data is missing.";
+                        }
+                    }
+                    logMessage("AmoCRM update conditions not met for deal $dealId (Pipeline: $currentPipelineId, Status: $currentStatusId). Reason: $reason. Skipping AmoCRM update.", 'INFO', AMO2JSON_SCRIPT_LOG_FILE);
                     // Продолжаем к логике локального сохранения
                 }
             }
