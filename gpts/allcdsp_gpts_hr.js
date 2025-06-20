@@ -618,9 +618,7 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
     
     // Check for greeting phrases
     const lowerUserText = userTextForLogic.toLowerCase().trim();
-    const isGreeting = GREETING_PHRASES.some(phrase => 
-        lowerUserText === phrase || lowerUserText.startsWith(phrase + ' ') || lowerUserText.endsWith(' ' + phrase)
-    );
+    const isGreeting = GREETING_PHRASES.some(phrase => lowerUserText.includes(phrase));
     
     if (isGreeting) {
         console.info(`[handleIncomingMessage ${consistentChatId}] Обнаружено приветствие: "${userTextForLogic}".`);
