@@ -389,7 +389,7 @@ async function callOpenAI(chatId, messages) {
         );
 
         const assistantText = response.data.output.find(output => output.type === 'message')?.content.find(c => c.type === 'output_text')?.text;
-        if (!assistantText) throw new Error('Некорректный ответ от OpenAI.');
+        if (assistantText === undefined) throw new Error('Некорректный ответ от OpenAI.');
 
         // Track token usage and cost (safe)
         try {
