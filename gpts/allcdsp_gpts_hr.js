@@ -121,7 +121,7 @@ const MAX_RESPONSE_DELAY = 10000; // Maximum 10 seconds delay
 const WORDS_PER_SECOND = 3; // Average typing speed for calculating dynamic delay
 const MIN_READ_DELAY = 1000; // Minimum 1 second before reading message
 const MAX_READ_DELAY = 5000; // Maximum 5 seconds before reading message
-const GREETING_PHRASES = ["здравствуйте", "привет", "добрый день", "добрый вечер", "салам", "хелло", "хай", "hello", "hi"];
+const GREETING_PHRASES = ["здравст", "привет", "добрый день", "добр", "добрый вечер", "салам", "хелло", "хай", "hello", "hi", "доброго времени суток"];
 
 // Admin and Server Configuration
 const ADMIN_TELEGRAM_ID = process.env.ADMIN_TELEGRAM_ID;
@@ -618,21 +618,20 @@ async function handleIncomingMessage(chatId, rawUserText, fromUserDetails, messa
     
     // Check for greeting phrases
     const lowerUserText = userTextForLogic.toLowerCase().trim();
-    const words = lowerUserText.split(/\s+/); // Разделяем на слова по пробелам
+    const isGreeting = GREETING_PHRASES.some(phrase => 
+        lowerUserText === phrase || lowerUserText.startsWith(phrase + ' ') || lowerUserText.endsWith(' ' + phrase)
+    );
     
-    // Проверяем, является ли сообщение ТОЛЬКО приветствием (одно слово)
-    const isPureGreeting = words.length === 1 && GREETING_PHRASES.includes(words[0]);
-
-    if (isPureGreeting) {
-        console.info(`[handleIncomingMessage ${consistentChatId}] Обнаружено чистое приветствие: "${userTextForLogic}".`);
+    if (isGreeting) {
+        console.info(`[handleIncomingMessage ${consistentChatId}] Обнаружено приветствие: "${userTextForLogic}".`);
         logChat(consistentChatId, { 
             type: 'user_message_received', 
             text: userTextForLogic, 
-            detected_as: 'pure_greeting',
+            detected_as: 'greeting',
             timestamp: messageDate.toISOString() 
         }, 'user');
         logChat(consistentChatId, { 
-            event: 'pure_greeting_simple_response', 
+            event: 'greeting_detected_simple_response', 
             user_text: userTextForLogic 
         }, 'system');
         return { action: 'sendMessage', text: 'Здравствуйте!' };
@@ -829,12 +828,17 @@ async function onNewGramJsMessage(event) {
 
         if (isUser && !isBot && !isSelf) {
             const chatId = sender.id.toString(); // User's ID
-            const userText = message.text;
+            let userText = message.text;
             
-            if (!userText) {
+            // Check if message contains a file/document
+            if (message.media && (message.document || message.photo || message.video || message.voice || message.audio || message.videoNote || message.sticker)) {
+                console.log(`[GramJS ${chatId}] File detected in message. Treating as resume question.`);
+                userText = "здравствуйте вы посмотрели резюме?";
+            } else if (!userText) {
                 console.log(`[GramJS ${chatId}] Ignoring non-text message (empty text).`);
                 return;
             }
+            
             console.log(`[GramJS ${chatId}] Processing message: "${userText}" from user ${sender.username || chatId}`);
 
             // Mark the message as read with human-like delay
