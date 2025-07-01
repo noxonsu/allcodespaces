@@ -830,9 +830,9 @@ async function onNewGramJsMessage(event) {
             const chatId = sender.id.toString(); // User's ID
             let userText = message.text;
             
-            // Check if message contains a file/document
-            if (message.media && (message.document || message.photo || message.video || message.voice || message.audio || message.videoNote || message.sticker)) {
-                console.log(`[GramJS ${chatId}] File detected in message. Treating as resume question.`);
+            // Check if message contains any type of file/media
+            if (message.media || message.document || message.photo || message.video || message.voice || message.audio || message.videoNote || message.sticker) {
+                console.log(`[GramJS ${chatId}] File/media detected in message. Treating as resume question.`);
                 userText = "здравствуйте вы посмотрели резюме?";
             } else if (!userText) {
                 console.log(`[GramJS ${chatId}] Ignoring non-text message (empty text).`);
