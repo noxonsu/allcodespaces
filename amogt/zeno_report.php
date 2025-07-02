@@ -6,6 +6,7 @@ require_once __DIR__ . '/vendor/autoload.php'; // For AmoCRM client if used, or 
 require_once __DIR__ . '/logger.php';
 require_once __DIR__ . '/lib/json_storage_utils.php';
 require_once __DIR__ . '/lib/amo_auth_utils.php'; // New include for AmoCRM auth functions
+require_once __DIR__ . '/gpt_payment_api/lib/partner_transaction_logger.php'; // Для обновления транзакций
 
 define('ZENO_REPORT_LOG_FILE', LOGS_DIR . '/zeno_report.log'); // Используем LOGS_DIR
 define('ZENO_REPORTS_JSON_FILE', DATA_DIR . '/zeno_report.json'); // Используем DATA_DIR
@@ -100,8 +101,46 @@ $reportEmail = $_GET['email'] ?? null;
 $reportCard = $_GET['card'] ?? null;
 $partnerIdSubmitter = $_GET['partner_id'] ?? null;
 
+// Проверяем, является ли лид партнерским, анализируя наши данные
+$isPartnerLead = false;
+$partnerInfo = null;
+
+// Если partner_id передан в GET параметрах, это уже партнерский лид
+if (!empty($partnerIdSubmitter)) {
+    $isPartnerLead = true;
+    $partnerInfo = [
+        'partner_id' => $partnerIdSubmitter,
+        'partner_name' => 'Partner (from GET params)'
+    ];
+    logMessage("[ZenoReport] Partner lead detected from GET parameter. Lead ID: $leadId, Partner ID: $partnerIdSubmitter", 'INFO', $dealSpecificLogFile);
+} else {
+    // Автоматически определяем, является ли лид партнерским
+    try {
+        // Проверяем в allLeads.json
+        $allLeads = loadDataFromFile(ALL_LEADS_FILE_PATH);
+        foreach ($allLeads as $leadEntry) {
+            if ($leadEntry['dealId'] === $leadId && isset($leadEntry['partnerId'])) {
+                $isPartnerLead = true;
+                $partnerIdSubmitter = $leadEntry['partnerId'];
+                $partnerInfo = [
+                    'partner_id' => $leadEntry['partnerId'],
+                    'partner_name' => $leadEntry['partner_name'] ?? 'Unknown'
+                ];
+                logMessage("[ZenoReport] Auto-detected partner lead. Lead ID: $leadId, Partner: {$partnerInfo['partner_name']} (ID: {$partnerInfo['partner_id']})", 'INFO', $dealSpecificLogFile);
+                break;
+            }
+        }
+        
+        if (!$isPartnerLead) {
+            logMessage("[ZenoReport] Lead ID: $leadId not found among partner leads in allLeads.json", 'DEBUG', $dealSpecificLogFile);
+        }
+    } catch (Exception $e) {
+        logMessage("[ZenoReport] Error checking if lead is from partner: " . $e->getMessage(), 'ERROR', $dealSpecificLogFile);
+    }
+}
+
 // Log specific parameters for troubleshooting
-logMessage("[ZenoReport] Extracted parameters - Amount: '$reportAmount', Currency: '$reportCurrency', Email: '$reportEmail'", 'DEBUG', $dealSpecificLogFile);
+logMessage("[ZenoReport] Extracted parameters - Amount: '$reportAmount', Currency: '$reportCurrency', Email: '$reportEmail', Partner detected: " . ($isPartnerLead ? 'Yes' : 'No'), 'DEBUG', $dealSpecificLogFile);
 
 if (empty($reportStatus)) {
     http_response_code(400);
@@ -126,8 +165,8 @@ if (!$isStatusValid) {
 // ТЕПЕРЬ проверяем лок-файл только для обработки AmoCRM
 define('ZENO_REPORT_LOCK_FILE', sys_get_temp_dir() . '/zeno_report.lock');
 
-$needsAmoProcessing = empty($partnerIdSubmitter); // Только если НЕ партнерский отчет
-logMessage("----");
+$needsAmoProcessing = empty($partnerIdSubmitter) && !$isPartnerLead; // Только если НЕ партнерский отчет
+logMessage("[ZenoReport] Processing decision - Partner ID provided: " . ($partnerIdSubmitter ? 'Yes' : 'No') . ", Auto-detected partner: " . ($isPartnerLead ? 'Yes' : 'No') . ", Needs AMO processing: " . ($needsAmoProcessing ? 'Yes' : 'No'), 'INFO', $dealSpecificLogFile);
 if ($needsAmoProcessing) {
     // Проверяем лок-файл только для AmoCRM операций
     $lockAcquired = false;
@@ -185,6 +224,8 @@ $reportEntry = [
     'report_id' => uniqid('zenorep_', true),
     'lead_id' => $leadId,
     'partner_id_submitter' => $partnerIdSubmitter,
+    'is_partner_lead' => $isPartnerLead,
+    'partner_info' => $partnerInfo,
     'report_data' => [
         'status' => $reportStatus,
         'amount' => $reportAmount,
@@ -212,7 +253,7 @@ if ($needsAmoProcessing && $lockAcquired) {
 }
 
 // --- Logic for AmoCRM interaction ---
-if (empty($partnerIdSubmitter)) { // Only interact with AmoCRM if partner_id is NOT provided in POST
+if (!$isPartnerLead && empty($partnerIdSubmitter)) { // Only interact with AmoCRM if it's NOT a partner lead
     
     // Check if this lead_id was already processed for AmoCRM
     $recievedAmoIds = loadLineDelimitedFile(ID_OF_DEALS_SENT_TO_AMO_FILE_PATH);
@@ -636,11 +677,15 @@ if ($reportStatus === "Выполнено") {
             }
         }
     }
-} else { // partner_id was provided in POST
+} else { // partner_id was provided OR lead was auto-detected as partner lead
     $reportEntry['amo_update_skipped_reason'] = 'partner_report';
     $reportEntry['amo_update_status'] = 'skipped';
     $reportEntry['amo_update_message'] = "Report for partner lead, AmoCRM update not applicable.";
-    logMessage("[ZenoReport] Report for partner lead $leadId (partner: $partnerIdSubmitter). AmoCRM update skipped.", 'INFO', $dealSpecificLogFile);
+    if ($isPartnerLead && $partnerInfo) {
+        logMessage("[ZenoReport] Report for auto-detected partner lead $leadId (partner: {$partnerInfo['partner_name']}). AmoCRM update skipped.", 'INFO', $dealSpecificLogFile);
+    } else {
+        logMessage("[ZenoReport] Report for partner lead $leadId (partner: $partnerIdSubmitter). AmoCRM update skipped.", 'INFO', $dealSpecificLogFile);
+    }
 }
 
 // Save the report to zeno_report.json
@@ -648,6 +693,33 @@ $allReports = loadDataFromFile(ZENO_REPORTS_JSON_FILE);
 $allReports[] = $reportEntry;
 if (saveDataToFile(ZENO_REPORTS_JSON_FILE, $allReports)) {
     logMessage("[ZenoReport] Report for lead $leadId saved to " . ZENO_REPORTS_JSON_FILE, 'INFO', $dealSpecificLogFile);
+    
+    // Обновляем статус транзакции партнера только если это отчет по лиду партнера
+    if ($isPartnerLead || !empty($partnerIdSubmitter)) {
+        try {
+            $completionDetails = [
+                'status' => $reportStatus,
+                'amount' => $reportAmount,
+                'currency' => $reportCurrency,
+                'email' => $reportEmail,
+                'card' => $reportCard,
+                'report_id' => $reportEntry['report_id'],
+                'reported_at' => $reportEntry['reported_at']
+            ];
+            
+            if (PartnerTransactionLogger::updateTransactionCompletion($leadId, $reportStatus, $completionDetails)) {
+                $partnerName = $partnerInfo['partner_name'] ?? ($partnerIdSubmitter ?? 'Unknown');
+                logMessage("[ZenoReport] Updated partner transaction completion for lead $leadId. Partner: $partnerName, Status: $reportStatus", 'INFO', $dealSpecificLogFile);
+            } else {
+                logMessage("[ZenoReport] No partner transaction found for lead $leadId or failed to update", 'INFO', $dealSpecificLogFile);
+            }
+        } catch (Exception $e) {
+            logMessage("[ZenoReport] Failed to update partner transaction for lead $leadId: " . $e->getMessage(), 'ERROR', $dealSpecificLogFile);
+        }
+    } else {
+        logMessage("[ZenoReport] Lead $leadId is not a partner lead, skipping partner transaction update", 'INFO', $dealSpecificLogFile);
+    }
+    
     http_response_code(200);
     echo json_encode([
         'status' => 'success', 

@@ -1,11 +1,35 @@
+# Конфиденциальные данные
 mycity*
 amo_tokens.json
-*.json
 blocked*
+.env.*
+
+# Данные и логи (разделены по окружениям)
 gpt_payment_api/data/
 data_test/
 data_production/
 logs_test/
 logs_production/
+
+# JSON файлы данных (кроме примеров)
+*.json
+!composer.json
+!package.json
+!example.json
+
+# Файлы структуры AmoCRM
 amo_fields.json
-.env.*
+
+# Временные файлы
+*.tmp
+*.lock
+*.log~
+
+# Исключения для документации (всегда включать в Git)
+!README.md
+!*.md
+!CHANGELOG.md
+!API_MIGRATION_GUIDE.md
+!TESTING_INSTRUCTIONS.md
+!PROJECT_STRUCTURE.md
+!PARTNER_TRANSACTIONS_README.md

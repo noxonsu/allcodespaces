@@ -1,12 +1,14 @@
 <?php
 // gpt_payment_api/lib/db.php
+require_once __DIR__ . '/../../config.php'; // Подключаем config.php для DATA_DIR
 require_once __DIR__ . '/../../logger.php';
 
 class DB {
     private string $data_dir;
 
     public function __construct() {
-        $this->data_dir = __DIR__ . '/../data/';
+        // Используем DATA_DIR из config.php вместо хардкодинга
+        $this->data_dir = DATA_DIR . '/gpt_payment_api/';
         if (!is_dir($this->data_dir)) {
             if (!mkdir($this->data_dir, 0777, true) && !is_dir($this->data_dir)) {
                 logMessage("[GPT_DB] Failed to create data directory: {$this->data_dir}", "ERROR");

@@ -32,6 +32,9 @@ if (file_exists($envFile)) {
 // Общие настройки
 define('NAMEPROMPT', getenv('NAMEPROMPT') ?: '');
 
+// Стоимость обработки одной заявки через API (в долларах)
+define('LEAD_PROCESSING_COST_USD', 25);
+
 // Динамическое определение директории для данных
 define('DATA_DIR', __DIR__ . '/' . ($appEnv === 'production' ? 'data_production' : 'data_test'));
 // Убедимся, что директория существует

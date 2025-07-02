@@ -9,6 +9,7 @@ require_once __DIR__ . '/../logger.php';   // Логгер
 require_once __DIR__ . '/lib/auth_partner.php';
 require_once __DIR__ . '/lib/payment_core.php';
 require_once __DIR__ . '/lib/db.php'; 
+require_once __DIR__ . '/lib/partner_transaction_logger.php'; // Новый логгер транзакций
 require_once __DIR__ . '/../lib/json_storage_utils.php';
 require_once __DIR__ . '/../lib/payment_link_parser.php'; // Добавляем для парсинга ссылок на оплату
 
@@ -16,8 +17,8 @@ header('Content-Type: application/json');
 
 // Определения для функционала submit_partner_lead
 define('SUBMIT_LEAD_LOCK_FILE', __DIR__ . '/data/submit_partner_lead.lock'); 
-define('SUBMIT_LEAD_LOG_FILE', __DIR__ . '/../logs/submit_partner_lead.log');
-define('RECIEVED_API_IDS_FILE_PATH', __DIR__ . '/../data/recieved_api_ids.txt'); // Файл для ID от API партнеров
+define('SUBMIT_LEAD_LOG_FILE', LOGS_DIR . '/gpt_payment_api/submit_partner_lead.log'); // Используем LOGS_DIR
+// RECIEVED_API_IDS_FILE_PATH уже определена в config.php
 
 $action = null;
 $current_api_token = null;
@@ -91,6 +92,35 @@ switch ($action) {
              http_response_code(401);
              $response = ['status' => 'error', 'message' => 'Unauthorized. Partner context missing for get_balance. Action was: '.$action];
              logMessage("[GPT_API] get_balance failed: Partner context missing. Action: {$action}, Token: " . ($current_api_token ? $current_api_token : 'None'), 'WARNING', SUBMIT_LEAD_LOG_FILE);
+        }
+        break;
+
+    case 'get_transactions':
+        if ($partner) {
+            $limit = isset($_GET['limit']) ? min(max((int)$_GET['limit'], 1), 1000) : 100; // Лимит от 1 до 1000, по умолчанию 100
+            
+            try {
+                $transactions = PartnerTransactionLogger::getPartnerTransactions($partner['id'], $limit);
+                $stats = PartnerTransactionLogger::getPartnerStats($partner['id']);
+                
+                $response = [
+                    'status' => 'success',
+                    'partner_name' => $partner['name'],
+                    'partner_id' => $partner['id'],
+                    'transactions' => $transactions,
+                    'stats' => $stats,
+                    'count' => count($transactions)
+                ];
+                logMessage("[GPT_API] get_transactions successful for partner: {$partner['name']}, returned " . count($transactions) . " transactions");
+            } catch (Exception $e) {
+                http_response_code(500);
+                $response = ['status' => 'error', 'message' => 'Failed to retrieve transactions: ' . $e->getMessage()];
+                logMessage("[GPT_API] get_transactions failed for partner: {$partner['name']}, error: " . $e->getMessage(), 'ERROR', SUBMIT_LEAD_LOG_FILE);
+            }
+        } else { 
+             http_response_code(401);
+             $response = ['status' => 'error', 'message' => 'Unauthorized. Partner context missing for get_transactions.'];
+             logMessage("[GPT_API] get_transactions failed: Partner context missing. Action: {$action}, Token: " . ($current_api_token ? $current_api_token : 'None'), 'WARNING', SUBMIT_LEAD_LOG_FILE);
         }
         break;
 
@@ -176,8 +206,21 @@ switch ($action) {
         $addedToMainListCount = 0;
         $updatedInMainListCount = 0;
 
-        $recievedApiIds = loadLineDelimitedFile(RECIEVED_API_IDS_FILE_PATH);
-        $newlyRecievedApiIdsForFile = [];
+        // Проверяем баланс партнера для обработки всех лидов
+        $totalCostRequired = count($leadsToProcess) * LEAD_PROCESSING_COST_USD;
+        if ((float)$partner_for_lead['balance'] < $totalCostRequired) {
+            http_response_code(402); // Payment Required
+            $response = [
+                'status' => 'insufficient_funds',
+                'message' => "Insufficient funds. Required: {$totalCostRequired} USD, Current balance: {$partner_for_lead['balance']} USD",
+                'required_balance' => $totalCostRequired,
+                'current_balance' => (float)$partner_for_lead['balance'],
+                'cost_per_lead' => LEAD_PROCESSING_COST_USD,
+                'leads_count' => count($leadsToProcess)
+            ];
+            logMessage("[GPT_API] submit_partner_lead: Insufficient funds for partner {$partner_for_lead['name']}. Required: {$totalCostRequired} USD, Available: {$partner_for_lead['balance']} USD", 'WARNING', SUBMIT_LEAD_LOG_FILE);
+            break;
+        }
 
         foreach ($leadsToProcess as $idx => $lead) {
             if (!isset($lead['paymentUrl']) || empty(trim($lead['paymentUrl']))) {
@@ -187,12 +230,25 @@ switch ($action) {
             }
             $paymentUrl = (string)trim($lead['paymentUrl']);
             
-            // Check for duplicate leadId from partner API
-            $isDuplicate = false;
-            if (isset($lead['dealId']) && in_array((string)$lead['dealId'], $recievedApiIds)) {
-                $isDuplicate = true;
-                $errors[] = "Lead with dealId '{$lead['dealId']}' at index $idx is a duplicate and was skipped.";
-                logMessage("[GPT_API] submit_partner_lead: Duplicate leadId '{$lead['dealId']}' from partner API. Skipping. Partner: {$partner_for_lead['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+            // Проверяем дублирование по paymentUrl среди всех существующих лидов
+            $isDuplicateUrl = false;
+            foreach ($existingLeads as $existingLead) {
+                if (isset($existingLead['paymentUrl']) && $existingLead['paymentUrl'] === $paymentUrl) {
+                    $isDuplicateUrl = true;
+                    break;
+                }
+            }
+            
+            if ($isDuplicateUrl) {
+                $errors[] = "Lead at index $idx: Lead with paymentUrl '$paymentUrl' already exists in the system.";
+                logMessage("[GPT_API] submit_partner_lead: Duplicate paymentUrl '$paymentUrl' found. Skipping. Partner: {$partner_for_lead['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                continue;
+            }
+            
+            // Проверяем достаточность средств для каждого лида ПЕРЕД добавлением
+            if ((float)$partner_for_lead['balance'] < LEAD_PROCESSING_COST_USD) {
+                $errors[] = "Lead at index $idx: Insufficient funds. Required: " . LEAD_PROCESSING_COST_USD . " USD, Available: {$partner_for_lead['balance']} USD";
+                logMessage("[GPT_API] submit_partner_lead: Insufficient funds for lead at index $idx. Partner: {$partner_for_lead['name']}", 'WARNING', SUBMIT_LEAD_LOG_FILE);
                 continue;
             }
 
@@ -207,12 +263,58 @@ switch ($action) {
                 logMessage("[GPT_API] submit_partner_lead: Successfully parsed payment details for lead at index $idx. Amount: $amount, Currency: $currency. URL: $paymentUrl", 'INFO', SUBMIT_LEAD_LOG_FILE);
             } else {
                 // parsePaymentLink логирует ошибки самостоятельно, здесь просто добавляем в массив ошибок для ответа API
-                $errors[] = "Lead at index $idx: Failed to parse payment details from URL: $paymentUrl. Check STRIPE_LINK_PARSER_LOG_FILE for details.";
+                $errors[] = "Lead at index $idx: Failed to parse payment details from URL: $paymentUrl. Invalid payment URL format.";
                 logMessage("[GPT_API] submit_partner_lead: Failed to parse payment details for lead at index $idx. URL: $paymentUrl. parsePaymentLink returned empty or invalid data. Check STRIPE_LINK_PARSER_LOG_FILE.", 'WARNING', SUBMIT_LEAD_LOG_FILE);
-                // Продолжаем, но без суммы/валюты
+                // НЕ добавляем лид если не удалось распарсить ссылку
+                continue;
             }
 
-            $dealId = isset($lead['dealId']) ? (string)$lead['dealId'] : uniqid('lead_');
+            // Всегда генерируем dealId на сервере для обеспечения уникальности
+            $dealId = strtoupper(uniqid("DID", true));
+
+            // Списываем 25$ с баланса партнера за обработку лида
+            $db = new DB();
+            $partners = $db->read('partners');
+            $partnerIndex = -1;
+            
+            // Находим партнера в массиве для обновления баланса
+            foreach ($partners as $index => $p) {
+                if ($p['id'] === $partner_for_lead['id']) {
+                    $partnerIndex = $index;
+                    break;
+                }
+            }
+            
+            if ($partnerIndex === -1) {
+                $errors[] = "Lead at index $idx: Partner not found for balance update.";
+                logMessage("[GPT_API] submit_partner_lead: Partner not found for balance update. Partner ID: {$partner_for_lead['id']}", 'ERROR', SUBMIT_LEAD_LOG_FILE);
+                continue;
+            }
+            
+            // Списываем средства
+            $partners[$partnerIndex]['balance'] = (float)$partners[$partnerIndex]['balance'] - LEAD_PROCESSING_COST_USD;
+            
+            // Сохраняем обновленный баланс партнера
+            if (!$db->write('partners', $partners)) {
+                $errors[] = "Lead at index $idx: Failed to update partner balance.";
+                logMessage("[GPT_API] submit_partner_lead: Failed to update partner balance. Partner: {$partner_for_lead['name']}", 'ERROR', SUBMIT_LEAD_LOG_FILE);
+                continue;
+            }
+            
+            // Логируем транзакцию
+            try {
+                $transactionId = PartnerTransactionLogger::logLeadTransaction(
+                    $partner_for_lead,
+                    $lead,
+                    LEAD_PROCESSING_COST_USD,
+                    $dealId
+                );
+                logMessage("[GPT_API] submit_partner_lead: Transaction logged. TxnID: {$transactionId}, Partner: {$partner_for_lead['name']}, LeadID: {$dealId}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+            } catch (Exception $e) {
+                $errors[] = "Lead at index $idx: Failed to log transaction: " . $e->getMessage();
+                logMessage("[GPT_API] submit_partner_lead: Failed to log transaction for lead {$dealId}: " . $e->getMessage(), 'ERROR', SUBMIT_LEAD_LOG_FILE);
+                continue;
+            }
 
             $leadEntryData = [
                 'dealId' => $dealId, 
@@ -236,7 +338,9 @@ switch ($action) {
             $addedToMainListCount++;
             logMessage("[GPT_API] submit_partner_lead: Added new lead with generated ID $dealId to ALL_LEADS_FILE_PATH for partner {$partner_for_lead['name']}. Amount: $amount, Currency: $currency", 'INFO', SUBMIT_LEAD_LOG_FILE);
             
-            $newlyRecievedApiIdsForFile[] = $dealId; 
+            // Обновляем баланс партнера в памяти для следующих итераций
+            $partner_for_lead['balance'] = (float)$partner_for_lead['balance'] - LEAD_PROCESSING_COST_USD;
+            
             $processedCount++;
         }
 
@@ -244,12 +348,6 @@ switch ($action) {
 
         if ($processedCount > 0) {
             if (saveDataToFile(ALL_LEADS_FILE_PATH, $existingLeads)) {
-                if (!empty($newlyRecievedApiIdsForFile)) {
-                    $recievedApiIds = array_merge($recievedApiIds, $newlyRecievedApiIdsForFile);
-                    if (saveLineDelimitedFile(RECIEVED_API_IDS_FILE_PATH, $recievedApiIds) === false) {
-                        logMessage("[GPT_API] submit_partner_lead: Failed to write to " . RECIEVED_API_IDS_FILE_PATH, 'ERROR', SUBMIT_LEAD_LOG_FILE);
-                    }
-                }
                 http_response_code(200); 
                 $response = [
                     'status' => 'success',
@@ -257,10 +355,13 @@ switch ($action) {
                     'processed_count' => $processedCount,
                     'added_to_main_list_count' => $addedToMainListCount,
                     'updated_in_main_list_count' => $updatedInMainListCount,
+                    'total_cost_charged' => $processedCount * LEAD_PROCESSING_COST_USD,
+                    'remaining_balance' => $partner_for_lead['balance']
                 ];
                 if (!empty($errors)) {
                     $response['errors'] = $errors;
-                    $response['message'] .= " Some leads had issues.";
+                    $response['message'] .= " Some leads had issues (see errors array).";
+                    $response['error_count'] = count($errors);
                 }
             } else {
                 http_response_code(500);
@@ -268,17 +369,35 @@ switch ($action) {
                 logMessage("[GPT_API] submit_partner_lead: Failed to save leads data to ALL_LEADS_FILE_PATH for partner {$partner_for_lead['name']}", 'ERROR', SUBMIT_LEAD_LOG_FILE);
             }
         } else {
-             http_response_code(200);
-             $response = [
-                'status' => 'success',
-                'message' => "No new leads to process.",
-                'processed_count' => 0,
-                'added_to_main_list_count' => 0,
-                'updated_in_main_list_count' => 0,
-             ];
-             if (!empty($errors)) {
-                $response['errors'] = $errors;
-                $response['message'] .= " All leads had issues.";
+             if (count($errors) === count($leadsToProcess)) {
+                 // Все лиды имели ошибки
+                 http_response_code(400);
+                 $response = [
+                    'status' => 'error',
+                    'message' => "All leads failed validation. No leads processed.",
+                    'processed_count' => 0,
+                    'added_to_main_list_count' => 0,
+                    'updated_in_main_list_count' => 0,
+                    'total_cost_charged' => 0,
+                    'errors' => $errors,
+                    'error_count' => count($errors)
+                 ];
+             } else {
+                 http_response_code(200);
+                 $response = [
+                    'status' => 'success',
+                    'message' => "No new leads to process.",
+                    'processed_count' => 0,
+                    'added_to_main_list_count' => 0,
+                    'updated_in_main_list_count' => 0,
+                    'total_cost_charged' => 0,
+                    'remaining_balance' => $partner_for_lead['balance']
+                 ];
+                 if (!empty($errors)) {
+                    $response['errors'] = $errors;
+                    $response['message'] .= " All leads had issues (see errors array).";
+                    $response['error_count'] = count($errors);
+                 }
              }
         }
         break;
@@ -295,9 +414,6 @@ if (!is_dir($logDir)) mkdir($logDir, 0775, true);
 
 $dataDirAllLeads = dirname(ALL_LEADS_FILE_PATH);
 if (!is_dir($dataDirAllLeads)) mkdir($dataDirAllLeads, 0775, true);
-
-$dataDirRecievedApiIds = dirname(RECIEVED_API_IDS_FILE_PATH);
-if (!is_dir($dataDirRecievedApiIds)) mkdir($dataDirRecievedApiIds, 0775, true);
 
 
 echo json_encode($response);
