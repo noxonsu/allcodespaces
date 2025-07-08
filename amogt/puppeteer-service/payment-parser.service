@@ -1,0 +1,28 @@
+[Unit]
+Description=Payment Parser Puppeteer Service
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/workspaces/allcodespaces/amogt/puppeteer-service
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=PORT=3018
+
+# Безопасность
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/workspaces/allcodespaces/amogt/puppeteer-service/logs
+ReadWritePaths=/tmp
+
+# Ограничения ресурсов
+LimitNOFILE=1024
+LimitNPROC=512
+
+[Install]
+WantedBy=multi-user.target

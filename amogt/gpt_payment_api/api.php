@@ -402,6 +402,101 @@ switch ($action) {
         }
         break;
 
+    case 'getamountandcurrency':
+        if ($partner) {
+            $url = $_REQUEST['url'] ?? '';
+            
+            if (empty($url)) {
+                http_response_code(400);
+                $response = ['status' => 'error', 'message' => 'URL parameter is required'];
+                logMessage("[GPT_API] getamountandcurrency: URL parameter missing. Partner: {$partner['name']}", 'WARNING', SUBMIT_LEAD_LOG_FILE);
+                break;
+            }
+            
+            // Валидация URL
+            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+                http_response_code(400);
+                $response = ['status' => 'error', 'message' => 'Invalid URL format'];
+                logMessage("[GPT_API] getamountandcurrency: Invalid URL format. URL: {$url}. Partner: {$partner['name']}", 'WARNING', SUBMIT_LEAD_LOG_FILE);
+                break;
+            }
+            
+            logMessage("[GPT_API] getamountandcurrency: Parsing URL: {$url}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+            
+            try {
+                // Дополнительные проверки безопасности
+                $securityChecks = validateUrlSecurity($url);
+                if (!$securityChecks['valid']) {
+                    http_response_code(400);
+                    $response = ['status' => 'error', 'message' => 'URL security validation failed: ' . $securityChecks['reason']];
+                    logMessage("[GPT_API] getamountandcurrency: Security validation failed for URL: {$url}. Reason: {$securityChecks['reason']}. Partner: {$partner['name']}", 'WARNING', SUBMIT_LEAD_LOG_FILE);
+                    break;
+                }
+                
+                // Вызываем Puppeteer сервис для парсинга
+                $puppeteerServiceUrl = 'http://localhost:3018/parse?url=' . urlencode($url);
+                
+                // Используем cURL для запроса к Puppeteer сервису
+                $ch = curl_init();
+                curl_setopt($ch, CURLOPT_URL, $puppeteerServiceUrl);
+                curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+                curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_HTTPHEADER, [
+                    'Accept: application/json',
+                    'Content-Type: application/json'
+                ]);
+                
+                $puppeteerResponse = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
+                curl_close($ch);
+                
+                if ($curlError) {
+                    throw new Exception("cURL error: " . $curlError);
+                }
+                
+                if ($httpCode !== 200) {
+                    throw new Exception("Puppeteer service returned HTTP code: " . $httpCode);
+                }
+                
+                $parsedData = json_decode($puppeteerResponse, true);
+                
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    throw new Exception("Invalid JSON response from Puppeteer service: " . json_last_error_msg());
+                }
+                
+                if (!isset($parsedData['success']) || !$parsedData['success']) {
+                    throw new Exception("Puppeteer service failed to parse URL: " . ($parsedData['error'] ?? 'Unknown error'));
+                }
+                
+                $response = [
+                    'status' => 'success',
+                    'url' => $url,
+                    'amount' => $parsedData['amount'],
+                    'currency' => $parsedData['currency'],
+                    'parsed_at' => $parsedData['parsed_at'] ?? date('c')
+                ];
+                
+                logMessage("[GPT_API] getamountandcurrency: Successfully parsed URL. Amount: {$parsedData['amount']}, Currency: {$parsedData['currency']}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                
+            } catch (Exception $e) {
+                http_response_code(500);
+                $response = [
+                    'status' => 'error', 
+                    'message' => 'Failed to parse payment URL: ' . $e->getMessage(),
+                    'url' => $url
+                ];
+                logMessage("[GPT_API] getamountandcurrency: Error parsing URL {$url}: " . $e->getMessage() . ". Partner: {$partner['name']}", 'ERROR', SUBMIT_LEAD_LOG_FILE);
+            }
+        } else {
+            http_response_code(401);
+            $response = ['status' => 'error', 'message' => 'Unauthorized. Partner context missing for getamountandcurrency.'];
+            logMessage("[GPT_API] getamountandcurrency failed: Partner context missing. Action: {$action}, Token: " . ($current_api_token ? $current_api_token : 'None'), 'WARNING', SUBMIT_LEAD_LOG_FILE);
+        }
+        break;
+
     default:
         http_response_code(400);
         $response = ['status' => 'error', 'message' => 'Invalid action specified.'];
@@ -418,4 +513,200 @@ if (!is_dir($dataDirAllLeads)) mkdir($dataDirAllLeads, 0775, true);
 
 echo json_encode($response);
 exit;
-?>
+
+/**
+ * Валидация безопасности URL для защиты от хакерских атак
+ * @param string $url URL для проверки
+ * @return array ['valid' => bool, 'reason' => string]
+ */
+function validateUrlSecurity($url) {
+    // Список разрешенных доменов для платежных систем
+    $allowedDomains = [
+        'pay.openai.com',
+        'pay.stripe.com',
+        'checkout.stripe.com',
+        'payments.paypal.com',
+        'www.paypal.com',
+        'paypal.com',
+        'secure.paypal.com',
+        'checkout.paypal.com',
+        'checkout.paddle.com',
+        'pay.paddle.com',
+        'checkout.razorpay.com',
+        'api.razorpay.com',
+        'checkout.square.com',
+        'squareup.com',
+        'connect.squareup.com',
+        'buy.itunes.apple.com',
+        'apps.apple.com',
+        'secure.authorize.net',
+        'accept.authorize.net',
+        'checkout.braintreepayments.com',
+        'www.braintreepayments.com',
+        'js.braintreegateway.com',
+        'checkout.coinbase.com',
+        'commerce.coinbase.com',
+        'pay.google.com',
+        'payments.google.com',
+        'checkout.shopify.com',
+        'shopify.com',
+        'amazon.com',
+        'payments.amazon.com',
+        'pay.amazon.com',
+        'checkout.klarna.com',
+        'js.klarna.com',
+        'checkout.afterpay.com',
+        'portal.afterpay.com',
+        'checkout.affirm.com',
+        'cdn1.affirm.com',
+        'secure.worldpay.com',
+        'payments.worldpay.com',
+        'checkout.2checkout.com',
+        'secure.2checkout.com',
+        'checkout.mollie.com',
+        'www.mollie.com',
+        'secure.adyen.com',
+        'checkoutshopper-live.adyen.com',
+        'checkoutshopper-test.adyen.com',
+        'checkout.sumup.com',
+        'api.sumup.com',
+        'checkout.wepay.com',
+        'www.wepay.com',
+        'checkout.dwolla.com',
+        'www.dwolla.com',
+        'checkout.bluesnap.com',
+        'checkout.fastspring.com',
+        'onfastspring.com',
+        'checkout.chargebee.com',
+        'js.chargebee.com',
+        'checkout.recurly.com',
+        'js.recurly.com',
+        'checkout.paymill.com',
+        'bridge.paymill.com',
+        'checkout.gocardless.com',
+        'pay.gocardless.com'
+    ];
+    
+    // Парсинг URL
+    $parsedUrl = parse_url($url);
+    if (!$parsedUrl) {
+        return ['valid' => false, 'reason' => 'Invalid URL format'];
+    }
+    
+    // Проверка наличия схемы (протокола)
+    if (!isset($parsedUrl['scheme']) || !in_array($parsedUrl['scheme'], ['http', 'https'])) {
+        return ['valid' => false, 'reason' => 'Invalid or missing URL scheme'];
+    }
+    
+    // Проверка наличия хоста
+    if (!isset($parsedUrl['host'])) {
+        return ['valid' => false, 'reason' => 'Missing hostname'];
+    }
+    
+    $host = strtolower($parsedUrl['host']);
+    
+    // Удаляем www. префикс для проверки
+    $hostWithoutWww = preg_replace('/^www\./', '', $host);
+    
+    // Проверка на разрешенные домены
+    $isDomainAllowed = false;
+    foreach ($allowedDomains as $allowedDomain) {
+        $allowedDomainLower = strtolower($allowedDomain);
+        $allowedDomainWithoutWww = preg_replace('/^www\./', '', $allowedDomainLower);
+        
+        if ($host === $allowedDomainLower || 
+            $hostWithoutWww === $allowedDomainWithoutWww ||
+            $host === $allowedDomainWithoutWww ||
+            $hostWithoutWww === $allowedDomainLower) {
+            $isDomainAllowed = true;
+            break;
+        }
+    }
+    
+    if (!$isDomainAllowed) {
+        return ['valid' => false, 'reason' => "Domain '{$host}' not in allowed list"];
+    }
+    
+    // Проверка на подозрительные символы в URL
+    $suspiciousPatterns = [
+        '/[<>"\'\(\)\{\}\[\]]/',  // HTML/JS injection символы
+        '/javascript:/i',         // JavaScript протокол
+        '/data:/i',              // Data URLs
+        '/file:/i',              // File URLs  
+        '/ftp:/i',               // FTP URLs
+        '/ldap:/i',              // LDAP URLs
+        '/gopher:/i',            // Gopher URLs
+        '/\.\.\//',              // Directory traversal
+        '/\x00/',                // Null bytes
+        '/\r|\n/',               // CRLF injection
+        '/[^\x20-\x7E]/',        // Non-printable characters (кроме пробелов)
+        '/\%00/',                // URL encoded null bytes
+        '/\%0[ad]/',             // URL encoded CRLF
+        '/\%2[ef]/',             // URL encoded . and /
+        '/\%3[cf]/',             // URL encoded < and >
+        '/\%22/',                // URL encoded quote
+        '/\%27/',                // URL encoded single quote
+        '/\%28/',                // URL encoded (
+        '/\%29/',                // URL encoded )
+        '/\%3[bB]/',             // URL encoded ;
+        '/\%7[bB]/',             // URL encoded {
+        '/\%7[dD]/',             // URL encoded }
+        '/\%5[bB]/',             // URL encoded [
+        '/\%5[dD]/',             // URL encoded ]
+    ];
+    
+    foreach ($suspiciousPatterns as $pattern) {
+        if (preg_match($pattern, $url)) {
+            return ['valid' => false, 'reason' => 'URL contains suspicious characters or patterns'];
+        }
+    }
+    
+    // Проверка длины URL (защита от DoS)
+    if (strlen($url) > 2048) {
+        return ['valid' => false, 'reason' => 'URL too long (max 2048 characters)'];
+    }
+    
+    // Проверка на локальные/приватные IP адреса
+    if (filter_var($host, FILTER_VALIDATE_IP)) {
+        if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            return ['valid' => false, 'reason' => 'Private or reserved IP address not allowed'];
+        }
+    }
+    
+    // Проверка на localhost
+    if (in_array($host, ['localhost', '127.0.0.1', '::1', '0.0.0.0'])) {
+        return ['valid' => false, 'reason' => 'Localhost addresses not allowed'];
+    }
+    
+    // Проверка портов (только стандартные HTTP/HTTPS)
+    if (isset($parsedUrl['port'])) {
+        if (!in_array($parsedUrl['port'], [80, 443, 8080, 8443])) {
+            return ['valid' => false, 'reason' => 'Non-standard port not allowed'];
+        }
+    }
+    
+    // Дополнительная проверка на подозрительные поддомены
+    $suspiciousSubdomains = [
+        'test',
+        'dev',
+        'staging',
+        'admin',
+        'api',
+        'internal',
+        'localhost',
+        'local',
+        'debug',
+        'backdoor',
+        'hack',
+        'exploit'
+    ];
+    
+    $subdomains = explode('.', $host);
+    foreach ($subdomains as $subdomain) {
+        if (in_array($subdomain, $suspiciousSubdomains)) {
+            return ['valid' => false, 'reason' => "Suspicious subdomain '{$subdomain}' detected"];
+        }
+    }
+    
+    return ['valid' => true, 'reason' => ''];
+}
