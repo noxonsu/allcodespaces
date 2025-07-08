@@ -339,204 +339,273 @@ async function parsePaymentPage(url) {
             let amount = null;
             let currency = null;
             
-            // Селекторы для разных платежных систем
-            const selectors = {
-                // OpenAI Pay
-                openai: {
-                    amount: [
-                        '[data-testid="amount"]',
-                        '.amount',
-                        '[class*="amount"]',
-                        '[class*="price"]',
-                        '[class*="total"]'
-                    ],
-                    currency: [
-                        '[data-testid="currency"]',
-                        '.currency',
-                        '[class*="currency"]',
-                        '[class*="symbol"]'
-                    ]
-                },
+            // Специальная обработка для CurrencyAmount элемента
+            const currencyAmountElement = document.querySelector('.CurrencyAmount');
+            if (currencyAmountElement) {
+                const text = currencyAmountElement.textContent || currencyAmountElement.innerText;
+                console.log('CurrencyAmount text:', text);
                 
-                // Stripe
-                stripe: {
-                    amount: [
-                        '[data-testid="total-amount"]',
-                        '.OrderSummaryTotalAmount',
-                        '.amount',
-                        '[class*="amount"]',
-                        '[class*="price"]',
-                        '[class*="total"]'
-                    ],
-                    currency: [
-                        '[data-testid="currency"]',
-                        '.currency',
-                        '[class*="currency"]'
-                    ]
-                },
-                
-                // PayPal
-                paypal: {
-                    amount: [
-                        '#totalAmount',
-                        '.amount',
-                        '[data-testid="amount"]',
-                        '[class*="amount"]',
-                        '[class*="price"]',
-                        '[class*="total"]'
-                    ],
-                    currency: [
-                        '.currency',
-                        '[data-testid="currency"]',
-                        '[class*="currency"]'
-                    ]
-                },
-                
-                // Общие селекторы
-                generic: {
-                    amount: [
-                        '[data-amount]',
-                        '[data-price]',
-                        '[data-total]',
-                        '.amount',
-                        '.price',
-                        '.total',
-                        '[class*="amount"]',
-                        '[class*="price"]',
-                        '[class*="total"]',
-                        '[class*="cost"]',
-                        '[class*="sum"]'
-                    ],
-                    currency: [
-                        '[data-currency]',
-                        '.currency',
-                        '[class*="currency"]',
-                        '[class*="symbol"]'
-                    ]
-                }
-            };
-            
-            // Функция для поиска элемента по селекторам
-            function findElement(selectorsList) {
-                for (const selector of selectorsList) {
-                    const element = document.querySelector(selector);
-                    if (element) {
-                        return element;
-                    }
-                }
-                return null;
-            }
-            
-            // Определяем платежную систему по домену
-            const hostname = window.location.hostname.toLowerCase();
-            let paymentSystem = 'generic';
-            
-            if (hostname.includes('openai.com')) {
-                paymentSystem = 'openai';
-            } else if (hostname.includes('stripe.com')) {
-                paymentSystem = 'stripe';
-            } else if (hostname.includes('paypal.com')) {
-                paymentSystem = 'paypal';
-            }
-            
-            // Ищем сумму
-            const amountElement = findElement(selectors[paymentSystem].amount) || 
-                                findElement(selectors.generic.amount);
-            
-            if (amountElement) {
-                const amountText = amountElement.textContent || amountElement.innerText || 
-                                 amountElement.getAttribute('data-amount') || 
-                                 amountElement.getAttribute('data-price') ||
-                                 amountElement.getAttribute('data-total');
-                
-                if (amountText) {
-                    // Извлекаем числовое значение
-                    const amountMatch = amountText.match(/[\d,]+\.?\d*/);
-                    if (amountMatch) {
-                        amount = parseFloat(amountMatch[0].replace(/,/g, ''));
+                // Обрабатываем текст типа "20,00 £" или "20.00 £"
+                if (text) {
+                    const cleanText = text.replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+                    console.log('Cleaned text:', cleanText);
+                    
+                    // Паттерны для извлечения суммы и валюты
+                    const patterns = [
+                        // 20,00 £ или 20.00 £
+                        /([0-9,]+(?:\.[0-9]{2})?)\s*([£€¥₽$])/,
+                        // £ 20,00 или £20.00
+                        /([£€¥₽$])\s*([0-9,]+(?:\.[0-9]{2})?)/,
+                        // 20,00 GBP или 20.00 USD
+                        /([0-9,]+(?:\.[0-9]{2})?)\s*([A-Z]{3})/,
+                        // GBP 20,00 или USD 20.00
+                        /([A-Z]{3})\s*([0-9,]+(?:\.[0-9]{2})?)/
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        const match = cleanText.match(pattern);
+                        if (match) {
+                            console.log('Pattern match:', match);
+                            
+                            if (match[1] && match[2]) {
+                                if (match[1].match(/[0-9,]+/)) {
+                                    // Сумма идет первой
+                                    amount = parseFloat(match[1].replace(/,/g, ''));
+                                    currency = match[2];
+                                } else {
+                                    // Валюта идет первой
+                                    currency = match[1];
+                                    amount = parseFloat(match[2].replace(/,/g, ''));
+                                }
+                                
+                                // Конвертируем символы валют в коды
+                                const currencyMap = {
+                                    '$': 'USD',
+                                    '£': 'GBP',
+                                    '€': 'EUR',
+                                    '¥': 'JPY',
+                                    '₽': 'RUB'
+                                };
+                                
+                                if (currencyMap[currency]) {
+                                    currency = currencyMap[currency];
+                                }
+                                
+                                console.log('Extracted from CurrencyAmount:', amount, currency);
+                                break;
+                            }
+                        }
                     }
                 }
             }
             
-            // Ищем валюту
-            const currencyElement = findElement(selectors[paymentSystem].currency) || 
-                                   findElement(selectors.generic.currency);
-            
-            if (currencyElement) {
-                const currencyText = currencyElement.textContent || currencyElement.innerText || 
-                                    currencyElement.getAttribute('data-currency');
-                
-                if (currencyText) {
-                    // Извлекаем валюту
-                    const currencyMatch = currencyText.match(/[A-Z]{3}|[$€£¥₹]/);
-                    if (currencyMatch) {
-                        currency = currencyMatch[0];
+            // Если не нашли в CurrencyAmount, используем общий поиск
+            if (!amount || !currency) {
+                // Селекторы для разных платежных систем
+                const selectors = {
+                    // OpenAI Pay
+                    openai: {
+                        amount: [
+                            '[data-testid="amount"]',
+                            '.amount',
+                            '[class*="amount"]',
+                            '[class*="price"]',
+                            '[class*="total"]',
+                            '.CurrencyAmount'
+                        ],
+                        currency: [
+                            '[data-testid="currency"]',
+                            '.currency',
+                            '[class*="currency"]',
+                            '[class*="symbol"]',
+                            '.CurrencyAmount'
+                        ]
+                    },
+                    
+                    // Stripe
+                    stripe: {
+                        amount: [
+                            '[data-testid="total-amount"]',
+                            '.OrderSummaryTotalAmount',
+                            '.amount',
+                            '[class*="amount"]',
+                            '[class*="price"]',
+                            '[class*="total"]',
+                            '.CurrencyAmount'
+                        ],
+                        currency: [
+                            '[data-testid="currency"]',
+                            '.currency',
+                            '[class*="currency"]',
+                            '.CurrencyAmount'
+                        ]
+                    },
+                    
+                    // PayPal
+                    paypal: {
+                        amount: [
+                            '#totalAmount',
+                            '.amount',
+                            '[data-testid="amount"]',
+                            '[class*="amount"]',
+                            '[class*="price"]',
+                            '[class*="total"]'
+                        ],
+                        currency: [
+                            '.currency',
+                            '[data-testid="currency"]',
+                            '[class*="currency"]'
+                        ]
+                    },
+                    
+                    // Общие селекторы
+                    generic: {
+                        amount: [
+                            '[data-amount]',
+                            '[data-price]',
+                            '[data-total]',
+                            '.amount',
+                            '.price',
+                            '.total',
+                            '[class*="amount"]',
+                            '[class*="price"]',
+                            '[class*="total"]',
+                            '[class*="cost"]',
+                            '[class*="sum"]',
+                            '.CurrencyAmount'
+                        ],
+                        currency: [
+                            '[data-currency]',
+                            '.currency',
+                            '[class*="currency"]',
+                            '[class*="symbol"]',
+                            '.CurrencyAmount'
+                        ]
                     }
-                }
-            }
-            
-            // Если не нашли валюту, пытаемся найти символ валюты в тексте суммы
-            if (!currency && amountElement) {
-                const fullText = amountElement.textContent || amountElement.innerText || '';
-                const currencySymbols = {
-                    '$': 'USD',
-                    '€': 'EUR',
-                    '£': 'GBP',
-                    '¥': 'JPY',
-                    '₹': 'INR'
                 };
                 
-                for (const [symbol, code] of Object.entries(currencySymbols)) {
-                    if (fullText.includes(symbol)) {
-                        currency = code;
-                        break;
+                // Функция для поиска элемента по селекторам
+                function findElement(selectorsList) {
+                    for (const selector of selectorsList) {
+                        const element = document.querySelector(selector);
+                        if (element) {
+                            return element;
+                        }
+                    }
+                    return null;
+                }
+                
+                // Определяем платежную систему по домену
+                const hostname = window.location.hostname.toLowerCase();
+                let paymentSystem = 'generic';
+                
+                if (hostname.includes('openai.com')) {
+                    paymentSystem = 'openai';
+                } else if (hostname.includes('stripe.com')) {
+                    paymentSystem = 'stripe';
+                } else if (hostname.includes('paypal.com')) {
+                    paymentSystem = 'paypal';
+                }
+                
+                // Ищем сумму
+                const amountElement = findElement(selectors[paymentSystem].amount) || 
+                                    findElement(selectors.generic.amount);
+                
+                if (amountElement && !amount) {
+                    const amountText = amountElement.textContent || amountElement.innerText || 
+                                     amountElement.getAttribute('data-amount') || 
+                                     amountElement.getAttribute('data-price') ||
+                                     amountElement.getAttribute('data-total');
+                    
+                    if (amountText) {
+                        // Извлекаем числовое значение
+                        const amountMatch = amountText.match(/[0-9,]+\.?[0-9]*/);
+                        if (amountMatch) {
+                            amount = parseFloat(amountMatch[0].replace(/,/g, ''));
+                        }
                     }
                 }
-            }
-            
-            // Если все еще не нашли валюту, пытаемся найти в URL или мета-тегах
-            if (!currency) {
-                const urlParams = new URLSearchParams(window.location.search);
-                currency = urlParams.get('currency') || urlParams.get('curr') || 
-                          document.querySelector('meta[name="currency"]')?.getAttribute('content') ||
-                          'USD'; // По умолчанию USD
-            }
-            
-            // Дополнительная проверка по всему документу
-            if (!amount || !currency) {
-                const bodyText = document.body.textContent || document.body.innerText || '';
                 
-                // Ищем паттерны суммы и валюты в тексте
-                const patterns = [
-                    /(\$|€|£|¥|₹)\s*(\d+[,.]?\d*)/g,
-                    /(\d+[,.]?\d*)\s*(\$|€|£|¥|₹)/g,
-                    /(\d+[,.]?\d*)\s*(USD|EUR|GBP|JPY|INR)/g,
-                    /(USD|EUR|GBP|JPY|INR)\s*(\d+[,.]?\d*)/g
-                ];
+                // Ищем валюту
+                const currencyElement = findElement(selectors[paymentSystem].currency) || 
+                                       findElement(selectors.generic.currency);
                 
-                for (const pattern of patterns) {
-                    const matches = bodyText.match(pattern);
-                    if (matches && matches.length > 0) {
-                        const match = matches[0];
-                        const numberMatch = match.match(/\d+[,.]?\d*/);
-                        const currencyMatch = match.match(/\$|€|£|¥|₹|USD|EUR|GBP|JPY|INR/);
-                        
-                        if (numberMatch && !amount) {
-                            amount = parseFloat(numberMatch[0].replace(/,/g, ''));
+                if (currencyElement && !currency) {
+                    const currencyText = currencyElement.textContent || currencyElement.innerText || 
+                                        currencyElement.getAttribute('data-currency');
+                    
+                    if (currencyText) {
+                        // Извлекаем валюту
+                        const currencyMatch = currencyText.match(/[A-Z]{3}|[$€£¥₹]/);
+                        if (currencyMatch) {
+                            currency = currencyMatch[0];
                         }
-                        
-                        if (currencyMatch && !currency) {
-                            const currencySymbols = {
-                                '$': 'USD',
-                                '€': 'EUR',
-                                '£': 'GBP',
-                                '¥': 'JPY',
-                                '₹': 'INR'
-                            };
-                            currency = currencySymbols[currencyMatch[0]] || currencyMatch[0];
+                    }
+                }
+                
+                // Если не нашли валюту, пытаемся найти символ валюты в тексте суммы
+                if (!currency && amountElement) {
+                    const fullText = amountElement.textContent || amountElement.innerText || '';
+                    const currencySymbols = {
+                        '$': 'USD',
+                        '€': 'EUR',
+                        '£': 'GBP',
+                        '¥': 'JPY',
+                        '₹': 'INR'
+                    };
+                    
+                    for (const [symbol, code] of Object.entries(currencySymbols)) {
+                        if (fullText.includes(symbol)) {
+                            currency = code;
+                            break;
                         }
-                        
-                        if (amount && currency) break;
+                    }
+                }
+                
+                // Если все еще не нашли валюту, пытаемся найти в URL или мета-тегах
+                if (!currency) {
+                    const urlParams = new URLSearchParams(window.location.search);
+                    currency = urlParams.get('currency') || urlParams.get('curr') || 
+                              document.querySelector('meta[name="currency"]')?.getAttribute('content') ||
+                              'USD'; // По умолчанию USD
+                }
+                
+                // Дополнительная проверка по всему документу
+                if (!amount || !currency) {
+                    const bodyText = document.body.textContent || document.body.innerText || '';
+                    
+                    // Ищем паттерны суммы и валюты в тексте
+                    const patterns = [
+                        /(\$|€|£|¥|₹)\s*([0-9]+[,.]?[0-9]*)/g,
+                        /([0-9]+[,.]?[0-9]*)\s*(\$|€|£|¥|₹)/g,
+                        /([0-9]+[,.]?[0-9]*)\s*(USD|EUR|GBP|JPY|INR)/g,
+                        /(USD|EUR|GBP|JPY|INR)\s*([0-9]+[,.]?[0-9]*)/g
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        const matches = bodyText.match(pattern);
+                        if (matches && matches.length > 0) {
+                            const match = matches[0];
+                            const numberMatch = match.match(/[0-9]+[,.]?[0-9]*/);
+                            const currencyMatch = match.match(/\$|€|£|¥|₹|USD|EUR|GBP|JPY|INR/);
+                            
+                            if (numberMatch && !amount) {
+                                amount = parseFloat(numberMatch[0].replace(/,/g, ''));
+                            }
+                            
+                            if (currencyMatch && !currency) {
+                                const currencySymbols = {
+                                    '$': 'USD',
+                                    '€': 'EUR',
+                                    '£': 'GBP',
+                                    '¥': 'JPY',
+                                    '₹': 'INR'
+                                };
+                                currency = currencySymbols[currencyMatch[0]] || currencyMatch[0];
+                            }
+                            
+                            if (amount && currency) break;
+                        }
                     }
                 }
             }
