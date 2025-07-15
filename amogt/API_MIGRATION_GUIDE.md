@@ -175,7 +175,7 @@ if ($response['status'] === 'error') {
 ```bash
 # Создать test_api.env:
 API_TOKEN=your_test_token
-API_URL=https://test-domain.com/amogt/gpt_payment_api/api.php
+API_URL=https://test-domain.com/chatgptbot_connector/gpt_payment_api/api.php
 ```
 
 ### 2. Протестировать новое поведение

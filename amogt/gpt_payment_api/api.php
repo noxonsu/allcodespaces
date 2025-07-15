@@ -404,7 +404,26 @@ switch ($action) {
 
     case 'getamountandcurrency':
         if ($partner) {
-            $url = $_REQUEST['url'] ?? '';
+            // Поддерживаем как GET так и POST для передачи URL
+            $url = '';
+            
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                // Для POST запросов читаем URL из JSON тела
+                $postData = $inputData ?? json_decode(file_get_contents('php://input'), true);
+                $url = $postData['url'] ?? '';
+            } else {
+                // Для GET запросов используем параметр URL
+                $url = $_REQUEST['url'] ?? '';
+                
+                // Проверяем, не передан ли URL в base64
+                $urlBase64 = $_REQUEST['url_base64'] ?? '';
+                if (!empty($urlBase64)) {
+                    $decoded = base64_decode($urlBase64);
+                    if ($decoded !== false) {
+                        $url = $decoded;
+                    }
+                }
+            }
             
             if (empty($url)) {
                 http_response_code(400);
@@ -413,15 +432,18 @@ switch ($action) {
                 break;
             }
             
-            // Валидация URL
-            if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            // Используем URL как есть, без замены фрагмента
+            $originalUrl = $url;
+            
+            // Валидация URL (используем оригинальный URL с восстановленным фрагментом)
+            if (!filter_var($originalUrl, FILTER_VALIDATE_URL)) {
                 http_response_code(400);
                 $response = ['status' => 'error', 'message' => 'Invalid URL format'];
-                logMessage("[GPT_API] getamountandcurrency: Invalid URL format. URL: {$url}. Partner: {$partner['name']}", 'WARNING', SUBMIT_LEAD_LOG_FILE);
+                logMessage("[GPT_API] getamountandcurrency: Invalid URL format. URL: {$originalUrl}. Partner: {$partner['name']}", 'WARNING', SUBMIT_LEAD_LOG_FILE);
                 break;
             }
             
-            logMessage("[GPT_API] getamountandcurrency: Parsing URL: {$url}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+            logMessage("[GPT_API] getamountandcurrency: Parsing URL: {$originalUrl}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
             
             try {
                 // Дополнительные проверки безопасности
@@ -433,22 +455,67 @@ switch ($action) {
                     break;
                 }
                 
-                // Вызываем Puppeteer сервис для парсинга
-                $puppeteerServiceUrl = 'http://localhost:3018/parse?url=' . urlencode($url);
+                // Вызываем ScreenshotOne API для получения скриншота и Vision AI парсинга
+                $screenshotApiKey = $_ENV['API_SCREENSHOTONE'] ?? '';
+                $openaiApiKey = $_ENV['OPENAI_API'] ?? '';
+                $visionPrompt = $_ENV['PARSE_PROMT'] ?? 'parse amount and currency, return only json ("amount", "currency")';
                 
-                // Используем cURL для запроса к Puppeteer сервису
+                if (empty($screenshotApiKey) || empty($openaiApiKey)) {
+                    throw new Exception("Missing API keys in environment variables");
+                }
+                
+                // Используем полный оригинальный URL для ScreenshotOne
+                $cleanUrl = $originalUrl;
+                
+                // Логируем URL для отладки
+                logMessage("[GPT_API] getamountandcurrency: Original URL: {$url}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                logMessage("[GPT_API] getamountandcurrency: Clean URL for ScreenshotOne: {$cleanUrl}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                
+                // Строим URL для ScreenshotOne API
+                $screenshotParams = [
+                    'access_key' => $screenshotApiKey,
+                    'url' => $cleanUrl,
+                    'format' => 'jpg',
+                    'block_ads' => 'true',
+                    'block_cookie_banners' => 'true',
+                    'block_banners_by_heuristics' => 'false',
+                    'block_trackers' => 'true',
+                    'delay' => '3',
+                    'timeout' => '60',
+                    'response_type' => 'json',
+                    'selector' => '.CurrencyAmount',
+                    'image_quality' => '80',
+                    'openai_api_key' => $openaiApiKey,
+                    'vision_prompt' => $visionPrompt,
+                    'vision_max_tokens' => '50'
+                ];
+                
+                // http_build_query автоматически кодирует специальные символы, включая #
+                $screenshotUrl = 'https://api.screenshotone.com/take?' . http_build_query($screenshotParams);
+                
+                logMessage("[GPT_API] getamountandcurrency: Full ScreenshotOne URL: {$screenshotUrl}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                
+                // Проверяем, что фрагмент правильно закодирован
+                $urlParam = $screenshotParams['url'];
+                $encodedUrlInQuery = urlencode($urlParam);
+                logMessage("[GPT_API] getamountandcurrency: URL parameter will be encoded as: {$encodedUrlInQuery}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                
+                logMessage("[GPT_API] getamountandcurrency: Calling ScreenshotOne API with full URL: {$cleanUrl}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                
+                // Используем cURL для запроса к ScreenshotOne API
                 $ch = curl_init();
-                curl_setopt($ch, CURLOPT_URL, $puppeteerServiceUrl);
+                curl_setopt($ch, CURLOPT_URL, $screenshotUrl);
                 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-                curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+                curl_setopt($ch, CURLOPT_TIMEOUT, 90);
+                curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 30);
                 curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36');
                 curl_setopt($ch, CURLOPT_HTTPHEADER, [
                     'Accept: application/json',
                     'Content-Type: application/json'
                 ]);
                 
-                $puppeteerResponse = curl_exec($ch);
+                $screenshotResponse = curl_exec($ch);
                 $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
                 $curlError = curl_error($ch);
                 curl_close($ch);
@@ -457,38 +524,98 @@ switch ($action) {
                     throw new Exception("cURL error: " . $curlError);
                 }
                 
+                // Логируем полный ответ для отладки
+                logMessage("[GPT_API] getamountandcurrency: ScreenshotOne API response (HTTP {$httpCode}): " . substr($screenshotResponse, 0, 500) . "...", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                
                 if ($httpCode !== 200) {
-                    throw new Exception("Puppeteer service returned HTTP code: " . $httpCode);
+                    throw new Exception("ScreenshotOne API returned HTTP code: " . $httpCode . ". Response: " . substr($screenshotResponse, 0, 200));
                 }
                 
-                $parsedData = json_decode($puppeteerResponse, true);
+                $parsedData = json_decode($screenshotResponse, true);
                 
                 if (json_last_error() !== JSON_ERROR_NONE) {
-                    throw new Exception("Invalid JSON response from Puppeteer service: " . json_last_error_msg());
+                    throw new Exception("Invalid JSON response from ScreenshotOne API: " . json_last_error_msg());
                 }
                 
-                if (!isset($parsedData['success']) || !$parsedData['success']) {
-                    throw new Exception("Puppeteer service failed to parse URL: " . ($parsedData['error'] ?? 'Unknown error'));
+                // Проверяем наличие данных vision
+                if (!isset($parsedData['vision']['completion'])) {
+                    throw new Exception("ScreenshotOne API did not return vision completion data. Response: " . json_encode($parsedData));
                 }
                 
-                $response = [
-                    'status' => 'success',
-                    'url' => $url,
-                    'amount' => $parsedData['amount'],
-                    'currency' => $parsedData['currency'],
-                    'parsed_at' => $parsedData['parsed_at'] ?? date('c')
-                ];
+                $visionText = $parsedData['vision']['completion'];
                 
-                logMessage("[GPT_API] getamountandcurrency: Successfully parsed URL. Amount: {$parsedData['amount']}, Currency: {$parsedData['currency']}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                logMessage("[GPT_API] getamountandcurrency: Vision AI result: {$visionText}. Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
                 
+                // Парсим текст для извлечения суммы и валюты
+                // Сначала пробуем парсить JSON если он есть
+                if (preg_match('/```json\s*(\{[^}]+\})\s*```/', $visionText, $jsonMatches)) {
+                    $jsonData = json_decode($jsonMatches[1], true);
+                    if ($jsonData && isset($jsonData['amount']) && isset($jsonData['currency'])) {
+                        $amount = $jsonData['amount'];
+                        $currency = $jsonData['currency'];
+                    }
+                } 
+                // Если JSON не найден, пытаемся парсить обычным способом
+                elseif (preg_match('/(\d+[.,]\d{2})\s*([£$€¥₽]|[A-Z]{3})/', $visionText, $matches)) {
+                    $amount = str_replace(',', '.', $matches[1]); // Заменяем запятую на точку
+                    $currency = $matches[2];
+                    
+                    // Конвертируем символы валют в коды
+                    $currencyMap = [
+                        '$' => 'USD',
+                        '£' => 'GBP',
+                        '€' => 'EUR',
+                        '¥' => 'JPY',
+                        '₽' => 'RUB'
+                    ];
+                    
+                    if (isset($currencyMap[$currency])) {
+                        $currency = $currencyMap[$currency];
+                    }
+                }
+                // Пытаемся найти JSON без markdown форматирования
+                elseif (preg_match('/\{\s*"amount"\s*:\s*"([^"]+)"\s*,\s*"currency"\s*:\s*"([^"]+)"\s*\}/', $visionText, $jsonMatches)) {
+                    $amount = $jsonMatches[1];
+                    $currency = $jsonMatches[2];
+                }
+                
+                if (isset($amount) && isset($currency)) {
+                    // Рассчитываем стоимость с комиссией используя PaymentCore
+                    require_once __DIR__ . '/lib/payment_core.php';
+                    $costDetails = PaymentCore::getPaymentCost((float)$amount, $currency);
+                    
+                    $response = [
+                        'status' => 'success',
+                        'url' => $originalUrl,
+                        'amount' => $amount,
+                        'currency' => $currency,
+                        'vision_text' => $visionText,
+                        'parsed_at' => date('c')
+                    ];
+                    
+                    // Добавляем информацию о стоимости списания, если удалось рассчитать
+                    if ($costDetails) {
+                        $response['cost_in_balance_currency'] = $costDetails['cost_in_balance_units'];
+                        $response['exchange_rate'] = $costDetails['rate_used'];
+                        $response['currency_pair'] = $costDetails['rate_currency_pair'];
+                    } else {
+                        $response['cost_in_balance_currency'] = 'Unable to calculate - rate not found';
+                        $response['exchange_rate'] = null;
+                        $response['currency_pair'] = $currency . '_RUB';
+                    }
+                    
+                    logMessage("[GPT_API] getamountandcurrency: Successfully parsed. Amount: {$amount}, Currency: {$currency}, Cost: " . ($costDetails ? $costDetails['cost_in_balance_units'] . ' RUB' : 'Unknown') . ". Partner: {$partner['name']}", 'INFO', SUBMIT_LEAD_LOG_FILE);
+                } else {
+                    throw new Exception("Could not parse amount and currency from vision text: " . $visionText);
+                }
             } catch (Exception $e) {
                 http_response_code(500);
                 $response = [
                     'status' => 'error', 
                     'message' => 'Failed to parse payment URL: ' . $e->getMessage(),
-                    'url' => $url
+                    'url' => $originalUrl
                 ];
-                logMessage("[GPT_API] getamountandcurrency: Error parsing URL {$url}: " . $e->getMessage() . ". Partner: {$partner['name']}", 'ERROR', SUBMIT_LEAD_LOG_FILE);
+                logMessage("[GPT_API] getamountandcurrency: Error parsing URL {$originalUrl}: " . $e->getMessage() . ". Partner: {$partner['name']}", 'ERROR', SUBMIT_LEAD_LOG_FILE);
             }
         } else {
             http_response_code(401);

@@ -26,7 +26,7 @@ if (!$currentPartner) {
                         </button>
                     </p>
                     <p><strong>ID партнера:</strong> <code><?= htmlspecialchars($currentPartner['id']) ?></code></p>
-                    <p><strong>Стоимость обработки заявки:</strong> <span class="badge badge-warning">$<?= LEAD_PROCESSING_COST_USD ?></span></p>
+                    <p><strong>Стоимость обработки заявки:</strong> <span class="badge badge-warning">₽<?= LEAD_PROCESSING_COST_USD ?></span></p>
                 </div>
 
                 <h6>Отправка заявки</h6>
@@ -37,7 +37,7 @@ if (!$currentPartner) {
                         <small class="text-muted">Эндпоинт</small>
                     </div>
                     <div class="card-body">
-                        <code>POST <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/amogt/gpt_payment_api/api.php</code>
+                        <code>POST <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/chatgptbot_connector/gpt_payment_api/api.php</code>
                     </div>
                 </div>
 
@@ -68,8 +68,8 @@ if (!$currentPartner) {
   "processed_count": 1,
   "added_to_main_list_count": 1,
   "updated_in_main_list_count": 0,
-  "total_cost_charged": 25,
-  "remaining_balance": 975.00
+  "total_cost_charged": 725,
+  "remaining_balance": 4275.00
 }</code></pre>
                 </div>
 
@@ -81,8 +81,8 @@ if (!$currentPartner) {
   "processed_count": 1,
   "added_to_main_list_count": 1,
   "updated_in_main_list_count": 0,
-  "total_cost_charged": 25,
-  "remaining_balance": 950.00,
+  "total_cost_charged": 725,
+  "remaining_balance": 3550.00,
   "errors": [
     "Lead at index 1: Failed to parse payment details from URL: invalid-url. Invalid payment URL format."
   ],
@@ -99,7 +99,7 @@ if (!$currentPartner) {
   "added_to_main_list_count": 0,
   "updated_in_main_list_count": 0,
   "total_cost_charged": 0,
-  "remaining_balance": 1000.00,
+  "remaining_balance": 5000.00,
   "errors": [
     "Lead at index 0: Lead with paymentUrl 'https://buy.stripe.com/test_xyz123' already exists in the system."
   ],
@@ -111,10 +111,10 @@ if (!$currentPartner) {
                     <h6>Пример ответа при недостатке средств:</h6>
                     <pre class="bg-light p-3"><code>{
   "status": "insufficient_funds",
-  "message": "Insufficient funds. Required: 50 USD, Current balance: 25.00 USD",
-  "required_balance": 50,
-  "current_balance": 25.00,
-  "cost_per_lead": 25,
+  "message": "Insufficient funds. Required: 1450 RUB, Current balance: 725.00 RUB",
+  "required_balance": 1450,
+  "current_balance": 725.00,
+  "cost_per_lead": 725,
   "leads_count": 2
 }</code></pre>
                 </div>
@@ -125,7 +125,7 @@ if (!$currentPartner) {
                         <li><strong>paymentUrl</strong> - обязательное поле, должно содержать валидную ссылку на оплату Stripe</li>
                         <li><strong>dealId</strong> - всегда генерируется сервером автоматически для обеспечения уникальности</li>
                         <li>Если заявка с таким <strong>paymentUrl</strong> уже существует в системе, она будет отклонена как дубликат</li>
-                        <li>С вашего баланса автоматически спишется <strong>$<?= LEAD_PROCESSING_COST_USD ?></strong> за каждую <em>успешно обработанную</em> заявку</li>
+                        <li>С вашего баланса автоматически спишется <strong>₽<?= LEAD_PROCESSING_COST_USD ?></strong> за каждую <em>успешно обработанную</em> заявку</li>
                         <li>Если баланса недостаточно для всех заявок, запрос будет отклонен с кодом 402</li>
                         <li>Если ссылка на оплату невалидна, лид будет пропущен и не будет списания</li>
                         <li>Все дополнительные поля будут сохранены и доступны в вашем личном кабинете</li>
@@ -138,7 +138,7 @@ if (!$currentPartner) {
                 
                 <div class="card bg-light">
                     <div class="card-body">
-                        <code>GET <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/amogt/gpt_payment_api/api.php?action=get_balance&api_token=<?= htmlspecialchars($currentPartner['token']) ?></code>
+                        <code>GET <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/chatgptbot_connector/gpt_payment_api/api.php?action=get_balance&api_token=<?= htmlspecialchars($currentPartner['token']) ?></code>
                     </div>
                 </div>
 
@@ -147,8 +147,120 @@ if (!$currentPartner) {
                 
                 <div class="card bg-light">
                     <div class="card-body">
-                        <code>GET <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/amogt/gpt_payment_api/api.php?action=get_transactions&api_token=<?= htmlspecialchars($currentPartner['token']) ?>&limit=100</code>
+                        <code>GET <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/chatgptbot_connector/gpt_payment_api/api.php?action=get_transactions&api_token=<?= htmlspecialchars($currentPartner['token']) ?>&limit=100</code>
                     </div>
+                </div>
+
+                <h6 class="mt-4">Парсинг суммы и валюты из ссылки оплаты</h6>
+                <div class="alert alert-info">
+                    <p><strong>Новый метод!</strong> Позволяет получить сумму и валюту из ссылки на оплату перед отправкой заявки.</p>
+                </div>
+                
+                <p>Для получения суммы и валюты из ссылки на оплату используйте:</p>
+                
+                <div class="card bg-light">
+                    <div class="card-header">
+                        <small class="text-muted">GET запрос (для простых URL без фрагментов)</small>
+                    </div>
+                    <div class="card-body">
+                        <code>GET <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/chatgptbot_connector/gpt_payment_api/api.php?action=getamountandcurrency&api_token=<?= htmlspecialchars($currentPartner['token']) ?>&url=PAYMENT_URL</code>
+                    </div>
+                </div>
+
+                <div class="card bg-light mt-2">
+                    <div class="card-header">
+                        <small class="text-muted">POST запрос (рекомендуется для URL с фрагментами #)</small>
+                    </div>
+                    <div class="card-body">
+                        <pre><code>POST <?= (isset($_SERVER['HTTPS']) ? 'https' : 'http') ?>://<?= $_SERVER['HTTP_HOST'] ?>/chatgptbot_connector/gpt_payment_api/api.php
+
+{
+  "action": "getamountandcurrency",
+  "api_token": "<?= htmlspecialchars($currentPartner['token']) ?>",
+  "url": "https://pay.openai.com/c/pay/cs_live_xyz#fragment"
+}</code></pre>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <h6>Пример успешного ответа:</h6>
+                    <pre class="bg-light p-3"><code>{
+  "status": "success",
+  "url": "https://pay.openai.com/c/pay/cs_live_xyz#fragment",
+  "amount": "20.00",
+  "currency": "GBP",
+  "vision_text": "20,00 £",
+  "parsed_at": "2024-07-08T15:30:45+00:00"
+}</code></pre>
+                </div>
+
+                <div class="mt-3">
+                    <h6>Логика списания средств:</h6>
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-calculator"></i> Расчет стоимости по валютам</h6>
+                        <p>При отправке заявки с вашего баланса списывается сумма в российских рублях в зависимости от валюты платежа:</p>
+                        <ul>
+                            <li><strong>RUB:</strong> Сумма платежа + 15% комиссии</li>
+                            <li><strong>USD:</strong> Сумма платежа × курс USD/RUB + 15% комиссии</li>
+                            <li><strong>EUR:</strong> Сумма платежа × курс EUR/RUB + 15% комиссии</li>
+                            <li><strong>GBP:</strong> Сумма платежа × курс GBP/RUB + 15% комиссии</li>
+                            <li><strong>Другие валюты:</strong> По актуальному курсу + 15% комиссии</li>
+                        </ul>
+                        <p><em>Курсы валют настраиваются администратором системы и обновляются регулярно.</em></p>
+                        <p><strong>Пример:</strong> Если платеж составляет 20 GBP, и курс GBP/RUB = 115.50, то с вашего баланса спишется: (20 × 115.50) + 15% = ₽2,656.50</p>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <h6>Поддерживаемые платежные системы:</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <ul>
+                                <li>OpenAI Payments (pay.openai.com)</li>
+                                <li>Stripe (pay.stripe.com, checkout.stripe.com)</li>
+                                <li>PayPal (paypal.com)</li>
+                                <li>Square (squareup.com)</li>
+                                <li>Coinbase (coinbase.com)</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <ul>
+                                <li>Google Pay (pay.google.com)</li>
+                                <li>Shopify (checkout.shopify.com)</li>
+                                <li>Amazon Payments (amazon.com)</li>
+                                <li>Klarna (checkout.klarna.com)</li>
+                                <li>И многие другие...</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-3">
+                    <h6>Пример использования в коде:</h6>
+                    <pre class="bg-light p-3"><code>// Сначала проверяем сумму и валюту
+$response = post_request('/api.php', [
+    'action' => 'getamountandcurrency',
+    'api_token' => 'your_token',
+    'url' => $payment_url
+]);
+
+if ($response['status'] === 'success') {
+    $amount = $response['amount'];
+    $currency = $response['currency'];
+    
+    // Показываем клиенту предварительную стоимость
+    echo "Обработка платежа {$amount} {$currency}";
+    echo "Стоимость обработки: ~₽" . calculate_processing_cost($amount, $currency);
+    
+    // Если клиент согласен, отправляем заявку
+    if ($client_confirmed) {
+        $lead_response = post_request('/api.php', [
+            'action' => 'submit_partner_lead',
+            'api_token' => 'your_token',
+            'lead_data' => [['paymentUrl' => $payment_url, ...]]
+        ]);
+    }
+}</code></pre>
                 </div>
 
                 <h6 class="mt-4">Коды ошибок</h6>
@@ -164,8 +276,8 @@ if (!$currentPartner) {
                         <tbody>
                             <tr>
                                 <td><code>400</code></td>
-                                <td>Неверный формат данных или все лиды провалили валидацию</td>
-                                <td>Проверьте JSON структуру запроса и валидность paymentUrl</td>
+                                <td>Неверный формат данных, невалидный URL или проблемы с безопасностью</td>
+                                <td>Проверьте JSON структуру запроса, валидность URL и безопасность ссылки</td>
                             </tr>
                             <tr>
                                 <td><code>401</code></td>
@@ -184,8 +296,8 @@ if (!$currentPartner) {
                             </tr>
                             <tr>
                                 <td><code>500</code></td>
-                                <td>Внутренняя ошибка сервера</td>
-                                <td>Обратитесь в техническую поддержку</td>
+                                <td>Внутренняя ошибка сервера или парсинга ссылки</td>
+                                <td>Проверьте URL или обратитесь в техническую поддержку</td>
                             </tr>
                         </tbody>
                     </table>
@@ -220,12 +332,12 @@ if (!$currentPartner) {
                             <tr>
                                 <td><code>total_cost_charged</code></td>
                                 <td>float</td>
-                                <td>Общая сумма списанная с баланса (USD)</td>
+                                <td>Общая сумма списанная с баланса (RUB)</td>
                             </tr>
                             <tr>
                                 <td><code>remaining_balance</code></td>
                                 <td>float</td>
-                                <td>Остаток баланса после операции (USD)</td>
+                                <td>Остаток баланса после операции (RUB)</td>
                             </tr>
                             <tr>
                                 <td><code>errors</code></td>

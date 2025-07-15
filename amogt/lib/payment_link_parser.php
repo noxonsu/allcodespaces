@@ -195,8 +195,9 @@ function parsePaymentPageWithScreenshot(string $url): array
     $completion = $responseData['vision']['completion'];
     logMessage("Vision API completion: " . $completion, 'INFO', STRIPE_LINK_PARSER_LOG_FILE);
 
-    // Extract JSON from the completion using regex
-    if (preg_match('/\{[^}]*"amount"[^}]*"currency"[^}]*\}/i', $completion, $matches)) {
+    // Try to extract JSON from the completion
+    // First, look for a JSON object with amount and currency
+    if (preg_match('/\{[^{}]*"amount"[^{}]*"currency"[^{}]*\}/i', $completion, $matches)) {
         $jsonString = $matches[0];
         logMessage("Extracted JSON string: $jsonString", 'INFO', STRIPE_LINK_PARSER_LOG_FILE);
         
@@ -213,6 +214,32 @@ function parsePaymentPageWithScreenshot(string $url): array
         }
     } else {
         logMessage("No JSON pattern found in completion text", 'WARNING', STRIPE_LINK_PARSER_LOG_FILE);
+    }
+
+    // Second attempt: try to parse the entire response as JSON
+    $fullParsedData = json_decode($completion, true);
+    if ($fullParsedData && isset($fullParsedData['amount']) && isset($fullParsedData['currency'])) {
+        $amount = (string)$fullParsedData['amount'];
+        $currency = strtoupper(trim($fullParsedData['currency']));
+        
+        logMessage("Successfully extracted via ScreenshotOne (full JSON parse) - Currency: {$currency}, Amount: {$amount} from $url", 'INFO', STRIPE_LINK_PARSER_LOG_FILE);
+        return ['amount' => $amount, 'currency' => $currency, 'error' => null];
+    }
+
+    // Third attempt: try to extract from markdown code blocks
+    if (preg_match('/```(?:json)?\s*(\{[^`]*"amount"[^`]*"currency"[^`]*\})\s*```/i', $completion, $matches)) {
+        $jsonString = $matches[1];
+        logMessage("Extracted JSON from markdown block: $jsonString", 'INFO', STRIPE_LINK_PARSER_LOG_FILE);
+        
+        $parsedData = json_decode($jsonString, true);
+        
+        if ($parsedData && isset($parsedData['amount']) && isset($parsedData['currency'])) {
+            $amount = (string)$parsedData['amount'];
+            $currency = strtoupper(trim($parsedData['currency']));
+            
+            logMessage("Successfully extracted via ScreenshotOne (markdown JSON) - Currency: {$currency}, Amount: {$amount} from $url", 'INFO', STRIPE_LINK_PARSER_LOG_FILE);
+            return ['amount' => $amount, 'currency' => $currency, 'error' => null];
+        }
     }
 
     // Fallback: try to extract amount and currency separately using regex

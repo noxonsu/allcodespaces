@@ -294,7 +294,7 @@ ID полей, воронок и статусов можно получить н
     *   Этот файл используется для дальнейшей обработки и отображения.
 
 2.  **Лиды от Партнеров**:
-    *   Поступают через основной API `amogt/gpt_payment_api/api.php` с `action=submit_partner_lead`.
+    *   Поступают через основной API `/chatgptbot_connector/gpt_payment_api/api.php` с `action=submit_partner_lead`.
     *   Партнер передает массив лидов, каждый из которых должен содержать `paymentUrl` (обязательно) и опционально `dealId` (уникальный ID лида со стороны партнера).
     *   Перед сохранением, `dealId` каждого лида проверяется на дубликат в файле `amogt/recieved_api_ids.txt`. Если ID уже существует, лид пропускается. Новые ID добавляются в этот файл.
     *   Данные успешно принятых лидов (с добавлением `partnerId` и `partner_name` на основе API токена) также сохраняются в основной файл `amogt/allLeads.json`.
@@ -326,7 +326,7 @@ ID полей, воронок и статусов можно получить н
 
 ### Основной API Партнеров (Платежи и Прием Лидов)
 
-Все запросы к этому API должны отправляться на `ваш_домен/amogt/gpt_payment_api/api.php`.
+Все запросы к этому API должны отправляться на `ваш_домен/chatgptbot_connector/gpt_payment_api/api.php`.
 Метод передачи параметров: `GET` или `POST` (для `submit_partner_lead` - `POST` с JSON телом).
 Формат ответа: JSON.
 
@@ -474,7 +474,7 @@ ID полей, воронок и статусов можно получить н
    
    # Отредактировать файл test_api.env:
    API_TOKEN=your_test_token_here
-   API_URL=https://yourdomain.com/amogt/gpt_payment_api/api.php
+   API_URL=https://yourdomain.com/chatgptbot_connector/gpt_payment_api/api.php
    ```
 
 2. **Установка окружения:**
@@ -806,7 +806,7 @@ $leads = [
     ]
 ];
 
-$response = submitLeadsToAPI($leads, 'your_api_token', 'https://yourdomain.com/amogt/gpt_payment_api/api.php');
+$response = submitLeadsToAPI($leads, 'your_api_token', 'https://yourdomain.com/chatgptbot_connector/gpt_payment_api/api.php');
 
 if ($response['status'] === 'success') {
     echo "Лиды отправлены успешно. Сгенерированные ID: " . implode(', ', $response['generated_deal_ids']);
@@ -857,7 +857,7 @@ const leads = [
     }
 ];
 
-submitLeads(leads, 'your_api_token', 'https://yourdomain.com/amogt/gpt_payment_api/api.php')
+submitLeads(leads, 'your_api_token', 'https://yourdomain.com/chatgptbot_connector/gpt_payment_api/api.php')
     .then(response => console.log('Успех:', response))
     .catch(error => console.error('Ошибка:', error));
 ```

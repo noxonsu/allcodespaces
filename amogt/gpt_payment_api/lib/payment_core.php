@@ -26,9 +26,13 @@ class PaymentCore {
     public static function getPaymentCost(float $payment_amount, string $payment_currency): ?array {
         $payment_currency = strtoupper($payment_currency);
 
+        // Комиссия 15% за обработку платежа
+        $commission_rate = 1.15;
+
         if ($payment_currency === BALANCE_CURRENCY) {
+            $cost_with_commission = $payment_amount * $commission_rate;
             return [
-                'cost_in_balance_units' => $payment_amount,
+                'cost_in_balance_units' => round($cost_with_commission, 2),
                 'rate_used' => 1.0,
                 'rate_currency_pair' => BALANCE_CURRENCY . '_' . BALANCE_CURRENCY
             ];
@@ -40,7 +44,7 @@ class PaymentCore {
             return null;
         }
 
-        $cost_in_balance_units = $payment_amount * $rate;
+        $cost_in_balance_units = ($payment_amount * $rate) * $commission_rate;
         return [
             'cost_in_balance_units' => round($cost_in_balance_units, 2), // Округляем до 2 знаков
             'rate_used' => $rate,

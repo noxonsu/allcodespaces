@@ -55,7 +55,7 @@ cd /workspaces/allcodespaces/amogt/
 # Создать test_api.env:
 cat > test_api.env << EOF
 API_TOKEN=test_token_12345
-API_URL=http://localhost/amogt/gpt_payment_api/api.php
+API_URL=http://localhost/chatgptbot_connector/gpt_payment_api/api.php
 EOF
 ```
 

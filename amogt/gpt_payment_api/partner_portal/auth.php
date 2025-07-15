@@ -56,6 +56,11 @@ function get_current_partner(): ?array {
     return null;
 }
 
+// Алиас для совместимости
+function partner_get_current_user(): ?array {
+    return get_current_partner();
+}
+
 // Обработка POST запроса на логин
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['api_token'])) {
     $token = trim($_POST['api_token']);
