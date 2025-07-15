@@ -47,7 +47,7 @@
 
 ### Новый эндпоинт: get_transactions
 ```
-GET /amogt/gpt_payment_api/api.php?action=get_transactions&api_token=YOUR_TOKEN&limit=100
+GET /chatgptbot_connector/gpt_payment_api/api.php?action=get_transactions&api_token=YOUR_TOKEN&limit=100
 ```
 
 Возвращает список транзакций партнера с полной информацией.

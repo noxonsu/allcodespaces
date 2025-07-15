@@ -86,7 +86,7 @@ echo "- Required dependencies: Check individual files above\n";
 echo "\n💡 To run full API tests:\n";
 echo "1. Start a web server (e.g., php -S localhost:8000)\n";
 echo "2. Set environment: export TEST_API_PARTNER_KEY=test_partner_token_123\n";
-echo "3. Update API URL in test: export TEST_API_URL=http://localhost:8000/amogt/gpt_payment_api/api.php\n";
+echo "3. Update API URL in test: export TEST_API_URL=http://localhost:8000/chatgptbot_connector/gpt_payment_api/api.php\n";
 echo "4. Run: php test_partner_api.php\n";
 
 ?>

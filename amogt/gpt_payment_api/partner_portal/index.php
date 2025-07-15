@@ -40,6 +40,9 @@ switch ($page) {
     case 'api_docs':
         include __DIR__ . '/templates/api_docs.php';
         break;
+    case 'api_test':
+        include __DIR__ . '/templates/api_test.php';
+        break;
     default:
         include __DIR__ . '/templates/dashboard.php';
         break;

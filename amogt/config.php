@@ -101,6 +101,7 @@ $AMO_CUSTOM_FIELD_NAMES = [
     'comment_for_withdrawal' => getenv('AMO_CF_NAME_COMMENT_FOR_WITHDRAWAL') ?: "Комментарий (для списания)", // Новое поле для email
 ];
 
+
 // Проверка обязательных переменных окружения
 $requiredEnvVars = [
     'AMO_DOMAIN' => AMO_DOMAIN,
@@ -129,11 +130,6 @@ $requiredEnvVars = [
     'AMO_CF_ID_COMMENT_FOR_WITHDRAWAL' => getenv('AMO_CF_ID_COMMENT_FOR_WITHDRAWAL'), // Новая константа для ID поля "Комментарий (для списания)"
 ];
 
-// Добавляем определение константы AMO_STATUS_ERROR_ENUM_ID если её нет
-if (!defined('AMO_STATUS_ERROR_ENUM_ID')) {
-    define('AMO_STATUS_ERROR_ENUM_ID', getenv('AMO_STATUS_ERROR_ENUM_ID'));
-}
-define('AMO_CF_ID_ISSUED_CURRENCY', getenv('AMO_CF_ID_ISSUED_CURRENCY'));
 // Обновляем массив проверки
 $requiredEnvVars['AMO_STATUS_ERROR_ENUM_ID'] = AMO_STATUS_ERROR_ENUM_ID;
 

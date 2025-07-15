@@ -45,13 +45,30 @@ try {
         <div class="card stats-card">
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-8">
+                    <div class="col-md-6">
                         <h5 class="card-title">
                             <i class="fas fa-user-tie"></i> Добро пожаловать, <?= htmlspecialchars($currentPartner['name']) ?>!
                         </h5>
                         <p class="card-text text-muted">ID партнера: <?= htmlspecialchars($currentPartner['id']) ?></p>
                     </div>
-                    <div class="col-md-4 text-right">
+                    <div class="col-md-3">
+                        <div class="stats-label">API Токен</div>
+                        <div class="input-group">
+                            <input type="text" class="form-control form-control-sm" 
+                                   id="api-token" 
+                                   value="<?= htmlspecialchars($currentPartner['api_token'] ?? $currentPartner['token'] ?? 'Не найден') ?>" 
+                                   readonly>
+                            <div class="input-group-append">
+                                <button class="btn btn-sm btn-outline-secondary" 
+                                        onclick="copyToClipboard('api-token')" 
+                                        title="Скопировать токен">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <small class="text-muted">Используйте этот токен для API запросов</small>
+                    </div>
+                    <div class="col-md-3 text-right">
                         <div class="stats-label">Текущий баланс</div>
                         <div class="stats-number text-<?= (float)$currentPartner['balance'] > 0 ? 'success' : 'danger' ?>">
                             $<?= number_format((float)$currentPartner['balance'], 2) ?>
@@ -215,3 +232,24 @@ try {
         </div>
     </div>
 </div>
+
+<script>
+function copyToClipboard(elementId) {
+    const element = document.getElementById(elementId);
+    element.select();
+    element.setSelectionRange(0, 99999); // Для мобильных устройств
+    
+    try {
+        document.execCommand('copy');
+        // Показываем уведомление об успешном копировании
+        const button = event.target.closest('button');
+        const originalIcon = button.innerHTML;
+        button.innerHTML = '<i class="fas fa-check text-success"></i>';
+        setTimeout(() => {
+            button.innerHTML = originalIcon;
+        }, 2000);
+    } catch (err) {
+        console.error('Ошибка копирования: ', err);
+    }
+}
+</script>

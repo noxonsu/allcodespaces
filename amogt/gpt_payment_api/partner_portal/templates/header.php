@@ -92,6 +92,11 @@
                                     <i class="fas fa-code"></i> API документация
                                 </a>
                             </li>
+                            <li class="nav-item">
+                                <a class="nav-link <?= ($page ?? '') === 'api_test' ? 'active' : '' ?>" href="index.php?page=api_test">
+                                    <i class="fas fa-flask"></i> Тест API расчета
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </nav>
