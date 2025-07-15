@@ -421,7 +421,13 @@ async function processFeed() {
 
       console.log(`Обработка проекта: ${projectTitle}`);
 
-      const { description, registrationDate, budget } = await fetchProjectDetails(projectUrl);
+      // Используем только данные из RSS, без дополнительных HTTP запросов
+      const description = item.contentSnippet || item.description || 'Описание из RSS';
+      const registrationDate = null; // Временно отключено из-за 403 ошибок
+      const budget = null; // Временно отключено из-за 403 ошибок
+      
+      // Если нужны дополнительные данные, раскомментируйте:
+      // const { description, registrationDate, budget } = await fetchProjectDetails(projectUrl);
       
       // Add budget to title if not already present and budget exists
       if (budget && !projectTitle.toLowerCase().includes('бюджет') && !projectTitle.includes('₽') && !projectTitle.includes('руб')) {
@@ -443,8 +449,6 @@ async function processFeed() {
 
       console.log(`Проект: ${projectTitle}`);
       console.log(`Описание: ${projectDescription}`);
-      console.log(`Дата регистрации: ${registrationDate}`);
-      console.log(`Бюджет: ${budget || 'Не указан'}`);
       console.log(`Анализ: ${analysis}`);
       if (analysis !== 'Ошибка анализа' && !analysis.toLowerCase().includes('пропустить')) {
         const message = `Новый проект: ${projectTitle}\nURL: ${projectUrl}\nОписание: ${projectDescription}\nДата регистрации заказчика: ${registrationDate}\nБюджет: ${budget || 'Не указан'}\nАнализ: ${analysis}`;
@@ -471,7 +475,7 @@ async function processFeed() {
 async function main() {
   await processFeed();
 
-  const interval = 5 * 60 * 1000;
+  const interval = 15 * 60 * 1000; // Увеличено с 5 до 15 минут
   setInterval(async () => {
     console.log('Запуск периодического опроса RSS...');
     await processFeed();
