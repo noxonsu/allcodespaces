@@ -14,3 +14,6 @@ up-b-stag:down
 
 down:
 	docker compose  -f web_app/$(DOCKER_BUILD)  --profile all down --remove-orphans
+
+down-stag:
+	docker compose -f web_app/docker-compose.stag.yml --profile all down --remove-orphans
