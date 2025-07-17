@@ -10,7 +10,7 @@ up-b:down
 
 
 up-b-stag:down
-	docker compose -f ./docker-compose.stag.yml --profile all   up  --renew-anon-volumes --remove-orphans  -d
+	docker compose -f ./docker-compose.stag.yml --profile all   up  --renew-anon-volumes --remove-orphans  --build  -d
 
 down:
 	docker compose  -f $(DOCKER_BUILD)  --profile all down --remove-orphans
