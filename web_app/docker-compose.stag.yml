@@ -17,8 +17,8 @@ services:
       - all
     volumes:
       - ./:/app
-      - media:/app/media/
-      - static:/app/static/
+      - ./media/:/app/media/
+      - ./static/:/app/static/
 
   celery-worker:
     restart: "on-failure"
