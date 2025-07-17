@@ -1,0 +1,25 @@
+*.pyc
+*.DS_Store
+*.egg*
+/dist/
+/.idea
+/docs/_build/
+/node_modules/
+build/
+env
+env__
+/staticfiles/
+
+#src
+#*.sqlite*
+
+.env
+yarn.lock
+
+static
+.venv
+*/.venv
+
+# LOG FILES
+*.log
+media

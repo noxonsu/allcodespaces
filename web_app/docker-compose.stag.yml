@@ -1,0 +1,150 @@
+name: telewin
+
+services:
+  web-app:
+    container_name: web-app_con
+    restart: on-failure
+    build:
+      context: ./
+      dockerfile: ./dockerb/Dockerfile
+    entrypoint: gunicorn  --config  gunicorn-cfg.py web_app.wsgi
+    depends_on:
+      - web-db
+    networks:
+      - network_default
+    profiles:
+      - web-app
+      - all
+    volumes:
+      - ./:/app
+      - media:/app/media/
+      - static:/app/static/
+
+  celery-worker:
+    restart: "on-failure"
+    container_name: celery-worker_con
+    build:
+      context: ./
+      dockerfile: ./dockerb/Dockerfile
+    entrypoint: celery -A web_app worker -l INFO
+    profiles:
+      - all
+    depends_on:
+      - web-app
+      - redis
+    networks:
+      - network_default
+    volumes:
+      - ./:/app
+
+  celery-beat:
+    restart: "on-failure"
+    container_name: celery-beat_con
+    build:
+      context: ./
+      dockerfile: ./dockerb/Dockerfile
+    entrypoint: celery -A web_app beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    profiles:
+      - all
+    depends_on:
+      - web-app
+      - redis
+    networks:
+      - network_default
+    volumes:
+      - ./:/app
+
+  tg-bot:
+    build:
+      context: ../bot
+      dockerfile: ./docker/Dockerfile
+    container_name: tg-bot_con
+    entrypoint: python main.py
+    networks:
+      - network_default
+    profiles:
+      - bot
+      - all
+    volumes:
+      - ../bot:/bot
+
+
+  web-db:
+    image: postgres
+    container_name: web-db_con
+    restart: 'on-failure'
+    networks:
+        - network_default
+    environment:
+      POSTGRES_USER: telewin_user_client
+      POSTGRES_PASSWORD: telewin_user_client_password
+      POSTGRES_DB: telewin_app_db
+    volumes:
+      - PGDATA:/var/lib/postgresql/data
+    profiles:
+      - web-app
+      - db
+      - all
+    ports:
+      - "5432:5432"
+
+  redis:
+    container_name: redis_con
+    image: redis
+    ports:
+      - "6379:6379"
+    expose:
+      - 6379
+    networks:
+      - network_default
+    profiles:
+      - all
+
+  reverse-proxy:
+    image: nginx
+    restart: unless-stopped
+    container_name: reverse-proxy_con
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/stag.conf:/etc/nginx/nginx.conf:ro
+      - app_certificates:/app_certificates
+      - /etc/localtime:/etc/localtime:ro
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - media:/media/
+      - static:/static/
+    env_file:
+      - nginx/.env_file
+    networks:
+      - network_default
+    profiles:
+      - backend
+      - reverse-proxy
+      - all
+    depends_on:
+      - web-app
+
+  certbot:
+    image: certbot/certbot
+    container_name: certbot_con
+    networks:
+      - network_default
+    profiles:
+      - reverse-proxy
+      - all
+    volumes:
+      - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 720 & wait $${!}; done;'"  # Renew certificates every 720 hours = month
+
+networks:
+    network_default:
+volumes:
+  PGDATA:
+  app_certificates:
+  nginx_certbot_conf:
+  nginx_certbot_www:
+  media:
+  static:
+

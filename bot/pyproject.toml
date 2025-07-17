@@ -1,0 +1,32 @@
+[project]
+name = "TeleWinTGBot"
+description = ""
+readme = "README.md"
+version = "0.1.0"
+authors = [{name ="Ahmed Mohamed"}]
+requires-python = ">=3.13"
+dependencies = [
+    "pydantic-settings>=2.8.1",
+    "python-telegram-bot (>=22.0,<23.0)",
+    "uvicorn (>=0.35.0,<1.0.0)",
+    "starlette (>=0.47.1,<1.0.0)",
+]
+
+[tool.poetry]
+package-mode = false
+
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+
+[tool.pytest.ini_options]
+testpaths = ['tests', ]
+log_cli = true
+#addopts = '--rootdir ./bot'
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
