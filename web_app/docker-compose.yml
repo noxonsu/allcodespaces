@@ -17,8 +17,8 @@ services:
       - all
     volumes:
       - ./:/app
-      - media:/app/media/
-      - static:/app/static/
+      - ./media/:/app/media/
+      - ./static/:/app/static/
 #      - app_certificates:/app/certificates
 
   celery-worker:

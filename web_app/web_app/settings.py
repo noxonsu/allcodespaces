@@ -258,7 +258,6 @@ JAZZMIN_SETTINGS = {
     "custom_css": 'custom/main.css',
     "custom_js": 'custom/main.js',
     "site_logo_classes": "img",
-    # 'site_logo': 'custom/login_logo.png',
     "icons": {
         "core.User": "fas fa-user-alt",
         "core.Message": "fas fa-edit",

@@ -22,5 +22,8 @@ $(document).ready(function (){
 if ($('form >.row > .col-12 >.btn.btn-primary.btn-block').length) {
     $('form >.row > .col-12 >.btn.btn-primary.btn-block').css({margin: "0 0 10px 0"})
 }
+if ($('.login-box .login-logo h1 picture img').length > 1){
+    $('.login-box .login-logo h1 picture img').css('width','100%')
+}
 });
 
