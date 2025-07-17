@@ -6,7 +6,9 @@ up:down
 
 up-b:down
 	docker compose -f  web_app/$(DOCKER_BUILD) --profile all up -d --build --remove-orphans
-#	docker compose  -f web_app/$(DOCKER_BUILD) --profile backend  up  --renew-anon-volumes --remove-orphans  revers-proxy celery-worker celery-beat  -d
+
+up-stag:down-stag
+	docker compose -f web_app/docker-compose.stag.yml --profile all   up  --renew-anon-volumes --remove-orphans  -d
 
 
 up-b-stag:down-stag
