@@ -257,6 +257,7 @@ JAZZMIN_SETTINGS = {
     "related_modal_active": True,
     "custom_css": 'custom/main.css',
     "custom_js": 'custom/main.js',
+    "site_logo_classes": "img",
     # 'site_logo': 'custom/login_logo.png',
     "icons": {
         "core.User": "fas fa-user-alt",
@@ -299,7 +300,6 @@ JAZZMIN_UI_TWEAKS = {}
 #     "site_header": "Telewin",
 #
 #     # Title on the brand (19 chars max) (defaults to current_admin_site.site_header if absent or None)
-#     "site_brand": "Telewin",
 #
 #     # Logo to use for your site, must be present in static files, used for brand on top left
 #     # "site_logo": "books/img/logo.png",
@@ -311,7 +311,6 @@ JAZZMIN_UI_TWEAKS = {}
 #     # "login_logo_dark": None,
 #
 #     # CSS classes that are applied to the logo above
-#     "site_logo_classes": "img-circle",
 #
 #     # Relative path to a favicon for your site, will default to site_logo if absent (ideally 32x32 px)
 #     "site_icon": None,

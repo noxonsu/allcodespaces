@@ -3,7 +3,7 @@ name: telewin
 services:
   web-app:
     container_name: web-app_con
-    restart: unless-stopped
+    restart: on-failure
     build:
       context: ./
       dockerfile: ./dockerb/Dockerfile
