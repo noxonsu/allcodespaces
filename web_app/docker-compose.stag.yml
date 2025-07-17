@@ -17,8 +17,8 @@ services:
       - all
     volumes:
       - ./:/app
-      - /media/:/app/media/
-      - /static/:/app/static/
+      - media:/app/media/
+      - static:/app/static/
 
   celery-worker:
     restart: "on-failure"
@@ -112,8 +112,8 @@ services:
       - app_certificates:/app_certificates
       - /etc/localtime:/etc/localtime:ro
       - ./nginx/certbot/conf:/etc/letsencrypt
-      - /media/:/media/
-      - /static/:/static/
+      - media:/media/
+      - static:/static/
     env_file:
       - nginx/.env_file
     networks:
@@ -145,6 +145,6 @@ volumes:
   app_certificates:
   nginx_certbot_conf:
   nginx_certbot_www:
-#  media:
-#  static:
+  media:
+  static:
 
