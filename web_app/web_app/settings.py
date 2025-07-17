@@ -255,8 +255,8 @@ JAZZMIN_SETTINGS = {
     "site_brand": "Telewin Administration",
     "show_ui_builder": True,
     "related_modal_active": True,
-    "custom_css": 'custom/main.css',
-    "custom_js": 'custom/main.js',
+    # "custom_css": 'custom/main.css',
+    # "custom_js": 'custom/main.js',
     # 'site_logo': 'custom/login_logo.png',
     "icons": {
         "core.User": "fas fa-user-alt",
