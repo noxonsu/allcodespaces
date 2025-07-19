@@ -77,14 +77,13 @@ class ChannelAdmin(BaseModel):
         }
         return role_permissions.get(self.role, _default_permissions)
 
-
-
     @property
     def as_str(self):
         return f'{self.first_name} {self.last_name} ({self.username})'
 
     def __str__(self):
         return self.as_str
+
 # to delete
 class MessageLink(BaseModel):
     title = models.TextField(verbose_name=_('название ссылки'))
@@ -327,7 +326,6 @@ class CampaignChannel(BaseModel):
         return Decimal(self.impressions_plan / Decimal("1000") * self.cpm).quantize(Decimal('0.00')) \
             if self.cpm and self.impressions_plan\
             else 0
-
 
     class Meta:
         verbose_name = 'Статистика по РК'

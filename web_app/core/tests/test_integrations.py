@@ -4,9 +4,10 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 
 from core.external_clients import TGStatClient
-from .factories import CampaignFactory, ChannelFactory, ChannelAdminFactory, MessageFactory
+from .factories import CampaignFactory, ChannelFactory, ChannelAdminFactory, MessageFactory, CampaignChannelFactory
 from core.models import Campaign, CampaignChannel, Channel, ChannelAdmin, Message
 from core.external_clients import TGChannelStat
+from ..serializers import ExporterSerializer
 
 
 # class TestCampaignIntegrationTests(TestCase):
@@ -116,3 +117,12 @@ class TestChannelAdmin(TestCase):
         self.assertEqual(channel_admin2.user.groups.first().name, channel_admin2.role)
 
         self.assertEqual(Group.objects.all().count(), 2)
+
+
+class TestExporter(TestCase):
+
+    def test_qs_exporter_success(self):
+        instances = CampaignChannelFactory.create_batch(size=5)
+        rows = [i.values() for i in ExporterSerializer(instance=instances, many=True).data]
+        print('rows', rows)
+        self.assertEqual(len(rows), 5)

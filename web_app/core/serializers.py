@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.templatetags.l10n import localize
 from rest_framework import serializers
 from core.models import Channel, Message, CampaignChannel, User, Campaign, ChannelAdmin
 
@@ -273,3 +275,33 @@ class TGChannelStat(serializers.ModelSerializer):
             'daily_reach',
         ]
 
+
+
+class ExporterSerializer(serializers.ModelSerializer):
+    campaign = serializers.CharField(label='Название РК')
+    channel = serializers.CharField(label='Канал')
+    # message_publish_date = serializers.DateTimeField(format='%c', label='Дата публикации')
+    message_publish_date = serializers.SerializerMethodField(label='Дата публикации')
+    impressions_fact = serializers.IntegerField(label='Показы-факт')
+    clicks = serializers.IntegerField(label='Заработано')
+    earned_money = serializers.FloatField(label='Клики')
+    is_approved = serializers.BooleanField(label='Разрешено')
+
+    def get_message_publish_date(self, instance):
+        return localize(value=instance.message_publish_date) if instance.message_publish_date else '-'
+
+
+    class Meta:
+        model = CampaignChannel
+        fields = [
+            'campaign',
+            'channel',
+            'message_publish_date',
+            'impressions_fact',
+            'clicks',
+            'earned_money',
+            'is_approved',
+        ]
+
+    def get_cols_names(self):
+        return [self[field].label for field in self.fields]

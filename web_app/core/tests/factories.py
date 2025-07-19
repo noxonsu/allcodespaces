@@ -54,7 +54,7 @@ class CampaignChannelFactory(DjangoModelFactory):
     is_message_published = factory.Faker('boolean')
     message_publish_date = factory.Faker('date')
     channel_post_id = factory.Faker('uuid4')
-    campaign_active = factory.Faker('boolean')
+    is_approved = factory.Faker('boolean')
 
 
 class UserFactory(DjangoModelFactory):

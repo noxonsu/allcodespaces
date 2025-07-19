@@ -13,7 +13,6 @@ def change_channeladmin_group(instance: "ChannelAdmin"):
         if instance.user.groups.exists():
                 instance.user.groups.clear()
 
-        logger.info(f'{instance.role=}')
         def set_user_group(instance: "ChannelAdmin"):
             user = instance.user
             group_name = instance.role
