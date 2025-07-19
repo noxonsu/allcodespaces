@@ -13,9 +13,9 @@ class MessageFactory(DjangoModelFactory):
     class Meta:
         model = 'core.Message'
 
-    header = factory.Faker('text')
+    name = factory.Faker('text')
     body = factory.Faker('text')
-    footer = factory.Faker('text')
+    title = factory.Faker('text')
 
 
 class CampaignFactory(DjangoModelFactory):
@@ -60,7 +60,6 @@ class CampaignChannelFactory(DjangoModelFactory):
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = 'core.User'
-        django_get_or_create = ('username',)
 
 
 
@@ -70,15 +69,14 @@ class ChannelAdminFactory(DjangoModelFactory):
         django_get_or_create = ('username',)
 
     username = faker.user_name()
-    tg_id = faker.Faker('uuid4')
+    tg_id = faker.uuid4()
     first_name = faker.first_name()
     last_name = faker.last_name()
     phone_number = faker.phone_number()
     email = faker.free_email()
-    inn = faker.Faker('text')
-    legal_name = faker.Faker('text')
-    cooperation_form = faker.Faker('text')
-    role = faker.random.choice(['owner', 'manager'])
-    channels = []
+    inn = faker.random_int()
+    cooperation_form = faker.random.choice([i[0] for i in ChannelAdmin.CooperationFormChoices.choices])
+    legal_name = faker.text()
+    role = faker.random.choice([i[0] for i in ChannelAdmin.Role.choices])
     is_bot_installed = factory.Faker('boolean')
     user = SubFactory(UserFactory)

@@ -74,6 +74,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'is_bot_installed',
         'avatar_image',
         'invitation_link',
+        'refresh_statistics',
     ]
     list_display = [
         'name',
@@ -99,6 +100,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'is_bot_installed',
     ]
 
+    @admin.display(description='')
+    def refresh_statistics(self, obj):
+        print(f'{obj=} hey')
+        # obj.refresh_statistics()
+        return mark_safe('<a href="http://web-app:8000/" class="btn btn-success">обновить статистику</a>')
 
     def has_view_permission(self, request, obj=None):
         return True
@@ -156,6 +162,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
                     'about',
                     'language',
                     'invitation_link',
+                    'refresh_statistics',
                 )
             }),
     )

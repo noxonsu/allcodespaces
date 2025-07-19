@@ -242,12 +242,12 @@ class TGChannelStat(serializers.ModelSerializer):
     username = serializers.CharField(allow_null=True, allow_blank=True)
     title = serializers.CharField(allow_null=True, allow_blank=True, source='name')
     participants_count = serializers.IntegerField(default=0,    source='members_count')
-    avg_post_reach = serializers.IntegerField(default=0, )
-    er_percent = serializers.IntegerField(default=0, source='er', allow_null=True)
-    err_percent = serializers.IntegerField(default=0, source='err', allow_null=True)
-    err24_percent = serializers.IntegerField(default=0,  source='err_24', allow_null=True)
+    avg_post_reach = serializers.FloatField(default=0, )
+    er_percent = serializers.FloatField(default=0,     source='er', allow_null=True)
+    err_percent = serializers.FloatField(default=0,    source='err', allow_null=True)
+    err24_percent = serializers.FloatField(default=0,  source='err_24', allow_null=True)
     posts_count = serializers.IntegerField(default=0, )
-    daily_reach = serializers.IntegerField(default=0, )
+    daily_reach = serializers.FloatField(default=0, )
 
     def validate(self, attrs):
         attrs = super().validate(attrs)

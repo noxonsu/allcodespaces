@@ -2,7 +2,7 @@ import unittest
 
 import pytest
 
-from .factories.common import ChannelAdminFactory
+from .factories import ChannelAdminFactory
 
 
 pytestmark = [
