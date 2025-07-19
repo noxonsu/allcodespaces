@@ -1,10 +1,10 @@
 from unittest.mock import patch
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 
 from core.external_clients import TGStatClient
 from .factories import CampaignFactory, ChannelFactory, ChannelAdminFactory, MessageFactory
-from .factories import CampaignChannelFactory
 from core.models import Campaign, CampaignChannel, Channel, ChannelAdmin, Message
 from core.external_clients import TGChannelStat
 
@@ -28,6 +28,7 @@ from core.external_clients import TGChannelStat
 #         self.assertEqual(updated_count, 2)
 #
 #
+
 class TestTGStatTests(TestCase):
     def setUp(self):
         self.client = TGStatClient()
@@ -63,3 +64,55 @@ class TestTGStatTests(TestCase):
         channel: Channel = ChannelFactory.create(tg_id='-1002176577290', name='ЭксперТУШка')
         self.client.update_channel_stat(channel)
         pathed_save.assert_called_once()
+
+
+class TestChannelAdmin(TestCase):
+    def test_create_channel_admin_nouser_success(self):
+        channel_admin = ChannelAdmin.objects.create(username='channel_admin_username')
+        self.assertIsNotNone(channel_admin.user)
+        self.assertEqual(channel_admin.username, channel_admin.user.username)
+
+    def test_save_channel_admin_nouser_success(self):
+        channel_admin = ChannelAdmin(username='channel_admin_username')
+        channel_admin.save()
+        self.assertIsNotNone(channel_admin.user)
+        self.assertEqual(channel_admin.username, channel_admin.user.username)
+
+    def test_update_channel_admin_nouser_success(self):
+        channel_admin = ChannelAdminFactory(username='channel_admin_username3')
+        channel_admin.first_name = 'any'
+        channel_admin.save()
+        self.assertIsNotNone(channel_admin.user)
+        self.assertEqual(channel_admin.username, channel_admin.user.username)
+
+
+    def test_channel_admin_set_groups(self):
+        channel_admin = ChannelAdmin.objects.create(username='channel_admin_groups')
+        self.assertEqual(channel_admin.user.groups.count(), 1)
+        self.assertEqual(channel_admin.user.groups.first().name, channel_admin.role)
+
+    def test_channel_admin_user_only_onegroup(self):
+        channel_admin = ChannelAdmin.objects.create(username='channel_admin_groups')
+        channel_admin.role = ChannelAdmin.Role.OWNER
+        channel_admin.save()
+        channel_admin.role = ChannelAdmin.Role.MANAGER
+        channel_admin.save()
+        self.assertEqual(channel_admin.user.groups.count(), 1)
+        self.assertEqual(channel_admin.user.groups.first().name, channel_admin.role)
+
+    def test_channel_admin_different_groups_success(self):
+        channel_admin1 = ChannelAdmin.objects.create(username='channel_admin_groups')
+        channel_admin2 = ChannelAdmin.objects.create(username='channel_admin_groups2')
+
+        channel_admin1.role = ChannelAdmin.Role.OWNER
+        channel_admin1.save()
+        channel_admin2.role = ChannelAdmin.Role.MANAGER
+        channel_admin2.save()
+
+        self.assertEqual(channel_admin1.user.groups.count(), 1)
+        self.assertEqual(channel_admin1.user.groups.first().name, channel_admin1.role)
+
+        self.assertEqual(channel_admin2.user.groups.count(), 1)
+        self.assertEqual(channel_admin2.user.groups.first().name, channel_admin2.role)
+
+        self.assertEqual(Group.objects.all().count(), 2)

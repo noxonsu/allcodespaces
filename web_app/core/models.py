@@ -1,3 +1,6 @@
+from functools import cached_property
+
+from .utils import RolePermissions
 from decimal import Decimal
 from typing import Self
 
@@ -22,17 +25,7 @@ class User(AbstractUser):
         PUBLISHER = 'admin', 'Administrator'
 
     role = models.CharField(choices=Role.choices, max_length=50, null=True, blank=True)
-    # to delete
-    tg_id = models.CharField(null=True, blank=True)
-    tg_username=models.CharField(max_length=500, null=True, blank=True)
-    tg_photo_url=models.URLField(null=True, blank=True)
-    channel = models.ForeignKey(
-        to='Channel',
-        related_name='owners',
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL)
-    #
+
     class Meta:
         verbose_name_plural='Пользователи'
         verbose_name='Пользователь'
@@ -40,6 +33,7 @@ class User(AbstractUser):
 
 
 class ChannelAdmin(BaseModel):
+
     class CooperationFormChoices(models.TextChoices):
         LEGAL = 'legal', 'ФЛ (без статуса СЗ)'
         C3 = 'c3', 'СЗ'
@@ -70,6 +64,19 @@ class ChannelAdmin(BaseModel):
         verbose_name_plural = 'Администраторы каналов'
         verbose_name = 'Администратор каналов'
         ordering = ['-created_at']
+
+    def get_role_permissions(self):
+        _default_permissions = RolePermissions(content_types=('CampaignChannel', "Channel",),
+                                     permissions=("view_campaignchannel", "view_channel"), )
+
+        role_permissions = {
+            'manager': RolePermissions(
+                content_types=('Message', "Channel", "Campaign", 'ChannelAdmin', 'CampaignChannel'),
+                permissions="__all__", ),
+            'owner': _default_permissions,
+        }
+        return role_permissions.get(self.role, _default_permissions)
+
 
 
     @property

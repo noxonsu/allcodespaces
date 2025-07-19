@@ -4,9 +4,30 @@ from django.dispatch import receiver, Signal
 from rest_framework.renderers import JSONRenderer
 
 from web_app.app_settings import app_settings
-from core.models import  CampaignChannel, ChannelAdmin
+from core.models import CampaignChannel, ChannelAdmin
 from .models_qs import change_channeladmin_group
 from .serializers import CampaignChannelSerializer
+
+
+def get_create_channel_admin_user(**kwargs):
+    from core.models import User
+    user = User.objects.filter(username=kwargs['username']).first()
+    if not user:
+        user = User.objects.create_user(
+            username=kwargs['username'],
+        )
+        user.set_password(kwargs['username'] + '123456')
+        user.save()
+    User.objects.filter(id=user.id).update(
+        first_name=kwargs.get('first_name', ''),
+        last_name=kwargs.get('last_name', ''),
+        email=kwargs.get('email', ''),
+        is_staff=True,
+        is_active=True,
+        is_superuser=False)
+    user.profile = kwargs.get('channel_admin')
+    # user.profile.save()
+    return user
 
 
 def send_message_to_channel_admin(instance: CampaignChannel)-> None:
@@ -33,5 +54,12 @@ def campaignchannel_pre_save(signal: Signal, sender: CampaignChannel, instance: 
 @receiver(signal=pre_save, sender=ChannelAdmin)
 def change_channeladmin_group_receiver(signal: Signal, sender: ChannelAdmin, instance: ChannelAdmin, raw, using, update_fields, **kwargs):
     channel_admin = sender.objects.filter(id=instance.id).first()
+    get_create_channel_admin_user(
+        channel_admin=instance,
+        username=instance.username,
+        first_name=instance.first_name,
+        last_name=instance.last_name,
+        email="",
+    )
     if instance.id and (not channel_admin or (channel_admin and instance.role != channel_admin.role)):
         change_channeladmin_group(instance)
