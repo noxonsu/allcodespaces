@@ -13,15 +13,25 @@ def on_commit(apps, schema):
     logger.info(f'found {len(channel_admins)} channel admins')
     for channel_admin in channel_admins:
         logger.info(f'{channel_admin=} in process.')
-        User.objects.filter(username=channel_admin.username).delete()
-        user = User.objects.create_user(
-            username=channel_admin.username,
-            password=channel_admin.username +'123123456',
-            profile=channel_admin,
-            first_name=channel_admin.first_name,
-            last_name=channel_admin.last_name,
+        user = User.objects.filter(username=channel_admin.username).first()
+        if not user:
+            user = User.objects.create_user(
+                username=channel_admin.username,
+                password=channel_admin.username +'123123456',
+                profile=channel_admin,
+                first_name=channel_admin.first_name,
+                last_name=channel_admin.last_name,
+                is_active=True,
+                is_staff=True,
+            )
+        else:
+            user.username = channel_admin.username
+            user.first_name = channel_admin.first_name
+            user.last_name = channel_admin.last_name
+            user.is_active = True
+            user.is_staff = True
+            user.save()
 
-        )
         user.groups.clear()
         user.groups.add(Group.objects.get(name=channel_admin.role))
         logger.info(f'{channel_admin=} Done.')
