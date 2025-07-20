@@ -118,6 +118,13 @@ class TestChannelAdmin(TestCase):
 
         self.assertEqual(Group.objects.all().count(), 2)
 
+    def test_channel_admin_auto_creates_user_success(self):
+        channel_admin = ChannelAdmin.objects.create(username='channel_admin_username', tg_id='-1002176577290')
+        self.assertIsNotNone(channel_admin.user)
+        self.assertEqual(channel_admin.user.username, channel_admin.username)
+        self.assertEqual(Group.objects.all().count(), 1)
+        self.assertEqual(Group.objects.all().first().name, channel_admin.role)
+
 
 class TestExporter(TestCase):
 

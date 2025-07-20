@@ -25,8 +25,11 @@ def get_create_channel_admin_user(**kwargs):
         is_staff=True,
         is_active=True,
         is_superuser=False)
-    user.profile = kwargs.get('channel_admin')
-    # user.profile.save()
+    # user.profile = kwargs.get('channel_admin')
+    channel_admin = kwargs.get('channel_admin')
+    if channel_admin:
+        user.profile = channel_admin
+        user.save()
     return user
 
 
