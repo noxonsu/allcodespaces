@@ -201,7 +201,7 @@ class TGLoginSerializer(serializers.ModelSerializer):
             ChannelAdmin.objects.filter(
                 tg_id=self.validated_data['tg_id'],
             ).delete()
-            return ChannelAdmin.objects.create_normal_user(
+            return ChannelAdmin.objects.create(
                 tg_id=self.validated_data['tg_id'],
                 username=self.validated_data.get('username', self.validated_data['tg_id']),
                 last_name=self.validated_data['last_name'],
