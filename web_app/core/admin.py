@@ -260,6 +260,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
     fields = ['campaign_channels_count', 'campaign_channels_subs_count', 'channels_avg_posts_reach', 'sov']
     readonly_fields = fields
 
+    # to delete
     @admin.display(description='Количество каналов')
     def campaign_channels_count(self: Self, instance: CampaignChannel):
         campaign: Campaign = instance.campaign

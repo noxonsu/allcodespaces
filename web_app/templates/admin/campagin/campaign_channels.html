@@ -19,7 +19,6 @@
                     </th>
                 </tr>
                 </thead>
-
                 <tbody>
                <tr scope="row" class="table-bordered">
                       <td class="column-{{ field.name }} " colspan="2"> Количество каналов </td>
@@ -41,85 +40,25 @@
                       <td class="column-{{ field.name }} text-center" colspan="2"> {{original.total_channels_sov}} </td>
                       <td class="column-{{ field.name }} text-center" colspan="2"> {{original.my_channels_sov}} </td>
                 <tr>
-
-
-
-<!--                    {% for field in inline_admin_formset.fields %}-->
-<!--                        {% if not field.widget.is_hidden %}-->
-<!--                            <td class="column-{{ field.name }}{% if field.required %} required{% endif %}">{{ field.value|capfirst }}-->
-<!--                                {% if field.help_text %}<img src="{% static "admin/img/icon-unknown.svg" %}" class="help help-tooltip" width="10" height="10" alt="({{ field.help_text|striptags }})" title="{{ field.help_text|striptags }}">{% endif %}-->
-<!--                            </td>-->
-<!--                        {% endif %}-->
-<!--                    {% endfor %}-->
-
-
-<!--                {% for inline_admin_form in inline_admin_formset %}-->
-<!--                    <tr class="form-row{% if inline_admin_form.original or inline_admin_form.show_url %} has_original{% endif %}{% if forloop.last and inline_admin_formset.has_add_permission %} empty-form{% endif %}"-->
-<!--                        id="{{ inline_admin_formset.formset.prefix }}-{% if not forloop.last %}{{ forloop.counter0 }}{% else %}empty{% endif %}">-->
-<!--                        <td class="original">-->
-<!--                            {% if inline_admin_form.original or inline_admin_form.show_url %}-->
-<!--                            <p>-->
-<!--                                {% if inline_admin_form.original %}-->
-<!--                                    {% if inline_admin_form.model_admin.show_change_link and inline_admin_form.model_admin.has_registered_model %}-->
-<!--                                        <a-->
-<!--                                            href="{% url inline_admin_form.model_admin.opts|admin_urlname:'change' inline_admin_form.original.pk|admin_urlquote %}"-->
-<!--                                            class="{% if inline_admin_formset.has_change_permission %}inlinechangelink{% else %}inlineviewlink{% endif %}">-->
-<!--                                            {% if inline_admin_formset.has_change_permission %}-->
-<!--                                                <i class="fas fa-pencil-alt fa-sm"> </i>-->
-<!--                                            {% else %}-->
-<!--                                                <i class="fas fa-eye fa-sm"> </i>-->
-<!--                                            {% endif %}-->
-<!--                                        </a>-->
-<!--                                    {% endif %}-->
-
-<!--                                    {% if inline_admin_form.show_url %}-->
-<!--                                        <a href="{{ inline_admin_form.absolute_url }}" title="{% trans "View on site" %}">-->
-<!--                                            <i class="fas fa-eye fa-sm"> </i>-->
-<!--                                        </a>-->
-<!--                                    {% endif %}-->
-<!--                                {% endif %}-->
-<!--                            </p>-->
-<!--                            {% else %}-->
-<!--                            <i class="fas fa-plus fa-sm text-success"> </i>-->
-<!--                            {% endif %}-->
-<!--                            {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}-->
-<!--                            {% if inline_admin_form.fk_field %}{{ inline_admin_form.fk_field.field }}{% endif %}-->
-<!--                            {% spaceless %}-->
-<!--                                {% for fieldset in inline_admin_form %}-->
-<!--                                    {% for line in fieldset %}-->
-<!--                                        {% for field in line %}-->
-<!--                                            {% if not field.is_readonly and field.field.is_hidden %}{{ field.field }}{% endif %}-->
-<!--                                        {% endfor %}-->
-<!--                                    {% endfor %}-->
-<!--                                {% endfor %}-->
-<!--                            {% endspaceless %}-->
-<!--                        </td>-->
-<!--                        {% for fieldset in inline_admin_form %}-->
-<!--                            {% for line in fieldset %}-->
-<!--                                {% for field in line %}-->
-<!--                                    {% if field.is_readonly or not field.field.is_hidden %}-->
-<!--                                        <td {% if field.field.name %} class="field-{{ field.field.name }}"{% endif %}>-->
-<!--                                            {% if field.is_readonly %}-->
-<!--                                                <p>{{ field.contents }}</p>-->
-<!--                                            {% else %}-->
-<!--                                                {{ field.field }}-->
-<!--                                                <div class="help-block text-red">-->
-<!--                                                    {{ field.field.errors.as_ul }}-->
-<!--                                                </div>-->
-<!--                                            {% endif %}-->
-<!--                                        </td>-->
-<!--                                    {% endif %}-->
-<!--                                {% endfor %}-->
-<!--                            {% endfor %}-->
-<!--                        {% endfor %}-->
-<!--                        {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}-->
-<!--                            <td class="delete">{% if inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>-->
-<!--                        {% endif %}-->
-<!--                    </tr>-->
-<!--                {% endfor %}-->
-
-                </tbody>
             </table>
+<table class="table">
+    <thead class="thead-dark table-bordered">
+    <tr>
+      <th scope="col">#</th>
+      <th scope="col">Показы</th>
+      <th scope="col">Клики</th>
+      <th scope="col">CTR</th>
+    </tr>
+  </thead>
+  <tbody class="table-bordered">
+    <tr>
+      <th scope="row" >Всего</th>
+      <td>{{original.total_impressions_fact}}</td>
+      <td>{{original.total_clicks}}</td>
+      <td>{{original.total_ctr}}</td>
+    </tr>
+  </tbody>
+</table>
         </fieldset>
     </div>
 </div>

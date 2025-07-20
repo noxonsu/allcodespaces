@@ -201,6 +201,20 @@ class Campaign(BaseModel):
 
     # admin methods
     @property
+    def total_clicks(self):
+        return self.campaigns_channel.aggregate(Sum('clicks'))['clicks__sum'] or 0
+
+    @property
+    def total_impressions_fact(self):
+        return self.campaigns_channel.aggregate(Sum('impressions_fact'))['impressions_fact__sum'] or 0
+
+    @property
+    def total_ctr(self):
+        return f"{self.total_clicks / self.total_impressions_fact * 100:.2f}"\
+        if self.total_clicks and self.total_impressions_fact\
+            else 0
+
+    @property
     def total_channels_count(self):
         return self.channels.distinct().count()
 
@@ -236,7 +250,6 @@ class Campaign(BaseModel):
         impressions_plan = self.channels.filter(channel_campaigns__is_approved=True).distinct().aggregate(Sum('channel_campaigns__impressions_plan'))['channel_campaigns__impressions_plan__sum']
         return f"{impressions_plan / members_count  * 100:.2f}%" if impressions_plan and members_count else '0%'
 
-
     def clean_wordsfilters(self: Self):
         if self.white_list and self.black_list:
             for word in self.white_list:
@@ -247,7 +260,6 @@ class Campaign(BaseModel):
                             "black_list":f"word: ({word}) is in both fields Разрешённые слова, Запрещённые слова",
                          },
                     )
-
 
     @admin.display(description='сред. СРМ (руб.) (среднее арифметическое значение)')
     def avg_cpm(self: Self):
@@ -276,8 +288,6 @@ class Campaign(BaseModel):
                         **e.message_dict
                     }
                 )
-
-
 
     def clean(self: Self):
         super().clean()
