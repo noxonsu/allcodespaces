@@ -8,6 +8,7 @@ from web_app.logger import logger
 
 @transaction.atomic
 def change_channeladmin_group(instance: "ChannelAdmin"):
+        logger.info(f"change_channeladmin_group: Changing user group for {instance=}")
         if not getattr(instance, 'user', None):
                 return
         if instance.user.groups.exists():
