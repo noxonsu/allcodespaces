@@ -57,12 +57,13 @@ def campaignchannel_pre_save(signal: Signal, sender: CampaignChannel, instance: 
 @receiver(signal=pre_save, sender=ChannelAdmin)
 def change_channeladmin_group_receiver(signal: Signal, sender: ChannelAdmin, instance: ChannelAdmin, raw, using, update_fields, **kwargs):
     channel_admin = sender.objects.filter(id=instance.id).first()
-    get_create_channel_admin_user(
-        channel_admin=instance,
-        username=instance.username,
-        first_name=instance.first_name,
-        last_name=instance.last_name,
-        email="",
-    )
+    if not getattr(channel_admin, 'user', None):
+        get_create_channel_admin_user(
+            channel_admin=instance,
+            username=instance.username,
+            first_name=instance.first_name,
+            last_name=instance.last_name,
+            email="",
+        )
     if instance.id and (not channel_admin or (channel_admin and instance.role != channel_admin.role)):
         change_channeladmin_group(instance)
