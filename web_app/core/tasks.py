@@ -19,3 +19,14 @@ def campaign_messages_90_mins_before(*args, **kwargs):
     tg_client = TGStatClient()
     for campaign_channel in campaign_channels:
         tg_client.update_message_views(campaign_channel=campaign_channel)
+
+
+@app.shared_task(bind=True)
+@log_func
+def update_campaign_channel_views(*args, **kwargs):
+    id = kwargs.get('campaign_channel_id')
+    if not id:
+        return
+    client = TGStatClient()
+    campaign_channel = CampaignChannel.objects.get(pk=id)
+    client.update_message_views(campaign_channel)

@@ -210,7 +210,7 @@ class Campaign(BaseModel):
 
     @property
     def total_ctr(self):
-        return f"{self.total_clicks / self.total_impressions_fact * 100:.2f}"\
+        return f"{self.total_clicks / self.total_impressions_fact * 100:.2f}%"\
         if self.total_clicks and self.total_impressions_fact\
             else 0
 

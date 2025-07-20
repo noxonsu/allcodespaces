@@ -15,7 +15,7 @@ class AppSettings(BaseSettings):
     SECRET_KEY: str = 'super-secret'
     DEBUG: bool = False
     ALLOWED_HOSTS: list[str] = ['localhost', '127.0.0.1', 'app.telewin.online']
-    BOT_URI: str = 'https://app.telewin.online'
+    DOMAIN_URI: str = 'https://app.telewin.online'
     DJANGO_SETTINGS_MODULE: str = 'web_app.settings'
 
 app_settings = AppSettings()

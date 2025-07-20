@@ -39,7 +39,7 @@ def send_message_to_channel_admin(instance: CampaignChannel)-> None:
             and not instance.is_approved:
 
         data = JSONRenderer().render(CampaignChannelSerializer(instance).data)
-        response = requests.post(f'{app_settings.BOT_URI}/telegram/public-campaign-channel', data=data, headers={'content-type': 'application/json'})
+        response = requests.post(f'{app_settings.DOMAIN_URI}/telegram/public-campaign-channel', data=data, headers={'content-type': 'application/json'})
         print(f'message sent to {instance.channel_admin}')
         print(f'response {response} {response.content}')
 

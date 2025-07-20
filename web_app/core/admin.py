@@ -7,10 +7,11 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
 from django.forms import Select
-from django.http import JsonResponse,  FileResponse
+from django.http import JsonResponse, FileResponse, HttpRequest
 from django.urls import path
 from django.utils.safestring import mark_safe
 
+from web_app.logger import logger
 from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -208,8 +209,15 @@ class CampaignChannelInlinedForm(forms.ModelForm):
             total_budget+= current_total_budget
             if total_budget > campaign.budget:
                 raise ValidationError({"cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"})
+
         return super().clean()
 
+
+    # def clean_deleted(self: Self):
+    #     to_delete = self.cleaned_data.get('DELETE', False)
+    #     to_delete_instance = self.cleaned_data.get('id' )
+    #     if to_delete and self.instance and self.instance.is_message_published:
+    #         raise ValidationError('Cannot delete published post!')
 
     class Meta:
         model = CampaignChannel
@@ -229,18 +237,29 @@ class CampaignChannelInlined(admin.TabularInline):
         'channel_post_id',
         'is_approved',
         'publish_status',
-        'clicks'
+        'clicks',
+        'update_statistics',
     ]
     form = CampaignChannelInlinedForm
-
+    template = 'admin/campaign/campaign_channel_tabular.html'
     class Media:
         js = {
             'custom/campaign_channel_inlined.js'
         }
 
+    @admin.display(description='Обновить статистику')
+    def update_statistics(self, instance):
+        if not instance._state.adding:
+            from core.tasks import update_campaign_channel_views
+            update_campaign_channel_views.delay(campaign_channel_id=instance.id)
+            logger.info("[Task](update_campaign_channel_views) started from admin")
+            return mark_safe(f'<a href="" class="btn btn-success">Обновить статистику </a>')
+        else:
+            return '-'
 
     def has_change_permission(self, request, obj=None):
         return False
+
 
 
 class ReadOnlyCampaignChannelInlined(admin.TabularInline):
@@ -251,7 +270,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    template = 'admin/campagin/campaign_channels.html'
+    template = 'admin/campaign/campaign_channels.html'
 
     extra = 0
     model = CampaignChannel
