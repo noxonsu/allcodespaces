@@ -13,6 +13,7 @@ from django.utils.safestring import mark_safe
 
 from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter
 from .exporter import QuerySetExporter
+from .external_clients import TGStatClient
 from .models import Channel, Campaign, Message, CampaignChannel, User, MessageLink, ChannelAdmin
 from django.contrib.admin import register, ModelAdmin
 
@@ -101,10 +102,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
     ]
 
     @admin.display(description='')
-    def refresh_statistics(self, obj):
-        print(f'{obj=} hey')
-        # obj.refresh_statistics()
-        return mark_safe('<a href="http://web-app:8000/" class="btn btn-success">обновить статистику</a>')
+    def refresh_statistics(self, obj: Channel):
+        client = TGStatClient()
+        client.update_channel_info(obj)
+        client.update_channel_stat(obj)
+        return mark_safe('<a href="http://web-app:8000/api/c" class="btn btn-success">обновить статистику</a>')
 
     def has_view_permission(self, request, obj=None):
         return True
@@ -129,16 +131,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.display(description='channel avatar')
-    def list_avatar(self, obj):
-        if obj.avatar_url:
-            return mark_safe(f"<img src={obj.avatar_url} alt='image-{obj.name}' class='avatar'>")
-        return '-'
-
     @admin.display()
     def avatar_image(self, obj):
         if obj.avatar_url:
-            return mark_safe(f"<img src={obj.avatar_url} alt='image-{obj.name}' style='width:70%;height:70%;'>")
+            return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:70%;height:70%;'>")
         return '-'
 
     fieldsets = (

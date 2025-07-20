@@ -76,7 +76,7 @@ class TGStatClient(ExternalClient):
                 "token": self.token,
                 "channelId": channel.tg_id
             })
-        logger.info(f'[{__class__}] update_channel_info: {response.url=} {response.status_code=}')
+        logger.info(f'update_channel_info: {response.url=} {response.status_code=}')
         return self.service.update_channel_info(response=response, channel=channel)
 
 

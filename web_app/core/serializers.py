@@ -219,6 +219,7 @@ class TGChannelInfo(serializers.ModelSerializer):
     country = serializers.CharField(allow_null=True, allow_blank=True)
     language = serializers.CharField(allow_null=True, allow_blank=True)
     participants_count = serializers.IntegerField(allow_null=True, required=False, source='members_count')
+    image640 = serializers.CharField(allow_null=True, allow_blank=True, source='avatar_url')
 
     def validate_link(self, link: str):
         if link and not link.startswith('http'):
@@ -236,6 +237,7 @@ class TGChannelInfo(serializers.ModelSerializer):
             'country',
             'language',
             'participants_count',
+            'image640',
         ]
 
 
