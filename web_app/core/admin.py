@@ -344,10 +344,18 @@ class CampaignAdmin(admin.ModelAdmin):
     )
 
 
+class MessageModelForm(forms.ModelForm):
+    button_link = forms.URLField(required=True)
+
+    class Meta:
+        model = Message
+        fields = '__all__'
+
 @register(Message)
 class MessageAdmin(admin.ModelAdmin):
     readonly_fields = ['id', 'display_image', 'display_image_thumbil']
     list_display = ['__str__', 'message_type','display_image_thumbil' ]
+    form = MessageModelForm
 
     fields = [
         'name',
