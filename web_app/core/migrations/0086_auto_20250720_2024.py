@@ -28,6 +28,7 @@ def on_commit(apps, schema):
             user.username = channel_admin.username
             user.first_name = channel_admin.first_name
             user.last_name = channel_admin.last_name
+            user.profile = channel_admin
             user.is_active = True
             user.is_staff = True
             user.save()
