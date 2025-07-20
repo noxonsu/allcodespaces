@@ -17,7 +17,7 @@ services:
       - all
     volumes:
       - ./:/app
-      - ./media/:/app/media/
+      - media:/app/media/
       - ./static/:/app/static/
 
   celery-worker:
@@ -67,6 +67,7 @@ services:
       - all
     volumes:
       - ../bot:/bot
+      - media:/media/
 
 
   web-db:

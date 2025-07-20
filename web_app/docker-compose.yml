@@ -17,9 +17,8 @@ services:
       - all
     volumes:
       - ./:/app
-      - ./media/:/app/media/
+      - media:/app/media/
       - ./static/:/app/static/
-#      - app_certificates:/app/certificates
 
   celery-worker:
     restart: "on-failure"
@@ -55,8 +54,6 @@ services:
     volumes:
       - ./:/app
 
-
-
   tg-bot:
     build:
       context: ../bot
@@ -70,6 +67,7 @@ services:
       - all
     volumes:
       - ../bot:/bot
+      - media:/media/
 
 
   reverse-proxy:
