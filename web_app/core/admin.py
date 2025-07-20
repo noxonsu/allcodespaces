@@ -484,7 +484,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         user = request.user
-        if user.groups.filter(name='owner'):
+        if user.groups.filter(name__in=['owner', 'owners']):
             return qs.filter(channel__in=user.profile.channels.values_list('id', flat=True))
         return qs
 
