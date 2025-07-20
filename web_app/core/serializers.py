@@ -217,7 +217,7 @@ class TGChannelInfo(serializers.ModelSerializer):
     about = serializers.CharField(allow_null=True, allow_blank=True)
     category = serializers.CharField(allow_null=True, allow_blank=True)
     country = serializers.CharField(allow_null=True, allow_blank=True)
-    language = serializers.CharField(allow_null=True, allow_blank=True)
+    language = serializers.CharField(allow_null=True, allow_blank=True, default='', initial='')
     participants_count = serializers.IntegerField(allow_null=True, required=False, source='members_count')
     image640 = serializers.CharField(allow_null=True, allow_blank=True, source='avatar_url')
 
