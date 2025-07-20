@@ -224,6 +224,8 @@ class TGChannelInfo(serializers.ModelSerializer):
     def validate_link(self, link: str):
         if link and not link.startswith('http'):
             return f"https://{link}"
+        if not link and self.instance and self.instance.avatar_url:
+            return self.instance.avatar_url
         return link
 
     class Meta:
