@@ -1,5 +1,7 @@
 import datetime
+from telegram.error import TimedOut
 
+from helpers import _publish_messages_logic
 from services import MainService
 from parsers import CampaignChannelParserIn
 
@@ -9,53 +11,25 @@ from telegram import (
     Update)
 from telegram.ext import ContextTypes
 from logger import logger
-import httpx
+
 
 
 async def _public_message(bot, campaign_channels: list[CampaignChannelParserIn]):
     posts_data = []
     kwargs = {}
-
-    def _parse_campaign_button(campaign_channel: CampaignChannelParserIn):
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                   campaign_channel.campaign.message.button.title,
-                url=campaign_channel.analysis_link),
-            ]
-        ]
-        return InlineKeyboardMarkup(keyboard)
+    timedout_messages = []
 
     for campaign_channel in campaign_channels:
-        if not campaign_channel:
-            continue
-        post = None
-        if campaign_channel.has_message_button:
-            kwargs['reply_markup'] = _parse_campaign_button(campaign_channel)
+        try:
+            if not campaign_channel:
+                continue
+            await _publish_messages_logic(bot, campaign_channel, kwargs, posts_data)
+        except TimedOut:
+            logger.error(f'PUBLISH ERROR: Timeout for {campaign_channel}')
+            timedout_messages.append(campaign_channel)
+        except Exception as e:
+            logger.error(f'Exception: {e}')
 
-        if campaign_channel.has_message_video:
-            post = await bot.send_video(
-                video=open(campaign_channel.campaign.message.video_local_path, 'rb'),
-                chat_id=campaign_channel.channel.tg_id,
-                parse_mode='HTML',
-                caption=campaign_channel.message_as_text, **kwargs)
-        elif campaign_channel.has_message_image:
-            post = await bot.send_photo(
-                photo=open(campaign_channel.campaign.message.image_local_path, 'rb'),
-                chat_id=campaign_channel.channel.tg_id,
-                parse_mode='HTML',
-                caption=campaign_channel.campaign.message.as_text, **kwargs)
-        if post:
-            posts_data.append(
-                {
-                    'id': campaign_channel.campaign.message.id,
-                    'channel_post_id': post['message_id'],
-                    'message_publish_date': str(datetime.datetime.now()),
-                    "is_message_published": True,
-                    "publish_status":'published',
-                    "campaign_channel_id": str(campaign_channel.id),
-                }
-            )
     return posts_data
 
 
