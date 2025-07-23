@@ -69,7 +69,7 @@ async def channel_handle_kicked(update: Update, context):
 async def publish_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     update_dict = update.to_dict()
     chat_id = update_dict["my_chat_member"]["chat"]["id"]
-    service = MainService()
+    service: MainService = MainService(parser=CampaignChannelParserIn)
     service.get_campaign_channel_by_words(channel_tg_id=chat_id, words='')
     posted_data = await _public_message(context.bot, service.parse())
     if service.has_data():
