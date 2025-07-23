@@ -67,30 +67,13 @@ async def channel_handle_kicked(update: Update, context):
 
 
 async def publish_channel_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    update_dict = update.to_dict()
-    imag = 'https://cdn.vectorstock.com/i/1000x1000/64/33/this-is-just-a-test-funny-quote-vector-46416433.webp'
-    chat_id = update_dict["my_chat_member"]["chat"]["id"]
-    to_publics = httpx.get(url=f'http://web-app:8000/api/campaign-channel/?channel__tag_id={chat_id}&is_message_published=false')
-    to_publics = to_publics.json()
-    messages_posts_ids = {}
-    for to_public in to_publics:
-        try:
-            post= await context.bot.send_photo(
-                photo=imag,
-                chat_id=chat_id,
-                parse_mode='HTML',
-                caption=to_public['message']['as_text'])
-            messages_posts_ids[str(to_public['id'])] = post['message_id']
-        except Exception as e:
-            print(e)
-
-    for public_id in messages_posts_ids:
-        data = {
-            'channel_post_id': messages_posts_ids[public_id],
-            'message_publish_date': str(datetime.datetime.now()),
-            "is_message_published": True,
-        }
-        response = httpx.patch(url=f'http://web-app:8000/api/campaign-channel/{public_id}/', json=data)
+    service = MainService()
+    service.get_channel_unpublished_messages(channel_tg_id=update.channel_post.chat_id)
+    posted_data = await _public_message(context.bot, service.parse())
+    if service.has_data():
+        for public_message in posted_data:
+            logger.info(f'SENDING {posted_data}')
+            response = service.update_public_messages_info(public_message['campaign_channel_id'], public_message)
 
 
 async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -104,7 +87,8 @@ async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
         photo_file = (await context.bot.getFile(chat.photo.big_file_id)).file_path
     data = dict(name=chat_name, tg_id=chat_id, is_bot_installed=True, meta=update.to_dict(), avatar=photo_file, invitation_link=chat.invite_link)
     logger.info(f"BOT ADDED TO CHANNEL: {data=}")
-    httpx.post(url='http://web-app:8000/api/channel/', json=data)
+    service = MainService()
+    service.added_to_channel(data)
 
 
 async def channel_bot_status_handle(update, context):

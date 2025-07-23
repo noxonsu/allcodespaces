@@ -25,12 +25,12 @@ class MainService:
         url = self.urls["campaign_channel_approve"].format(campaign_channel_id=campaign_channel_id)
         return self.client.patch(url, json=dict(is_approved=True))
 
+    def added_to_channel(self, data):
+        return self.client.post(url='/api/channel/', json=data)
+
     def channel_admin_join(self, data):
         url = self.urls["channel_admin_join"]
         return self.client.put(url, json=data.dict(), headers={'Host': 'localhost'})
-
-    def create_channel(self, data):
-        return ''
 
     def bot_kicked(self, chat_id: str):
         url = self.urls['bot_kicked'].format(tg_id=chat_id)

@@ -62,7 +62,6 @@ async def main():
         campaign_channel.channel.tg_id = campaign_channel.channel_admin.tg_id
         await _public_message(application.bot, [campaign_channel])
 
-
         keyboard = [
             [
                 InlineKeyboardButton('Разрешить 👍', callback_data=f'@#!approve_campaign_:{campaign_channel.id}'),
