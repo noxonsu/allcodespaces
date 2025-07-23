@@ -6,7 +6,7 @@ url_base = 'http://web-app:8000'
 
 class MainService:
     def __init__(self, parser=None):
-        self.client = Client(base_url=url_base, headers={'Host': 'localhost', 'User-Agent': 'Mozilla/5.0'})
+        self.client = Client(base_url=url_base, headers={'Host': 'localhost', 'User-Agent': 'Mozilla/5.0'}, timeout=60*5)
         self.parser = parser
         self.urls = {
         "unpublished_messages": '/api/campaign-channel/?channel_tg_id={channel_tg_id}&is_message_published=false',
