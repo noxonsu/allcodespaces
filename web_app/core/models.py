@@ -212,7 +212,7 @@ class Campaign(BaseModel):
     def total_ctr(self):
         return f"{self.total_clicks / self.total_impressions_fact * 100:.2f}%"\
         if self.total_clicks and self.total_impressions_fact\
-            else 0
+            else '-'
 
     @property
     def total_channels_count(self):
