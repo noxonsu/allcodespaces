@@ -437,6 +437,9 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     readonly_fields = ['is_message_published', 'ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks', 'is_approved', 'publish_status']
     change_list_template =  'admin/campaign_channel/change_list.html'
 
+    def has_add_permission(self, request):
+        return False
+    
     @admin.display(description='Показы-план', ordering='impressions_plan')
     def impressions_plan_col(self, obj):
         return obj.impressions_plan if obj.impressions_plan else '-'
