@@ -284,16 +284,17 @@ class TGChannelStat(serializers.ModelSerializer):
 class ExporterSerializer(serializers.ModelSerializer):
     campaign = serializers.CharField(label='Название РК')
     channel = serializers.CharField(label='Канал')
-    # message_publish_date = serializers.DateTimeField(format='%c', label='Дата публикации')
     message_publish_date = serializers.SerializerMethodField(label='Дата публикации')
     impressions_fact = serializers.IntegerField(label='Показы-факт')
     clicks = serializers.IntegerField(label='Заработано')
     earned_money = serializers.FloatField(label='Клики')
-    is_approved = serializers.BooleanField(label='Разрешено')
+    is_approved = serializers.SerializerMethodField(label='Разрешено')
 
     def get_message_publish_date(self, instance):
         return localize(value=instance.message_publish_date) if instance.message_publish_date else '-'
 
+    def get_is_approved(self, val):
+        return 'Да' if val else 'Нет'
 
     class Meta:
         model = CampaignChannel
