@@ -181,6 +181,8 @@ class CampaignChannelParserIn(BaseModel):
     @staticmethod
     def parse_tg_message(message_text: str) -> str:
         """the message could have multiline!"""
+        if not message_text:
+            return ""
         # p = r'(\w+-|[\w\@\_])'
         p_to_words= r'@?\w+|\b\.\b\w+'
         # p_to_words = r'(\w+-\w+|@?\w+)'
