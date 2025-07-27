@@ -3,9 +3,13 @@ import asyncio
 import uvicorn
 
 from parsers import CampaignChannelParserIn
-from services import MainService
-from bot_handlers import handle_channel, admin_start_handler, handle_all_messages, campaign_channel_approve_button, \
-    campaign_channel_decline_button
+from bot_handlers import (
+    handle_channel,
+    admin_start_handler,
+    handle_all_messages,
+    campaign_channel_approve_button,
+    campaign_channel_decline_button,
+)
 from settings import bot_settings
 from webhooks_utils import CustomContext
 
@@ -22,7 +26,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from starlette.applications import Starlette
 from starlette.requests import Request
-from starlette.responses import PlainTextResponse, Response, JSONResponse
+from starlette.responses import Response, JSONResponse
 from starlette.routing import Route
 
 from http import HTTPStatus

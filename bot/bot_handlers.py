@@ -17,11 +17,20 @@ async def admin_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    service: MainService = MainService(parser=CampaignChannelParserIn)
-    if not update.channel_post:
+    if not update.channel_post and not update.edited_channel_post:
         return
-    words = service.parser.parse_tg_message(update.channel_post.text)
-    service.unpublished_campaign_channel_by_words(channel_tg_id=update.channel_post.chat_id, words=words)
+    elif update.edited_channel_post:
+        text = update.edited_channel_post.text
+        channel_tg_id = update.edited_channel_post.chat_id
+        logger.info(f"handle_all_messages: Edited message ({channel_tg_id=}) {text=}")
+    elif update.channel_post:
+        text = update.channel_post.text
+        channel_tg_id = update.channel_post.chat_id
+        logger.info(f"handle_all_messages: New message post ({channel_tg_id=}) {text=}")
+
+    service: MainService = MainService(parser=CampaignChannelParserIn)
+    words = service.parser.parse_tg_message(text)
+    service.unpublished_campaign_channel_by_words(channel_tg_id=channel_tg_id, words=words)
     posted_data = await _public_message(context.bot, service.parse())
     if service.has_data():
         for public_message in posted_data:
