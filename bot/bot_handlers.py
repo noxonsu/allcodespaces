@@ -21,7 +21,7 @@ async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE
     if not update.channel_post:
         return
     words = service.parser.parse_tg_message(update.channel_post.text)
-    service.get_campaign_channel_by_words(channel_tg_id=update.channel_post.chat_id, words=words)
+    service.unpublished_campaign_channel_by_words(channel_tg_id=update.channel_post.chat_id, words=words)
     posted_data = await _public_message(context.bot, service.parse())
     if service.has_data():
         for public_message in posted_data:

@@ -11,6 +11,7 @@ class MainService:
         self.urls = {
         "unpublished_messages": '/api/campaign-channel/?channel_tg_id={channel_tg_id}&is_message_published=false',
         "campaign_channels_words": '/api/campaign-channel/?channel_tg_id={channel_tg_id}&is_message_published=false&words={words}',
+        "unpublished_campaign_channel_by_words": '/api/campaign-channel/unpublished-campaigns/',
         "campaign_channel_id": '/api/campaign-channel/{campaign_channel_id}/',
         "message_id": '/api/message/{id}/',
         "messages": '/api/message/',
@@ -69,4 +70,10 @@ class MainService:
         words = ','.join(words.lower().split(' '))
         url = self.urls['campaign_channels_words'].format(channel_tg_id=channel_tg_id, words=words)
         self._response_raw = self.client.get(url)
+        return self._response_raw
+
+    def unpublished_campaign_channel_by_words(self, channel_tg_id, words: str):
+        data = dict(words=words, channel_tg_id=channel_tg_id, is_message_published=False)
+        url = self.urls['unpublished_campaign_channel_by_words']
+        self._response_raw = self.client.post(url, json=data)
         return self._response_raw

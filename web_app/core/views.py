@@ -2,17 +2,16 @@ from django.contrib.auth import login
 from django.http import HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework import status
-from rest_framework.decorators import action, authentication_classes
+from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
 
 from core.filterset_classes import CampaignChannelFilterSet
-from core.models import Channel, Message, CampaignChannel, User, ChannelAdmin
+from core.models import Channel, Message, CampaignChannel, ChannelAdmin
 from core.serializers import ChannelSerializer, MessageSerializer, CampaignChannelSerializer, TGLoginSerializer, \
     CampaignChannelClickSerializer, ChannelAdminSerializer
 
@@ -85,6 +84,7 @@ class MessageViewSet(ModelViewSet):
         messages.save()
         return Response(data=messages.data, status=status.HTTP_200_OK)
 
+
 class CampaignChannelViewSet(
     ModelViewSet
 ):
@@ -94,6 +94,11 @@ class CampaignChannelViewSet(
     permission_classes = [AllowAny]
     filter_backends = (DjangoFilterBackend,)
     filterset_class = CampaignChannelFilterSet
+
+    @action(methods=['POST'], detail=False, url_path='unpublished-campaigns')
+    def unpublished_campaigns(self, request, *args, **kwargs):
+        filter_class = self.filterset_class(request.data ,queryset=self.get_queryset())
+        return Response(data=self.get_serializer(instance=filter_class.qs, many=True).data, status=status.HTTP_200_OK)
 
     @action(detail=True,
             methods=['GET'],

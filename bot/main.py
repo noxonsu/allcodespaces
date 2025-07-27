@@ -57,7 +57,6 @@ async def main():
     async def public_campaign_channel(request: Request) -> Response:
         from utils import _public_message
         request = await request.json()
-        service = MainService()
         campaign_channel: CampaignChannelParserIn = CampaignChannelParserIn.model_validate(request)
         campaign_channel.channel.tg_id = campaign_channel.channel_admin.tg_id
         await _public_message(application.bot, [campaign_channel])

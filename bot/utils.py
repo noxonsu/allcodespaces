@@ -1,4 +1,3 @@
-import datetime
 from telegram.error import TimedOut
 
 from helpers import _publish_messages_logic
@@ -6,8 +5,6 @@ from services import MainService
 from parsers import CampaignChannelParserIn
 
 from telegram import (
-    InlineKeyboardButton,
-    InlineKeyboardMarkup,
     Update)
 from telegram.ext import ContextTypes
 from logger import logger
@@ -44,7 +41,7 @@ async def publish_channel_message(update: Update, context: ContextTypes.DEFAULT_
     update_dict = update.to_dict()
     chat_id = update_dict["my_chat_member"]["chat"]["id"]
     service: MainService = MainService(parser=CampaignChannelParserIn)
-    service.get_campaign_channel_by_words(channel_tg_id=chat_id, words='')
+    service.unpublished_campaign_channel_by_words(channel_tg_id=chat_id, words='')
     posted_data = await _public_message(context.bot, service.parse())
     if service.has_data():
         for public_message in posted_data:
