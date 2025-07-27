@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from pathlib import Path
 from uuid import UUID
@@ -176,6 +177,16 @@ class CampaignChannelParserIn(BaseModel):
                 if word not in self.campaign.message.as_text:
                     return False
         return True
+
+    @staticmethod
+    def parse_tg_message(message_text: str) -> str:
+        """the message could have multiline!"""
+        # p = r'(\w+-|[\w\@\_])'
+        p_to_words= r'@?\w+|\b\.\b\w+'
+        # p_to_words = r'(\w+-\w+|@?\w+)'
+        match = re.findall(p_to_words, message_text)
+        return ','.join(match)
+
 
 class UpdateFromUserParser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
