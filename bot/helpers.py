@@ -33,6 +33,11 @@ async def _publish_messages_logic(bot, campaign_channel, kwargs, posts_data):
             chat_id=campaign_channel.channel.tg_id,
             parse_mode='HTML',
             caption=campaign_channel.campaign.message.as_text, **kwargs)
+    elif not campaign_channel.has_message_image and not campaign_channel.has_message_video:
+        post = await bot.send_message(
+            chat_id=campaign_channel.channel.tg_id,
+            parse_mode='HTML',
+            text=campaign_channel.campaign.message.as_text, **kwargs)
     if post:
         posts_data.append(
             {
