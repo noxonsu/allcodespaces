@@ -435,7 +435,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         'is_message_published',
         'is_approved',
     ]
-    readonly_fields = ['is_message_published', 'ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks', 'is_approved', 'publish_status']
+    readonly_fields = ['is_message_published', 'ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks', 'is_approved', 'publish_status', 'impressions_fact_owner']
     change_list_template =  'admin/campaign_channel/change_list.html'
 
     def has_add_permission(self, request):
@@ -477,7 +477,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         self.message_user(request, 'Выгрузка в excel запущено')
         cols = ['campaign', 'channel', 'message_publish_date', 'impressions_fact', 'clicks', 'earned_money', 'is_approved']
         queryset = self.get_queryset(request)
-        data_buffer = QuerySetExporter(data=queryset, format='xlsx', cols=cols).process()
+        data_buffer = QuerySetExporter(data=queryset, format='xlsx', cols=cols, for_user=request.user).process()
         return FileResponse(data_buffer,  filename='export.xlsx', as_attachment=True, content_type='application/vnd.ms-excel', charset='utf-8')
 
     def get_urls(self):
@@ -504,17 +504,22 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             response.remove('campaign_link') # remove first col
             response.remove('impressions_plan_col')
             response.remove('precentage_col')
+            i_ =response.index('impressions_fact')
+            response[i_]= 'impressions_fact_owner'
             return response
         return response
 
     def get_list_filter(self, request):
         response = super().get_list_filter(request).copy()
         user = request.user
-        if user.groups.filter(name='owners'):
-            response.pop(0) # remove first col
+        if user.groups.filter(name__in=['owners', 'owner']):
+            response.remove('campaign') # remove first col
             return response
         return response
 
+    @admin.display(description='Показы', ordering='impressions_fact')
+    def impressions_fact_owner(self, obj):
+            return obj.impressions_fact if obj.impressions_fact else '-'
 
 
 @register(User)

@@ -1,3 +1,5 @@
+from functools import cached_property
+
 from django.conf import settings
 from django.templatetags.l10n import localize
 from rest_framework import serializers
@@ -285,7 +287,7 @@ class ExporterSerializer(serializers.ModelSerializer):
     campaign = serializers.CharField(label='Название РК')
     channel = serializers.CharField(label='Канал')
     message_publish_date = serializers.SerializerMethodField(label='Дата публикации')
-    impressions_fact = serializers.IntegerField(label='Показы-факт')
+    impressions_fact = serializers.IntegerField(label='Показы')
     clicks = serializers.IntegerField(label='Заработано')
     earned_money = serializers.FloatField(label='Клики')
     is_approved = serializers.SerializerMethodField(label='Разрешено')
@@ -307,6 +309,28 @@ class ExporterSerializer(serializers.ModelSerializer):
             'earned_money',
             'is_approved',
         ]
+        _owner_fields = [
+            'channel',
+            'message_publish_date',
+            'impressions_fact',
+            'clicks',
+            'earned_money',
+            'is_approved',
+        ]
 
     def get_cols_names(self):
-        return [self[field].label for field in self.fields]
+        return  [self[field].label for field in self.fields]
+
+
+    @cached_property
+    def fields(self):
+        res =  super().fields
+        if self.context and 'user' in self.context:
+            user = self.context['user']
+            if user.groups.filter(name__in=[ChannelAdmin.Role.OWNER, 'owners']).exists():
+                owner_fields = {}
+                for key in res:
+                    if key in self.Meta._owner_fields:
+                        owner_fields[key] = res[key]
+                return owner_fields
+        return res
