@@ -1,5 +1,3 @@
-from functools import cached_property
-
 from .utils import RolePermissions
 from decimal import Decimal
 from typing import Self
@@ -17,7 +15,7 @@ from core.db_proxies import CampaignQS, CampaignChannelQs
 from core.models_qs import ChannelAdminManager
 from core.models_validators import campaign_budget_validator
 from django.core.exceptions import ValidationError
-
+from django.utils import timezone
 
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -296,6 +294,10 @@ class Campaign(BaseModel):
         if self.id :
             self.clean_status()
             self.clean_budget()
+        if self.start_date and self.start_date < timezone.now().date():
+            raise ValidationError({"start_date": 'Дата старта не может быть раньше сегодняшнего дня'})
+        if self.finish_date and self.finish_date < self.start_date:
+            raise ValidationError({"finish_date": 'Дата окончания РК не может быть раньше даты старта'})
 
 
 class CampaignChannel(BaseModel):
