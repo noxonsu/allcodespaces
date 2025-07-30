@@ -44,8 +44,8 @@ def custom_result_list_totals(*args, **kwargs):
             totals['impressions_plan']+= row.impressions_plan if row.impressions_plan else 0
             totals['impressions_fact']+= row.impressions_fact if row.impressions_fact else 0
             totals['clicks']+=row.clicks if row.clicks else 0
+            totals['ctr']+= f"{row.clicks / row.impressions_fact * 100:.2f}" if row.impressions_fact != 0 else 0
             totals['earned_money']+= row.earned_money if row.earned_money else 0
-        totals['ctr']+= f"{totals['clicks'] / totals['impressions_fact'] * 100:.2f}%" if totals['impressions_fact'] != 0 else 0
 
     html_str = ''
     p = r'<(?P<tg_nme>td|th) (?P<class_name>class=".*?")>(.+)(?P<tg_close><\/.*>)'
