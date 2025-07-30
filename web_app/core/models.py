@@ -353,7 +353,7 @@ class CampaignChannel(BaseModel):
     @property
     @admin.display(description='Заработано', ordering='impressions_fact')
     def earned_money(self):
-        return (Decimal(self.impressions_fact / 1000) * self.cpm).quantize(Decimal('0.01'))
+        return (Decimal(self.impressions_fact / 1000) * self.cpm).quantize(Decimal('0.01')) if self.impressions_fact and self.cpm else 0
 
     @property
     def budget_plan(self) -> Decimal:
