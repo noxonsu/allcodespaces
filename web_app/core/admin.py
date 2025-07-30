@@ -42,6 +42,7 @@ class ChannelAdminInlined(admin.TabularInline):
     max_num = 10
     verbose_name_plural = 'Администраторы канала'
     verbose_name = 'Администратор канала'
+    template = 'admin/core/channel/channel_admin_tab_inlined.html'
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -179,6 +180,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
             data[0].update({'selected': 'selected'})
         return JsonResponse(data=data, safe=False)
 
+
 class CampaignChannelInlinedForm(forms.ModelForm):
     channel = forms.ModelChoiceField(
         queryset=Channel.objects.all(),
@@ -241,7 +243,7 @@ class CampaignChannelInlined(admin.TabularInline):
         'update_statistics',
     ]
     form = CampaignChannelInlinedForm
-    template = 'admin/campaign/campaign_channel_tabular.html'
+    template = 'admin/core/campaign/campaign_channel_tabular.html'
     class Media:
         js = {
             'custom/campaign_channel_inlined.js'
@@ -270,7 +272,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
     def has_delete_permission(self, request, obj=None):
         return False
 
-    template = 'admin/campaign/campaign_channels.html'
+    template = 'admin/core/campaign/campaign_channels.html'
 
     extra = 0
     model = CampaignChannel
@@ -436,7 +438,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         'is_approved',
     ]
     readonly_fields = ['is_message_published', 'ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks', 'is_approved', 'publish_status', 'impressions_fact_owner']
-    change_list_template =  'admin/campaign_channel/change_list.html'
 
     def has_add_permission(self, request):
         return False

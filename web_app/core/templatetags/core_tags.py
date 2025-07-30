@@ -6,6 +6,8 @@ from django import template
 # from django.contrib.admin.views.main import ChangeList
 from django.utils.safestring import mark_safe
 
+from core.models import ChannelAdmin
+
 register = template.Library()
 
 
@@ -64,3 +66,14 @@ def custom_result_list_totals(*args, **kwargs):
         html_str+=row
 
     return mark_safe(html_str)
+
+
+@register.simple_tag()
+def channeladmin_read_only(*args, **kwargs):
+    field = kwargs['field']
+    context = kwargs['context']
+    channeladmin = context.original.channeladmin
+    read_only = not channeladmin.role == ChannelAdmin.Role.OWNER
+    if read_only:
+        return mark_safe(f'<span>{channeladmin}</a>')
+    return field.contents()
