@@ -37,6 +37,12 @@ async def main():
     application = (
         Application.builder().token(bot_settings.BOT_TOKEN).updater(None).context_types(context_types).build()
     )
+    await application.bot.set_my_description("""
+        👑 Этот бот управляет сообщениями рекламных кампаний для каналов TG. 👑
+            /start to add a Channel Admin
+    """)
+    await application.bot.set_my_short_description("""👑 Этот бот управляет сообщениями рекламных кампаний для каналов TG.👑""")
+
     chat_member_event = ChatMemberHandler(handle_channel)
     application.add_handler(chat_member_event)
     start_command = CommandHandler('start', admin_start_handler)
