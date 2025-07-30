@@ -81,7 +81,7 @@ def channeladmin_read_only(*args, **kwargs):
 @register.simple_tag()
 def hide_delete_box(*args, **kwargs):
     field = kwargs['field']
-    if field and field.form and field.form.instance and field.form.instance.is_approved:
+    if field and field.form and field.form.instance and field.form.instance.is_message_published:
         form = field.form
         DELETE_field = form['DELETE']
         DELETE_field.field.disabled = True
