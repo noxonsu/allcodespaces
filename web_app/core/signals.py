@@ -5,6 +5,7 @@ from rest_framework.renderers import JSONRenderer
 
 from web_app.app_settings import app_settings
 from core.models import CampaignChannel, ChannelAdmin
+from web_app.logger import logger
 from .models_qs import change_channeladmin_group
 from .serializers import CampaignChannelSerializer
 
@@ -34,25 +35,26 @@ def get_create_channel_admin_user(**kwargs):
 
 
 def send_message_to_channel_admin(instance: CampaignChannel)-> None:
-    if instance.id and instance.channel\
-            and instance.channel_admin\
-            and instance.channel_admin.is_bot_installed\
-            and instance.channel_admin.channels.filter(
-            id=instance.channel.id).exists()\
-            and not instance.is_approved:
+    try:
+        if instance.id and instance.channel\
+                and instance.channel_admin\
+                and instance.channel_admin.is_bot_installed\
+                and instance.channel_admin.channels.filter(
+                id=instance.channel.id).exists()\
+                and not instance.is_approved:
 
-        data = JSONRenderer().render(CampaignChannelSerializer(instance).data)
-        response = requests.post(f'{app_settings.DOMAIN_URI}/telegram/public-campaign-channel', data=data, headers={'content-type': 'application/json'})
-        print(f'message sent to {instance.channel_admin}')
-        print(f'response {response} {response.content}')
-
+            data = JSONRenderer().render(CampaignChannelSerializer(instance).data)
+            response = requests.post(f'{app_settings.DOMAIN_URI}/telegram/public-campaign-channel', data=data, headers={'content-type': 'application/json'})
+            print(f'message sent to {instance.channel_admin}')
+            print(f'response {response} {response.content}')
+    except Exception as e:
+        logger.error("send_message_to_channel_admin:" + str(e))
 
 @receiver(signal=pre_save, sender=CampaignChannel)
 def campaignchannel_pre_save(signal: Signal, sender: CampaignChannel, instance: CampaignChannel, raw, using, update_fields, **kwargs):
     state_adding = instance._state.adding
     if state_adding:
         send_message_to_channel_admin(instance)
-
 
 @receiver(signal=pre_save, sender=ChannelAdmin)
 def change_channeladmin_group_receiver(signal: Signal, sender: ChannelAdmin, instance: ChannelAdmin, raw, using, update_fields, **kwargs):

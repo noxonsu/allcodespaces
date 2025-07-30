@@ -77,3 +77,13 @@ def channeladmin_read_only(*args, **kwargs):
     if read_only:
         return mark_safe(f'<span>{channeladmin}</a>')
     return field.contents()
+
+@register.simple_tag()
+def hide_delete_box(*args, **kwargs):
+    field = kwargs['field']
+    if field and field.form and field.form.instance and field.form.instance.is_approved:
+        form = field.form
+        DELETE_field = form['DELETE']
+        DELETE_field.field.disabled = True
+    return field.contents()
+
