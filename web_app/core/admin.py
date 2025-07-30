@@ -427,6 +427,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         'earned_money',
         'is_approved'
     ]
+
     list_filter = [
         'campaign',
         'channel',
@@ -499,8 +500,10 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     def get_list_display(self, request):
         response = super().get_list_display(request).copy()
         user = request.user
-        if user.groups.filter(name='owners'):
-            response.pop(0) # remove first col
+        if user.groups.filter(name__in=['owner', 'owners']):
+            response.remove('campaign_link') # remove first col
+            response.remove('impressions_plan_col')
+            response.remove('precentage_col')
             return response
         return response
 
