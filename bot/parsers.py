@@ -110,7 +110,7 @@ class CampaignChannelParserIn(BaseModel):
         if not self.has_message_button:
             return 'https//app.telewin.online'
         elif bot_settings.DEV or not self.message_is_stats:
-            return self.path_click_analysis
+            return self.message.button.url
 
         return bot_settings.SCHEMA_DOMAIN + self.path_click_analysis
     @computed_field
