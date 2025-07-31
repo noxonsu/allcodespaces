@@ -114,7 +114,7 @@ class Message(BaseModel):
     # button = models.ForeignKey('MessageLink', verbose_name='кнопка',on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
     button_str = models.CharField(max_length=250, default='Click Me!', blank=True, verbose_name=_('название ссылки'))
     button_link = models.URLField(null=True, blank=True, verbose_name=_('URL-адрес'))
-    is_stats = models.BooleanField(default=True, verbose_name='отслеживать клики?')
+    is_external = models.BooleanField(default=False, verbose_name='Ссылка на канал телеграм?')
 
     def __str__(self):
         return self.name or self.as_text[:15] +'...'
@@ -348,9 +348,9 @@ class CampaignChannel(BaseModel):
 
     @property
     def path_click_analysis(self: Self):
-        if self.campaign and self.campaign.message and self.campaign.message.is_stats:
+        if self.campaign and self.campaign.message and not self.campaign.message.is_external:
             return f'/api/campaign-channel/{self.id}/click/'
-        elif self.campaign and self.campaign.message and not self.campaign.message.is_stats:
+        elif self.campaign and self.campaign.message and  self.campaign.message.is_external:
             return self.campaign.message.button_link
         else:
             return 'https://google.com'

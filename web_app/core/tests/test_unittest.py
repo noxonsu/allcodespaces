@@ -20,11 +20,11 @@ class TestUnitTest(TestCase):
 
     def test_link_message_is_stats_true_success(self):
         url = '/api/campaign-channel/{id}/click/'
-        campaign_channel = create_campaign_channel(is_stats=True)
+        campaign_channel = create_campaign_channel(is_external=False)
         self.assertEqual(campaign_channel.path_click_analysis, url.format(id=campaign_channel.id))
 
     def test_link_message_is_stats_false_success(self):
-        campaign_channel = create_campaign_channel(is_stats=False)
+        campaign_channel = create_campaign_channel(is_external=True)
         self.assertEqual(campaign_channel.path_click_analysis, campaign_channel.campaign.message.button_link)
 
 

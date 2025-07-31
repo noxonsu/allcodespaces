@@ -91,7 +91,7 @@ class MessageSerializer(serializers.ModelSerializer):
             'as_text',
             'image',
             'video',
-            'is_stats',
+            'is_external',
             'created_at',
             'updated_at',
         ]

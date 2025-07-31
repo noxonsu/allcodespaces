@@ -16,7 +16,7 @@ class MessageFactory(DjangoModelFactory):
     name = factory.Faker('text')
     body = factory.Faker('text')
     title = factory.Faker('text')
-    is_stats = factory.Faker('boolean')
+    is_external = factory.Faker('boolean')
     button_str = factory.Faker('text')
     button_link = factory.Faker('url')
 

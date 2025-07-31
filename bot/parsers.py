@@ -30,7 +30,7 @@ class MessageParser(BaseModel):
     created_at: str | None = ''
     updated_at: str | None = ''
     button: MessageLink| None = None
-    is_stats: bool = Field(default=True)
+    is_external: bool = Field(default=False)
 
     @computed_field
     @property
@@ -109,14 +109,15 @@ class CampaignChannelParserIn(BaseModel):
     def analysis_link(self) -> str:
         if not self.has_message_button:
             return 'https//app.telewin.online'
-        elif bot_settings.DEV or not self.message_is_stats:
+        elif bot_settings.DEV or self.message_is_external:
             return self.message.button.url
 
         return bot_settings.SCHEMA_DOMAIN + self.path_click_analysis
     @computed_field
     @property
-    def message_is_stats(self) -> bool:
-        return self.message and self.message.is_stats
+    def message_is_external(self) -> bool:
+        return self.message and self.message.is_external
+
     @computed_field
     @property
     def has_message(self)-> bool:

@@ -388,7 +388,7 @@ class MessageAdmin(admin.ModelAdmin):
         'video',
         'button_str',
         'button_link',
-        'is_stats',
+        'is_external',
         'display_image_thumbil',
         'id',
     ]
