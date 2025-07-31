@@ -405,7 +405,12 @@ class MessageAdmin(admin.ModelAdmin):
 
     def display_image_thumbil(self, obj):
         if obj.image:
-            text = f'''<div class="thumb-container"><img class="thumb-image" src="{obj.image.url}" alt="Thumbnail Image"> </div>'''
+            text = f'''
+            <div class="thumb-container" >
+                <a href="{obj.image.url}" data-jbox-image="thumb-image" title="{str(obj.image)}" >
+                    <img class="thumb-image" src="{obj.image.url}" alt="Thumbnail Image"> 
+                <a>
+            </div>'''
             return mark_safe(text)
         return '-'
 

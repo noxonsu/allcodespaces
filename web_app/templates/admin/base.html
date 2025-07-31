@@ -46,6 +46,8 @@
     <!-- Google Font: Source Sans Pro -->
     <link href="https://fonts.googleapis.com/css?family=Source+Sans+Pro:300,400,400i,700" rel="stylesheet">
     {% endif %}
+    <!--    jBox-->
+    <link rel="stylesheet" href="{% static 'jBox/dist/jBox.all.min.css' %}" />
 
     {% block extrastyle %} {% endblock %}
     {% block extrahead %} {% endblock %}
@@ -375,6 +377,20 @@
 {% endif %}
 
 {% block extrajs %}{% endblock %}
+
+<!--jBox-->
+<script src="/static/jBox/dist/jBox.all.min.js"></script>
+{% block jBoxjs %}
+<script>
+    var jboxImage = new jBox("Image", {
+        imageFade: 50,
+        imageSize: 'contain',
+        imageCounterSeparator: ' of ',
+        imageCounter: true,
+        preloadFirstImage: true,
+    });
+</script>
+{% endblock %}
 
 </body>
 </html>
