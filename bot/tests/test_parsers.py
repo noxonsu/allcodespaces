@@ -2,7 +2,7 @@ import re
 
 import pytest
 
-from bot.parsers import ChannelParser, CampaignChannelParserIn
+from parsers import ChannelParser, CampaignChannelParserIn
 # from bot.tests.py_data import GET_CHANNELS, GET_CAMPAIGN_CHANNEL
 
 
@@ -47,9 +47,5 @@ channel_in_data = [[1,1]]
 )
 def test_parse_long_message_success(str_text, expected):
     match = CampaignChannelParserIn.parse_tg_message(str_text)
-    print(f'{match=}')
-    print(f'{expected=}')
     assert match == expected
-
-
 

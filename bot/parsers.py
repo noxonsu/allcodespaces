@@ -30,6 +30,7 @@ class MessageParser(BaseModel):
     created_at: str | None = ''
     updated_at: str | None = ''
     button: MessageLink| None = None
+    is_stats: bool = Field(default=True)
 
     @computed_field
     @property
@@ -108,11 +109,14 @@ class CampaignChannelParserIn(BaseModel):
     def analysis_link(self) -> str:
         if not self.has_message_button:
             return 'https//app.telewin.online'
-        elif bot_settings.DEV:
-            return self.campaign.message.button.url
+        elif bot_settings.DEV or not self.message_is_stats:
+            return self.path_click_analysis
 
         return bot_settings.SCHEMA_DOMAIN + self.path_click_analysis
-
+    @computed_field
+    @property
+    def message_is_stats(self) -> bool:
+        return self.message and self.message.is_stats
     @computed_field
     @property
     def has_message(self)-> bool:
