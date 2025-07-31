@@ -126,7 +126,7 @@ class Message(BaseModel):
     @property
     def as_text(self) -> str:
         title = self.title if self.title else self.name
-        return f'{title}\n{self.body}'
+        return f'<b>{title}</b>\n{self.body}'
 
     @property
     @admin.display(description='Тип')
