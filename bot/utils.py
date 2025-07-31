@@ -69,5 +69,5 @@ async def channel_bot_status_handle(update, context):
     if update_dict["my_chat_member"]["new_chat_member"]["status"] == "administrator":
         await channel_handle_add(update, context)
         await publish_channel_message(update, context)
-    elif update_dict["my_chat_member"]["new_chat_member"]["status"] == "kicked":
+    elif update_dict["my_chat_member"]["new_chat_member"]["status"] in {"kicked", 'left'}:
         await channel_handle_kicked(update, context)
