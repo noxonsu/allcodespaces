@@ -202,6 +202,8 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         cpm: Decimal = self.cleaned_data.get('cpm', 0)
         impressions_plan: Decimal = self.cleaned_data.get('impressions_plan', 0)
         budget: Decimal = campaign.budget
+        if not budget:
+            raise ValidationError({"budget": "это обязательное поле"})
         current_total_budget = budget_cpm(cpm=cpm, impressions_plan=impressions_plan)
         if not campaign or (campaign and not campaign.id):
             if current_total_budget > budget:
