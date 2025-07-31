@@ -28,8 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = app_settings.SECRET_KEY
 
 # Enable/Disable DEBUG Mode
-# DEBUG = app_settings.DEBUG
-DEBUG = False
+DEBUG = app_settings.DEBUG
 ALLOWED_HOSTS = [
     '.localhost',
     '127.0.0.1',
