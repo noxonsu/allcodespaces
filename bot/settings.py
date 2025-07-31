@@ -9,6 +9,8 @@ class BotSettings(BaseSettings):
     SCHEMA_DOMAIN: str = 'https://app.telewin.online'
     DEV: bool = False
     PORT: int = 8001
+    BOT_USERNAME: str = ""
+    BOT_NAME: str = ""
 
 
 bot_settings = BotSettings()

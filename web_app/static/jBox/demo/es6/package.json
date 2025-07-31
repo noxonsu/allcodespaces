@@ -1,0 +1,17 @@
+{
+  "name": "jbox-es6-demo",
+  "description": "",
+  "version": "0.0.1",
+  "author": "Stephan Wagner <stephanwagner.me@gmail.com> (https://stephanwagner.me)",
+  "license": "ISC",
+  "main": "index.js",
+  "dependencies": {
+    "jbox": "*"
+  },
+  "devDependencies": {
+    "snowpack": "^3.3.5"
+  },
+  "scripts": {
+    "start": "snowpack dev"
+  }
+}
