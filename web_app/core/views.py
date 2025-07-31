@@ -1,5 +1,5 @@
 from django.contrib.auth import login
-from django.http import HttpResponsePermanentRedirect
+from django.http import HttpResponsePermanentRedirect, QueryDict
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django_filters.rest_framework.backends import DjangoFilterBackend
@@ -97,6 +97,10 @@ class CampaignChannelViewSet(
 
     @action(methods=['POST'], detail=False, url_path='unpublished-campaigns')
     def unpublished_campaigns(self, request, *args, **kwargs):
+        # import urllib
+        # params= QueryDict(urllib.parse.urlencode(request.data))
+        # print(f'{request.data=}')
+        # print(f'{params=}')
         filter_class = self.filterset_class(request.data ,queryset=self.get_queryset())
         return Response(data=self.get_serializer(instance=filter_class.qs, many=True).data, status=status.HTTP_200_OK)
 
