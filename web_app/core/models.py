@@ -117,7 +117,8 @@ class Message(BaseModel):
     is_external = models.BooleanField(default=False, verbose_name='Ссылка на канал телеграм?')
 
     def __str__(self):
-        return self.name or self.as_text[:15] +'...'
+        str_ = self.name if self.name else self.title if self.title else self.body
+        return str_[:15] + '....'
 
     class Meta:
         verbose_name_plural = 'Сообщения'
