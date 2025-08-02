@@ -550,10 +550,14 @@ class ChannelAdminForm(forms.ModelForm):
 
 @register(ChannelAdmin)
 class ChannelAdminAdmin(ModelAdmin):
-    list_display = ['username', 'first_name', 'last_name', 'phone_number', 'email', 'cooperation_form', 'legal_name']
+    list_display = ['username_display', 'first_name', 'last_name', 'phone_number', 'email', 'cooperation_form', 'legal_name']
     readonly_fields = ['is_bot_installed']
     form = ChannelAdminForm
 
     def get_queryset(self, request):
         return super().get_queryset(request).filter(role=ChannelAdmin.Role.OWNER)
+
+    @admin.display(description='Ник в Телеграм', ordering='username')
+    def username_display(self, instance: ChannelAdmin):
+        return mark_safe(f"""<span class='tooltip-admin' title='{'Бот установлен' if instance.is_bot_installed else 'Бот не-установлен'}'> {instance.username} </span>""")
 

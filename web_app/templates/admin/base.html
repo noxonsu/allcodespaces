@@ -376,8 +376,6 @@
 <script src="{% static "jazzmin/js/ui-builder.js" %}"></script>
 {% endif %}
 
-{% block extrajs %}{% endblock %}
-
 <!--jBox-->
 <script src="/static/jBox/dist/jBox.all.min.js"></script>
 {% block jBoxjs %}
@@ -391,6 +389,9 @@
     });
 </script>
 {% endblock %}
+
+{% block extrajs %}{% endblock %}
+
 
 </body>
 </html>
