@@ -173,8 +173,8 @@ class Campaign(BaseModel):
     """Campaign of channel/s"""
 
     class Statuses(models.TextChoices):
-        ACTIVE = 'active', _('active')
-        PAUSED = 'paused', _('paused')
+        ACTIVE = 'active', 'активный'
+        PAUSED = 'paused', 'приостановлено'
 
     name = models.CharField(max_length=250, verbose_name=_('Название'))
     status = models.CharField(choices=Statuses.choices, max_length=6, verbose_name=_('Статус'), default=Statuses.PAUSED)
