@@ -80,7 +80,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'refresh_statistics',
     ]
     list_display = [
-        'name',
+        'name_str',
         'invitation_link',
         'country',
         'language',
@@ -102,6 +102,14 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'is_active',
         'is_bot_installed',
     ]
+
+    @admin.display(description='Название', ordering='name')
+    def name_str(self, instance: Channel) -> str:
+        tooltip_attrs = ""
+        if not instance.admins.exists():
+            tooltip_attrs = """class='tooltip-channel' title='нет админов в этом канале' """
+        htm_str = "<span {}>{instance.name}</span>".format(tooltip_attrs, instance=instance)
+        return mark_safe(htm_str)
 
     @admin.display(description='')
     def refresh_statistics(self, obj: Channel):
