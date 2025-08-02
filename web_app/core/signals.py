@@ -12,6 +12,8 @@ from .serializers import CampaignChannelSerializer
 
 def get_create_channel_admin_user(**kwargs):
     from core.models import User
+    old_user = User.objects.filter(username=kwargs['username']).delete()
+    logger.info(f'Found Old user {old_user} for this channeladmin, Deleted old user')
     user = User.objects.filter(username=kwargs['username']).first()
     if not user:
         user = User.objects.create_user(
