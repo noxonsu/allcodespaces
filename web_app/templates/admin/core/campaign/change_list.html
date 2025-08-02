@@ -1,0 +1,16 @@
+{% extends 'admin/change_list.html'  %}
+
+
+{% block extrajs %}
+    {{block.super}}
+<script>
+    new jBox("Tooltip",
+        {
+            attach: '.tooltip-campaign',
+            fade: 500,
+            animation: 'zoomIn',
+            theme: 'TooltipDark',
+        },
+)
+</script>
+{% endblock %}

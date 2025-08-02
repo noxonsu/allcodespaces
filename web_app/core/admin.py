@@ -319,6 +319,9 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 
 @register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
+    list_max_show_all = 50
+    list_per_page = 20
+
     readonly_fields = [
         'id',
         'total_planed_views',
@@ -326,13 +329,21 @@ class CampaignAdmin(admin.ModelAdmin):
         'link_to_statistics',
     ]
 
-    list_display = ['name', 'client', 'start_date', 'finish_date', 'status', 'budget']
+    list_display = ['name_str', 'client', 'start_date', 'finish_date', 'status', 'budget']
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
     list_filter = [
         ('name', MultipleSelectListFilter),
         ('client', MultipleSelectListFilter),
         'status',
     ]
+
+    @admin.display(description='Название', ordering='name')
+    def name_str(self, obj: Campaign) -> str:
+        campaignchannels_count = obj.campaigns_channel.filter(is_message_published=True, is_approved=True, channel_post_id__isnull=False).count()
+        htm_str = f'<span>{obj.name}</span>'
+        if campaignchannels_count:
+            htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
+        return mark_safe(htm_str)
 
     @admin.display(description='Статистики')
     def link_to_statistics(self, obj: Campaign)->str:
@@ -486,7 +497,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 
 
     @admin.display(description='Название РК', ordering='campaign')
-    def campaign_link(self, obj):
+    def campaign_link(self, obj: CampaignChannel):
         return mark_safe(f'<a href="/core/campaign/{obj.campaign.id}/change/"> {obj.campaign}</a>')
 
 
