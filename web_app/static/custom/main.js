@@ -3,7 +3,7 @@ $(document).ready(function (){
     if ( form_primary_submit) {
     let tgWidgetElement = document.createElement('script')
     tgWidgetElement.src='https://telegram.org/js/telegram-widget.js?22'
-    tgWidgetElement.setAttribute('data-telegram-login',"username_new_test_bot")
+    tgWidgetElement.setAttribute('data-telegram-login',"telewin_0001_bot")
     tgWidgetElement.setAttribute('data-auth-url',"/api/login/tg")
     tgWidgetElement.setAttribute('data-request-access',"write")
     tgWidgetElement.setAttribute('data-size',"large")
