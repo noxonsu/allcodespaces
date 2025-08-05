@@ -81,12 +81,14 @@ class TGStatClient(ExternalClient):
 
 
     def update_channel_stat(self, channel: Channel):
-        response = self.client.get(
-            '/channels/stat',
-            params={
-                "token": self.token,
-                "channelId": channel.tg_id
-            })
-        print(f'update_channel_stat {response.json()=}')
-        return self.service.update_channel_stat(response=response, channel=channel)
-
+        try:
+            response = self.client.get(
+                '/channels/stat',
+                params={
+                    "token": self.token,
+                    "channelId": channel.tg_id
+                })
+            print(f'update_channel_stat {response.json()=}')
+            return self.service.update_channel_stat(response=response, channel=channel)
+        except Exception as e:
+            logger.error(f'update_channel_stat Error: {str(e)}')
