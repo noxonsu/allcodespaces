@@ -59,25 +59,31 @@ class TGStatClient(ExternalClient):
         return {'base_url': "https://api.tgstat.ru"}
 
     def update_message_views(self, campaign_channel):
-        response = self.client.get(
+        try:
+            response = self.client.get(
             '/posts/get',
             params={
                 "token": self.token,
                 "postId": f't.me/c/{campaign_channel.channel.tg_id}/'+str(campaign_channel.channel_post_id)
-            })
-        print(f'update_message_views{response.json()=}')
-        return self.service.update_message_views(response=response, campaign_channel=campaign_channel)
+                })
+            print(f'update_message_views{response.json()=}')
+            return self.service.update_message_views(response=response, campaign_channel=campaign_channel)
+        except Exception as e:
+            logger.error(f'update_message_views Error: {str(e)}')
 
 
     def update_channel_info(self, channel: Channel):
-        response = self.client.get(
-            '/channels/get',
-            params={
-                "token": self.token,
-                "channelId": channel.tg_id
-            })
-        logger.info(f'update_channel_info: {response.url=} {response.status_code=}')
-        return self.service.update_channel_info(response=response, channel=channel)
+        try:
+            response = self.client.get(
+                '/channels/get',
+                params={
+                    "token": self.token,
+                    "channelId": channel.tg_id
+                })
+            logger.info(f'update_channel_info: {response.url=} {response.status_code=}')
+            return self.service.update_channel_info(response=response, channel=channel)
+        except Exception as e:
+            logger.error(f'update_channel_info Error: {str(e)}')
 
 
     def update_channel_stat(self, channel: Channel):
