@@ -30,7 +30,6 @@ class IPMiddleware:
     def __call__(self, request):
         # Code to be executed for each request before
         # the view (and later middleware) are called.
-        print(f'{vars(request)=}')
         ip = request.headers.get('X-Real-Ip', request.headers.get('X-Forwarded-For', request.META.get("REMOTE_ADDR")))
         print(f'IPMiddleware {ip=} init connection.')
         if ip in set(settings.IP_BLOCKLIST):
