@@ -71,6 +71,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "core.middlewares.IPMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -428,3 +429,7 @@ JAZZMIN_UI_TWEAKS = {}
 # handler404 = '404.html'
 # handler500 = '500.html'
 USE_X_FORWARDED_HOST = True
+
+IP_BLOCKLIST = [
+    '188.212.125.110',
+]
