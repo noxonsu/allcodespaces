@@ -290,16 +290,28 @@ class Campaign(BaseModel):
                     }
                 )
 
+    def clean_start_date(self):
+        create = self._state.adding
+        update = not create
+        if create and self.start_date and self.start_date < timezone.now().date():
+            raise ValidationError({"start_date": 'Дата старта не может быть раньше сегодняшнего дня'})
+        elif update and self.start_date and self.start_date < self.created_at.date():
+            raise ValidationError({"start_date": 'Дата старта не может быть раньше даты создания'})
+
+
+    def clean_finish_date(self):
+        if self.finish_date and self.finish_date < self.start_date:
+            raise ValidationError({"finish_date": 'Дата окончания РК не может быть раньше даты старта'})
+
     def clean(self: Self):
         super().clean()
         self.clean_wordsfilters()
         if self.id :
             self.clean_status()
             self.clean_budget()
-        if self.start_date and self.start_date < timezone.now().date():
-            raise ValidationError({"start_date": 'Дата старта не может быть раньше сегодняшнего дня'})
-        if self.finish_date and self.finish_date < self.start_date:
-            raise ValidationError({"finish_date": 'Дата окончания РК не может быть раньше даты старта'})
+
+        self.clean_start_date()
+        self.clean_finish_date()
 
 
 class CampaignChannel(BaseModel):
