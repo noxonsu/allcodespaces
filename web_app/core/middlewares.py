@@ -49,7 +49,6 @@ class IPMiddleware:
 
 class PathRestrictMiddleware(MiddlewareMixin):
     def process_request(self, request):
-        # print(f'{request=}')
         pattern = r'^\/(static|media|core|api|redoc|docs)(.+)?$|^\/$'
         path = request.path
         match = re.findall(pattern, path)

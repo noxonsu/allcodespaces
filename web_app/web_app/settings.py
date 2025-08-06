@@ -71,8 +71,8 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "core.middlewares.IPMiddleware",
-    "core.middlewares.PathRestrictMiddleware",
+    # "core.middlewares.IPMiddleware",
+    # "core.middlewares.PathRestrictMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
