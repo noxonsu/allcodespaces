@@ -1,6 +1,6 @@
 .client-app-page {
   font-family: 'Tilda Sans', sans-serif;
-  padding: 20px;
+  padding: 10px; /* Уменьшаем отступ от границ экрана */
   background-color: #fff; /* Assuming a white background for the page */
   color: #181A1B; /* Default text color from Figma (textDark) */
 }
@@ -15,18 +15,20 @@
 .product-list-container {
   max-width: 400px; /* Approx width for two 174px cards + gap */
   margin: 0 auto; /* Center the container */
+  padding: 0 10px; /* Добавляем горизонтальный отступ для контейнера */
 }
 
 .product-list {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr); /* Force 2 columns */
-  gap: 10px; /* Adjust gap to be closer to the design */
-  padding: 0 10px; /* Add some horizontal padding to the list container */
-  /* justify-content: center; /* Not needed with repeat(2, 1fr) as it will take full width */
+  display: flex; /* Используем flexbox */
+  flex-wrap: wrap; /* Разрешаем перенос элементов на новую строку */
+  justify-content: center; /* Центрируем карточки */
+  gap: 10px; /* Отступ между карточками */
+  padding: 0; /* Убираем горизонтальный отступ, он будет у product-list-container */
 }
 
 .product-card {
-  width: 174px; /* Figma */
+  width: calc(50% - 15px); /* Две колонки с учетом отступа */
+  max-width: 174px; /* Figma */
   height: 232px; /* Figma */
   border-radius: 16px; /* Figma */
   background-color: #f7f7f7; /* Figma: rgb(0.97, 0.97, 0.97) */
@@ -35,6 +37,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden; /* To respect border-radius for children */
+  padding-bottom: 20px; /* Увеличиваем отступ снизу для кнопок */
 }
 
 .product-card:hover {
@@ -103,9 +106,11 @@
   justify-content: space-between; /* Distribute items */
   align-items: center;
   padding: 0 12px; /* Removed top/bottom padding, now handled by margin on image and card flex layout */
-  height: 36px; /* Figma */
+  min-height: 36px; /* Figma */
   box-sizing: border-box;
   flex-shrink: 0; /* Prevent controls from shrinking */
+  gap: 8px; /* Добавляем отступ между элементами управления */
+  margin-top: auto; /* Отталкиваем controls вниз */
 }
 
 .product-controls button {
@@ -121,6 +126,8 @@
   padding: 0;
   font-size: 20px; /* For +/- symbols */
   color: #181A1B; /* textDark for symbols */
+  flex-shrink: 0; /* Предотвращаем сжатие */
+  flex-basis: 36px; /* Устанавливаем базовый размер */
 }
 
 .product-controls button:disabled {
@@ -142,6 +149,7 @@
   -moz-appearance: textfield; /* Firefox */
   appearance: textfield;
   padding: 0; /* Remove browser default padding */
+  flex-grow: 1; /* Позволяет инпуту занимать доступное пространство */
 }
 
 .product-controls input[type="text"]::-webkit-inner-spin-button,
@@ -192,4 +200,44 @@
   /* Убедитесь, что у карточек задана ширина, например: */
   /* width: 150px; */ /* или min-width */
   /* margin-right: 10px; */ /* Для отступа между карточками */
+}
+
+@media (max-width: 480px) { /* Для очень маленьких мобильных устройств */
+  .product-list {
+    padding: 0; /* Убираем горизонтальный отступ, он будет у product-list-container */
+    gap: 15px; /* Увеличиваем отступ между карточками */
+  }
+
+  .product-list-container {
+    max-width: 100%; /* Контейнер занимает всю ширину */
+  }
+
+  .product-card {
+    width: calc(50% - 7.5px); /* Две колонки с меньшим отступом */
+    max-width: unset; /* Снимаем ограничение max-width */
+    height: auto; /* Высота подстраивается под контент */
+    box-sizing: border-box; /* Учитываем padding и border в ширине */
+  }
+
+  .product-image-container {
+    height: 150px; /* Немного уменьшаем высоту изображения */
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) { /* Для планшетов и больших мобильных */
+  .product-list {
+    padding: 0 10px;
+    gap: 10px;
+  }
+
+  .product-card {
+    width: calc(50% - 15px);
+    max-width: 174px; /* Сохраняем исходный max-width */
+    height: auto;
+    box-sizing: border-box;
+  }
+
+  .product-image-container {
+    height: 174px; /* Сохраняем исходную высоту изображения */
+  }
 }

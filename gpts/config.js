@@ -40,6 +40,21 @@ function getFreeMessageLimit() {
     return freeLimit;
 }
 
+// Get free days limit (null means unlimited)
+function getFreeDaysLimit() {
+    const freeDaysLimitEnv = process.env.FREE_DAYS_LIMIT;
+    let freeDaysLimit = null; // null means unlimited
+    
+    if (freeDaysLimitEnv !== undefined) {
+        const parsed = parseInt(freeDaysLimitEnv, 10);
+        if (!isNaN(parsed) && parsed >= 0) { // Allow 0 for pay-immediately
+            freeDaysLimit = parsed;
+        }
+    }
+    
+    return freeDaysLimit;
+}
+
 // For backward compatibility, maintain these constants
 // but they will be updated on reloadConfig()
 let NAMEPROMPT = getNamePrompt();
@@ -48,6 +63,7 @@ let USER_DATA_DIR = getUserDataDir();
 let CHAT_HISTORIES_DIR = getChatHistoriesDir();
 let MAX_HISTORY = getMaxHistory();
 let FREE_MESSAGE_LIMIT = getFreeMessageLimit();
+let FREE_DAYS_LIMIT = getFreeDaysLimit();
 
 // Function to reload all config values from current environment variables
 function reloadConfig() {
@@ -57,13 +73,15 @@ function reloadConfig() {
     CHAT_HISTORIES_DIR = getChatHistoriesDir();
     MAX_HISTORY = getMaxHistory();
     FREE_MESSAGE_LIMIT = getFreeMessageLimit();
+    FREE_DAYS_LIMIT = getFreeDaysLimit();
     
     return {
         NAMEPROMPT,
         USER_DATA_DIR,
         CHAT_HISTORIES_DIR,
         MAX_HISTORY,
-        FREE_MESSAGE_LIMIT
+        FREE_MESSAGE_LIMIT,
+        FREE_DAYS_LIMIT
     };
 }
 
@@ -74,6 +92,7 @@ module.exports = {
     getChatHistoriesDir,
     getMaxHistory,
     getFreeMessageLimit,
+    getFreeDaysLimit,
     
     // Constants for backward compatibility
     NAMEPROMPT,
@@ -81,6 +100,7 @@ module.exports = {
     CHAT_HISTORIES_DIR,
     MAX_HISTORY,
     FREE_MESSAGE_LIMIT,
+    FREE_DAYS_LIMIT,
     
     // Function to reload config
     reloadConfig

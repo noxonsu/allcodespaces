@@ -11,7 +11,7 @@ const envFilePath = path.join(__dirname, `.env.${NAMEPROMPT_FROM_ENV}`);
 console.log(`[Debug] Attempting to load .env file from: ${envFilePath}`);
 
 const config = require('./config'); // Import config first
-const { NAMEPROMPT, USER_DATA_DIR, CHAT_HISTORIES_DIR, FREE_MESSAGE_LIMIT } = config;
+const { NAMEPROMPT, USER_DATA_DIR, CHAT_HISTORIES_DIR, FREE_MESSAGE_LIMIT, FREE_DAYS_LIMIT } = config;
 
 // Log FREE_MESSAGE_LIMIT from config right after import
 console.log(`[Debug] FREE_MESSAGE_LIMIT from config.js: ${FREE_MESSAGE_LIMIT}`);
@@ -118,6 +118,21 @@ try {
     process.exit(1);
 }
 
+// --- Load Landing Message ---
+let landingMessage = `Вы использовали лимит сообщений. Для продолжения оплатите доступ. Подсчет КБЖУ это 100% способ стать здоровее и улучшить свою или жизнь ребенка. Продолжим? 👍`;
+try {
+    const landingPath = path.join(__dirname, `.env.${NAMEPROMPT}_landing`);
+    if (fs.existsSync(landingPath)) {
+        landingMessage = fs.readFileSync(landingPath, 'utf8').trim();
+        console.log(`Рекламное сообщение загружено из ${landingPath}`);
+    } else {
+        console.log(`Используется рекламное сообщение по умолчанию.`);
+    }
+} catch (error) {
+    console.error('Ошибка загрузки рекламного сообщения:', error);
+    // Продолжаем с сообщением по умолчанию
+}
+
 // --- Initialize OpenAI/DeepSeek Module ---
 setSystemMessage(systemPromptContent);
 if (openaiApiKey) setOpenAIKey(openaiApiKey);
@@ -164,24 +179,92 @@ async function handleNewDayLogicAndUpdateTimestamp(chatId) {
 
 async function checkPaymentStatusAndPrompt(chatId) {
     const userData = loadUserData(chatId);
+    
+    // Check if user is paid but needs reactivation after 30 days
+    if (userData.isPaid && userData.activationTimestamp) {
+        const activationDate = new Date(userData.activationTimestamp);
+        const currentDate = new Date();
+        const daysSinceActivation = Math.floor((currentDate - activationDate) / (1000 * 60 * 60 * 24));
+        
+        if (daysSinceActivation >= 30) {
+            // Mark user as unpaid and show landing page
+            userData.isPaid = false;
+            userData.activationTimestamp = null;
+            saveUserData(chatId, userData);
+            
+            // Show landing page message from .env.psy_landing
+            try {
+                await bot.sendMessage(chatId, landingMessage);
+                logChat(chatId, {
+                    event: '30_day_reactivation_prompt',
+                    daysSinceActivation: daysSinceActivation,
+                    previousActivation: activationDate.toISOString()
+                }, 'system');
+            } catch (error) {
+                console.error(`Error sending 30-day reactivation prompt to ${chatId}:`, error);
+            }
+            return false;
+        }
+    }
+    
     if (userData.isPaid) {
         return true;
     }
     
-    // Get fresh FREE_MESSAGE_LIMIT from reloaded config
+    // Get fresh config values
     const reloadedConfig = require('./config');
-    if (reloadedConfig.FREE_MESSAGE_LIMIT === null) { // null means unlimited
+    
+    let shouldPromptPayment = false;
+    let limitType = '';
+    let currentValue = 0;
+    let limitValue = 0;
+    
+    // Check message limit
+    if (reloadedConfig.FREE_MESSAGE_LIMIT !== null) {
+        const userMessageCount = getUserMessageCount(chatId);
+        if (userMessageCount >= reloadedConfig.FREE_MESSAGE_LIMIT) {
+            shouldPromptPayment = true;
+            limitType = 'сообщений';
+            currentValue = userMessageCount;
+            limitValue = reloadedConfig.FREE_MESSAGE_LIMIT;
+        }
+    }
+    
+    // Check days limit
+    if (!shouldPromptPayment && reloadedConfig.FREE_DAYS_LIMIT !== null) {
+        if (userData.firstVisit) {
+            const firstVisitDate = new Date(userData.firstVisit);
+            const currentDate = new Date();
+            const daysPassed = Math.floor((currentDate - firstVisitDate) / (1000 * 60 * 60 * 24));
+            
+            if (daysPassed >= reloadedConfig.FREE_DAYS_LIMIT) {
+                shouldPromptPayment = true;
+                limitType = 'дней';
+                currentValue = daysPassed;
+                limitValue = reloadedConfig.FREE_DAYS_LIMIT;
+            }
+        }
+    }
+    
+    // If both limits are null, unlimited access
+    if (reloadedConfig.FREE_MESSAGE_LIMIT === null && reloadedConfig.FREE_DAYS_LIMIT === null) {
         return true;
     }
 
-    const userMessageCount = getUserMessageCount(chatId);
-
-    if (userMessageCount >= reloadedConfig.FREE_MESSAGE_LIMIT) {
+    if (shouldPromptPayment) {
         const paymentUrl = PAYMENT_URL_TEMPLATE
             .replace('{NAMEPROMPT}', NAMEPROMPT)
             .replace('{chatid}', chatId.toString());
 
-        const messageText = escapeMarkdown(`Вы использовали лимит сообщений (${reloadedConfig.FREE_MESSAGE_LIMIT}). Для продолжения оплатите доступ. Подсчет КБЖУ это 100% способ стать здоровее и улучшить свою или жизнь ребенка. Продолжим? 👍`);
+        // Use the loaded landing message with dynamic limit info
+        let dynamicMessage = landingMessage;
+        if (limitType === 'сообщений') {
+            dynamicMessage = `Вы использовали лимит сообщений (${limitValue}). ` + landingMessage;
+        } else if (limitType === 'дней') {
+            dynamicMessage = `Прошло ${currentValue} дней с момента регистрации (лимит: ${limitValue} дней). ` + landingMessage;
+        }
+        
+        const messageText = escapeMarkdown(dynamicMessage);
         
         try {
             await bot.sendMessage(chatId, messageText, {
@@ -194,8 +277,9 @@ async function checkPaymentStatusAndPrompt(chatId) {
             });
             logChat(chatId, {
                 event: 'payment_prompted',
-                limit: reloadedConfig.FREE_MESSAGE_LIMIT,
-                current_count: userMessageCount,
+                limitType: limitType,
+                limit: limitValue,
+                current_value: currentValue,
                 url: paymentUrl
             }, 'system');
         } catch (error) {
@@ -433,7 +517,8 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
                 isPaid: userData.isPaid || false, 
                 providedName: userData.providedName || null, 
                 lastRestartTime: new Date().toISOString(),
-                lastMessageTimestamp: null // Initialize lastMessageTimestamp
+                lastMessageTimestamp: null, // Initialize lastMessageTimestamp
+                activationTimestamp: null // Track when user activated with code
             };
             console.info(`[Start ${chatId}] Записаны данные нового пользователя.`);
         } else {
@@ -441,6 +526,9 @@ bot.onText(/\/start(?:\s+(.+))?/, async (msg, match) => {
             // loadUserData should ideally handle this default.
             if (userData.lastMessageTimestamp === undefined) {
                 userData.lastMessageTimestamp = null;
+            }
+            if (userData.activationTimestamp === undefined) {
+                userData.activationTimestamp = null;
             }
         }
 
@@ -511,9 +599,10 @@ bot.on('message', async (msg) => {
             if (userText === ACTIVATION_CODE) {
                 const userData = loadUserData(chatId); // Reload data as it might have been updated by handleNewDayLogic
                 userData.isPaid = true;
+                userData.activationTimestamp = new Date().toISOString(); // Save activation timestamp for 30-day tracking
                 saveUserData(chatId, userData);
                 await bot.sendMessage(chatId, escapeMarkdown("Activation successful! You can now use the bot without limits."), { parse_mode: 'MarkdownV2' });
-                logChat(chatId, { event: 'activation_success', code_entered: userText }, 'system');
+                logChat(chatId, { event: 'activation_success', code_entered: userText, activationTimestamp: userData.activationTimestamp }, 'system');
             } else {
                 await bot.sendMessage(chatId, escapeMarkdown("Invalid activation code."), { parse_mode: 'MarkdownV2' });
                 logChat(chatId, { event: 'activation_failed', code_entered: userText }, 'system');

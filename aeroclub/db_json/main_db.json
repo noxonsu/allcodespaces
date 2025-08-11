@@ -47,8 +47,14 @@
     {
       "id": "49fd90e5-7dae-4d1d-9d0d-a2e2c5450305",
       "name": "\u043a\u043e\u0444\u0435 \u0441 \u043c\u043e\u043b\u043e\u043a\u043e\u043c",
-      "image_filename": null,
+      "image_filename": "1bf72a06-e846-4720-9a40-d4169c7d4cec_New Project.png",
       "price": 22.0
+    },
+    {
+      "id": "561abefd-0eba-4798-9718-86e297422910",
+      "name": "\u0445\u0440\u044e",
+      "image_filename": "823ee9bc-cbf0-4821-9889-18515cc60415_translated_photo_2024-06-10_09-07-24 (4).jpg",
+      "price": 222.0
     }
   ],
   "location_menu_associations": [
@@ -59,6 +65,10 @@
     {
       "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
       "menu_item_id": "49fd90e5-7dae-4d1d-9d0d-a2e2c5450305"
+    },
+    {
+      "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+      "menu_item_id": "561abefd-0eba-4798-9718-86e297422910"
     }
   ]
 }
