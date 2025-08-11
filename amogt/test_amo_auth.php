@@ -2,6 +2,10 @@
 
 declare(strict_types=1);
 
+// сделай ENVIRONMENT = test только для этого скрипта
+putenv('ENVIRONMENT=production');
+
+
 // Включаем необходимые файлы
 require_once __DIR__ . '/config.php'; // Для AMO_DOMAIN, AMO_INTEGRATION_ID, AMO_SECRET_KEY, AMO_AUTH_CODE, AMO_REDIRECT_URI, AMO_TOKENS_PATH
 require_once __DIR__ . '/logger.php';   // Для функции logMessage
