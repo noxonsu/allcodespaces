@@ -1,3 +1,5 @@
+from django_prometheus.models import ExportModelOperationsMixin
+
 from .utils import RolePermissions
 from decimal import Decimal
 from typing import Self
@@ -17,7 +19,7 @@ from core.models_validators import campaign_budget_validator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
-class User(AbstractUser):
+class User(ExportModelOperationsMixin('user'), AbstractUser):
     class Role(models.TextChoices):
         ADMIN = 'administrator', 'Super Administrator'
         PUBLISHER = 'admin', 'Administrator'
@@ -30,7 +32,7 @@ class User(AbstractUser):
         ordering=['-date_joined']
 
 
-class ChannelAdmin(BaseModel):
+class ChannelAdmin(ExportModelOperationsMixin('channeladmin'), BaseModel):
 
     class CooperationFormChoices(models.TextChoices):
         LEGAL = 'legal', 'ФЛ (без статуса СЗ)'
@@ -99,7 +101,7 @@ class MessageLink(BaseModel):
         ordering = ['-created_at']
 
 
-class Message(BaseModel):
+class Message(ExportModelOperationsMixin('message'), BaseModel):
     """TG campaigns Message"""
 
     def image_path(instance, filename):
@@ -137,7 +139,7 @@ class Message(BaseModel):
 
 
 
-class Channel(BaseModel):
+class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     """Channel should be in TG, Channel has many campaigns"""
 
     name = models.CharField(max_length=250, verbose_name=_('Название'))
@@ -169,7 +171,7 @@ class Channel(BaseModel):
         ordering=['-created_at']
 
 
-class Campaign(BaseModel):
+class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
     """Campaign of channel/s"""
 
     class Statuses(models.TextChoices):
@@ -314,7 +316,7 @@ class Campaign(BaseModel):
         self.clean_finish_date()
 
 
-class CampaignChannel(BaseModel):
+class CampaignChannel(ExportModelOperationsMixin('campaignchannel'), BaseModel):
     class PublishStatusChoices(models.TextChoices):
         PLANNED = 'planned', _('Не опубликовано')
         PUBLISHED = 'published', _('опубликовано')

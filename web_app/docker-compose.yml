@@ -19,6 +19,20 @@ services:
       - ./:/app
       - media:/app/media/
       - ./static/:/app/static/
+    ports:
+      - '8000:8000'
+
+  prometheus-app:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./django.rules:/etc/prometheus/django.rules
+    profiles:
+      - all
+    networks:
+      - network_default
 
   celery-worker:
     restart: "on-failure"

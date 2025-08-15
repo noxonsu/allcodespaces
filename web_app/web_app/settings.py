@@ -67,9 +67,11 @@ INSTALLED_APPS = [
     'django_celery_beat',
     'django_celery_results',
     'core',
+    'django_prometheus',
 ]
 
 MIDDLEWARE = [
+    'django_prometheus.middleware.PrometheusBeforeMiddleware',
     "django.middleware.security.SecurityMiddleware",
     # "core.middlewares.IPMiddleware",
     # "core.middlewares.PathRestrictMiddleware",
@@ -81,6 +83,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'django_prometheus.middleware.PrometheusAfterMiddleware',
 ]
 
 
@@ -132,7 +135,7 @@ WSGI_APPLICATION = "web_app.wsgi.application"
 
 DATABASES = {
   'default': {
-    'ENGINE'  : 'django.db.backends.' + app_settings.DB_ENGINE,
+    'ENGINE'  : 'django_prometheus.db.backends.' + app_settings.DB_ENGINE,
     'NAME'    : app_settings.DB_NAME,
     'USER'    : app_settings.DB_USERNAME,
     'PASSWORD': app_settings.DB_PASS,
@@ -193,11 +196,9 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_REDIRECT_URL = '/core/campaignchannel/'
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
-
-# django setting.
 CACHES = {
     'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
+        'BACKEND': 'django_prometheus.cache.backends.redis.RedisCache',
         'LOCATION': "redis://redis:6379/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
