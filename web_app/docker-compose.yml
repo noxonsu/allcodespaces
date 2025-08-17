@@ -24,15 +24,60 @@ services:
 
   prometheus-app:
     image: prom/prometheus:latest
-    ports:
-      - "9090:9090"
+    container_name: prometheus_con
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml
       - ./django.rules:/etc/prometheus/django.rules
+      - prometheus_data:/prometheus
     profiles:
       - all
     networks:
       - network_default
+    expose:
+      - "9090"
+    depends_on:
+      - web-app
+
+  promtail-app:
+    image: grafana/promtail
+    container_name: protmail_con
+    networks:
+      - network_default
+    expose:
+      - "9080"
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./promtail_config.yml:/etc/promtail/config.yml
+    command:
+      - -config.file=/etc/promtail/config.yml
+    privileged: true
+
+  loki-app:
+    image: grafana/loki
+    networks:
+      - network_default
+    container_name: loki_con
+    expose:
+      - "3100"
+    volumes:
+      - ./grafana_loki.yml:/etc/loki/local-config.yaml
+
+  grafana-app:
+    image: grafana/grafana
+    networks:
+      - network_default
+
+    container_name: grafana_con
+    ports:
+      - "3000:3000"
+    expose:
+      - "3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana_datasource.yml:/etc/grafana/provisioning/datasources/datasources.yml
 
   celery-worker:
     restart: "on-failure"
@@ -85,7 +130,7 @@ services:
 
 
   reverse-proxy:
-    image: nginx
+    image: "nginx:alpine"
 #    restart: unless-stopped
     container_name: reverse-proxy_con
     ports:
@@ -108,6 +153,7 @@ services:
     depends_on:
       - web-app
       - tg-bot
+      - prometheus-app
 
   web-db:
     image: postgres
@@ -162,4 +208,5 @@ volumes:
   nginx_certbot_conf:
   nginx_certbot_www:
   media:
+  prometheus_data:
   static:
