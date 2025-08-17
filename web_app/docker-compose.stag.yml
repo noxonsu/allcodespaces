@@ -204,5 +204,5 @@ volumes:
   nginx_certbot_conf:
   nginx_certbot_www:
   media:
+  prometheus_data:
   static:
-
