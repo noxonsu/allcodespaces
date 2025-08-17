@@ -44,6 +44,14 @@ class ChannelAdminInlined(admin.TabularInline):
     verbose_name = 'Администратор канала'
     template = 'admin/core/channel/channel_admin_tab_inlined.html'
 
+    def get_queryset(self, request):
+        resolver_match = request.resolver_match
+        if resolver_match and getattr(resolver_match, 'kwargs'):
+            object_id = resolver_match.kwargs.get('object_id')
+            return Channel.admins.through.objects.filter(channel__id=object_id)
+        return super().get_queryset(request)
+
+
     def has_change_permission(self, request, obj=None):
         return False
 
