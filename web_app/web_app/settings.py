@@ -32,6 +32,7 @@ DEBUG = app_settings.DEBUG
 ALLOWED_HOSTS = [
     '.localhost',
     '127.0.0.1',
+    'web-app',
     '.telewin.online',
     '51.250.45.63',
     '91.108.5.74',
