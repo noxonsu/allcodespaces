@@ -207,8 +207,8 @@ class TGLoginSerializer(serializers.ModelSerializer):
             return ChannelAdmin.objects.create(
                 tg_id=self.validated_data['tg_id'],
                 username=self.validated_data.get('username', self.validated_data['tg_id']),
-                last_name=self.validated_data['last_name'],
-                first_name=self.validated_data['first_name'],
+                last_name=self.validated_data.get('last_name', ''),
+                first_name=self.validated_data.get('first_name', ''),
             )
         return channel_admin
 
