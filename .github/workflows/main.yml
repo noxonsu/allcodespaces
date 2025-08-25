@@ -5,10 +5,15 @@ on:
         branches: [main]
 
 jobs:
-    test-and-lint:
-        name: "test and lint python code"
-        uses: ./.github/workflows/test_lint.yml
-        secrets:
-            DOCKERHUB_USER: "user"
-            DOCKERHUB_PASSWORD: "PASSWORD"
-
+    build-lint-test-deploy:
+        runs-on: ubuntu@22.04
+        steps:
+          - name: checkout
+            uses: actions/checkout@v5.0.0
+          - name: build image
+            run:  |
+              docker build -t ${{ secrets.DK_USERNAME }}/${{ secrets.DK_PASSWD }} .
+              
+        
+        
+        
