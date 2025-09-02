@@ -127,7 +127,6 @@ services:
       - ../bot:/bot
       - media:/media/
 
-
   web-db:
     image: postgres
     container_name: web-db_con
@@ -144,8 +143,6 @@ services:
       - web-app
       - db
       - all
-    ports:
-      - "5432:5432"
 
   redis:
     container_name: redis_con

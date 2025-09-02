@@ -128,7 +128,6 @@ services:
       - ../bot:/bot
       - media:/media/
 
-
   reverse-proxy:
     image: "nginx:alpine"
 #    restart: unless-stopped
@@ -171,8 +170,6 @@ services:
       - web-app
       - db
       - all
-    ports:
-      - "5432:5432"
 
   redis:
     container_name: redis_con
