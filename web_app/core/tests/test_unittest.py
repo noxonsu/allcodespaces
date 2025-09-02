@@ -4,7 +4,8 @@ from django.core.exceptions import ValidationError
 from django.test import TransactionTestCase
 
 from .conftest import create_campaign_channel
-from .factories import ChannelAdminFactory, MessageFactory, CampaignFactory
+from .factories import ChannelAdminFactory, MessageFactory, CampaignFactory, ChannelFactory
+from ..admin_utils import is_not_valid_channel_status
 from ..models import Campaign, Channel
 from faker import  Faker
 
@@ -83,6 +84,9 @@ class TestUnitTest(TransactionTestCase):
 
 class ChannelTestCase(TransactionTestCase):
 
+    def setUp(self):
+        self.old_channel = ChannelFactory(status='pending')
+
     def test_add_cpm_success(self):
         channel = Channel.objects.create()
         self.assertEqual(channel.cpm, 0)
@@ -96,6 +100,18 @@ class ChannelTestCase(TransactionTestCase):
         channel.status = Channel.ChannelStatus.CONFIRMED
         channel.save()
         self.assertEqual(channel.status, Channel.ChannelStatus.CONFIRMED)
+
+    def test_change_channel_status_CONFIRMED_success(self):
+        is_not_valid = is_not_valid_channel_status(self.old_channel.status, Channel.ChannelStatus.CONFIRMED)
+        self.assertFalse(is_not_valid) # this means that status is valid
+
+    def test_change_channel_status_REJECTED_success(self):
+        is_not_valid = is_not_valid_channel_status(self.old_channel.status, Channel.ChannelStatus.REJECTED)
+        self.assertFalse(is_not_valid) # this means that status is valid
+
+    def test_change_channel_status_PENDING_success(self):
+        is_not_valid = is_not_valid_channel_status(self.old_channel.status, Channel.ChannelStatus.PENDING)
+        self.assertTrue(is_not_valid)  # this means that status is not valid
 
 
 class CampaignTestCase(TransactionTestCase):

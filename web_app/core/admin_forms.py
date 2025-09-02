@@ -11,7 +11,7 @@ class ChannelForm(forms.ModelForm):
         }
     def clean_status(self):
         status = self.cleaned_data.get('status')
-        if 'status' in set(self.changed_data) and is_not_valid_channel_status(status, self.initial.get('status')):
+        if 'status' in set(self.changed_data) and is_not_valid_channel_status(self.initial.get('status'), status):
                 self.add_error('status', 'этот статус не может быть установлен, пожалуйста, выберите другой статус!')
         return status
 

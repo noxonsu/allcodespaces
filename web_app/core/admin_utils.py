@@ -38,6 +38,6 @@ def can_change_channel_status(user: User)-> bool:
     """Validate if a certain user can change the channel status."""
     return user and (user.is_superuser or user.profile and user.profile.role == ChannelAdmin.Role.MANAGER)
 
-def is_not_valid_channel_status(new_status: str, old_status: str) -> bool:
+def is_not_valid_channel_status(old_status: str, new_status: str) -> bool:
     """check if status is not valid."""
     return new_status and old_status and new_status == Channel.ChannelStatus.PENDING
