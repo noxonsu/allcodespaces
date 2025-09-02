@@ -379,7 +379,7 @@ class CampaignChannel(ExportModelOperationsMixin('campaignchannel'), BaseModel):
 
     @is_approved.setter
     def is_approved(self, val: bool):
-        self.publish_status = self.PublishStatusChoices.CONFIRMED if val else self.PublishStatusChoices.PLANNED
+        self.publish_status = self.PublishStatusChoices.CONFIRMED if val else self.PublishStatusChoices.REJECTED
 
     def clean(self: Self):
         if not getattr(self, 'channel', None):
