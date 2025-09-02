@@ -45,7 +45,7 @@ class CampaignChannelQs(QuerySet):
         range_time = timezone.now() - timedelta(minutes=minutes)
         return self.active().filter(
             channel_post_id__isnull=False,
-            is_message_published=True,
+            publish_status='published',
             message_publish_date__range=(range_time, now))
 
     def campaign_channels_total_budgets(self):
