@@ -47,7 +47,6 @@ class ChannelFactory(DjangoModelFactory):
     name = factory.Faker('name')
     tg_id = factory.Faker('random_int')
     is_bot_installed = factory.Faker('boolean')
-    is_active = factory.Faker('boolean')
     about = factory.Faker('text')
     language = factory.Faker('name')
     category = factory.Faker('name')

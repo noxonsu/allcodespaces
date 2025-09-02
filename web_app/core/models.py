@@ -155,7 +155,7 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     tg_id = models.TextField(verbose_name=_("tg id"), blank=True, null=True)
     is_bot_installed = models.BooleanField(verbose_name=_('Бот установлен'), default=False)
     # to do delete
-    is_active = models.BooleanField(default=False, verbose_name=_('Подтвержден'))
+    # is_active = models.BooleanField(default=False, verbose_name=_('Подтвержден'))
     status = models.CharField(verbose_name='Статус',choices=ChannelStatus.choices, default=ChannelStatus.PENDING, max_length=10)
     meta = JSONField(null=True, blank=True, verbose_name=_('meta'))
     avatar_url = models.URLField(null=True, blank=True, verbose_name=_('avatar'))
@@ -171,6 +171,10 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == self.ChannelStatus.CONFIRMED
 
     class Meta:
         verbose_name_plural='Каналы'

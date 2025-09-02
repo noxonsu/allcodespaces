@@ -15,5 +15,5 @@ def campaign_channel_can_added(instance: "CampaignChannel") -> None:
     campaign = getattr(instance, 'campaign', None)
     channel = getattr(instance, 'channel', None)
     if campaign and channel and not channel.is_active:
-        raise ValidationError({"channel": _("only channel with is_active can be added to campaign")})
+        raise ValidationError({"channel": _("only confirmed channel can be added to campaign")})
 
