@@ -110,6 +110,38 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'is_active',
         'is_bot_installed',
     ]
+    empty_value_display = "-"
+    fieldsets = (
+        ("Общие", {
+            "classes": ['wide'],
+            'fields': (
+                'id',
+                'name',
+                ('is_active', 'is_bot_installed',),
+                'cpm',
+                'avatar_image'
+            ),
+        }),
+        ('информация',{
+            'fields': (
+                    'tg_id',
+                    'country',
+                    'category',
+                    'members_count',
+                    'avg_posts_reach',
+                    'username',
+                    'er',
+                    'err',
+                    'err_24',
+                    'posts_count',
+                    'daily_reach',
+                    'about',
+                    'language',
+                    'invitation_link',
+                    'refresh_statistics',
+                )
+            }),
+    )
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, instance: Channel) -> str:
@@ -155,32 +187,6 @@ class ChannelModelAdmin(admin.ModelAdmin):
             return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:70%;height:70%;'>")
         return '-'
 
-    fieldsets = (
-        ("Общие(основная вкладка)", {
-            "classes": ['wide'],
-            'fields': ('id', 'name', ('is_active', 'is_bot_installed',), 'avatar_image' ),
-        }),
-        ('информация',{
-            'fields': (
-                    'tg_id',
-                    'country',
-                    'category',
-                    'members_count',
-                    'avg_posts_reach',
-                    'username',
-                    'er',
-                    'err',
-                    'err_24',
-                    'posts_count',
-                    'daily_reach',
-                    'about',
-                    'language',
-                    'invitation_link',
-                    'refresh_statistics',
-                )
-            }),
-    )
-    empty_value_display = "-"
     def get_urls(self):
         urls = super().get_urls()
         urls.append(

@@ -142,6 +142,10 @@ DATABASES = {
     'PASSWORD': app_settings.DB_PASS,
     'HOST'    : app_settings.DB_HOST,
     'PORT'    : app_settings.DB_PORT,
+    "TEST": {
+        "NAME": "app_test_db",
+        'TEMPLATE': 'template0',
+    }
     },
 }
 

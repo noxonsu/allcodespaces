@@ -1,7 +1,7 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import TransactionTestCase
 
 from core.external_clients import TGStatClient
 from .factories import CampaignFactory, ChannelFactory, ChannelAdminFactory, MessageFactory, CampaignChannelFactory
@@ -30,7 +30,7 @@ from ..serializers import ExporterSerializer
 #
 #
 
-class TestTGStatTests(TestCase):
+class TestTGStatTests(TransactionTestCase):
     def setUp(self):
         self.client = TGStatClient()
 
@@ -67,7 +67,7 @@ class TestTGStatTests(TestCase):
         pathed_save.assert_called_once()
 
 
-class TestChannelAdmin(TestCase):
+class TestChannelAdmin(TransactionTestCase):
     def test_create_channel_admin_nouser_success(self):
         channel_admin = ChannelAdmin.objects.create(username='channel_admin_username')
         self.assertIsNotNone(channel_admin.user)
@@ -126,7 +126,7 @@ class TestChannelAdmin(TestCase):
         self.assertEqual(Group.objects.all().first().name, channel_admin.role)
 
 
-class TestExporter(TestCase):
+class TestExporter(TransactionTestCase):
 
     def test_qs_exporter_success(self):
         instances = CampaignChannelFactory.create_batch(size=5)

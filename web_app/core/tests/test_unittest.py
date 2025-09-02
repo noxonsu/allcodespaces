@@ -1,13 +1,11 @@
-import uuid
-from unittest import TestCase
-
 import django.utils.timezone as timezone
 import pytest
 from django.core.exceptions import ValidationError
+from django.test import TransactionTestCase
 
 from .conftest import create_campaign_channel
 from .factories import ChannelAdminFactory, MessageFactory, CampaignFactory
-from ..models import Campaign
+from ..models import Campaign, Channel
 from faker import  Faker
 
 faker = Faker()
@@ -17,7 +15,7 @@ pytestmark = [
 ]
 
 
-class TestUnitTest(TestCase):
+class TestUnitTest(TransactionTestCase):
     def test_create_channel_admin_with_user(self):
         channel_admin = ChannelAdminFactory.create()
         assert channel_admin.user is not None
@@ -81,3 +79,10 @@ class TestUnitTest(TestCase):
             campaign.start_date = timezone.datetime(2020, 1, 1).date()
             campaign.clean()
             campaign.save()
+
+
+class ChannelTestCase(TransactionTestCase):
+
+    def test_add_cpm_success(self):
+        channel = Channel.objects.create()
+        self.assertEqual(channel.cpm, 0)

@@ -161,6 +161,7 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     daily_reach = models.FloatField(blank=True, verbose_name=_('ежедневный охват'), default=0, null=True)
     about = models.TextField(blank=True, verbose_name=_('описание'), default="", null=True)
     language = models.CharField(blank=True, verbose_name=_('Язык'), default="", null=True)
+    cpm = models.PositiveIntegerField('CPM', default=0)
 
     def __str__(self):
         return self.name
