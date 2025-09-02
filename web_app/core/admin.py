@@ -7,12 +7,13 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
 from django.forms import Select
-from django.http import JsonResponse, FileResponse, HttpRequest
+from django.http import JsonResponse, FileResponse
 from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
-from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter
+from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm
+from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
 from .models import Channel, Campaign, Message, CampaignChannel, User, MessageLink, ChannelAdmin
@@ -65,7 +66,6 @@ class ChannelAdminInlined(admin.TabularInline):
 
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
-
     readonly_fields = [
         'country',
         'category',
@@ -93,7 +93,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'country',
         'language',
         'members_count',
-        'is_active',
+        'status',
         'is_bot_installed',
         'avg_posts_reach',
         'er',
@@ -107,9 +107,61 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ('name', MultipleSelectListFilter),
         ('country', MultipleSelectListFilter),
         ('language', MultipleSelectListFilter),
-        'is_active',
+        'status',
         'is_bot_installed',
     ]
+    empty_value_display = "-"
+    fieldsets = (
+        ("Общие", {
+            "classes": ['wide'],
+            'fields': (
+                'id',
+                'name',
+                'status',
+                'is_bot_installed',
+                'cpm',
+                'avatar_image'
+            ),
+        }),
+        ('информация',{
+            'fields': (
+                    'tg_id',
+                    'country',
+                    'category',
+                    'members_count',
+                    'avg_posts_reach',
+                    'username',
+                    'er',
+                    'err',
+                    'err_24',
+                    'posts_count',
+                    'daily_reach',
+                    'about',
+                    'language',
+                    'invitation_link',
+                    'refresh_statistics',
+                )
+            }),
+    )
+    form = ChannelForm
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        """Modify formfields for change/add """
+        form_field = super().formfield_for_dbfield(db_field, **kwargs)
+        try:
+            if db_field.name == 'status':
+                form_field.disabled = True
+                request = kwargs.get('request')
+                if request and can_change_channel_status(request.user):
+                    form_field.disabled = False
+                return form_field
+        except Exception:
+            form_field.disabled = False
+            pass
+        finally:
+            return form_field
+
+
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, instance: Channel) -> str:
@@ -155,32 +207,6 @@ class ChannelModelAdmin(admin.ModelAdmin):
             return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:70%;height:70%;'>")
         return '-'
 
-    fieldsets = (
-        ("Общие(основная вкладка)", {
-            "classes": ['wide'],
-            'fields': ('id', 'name', ('is_active', 'is_bot_installed',), 'avatar_image' ),
-        }),
-        ('информация',{
-            'fields': (
-                    'tg_id',
-                    'country',
-                    'category',
-                    'members_count',
-                    'avg_posts_reach',
-                    'username',
-                    'er',
-                    'err',
-                    'err_24',
-                    'posts_count',
-                    'daily_reach',
-                    'about',
-                    'language',
-                    'invitation_link',
-                    'refresh_statistics',
-                )
-            }),
-    )
-    empty_value_display = "-"
     def get_urls(self):
         urls = super().get_urls()
         urls.append(
@@ -253,9 +279,7 @@ class CampaignChannelInlined(admin.TabularInline):
     readonly_fields = [
         'impressions_fact',
         'message_publish_date',
-        'is_message_published',
         'channel_post_id',
-        'is_approved',
         'publish_status',
         'clicks',
         'update_statistics',
@@ -329,6 +353,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 class CampaignAdmin(admin.ModelAdmin):
     list_max_show_all = 50
     list_per_page = 20
+    form = CampaignAdminForm
 
     readonly_fields = [
         'id',
@@ -347,7 +372,7 @@ class CampaignAdmin(admin.ModelAdmin):
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, obj: Campaign) -> str:
-        campaignchannels_count = obj.campaigns_channel.filter(is_message_published=True, is_approved=True, channel_post_id__isnull=False).count()
+        campaignchannels_count = obj.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
         htm_str = f'<span>{obj.name}</span>'
         if campaignchannels_count:
             htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
@@ -373,6 +398,7 @@ class CampaignAdmin(admin.ModelAdmin):
                 'finish_date',
                 'inn_advertiser',
                 'client',
+                'brand',
                 'token_ord',
                 'avg_cpm',
                 'total_planed_views',
@@ -462,17 +488,15 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         'clicks',
         'ctr_col',
         'earned_money',
-        'is_approved'
     ]
 
     list_filter = [
         'campaign',
         'channel',
         ('message_publish_date', CustomDateFieldListFilter),
-        'is_message_published',
-        'is_approved',
+        'publish_status',
     ]
-    readonly_fields = ['is_message_published', 'ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks', 'is_approved', 'publish_status', 'impressions_fact_owner']
+    readonly_fields = ['ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks',  'publish_status', 'impressions_fact_owner']
 
     def has_add_permission(self, request):
         return False
@@ -511,7 +535,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 
     def export_to_xlsx(self, request):
         self.message_user(request, 'Выгрузка в excel запущено')
-        cols = ['campaign', 'channel', 'message_publish_date', 'impressions_fact', 'clicks', 'earned_money', 'is_approved']
+        cols = ['campaign', 'channel', 'message_publish_date', 'impressions_fact', 'clicks', 'earned_money', 'publish_status']
         queryset = self.get_queryset(request)
         data_buffer = QuerySetExporter(data=queryset, format='xlsx', cols=cols, for_user=request.user).process()
         return FileResponse(data_buffer,  filename='export.xlsx', as_attachment=True, content_type='application/vnd.ms-excel', charset='utf-8')
@@ -562,23 +586,10 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 class UserAdmin(UserAdmin): ...
 
 
-
-class ChannelAdminForm(forms.ModelForm):
-    channels = forms.ModelMultipleChoiceField(
-        queryset=Channel.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control wide'}),
-        required=False
-    )
-
-    class Meta:
-        model = ChannelAdmin
-        fields = '__all__'
-
-
 @register(ChannelAdmin)
 class ChannelAdminAdmin(ModelAdmin):
     list_display = ['username_display', 'first_name', 'last_name', 'phone_number', 'email', 'cooperation_form', 'legal_name']
-    readonly_fields = ['is_bot_installed']
+    readonly_fields = ['is_bot_installed', 'user']
     form = ChannelAdminForm
 
     def get_queryset(self, request):

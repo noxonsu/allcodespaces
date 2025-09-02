@@ -3,11 +3,18 @@ from django_filters.filterset import FilterSet
 from django_filters import rest_framework as filters
 
 from core.models import CampaignChannel, Campaign
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
+
 
 class CampaignChannelFilterSet(FilterSet):
     channel_tg_id = filters.CharFilter(field_name='channel__tg_id')
     words = filters.CharFilter(method='filter_words')
+    is_message_published = filters.BooleanFilter(method='filter_is_message_published')
+
+    def filter_is_message_published(self, queryset, name, value):
+        if value is True:
+            return queryset.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED)
+        return queryset.filter(~Q(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED))
 
     def filter_words(self, queryset, name, words_seperated: str) -> QuerySet[CampaignChannel]:
         def _in(words_list: set[str], filter_set: set[str]) -> bool:

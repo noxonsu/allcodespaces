@@ -1,6 +1,5 @@
 from functools import cached_property
 
-from django.conf import settings
 from django.templatetags.l10n import localize
 from rest_framework import serializers
 from core.models import Channel, Message, CampaignChannel, User, Campaign, ChannelAdmin

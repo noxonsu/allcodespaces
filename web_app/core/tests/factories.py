@@ -30,13 +30,15 @@ class CampaignFactory(DjangoModelFactory):
     status = factory.random.random.choice(['active', 'paused'])
     budget = factory.Faker('random_int', min=1, max=10000)
     message = factory.SubFactory(MessageFactory)
-    start_date = factory.Faker('date')
-    finish_date = factory.Faker('date')
+    start_date = faker.date_between(start_date='now', end_date='now')
+    finish_date = faker.date_between(start_date='now', end_date='now')
     white_list = factory.lazy_attribute(lambda x: list())
     black_list = factory.lazy_attribute(lambda x: list())
     inn_advertiser = factory.Faker('random_int', min=1, max=10000)
     token_ord = factory.Faker('text')
     client = factory.Faker('name')
+    brand = factory.Faker('name')
+
 
 class ChannelFactory(DjangoModelFactory):
     class Meta:
@@ -45,7 +47,6 @@ class ChannelFactory(DjangoModelFactory):
     name = factory.Faker('name')
     tg_id = factory.Faker('random_int')
     is_bot_installed = factory.Faker('boolean')
-    is_active = factory.Faker('boolean')
     about = factory.Faker('text')
     language = factory.Faker('name')
     category = factory.Faker('name')
@@ -86,7 +87,6 @@ class ChannelAdminFactory(DjangoModelFactory):
     user = SubFactory(UserFactory)
 
 
-
 class CampaignChannelFactory(DjangoModelFactory):
     class Meta:
         model = 'core.CampaignChannel'
@@ -103,9 +103,3 @@ class CampaignChannelFactory(DjangoModelFactory):
     channel_post_id = factory.Faker('random_int', min=1, max=10000)
     clicks = factory.Faker('random_int', min=1, max=10000)
     is_approved = factory.Faker('boolean')
-
-
-
-
-
-

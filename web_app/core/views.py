@@ -37,7 +37,7 @@ class ChannelViewSet(ModelViewSet):
         self.lookup_field = 'tg_id'
         model = super().get_object()
         model.is_bot_installed = False
-        model.is_active = False
+        model.status = Channel.ChannelStatus.PENDING
         model.save()
         return self.get_serializer(instance=model).data
 

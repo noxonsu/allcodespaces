@@ -174,8 +174,6 @@ services:
   redis:
     container_name: redis_con
     image: redis
-    ports:
-      - "6379:6379"
     expose:
       - 6379
     networks:
@@ -183,18 +181,18 @@ services:
     profiles:
       - all
 
-  certbot:
-    image: certbot/certbot
-    container_name: certbot_con
-    networks:
-      - network_default
-    profiles:
-      - reverse-proxy
-      - all
-    volumes:
-      - nginx_certbot_conf:/etc/letsencrypt
-      - nginx_certbot_www:/var/www/certbot
-    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 720 & wait $${!}; done;'"  # Renew certificates every 720 hours = month
+#  certbot:
+#    image: certbot/certbot
+#    container_name: certbot_con
+#    networks:
+#      - network_default
+#    profiles:
+#      - reverse-proxy
+#      - all
+#    volumes:
+#      - nginx_certbot_conf:/etc/letsencrypt
+#      - nginx_certbot_www:/var/www/certbot
+#    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 720 & wait $${!}; done;'"  # Renew certificates every 720 hours = month
 
 networks:
     network_default:
