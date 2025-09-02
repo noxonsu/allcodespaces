@@ -279,9 +279,7 @@ class CampaignChannelInlined(admin.TabularInline):
     readonly_fields = [
         'impressions_fact',
         'message_publish_date',
-        'is_message_published',
         'channel_post_id',
-        'is_approved',
         'publish_status',
         'clicks',
         'update_statistics',
@@ -374,7 +372,7 @@ class CampaignAdmin(admin.ModelAdmin):
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, obj: Campaign) -> str:
-        campaignchannels_count = obj.campaigns_channel.filter(is_message_published=True, is_approved=True, channel_post_id__isnull=False).count()
+        campaignchannels_count = obj.campaigns_channel.filter(status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
         htm_str = f'<span>{obj.name}</span>'
         if campaignchannels_count:
             htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
@@ -490,17 +488,15 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         'clicks',
         'ctr_col',
         'earned_money',
-        'is_approved'
     ]
 
     list_filter = [
         'campaign',
         'channel',
         ('message_publish_date', CustomDateFieldListFilter),
-        'is_message_published',
-        'is_approved',
+        'publish_status',
     ]
-    readonly_fields = ['is_message_published', 'ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks', 'is_approved', 'publish_status', 'impressions_fact_owner']
+    readonly_fields = ['ctr_col','precentage_col','impressions_plan_col', 'impressions_fact', 'message_publish_date', 'channel_post_id', 'clicks',  'publish_status', 'impressions_fact_owner']
 
     def has_add_permission(self, request):
         return False
@@ -539,7 +535,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 
     def export_to_xlsx(self, request):
         self.message_user(request, 'Выгрузка в excel запущено')
-        cols = ['campaign', 'channel', 'message_publish_date', 'impressions_fact', 'clicks', 'earned_money', 'is_approved']
+        cols = ['campaign', 'channel', 'message_publish_date', 'impressions_fact', 'clicks', 'earned_money', 'publish_status']
         queryset = self.get_queryset(request)
         data_buffer = QuerySetExporter(data=queryset, format='xlsx', cols=cols, for_user=request.user).process()
         return FileResponse(data_buffer,  filename='export.xlsx', as_attachment=True, content_type='application/vnd.ms-excel', charset='utf-8')

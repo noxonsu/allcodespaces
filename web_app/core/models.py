@@ -244,7 +244,8 @@ class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
 
     @property
     def campaign_channels_count(self):
-        return self.channels.filter(channel_campaigns__is_approved=True).distinct().count()
+        """is_approved = true"""
+        return self.channels.filter(channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).distinct().count()
 
     @property
     def total_channels_subs_count(self: Self):
@@ -270,8 +271,10 @@ class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
 
     @property
     def my_channels_sov(self):
-        members_count = self.channels.filter(channel_campaigns__is_approved=True).distinct().aggregate(Sum('members_count'))['members_count__sum']
-        impressions_plan = self.channels.filter(channel_campaigns__is_approved=True).distinct().aggregate(Sum('channel_campaigns__impressions_plan'))['channel_campaigns__impressions_plan__sum']
+        """is_approved = true"""
+        members_count = self.channels.filter(channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).distinct().aggregate(Sum('members_count'))['members_count__sum']
+        """is_approved = true"""
+        impressions_plan = self.channels.filter(channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).distinct().aggregate(Sum('channel_campaigns__impressions_plan'))['channel_campaigns__impressions_plan__sum']
         return f"{impressions_plan / members_count  * 100:.2f}%" if impressions_plan and members_count else '0%'
 
     def clean_wordsfilters(self: Self):
@@ -339,9 +342,11 @@ class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
 
 class CampaignChannel(ExportModelOperationsMixin('campaignchannel'), BaseModel):
     class PublishStatusChoices(models.TextChoices):
-        PLANNED = 'planned', _('Не опубликовано')
+        PLANNED = 'planned', _('Ожидает подтверждения')
+        CONFIRMED = 'confirmed', _('Подтверждено')
         PUBLISHED = 'published', _('опубликовано')
-        DELETED = 'deleted', _('удалённо')
+        DELETED = 'deleted', _('удалённо') # to delete
+        REJECTED = 'rejected', _('Отклонено')
 
     channel = models.ForeignKey('Channel', on_delete=models.CASCADE, verbose_name=_('Канал'), related_name='channel_campaigns')
     campaign = models.ForeignKey('Campaign', on_delete=models.CASCADE, verbose_name=_('Кампания'), related_name='campaigns_channel')
@@ -349,14 +354,30 @@ class CampaignChannel(ExportModelOperationsMixin('campaignchannel'), BaseModel):
     impressions_plan = models.IntegerField(verbose_name=_("План. Количество показов"), default=0, help_text='рассчитывается как (Бюджет/СРМ)*1000')
     impressions_fact = models.IntegerField(verbose_name=_('Показы-факт'), default=0)
     message_publish_date = models.DateTimeField(null=True, blank=True, verbose_name=_('Дата публикации'))
-    is_message_published = models.BooleanField(verbose_name=_('опубликовано'), default=False)
+    # is_message_published = models.BooleanField(verbose_name=_('опубликовано'), default=False)
     publish_status = models.CharField(verbose_name='Статус публикации', max_length=30, choices=PublishStatusChoices.choices, default=PublishStatusChoices.PLANNED)
     channel_post_id = models.TextField(null=True, blank=True)
     clicks = models.PositiveIntegerField(default=0, help_text='clicks by users on the campaign', verbose_name='Клики')
     channel_admin = models.ForeignKey('ChannelAdmin', verbose_name='Админ', related_name='channel_campaigns', on_delete=models.SET_NULL, null=True)
-    is_approved = models.BooleanField(default=False, verbose_name='Разрешено')
+    # is_approved = models.BooleanField(default=False, verbose_name='Разрешено')
 
     objects = CampaignChannelQs.as_manager()
+
+    @property
+    def is_message_published(self) -> bool:
+        return self.publish_status == self.PublishStatusChoices.PUBLISHED
+
+    @is_message_published.setter
+    def is_message_published(self, val: bool):
+        self.publish_status = self.PublishStatusChoices.PUBLISHED if val else self.PublishStatusChoices.PLANNED
+
+    @property
+    def is_approved(self)-> bool:
+        return self.publish_status == self.PublishStatusChoices.CONFIRMED
+
+    @is_approved.setter
+    def is_approved(self, val: bool):
+        self.publish_status = self.PublishStatusChoices.CONFIRMED if val else self.PublishStatusChoices.PLANNED
 
     def clean(self: Self):
         if not getattr(self, 'channel', None):
