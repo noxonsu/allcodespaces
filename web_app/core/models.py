@@ -176,6 +176,15 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     def is_active(self) -> bool:
         return self.status == self.ChannelStatus.CONFIRMED
 
+    @is_active.setter
+    def is_active(self, val: bool):
+        if val:
+            self.status = Channel.ChannelStatus.CONFIRMED
+        elif val is False:
+            self.status = Channel.ChannelStatus.REJECTED
+        elif val is None:
+            self.status = Channel.ChannelStatus.PENDING
+
     class Meta:
         verbose_name_plural='Каналы'
         verbose_name='Канал'
