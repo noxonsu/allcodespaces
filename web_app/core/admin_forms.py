@@ -5,10 +5,14 @@ from core.models import Campaign, Channel, ChannelAdmin
 
 
 class ChannelForm(forms.ModelForm):
+    class Media:
+        css = {
+            'all': ['custom/channelchangeview.css',]
+        }
     def clean_status(self):
         status = self.cleaned_data.get('status')
         if 'status' in set(self.changed_data) and is_not_valid_channel_status(status, self.initial.get('status')):
-                self.add_error('status', 'этот статус не может быть установлен, пожалуйста, выберите другой статус!')
+                self.add_error('status', 'этот статус не может быть установлен,\nпожалуйста, выберите другой статус!')
         return status
 
     class Meta:
