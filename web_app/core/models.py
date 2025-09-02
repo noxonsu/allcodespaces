@@ -141,6 +141,10 @@ class Message(ExportModelOperationsMixin('message'), BaseModel):
 
 class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     """Channel should be in TG, Channel has many campaigns"""
+    class ChannelStatus(models.TextChoices):
+        PENDING = 'pending', 'На модерации'
+        CONFIRMED = 'confirmed', 'Подтверждено'
+        REJECTED = 'rejected', 'Отказано'
 
     name = models.CharField(max_length=250, verbose_name=_('Название'))
     country = models.CharField(max_length=250, verbose_name=_('Страна'), null=True, blank=True)
@@ -150,7 +154,9 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     members_count = models.PositiveIntegerField(verbose_name=_('Число подписчиков'), default=0, null=True)
     tg_id = models.TextField(verbose_name=_("tg id"), blank=True, null=True)
     is_bot_installed = models.BooleanField(verbose_name=_('Бот установлен'), default=False)
+    # to do delete
     is_active = models.BooleanField(default=False, verbose_name=_('Подтвержден'))
+    status = models.CharField(choices=ChannelStatus.choices, default=ChannelStatus.PENDING, max_length=10)
     meta = JSONField(null=True, blank=True, verbose_name=_('meta'))
     avatar_url = models.URLField(null=True, blank=True, verbose_name=_('avatar'))
     avg_posts_reach = models.FloatField(blank=True, verbose_name=_('Охват'), default=0, null=True)

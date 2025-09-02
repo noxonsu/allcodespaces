@@ -87,6 +87,16 @@ class ChannelTestCase(TransactionTestCase):
         channel = Channel.objects.create()
         self.assertEqual(channel.cpm, 0)
 
+    def test_new_channel_status_pending_default_success(self):
+        channel = Channel.objects.create()
+        self.assertEqual(channel.status, Channel.ChannelStatus.PENDING)
+
+    def test_channel_status_updatable_success(self):
+        channel = Channel.objects.create(status=Channel.ChannelStatus.PENDING)
+        channel.status = Channel.ChannelStatus.CONFIRMED
+        channel.save()
+        self.assertEqual(channel.status, Channel.ChannelStatus.CONFIRMED)
+
 
 class CampaignTestCase(TransactionTestCase):
     def test_brand_default_success(self):
