@@ -1,5 +1,7 @@
 from django.contrib import admin
 
+from core.models import ChannelAdmin
+
 
 class MultipleSelectListFilter(admin.AllValuesFieldListFilter):
     template = "admin/filter_ml.html"
@@ -30,3 +32,9 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
 def is_empty(value: str):
     """Check if value is empty."""
     return not value or value and value.strip() == ""
+
+
+def can_change_channel_status(user):
+    """Validate if a certain user can change the channel status."""
+    return user and (user.is_superuser or user.profile and user.profile.role == ChannelAdmin.Role.MANAGER)
+

@@ -1,7 +1,9 @@
 from django import forms
 
 from core.admin_utils import is_empty
-from core.models import Campaign
+from core.models import Campaign, Channel, ChannelAdmin
+
+
 
 
 class CampaignAdminForm(forms.ModelForm):
@@ -14,4 +16,16 @@ class CampaignAdminForm(forms.ModelForm):
 
     class Meta:
         model = Campaign
+        fields = '__all__'
+
+
+class ChannelAdminForm(forms.ModelForm):
+    channels = forms.ModelMultipleChoiceField(
+        queryset=Channel.objects.all(),
+        widget=forms.SelectMultiple(attrs={'class': 'form-control wide'}),
+        required=False
+    )
+
+    class Meta:
+        model = ChannelAdmin
         fields = '__all__'

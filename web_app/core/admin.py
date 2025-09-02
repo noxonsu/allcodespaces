@@ -7,13 +7,13 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
 from django.db.models import Sum
 from django.forms import Select
-from django.http import JsonResponse, FileResponse, HttpRequest
+from django.http import JsonResponse, FileResponse
 from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
-from .admin_forms import CampaignAdminForm
-from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter
+from .admin_forms import CampaignAdminForm, ChannelAdminForm
+from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
 from .models import Channel, Campaign, Message, CampaignChannel, User, MessageLink, ChannelAdmin
@@ -66,7 +66,6 @@ class ChannelAdminInlined(admin.TabularInline):
 
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
-
     readonly_fields = [
         'country',
         'category',
@@ -118,7 +117,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
             'fields': (
                 'id',
                 'name',
-                ('is_active', 'is_bot_installed',),
+                ('is_active', 'status','is_bot_installed',),
                 'cpm',
                 'avatar_image'
             ),
@@ -143,6 +142,23 @@ class ChannelModelAdmin(admin.ModelAdmin):
                 )
             }),
     )
+
+    def formfield_for_dbfield(self, db_field, **kwargs):
+        """Modify formfields for change/add """
+        form_field = super().formfield_for_dbfield(db_field, **kwargs)
+        try:
+            if db_field.name == 'status':
+                form_field.disabled = True
+                request = kwargs.get('request')
+                if request and can_change_channel_status(request.user):
+                    form_field.disabled = False
+                return form_field
+        except Exception:
+            form_field.disabled = False
+            pass
+        finally:
+            return form_field
+
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, instance: Channel) -> str:
@@ -569,19 +585,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 
 @register(User)
 class UserAdmin(UserAdmin): ...
-
-
-
-class ChannelAdminForm(forms.ModelForm):
-    channels = forms.ModelMultipleChoiceField(
-        queryset=Channel.objects.all(),
-        widget=forms.SelectMultiple(attrs={'class': 'form-control wide'}),
-        required=False
-    )
-
-    class Meta:
-        model = ChannelAdmin
-        fields = '__all__'
 
 
 @register(ChannelAdmin)
