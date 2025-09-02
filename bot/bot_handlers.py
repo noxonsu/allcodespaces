@@ -56,5 +56,5 @@ async def campaign_channel_decline_button(update: Update, context: ContextTypes.
     await query.answer()
     _, campaign_channel_id = query.data.split(':')
     service = MainService()
-    await service.campaign_channel_decline(campaign_channel_id)
+    service.campaign_channel_decline(campaign_channel_id)
     await query.edit_message_text('Новая рекламная кампания отклонено. ❌')
