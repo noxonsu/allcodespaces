@@ -184,13 +184,14 @@ class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
     budget = models.DecimalField(verbose_name=_('Бюджет (руб.)'), max_digits=8, decimal_places=2, validators=[campaign_budget_validator])
     start_date = models.DateField(verbose_name=_('Дата старта'))
     finish_date = models.DateField(verbose_name=_('Дата окончания'))
-    channels = models.ManyToManyField('Channel', through='CampaignChannel')
+    channels = models.ManyToManyField('Channel', through='CampaignChannel', blank=True)
     message = models.ForeignKey(to='Message', on_delete=models.CASCADE, related_name='campaigns', verbose_name=_('message'))
     white_list = ArrayField(base_field=models.CharField(max_length=250), blank=True, default=list, verbose_name='разрешённые слова (разделитель ,)', help_text='разделитель , (если пусто то не будет фильтровать)')
     black_list = ArrayField(base_field=models.CharField(max_length=250), blank=True, default=list, verbose_name='запрещённые слова (разделитель ,)', help_text='разделитель , (если пусто то не будет фильтровать)')
     inn_advertiser = models.PositiveIntegerField(blank=True, default=0, verbose_name='ИНН рекламодателя', help_text='ИНН рекламодателя')
     token_ord = models.CharField(blank=True, default='', verbose_name='Токен ОРД', help_text='Токен ОРД')
     client = models.CharField(blank=True, default='', verbose_name='Клиент', help_text='Клиент')
+    brand = models.CharField(default='', verbose_name='Бренд', help_text='Бренд')
 
     objects = CampaignQS.as_manager()
 

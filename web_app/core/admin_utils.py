@@ -25,3 +25,8 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
                     links[index_] = tuple(links[index_])
                 index_+=1
             self.links = tuple(links)
+
+
+def is_empty(value: str):
+    """Check if value is empty."""
+    return not value or value and value.strip() == ""

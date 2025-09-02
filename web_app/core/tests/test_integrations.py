@@ -1,12 +1,14 @@
 from unittest.mock import patch
 
 from django.contrib.auth.models import Group
+from django.forms import model_to_dict
 from django.test import TransactionTestCase
 
 from core.external_clients import TGStatClient
 from .factories import CampaignFactory, ChannelFactory, ChannelAdminFactory, MessageFactory, CampaignChannelFactory
 from core.models import Campaign, CampaignChannel, Channel, ChannelAdmin, Message
 from core.external_clients import TGChannelStat
+from ..admin_forms import CampaignAdminForm
 from ..serializers import ExporterSerializer
 
 
@@ -133,3 +135,25 @@ class TestExporter(TransactionTestCase):
         rows = [i.values() for i in ExporterSerializer(instance=instances, many=True).data]
         print('rows', rows)
         self.assertEqual(len(rows), 5)
+
+
+class CampaignFormTestCase(TransactionTestCase):
+        def setUp(self):
+            super().setUp()
+            self.old_campaign = CampaignFactory.create()
+
+        def test_create_campaign_empty_client_raises_exception(self):
+            new_campaign = CampaignFactory.create(client='')
+            data = model_to_dict(new_campaign, exclude=['channels'])
+            form = CampaignAdminForm(data=data)
+            self.assertFalse(form.is_valid())
+            self.assertEqual(len(form.errors), 1)
+            self.assertTrue(form.has_error('client'))
+
+        def test_create_campaign_notempty_client_success(self):
+            data = model_to_dict(self.old_campaign, exclude=['channels'])
+            form = CampaignAdminForm(data=data)
+            self.assertTrue(form.is_valid())
+            self.assertEqual(len(form.errors), 0)
+            self.assertFalse(form.has_error('client'))
+

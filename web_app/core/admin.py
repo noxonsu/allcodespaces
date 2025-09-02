@@ -12,6 +12,7 @@ from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
+from .admin_forms import CampaignAdminForm
 from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -335,6 +336,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 class CampaignAdmin(admin.ModelAdmin):
     list_max_show_all = 50
     list_per_page = 20
+    form = CampaignAdminForm
 
     readonly_fields = [
         'id',
@@ -379,6 +381,7 @@ class CampaignAdmin(admin.ModelAdmin):
                 'finish_date',
                 'inn_advertiser',
                 'client',
+                'brand',
                 'token_ord',
                 'avg_cpm',
                 'total_planed_views',

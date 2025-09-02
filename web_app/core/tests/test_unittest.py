@@ -86,3 +86,35 @@ class ChannelTestCase(TransactionTestCase):
     def test_add_cpm_success(self):
         channel = Channel.objects.create()
         self.assertEqual(channel.cpm, 0)
+
+
+class CampaignTestCase(TransactionTestCase):
+    def test_brand_default_success(self):
+        start_date = faker.date_between(start_date='+1day', end_date='+1days')
+        finish_date = faker.date_between(start_date='+2day', end_date='+2days')
+        campaign = Campaign.objects.create(
+            message=MessageFactory.create(),
+            start_date=start_date,
+            finish_date=finish_date,
+            budget=faker.random_int(1, 10000)
+        )
+        self.assertEqual(campaign.brand, '')
+
+    def test_brand_value_success(self):
+        start_date = faker.date_between(start_date='+1day', end_date='+1days')
+        finish_date = faker.date_between(start_date='+2day', end_date='+2days')
+        brand = faker.name()
+        campaign = Campaign.objects.create(
+            message=MessageFactory.create(),
+            start_date=start_date,
+            finish_date=finish_date,
+            budget=faker.random_int(1, 10000),
+            brand=brand
+        )
+        self.assertEqual(campaign.brand, brand)
+
+    def test_create_campaign_client_default_success(self):
+        campaign = CampaignFactory.create()
+        self.assertEqual(campaign.client, '')
+        self.assertIsNotNone(campaign.created_at)
+
