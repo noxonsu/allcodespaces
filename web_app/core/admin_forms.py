@@ -1,9 +1,19 @@
 from django import forms
 
-from core.admin_utils import is_empty
+from core.admin_utils import is_empty, is_not_valid_channel_status
 from core.models import Campaign, Channel, ChannelAdmin
 
 
+class ChannelForm(forms.ModelForm):
+    def clean_status(self):
+        status = self.cleaned_data.get('status')
+        if 'status' in set(self.changed_data) and is_not_valid_channel_status(status, self.initial.get('status')):
+                self.add_error('status', 'этот статус не может быть установлен, пожалуйста, выберите другой статус!')
+        return status
+
+    class Meta:
+        model = Channel
+        fields = '__all__'
 
 
 class CampaignAdminForm(forms.ModelForm):

@@ -12,7 +12,7 @@ from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
-from .admin_forms import CampaignAdminForm, ChannelAdminForm
+from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm
 from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -93,7 +93,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'country',
         'language',
         'members_count',
-        'is_active',
+        'status',
         'is_bot_installed',
         'avg_posts_reach',
         'er',
@@ -107,7 +107,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ('name', MultipleSelectListFilter),
         ('country', MultipleSelectListFilter),
         ('language', MultipleSelectListFilter),
-        'is_active',
+        'status',
         'is_bot_installed',
     ]
     empty_value_display = "-"
@@ -117,7 +117,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
             'fields': (
                 'id',
                 'name',
-                ('is_active', 'status','is_bot_installed',),
+                ('status','is_bot_installed',),
                 'cpm',
                 'avatar_image'
             ),
@@ -142,6 +142,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
                 )
             }),
     )
+    form = ChannelForm
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         """Modify formfields for change/add """
@@ -158,6 +159,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
             pass
         finally:
             return form_field
+
 
 
     @admin.display(description='Название', ordering='name')
