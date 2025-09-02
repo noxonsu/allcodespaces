@@ -12,6 +12,8 @@ class CampaignChannelFilterSet(FilterSet):
     is_message_published = filters.BooleanFilter(method='filter_is_message_published')
 
     def filter_is_message_published(self, queryset, name, value):
+        print(f'{value=}')
+        print(f'{type(value)=}')
         if value is True:
             return queryset.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED)
         return queryset.filter(~Q(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED))
@@ -61,4 +63,5 @@ class CampaignChannelFilterSet(FilterSet):
             'cpm',
             'is_message_published',
             'words',
+            'publish_status',
     ]
