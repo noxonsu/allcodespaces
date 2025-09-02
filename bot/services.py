@@ -40,7 +40,7 @@ class MainService:
 
     def bot_kicked(self, chat_id: str):
         url = self.urls['bot_kicked'].format(tg_id=chat_id)
-        return self.client.patch(url, json=dict(is_active=False, is_bot_installed=False))
+        return self.client.patch(url, json=dict(status='rejected', is_bot_installed=False))
 
     def get_channel_unpublished_messages(self, channel_tg_id):
         url = self.urls['unpublished_messages'].format(channel_tg_id=channel_tg_id)

@@ -58,7 +58,14 @@ async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat = await context.bot.get_chat(chat_id)
     if chat.photo:
         photo_file = (await context.bot.getFile(chat.photo.big_file_id)).file_path
-    data = dict(name=chat_name, tg_id=chat_id, is_bot_installed=True, meta=update.to_dict(), avatar=photo_file, invitation_link=chat.invite_link)
+    data = dict(name=chat_name,
+                tg_id=chat_id,
+                is_bot_installed=True,
+                meta=update.to_dict(),
+                avatar=photo_file,
+                invitation_link=chat.invite_link,
+                publish_status='pending')
+
     logger.info(f"BOT ADDED TO CHANNEL: {data=}")
     service = MainService()
     service.added_to_channel(data)

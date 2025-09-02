@@ -21,6 +21,7 @@ class ChannelSerializer(serializers.ModelSerializer):
         channel: Channel = Channel.objects.filter(tg_id=validated_data['tg_id']).first()
         if channel:
             channel.is_bot_installed = True
+            channel.status = validated_data.get('status', Channel.ChannelStatus.PENDING)
             channel.avatar_url = validated_data.get('avatar_url')
             channel.invitation_link = validated_data.get('invitation_link')
             channel.save()
