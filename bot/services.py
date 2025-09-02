@@ -18,13 +18,18 @@ class MainService:
         "messages_update": '/api/message/update/',
         "bot_kicked": '/api/channel/{tg_id}/',
         "channel_admin_join": '/api/channel-admin/join/',
-        'campaign_channel_approve': "/api/campaign-channel/{campaign_channel_id}/",
+        'campaign_channel_approve': "/api/campaign-channel/{campaign_channel_id}/", #toDO:Refactor
+        'campaign_channel_reject': "/api/campaign-channel/{campaign_channel_id}/",  #toDO:Refactor
     }
         self._response_raw = []
 
     def campaign_channel_approve(self, campaign_channel_id):
         url = self.urls["campaign_channel_approve"].format(campaign_channel_id=campaign_channel_id)
-        return self.client.patch(url, json=dict(is_approved=True))
+        return self.client.patch(url, json=dict(publish_status='confirmed'))
+
+    def campaign_channel_decline(self, campaign_channel_id):
+        url = self.urls["campaign_channel_reject"].format(campaign_channel_id=campaign_channel_id)
+        return self.client.patch(url, json=dict(publish_status='rejected'))
 
     def added_to_channel(self, data):
         return self.client.post(url='/api/channel/', json=data)
@@ -73,7 +78,7 @@ class MainService:
         return self._response_raw
 
     def unpublished_campaign_channel_by_words(self, channel_tg_id, words: str):
-        data = dict(words=words, channel_tg_id=channel_tg_id, is_message_published=False)
+        data = dict(words=words, channel_tg_id=channel_tg_id, is_message_published=False) #toDO: is_message_published->publish_status='planned'
         url = self.urls['unpublished_campaign_channel_by_words']
         self._response_raw = self.client.post(url, json=data)
         return self._response_raw

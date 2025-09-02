@@ -44,7 +44,6 @@ async def _publish_messages_logic(bot, campaign_channel, kwargs, posts_data):
                 'id': campaign_channel.campaign.message.id,
                 'channel_post_id': post['message_id'],
                 'message_publish_date': str(datetime.datetime.now()),
-                "is_message_published": True,
                 "publish_status": 'published',
                 "campaign_channel_id": str(campaign_channel.id),
             }
