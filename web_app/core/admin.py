@@ -117,7 +117,8 @@ class ChannelModelAdmin(admin.ModelAdmin):
             'fields': (
                 'id',
                 'name',
-                ('status','is_bot_installed',),
+                'status',
+                'is_bot_installed',
                 'cpm',
                 'avatar_image'
             ),
