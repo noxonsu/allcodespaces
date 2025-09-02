@@ -253,7 +253,8 @@ class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
 
     @property
     def my_channels_subs_count(self: Self):
-        return self.channels.filter(channel_campaigns__is_approved=True).distinct().aggregate(Sum('members_count'))['members_count__sum'] or 0
+        """is_approved true"""
+        return self.channels.filter(channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).distinct().aggregate(Sum('members_count'))['members_count__sum'] or 0
 
     @property
     def total_channels_avg_posts_reach(self: Self):
@@ -261,7 +262,8 @@ class Campaign(ExportModelOperationsMixin('campaign'), BaseModel):
 
     @property
     def my_channels_avg_posts_reach(self: Self):
-        return self.channels.filter(channel_campaigns__is_approved=True).distinct().aggregate(Sum('avg_posts_reach'))['avg_posts_reach__sum'] or 0
+        """is_approved true"""
+        return self.channels.filter(channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).distinct().aggregate(Sum('avg_posts_reach'))['avg_posts_reach__sum'] or 0
 
     @property
     def total_channels_sov(self):

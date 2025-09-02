@@ -372,7 +372,7 @@ class CampaignAdmin(admin.ModelAdmin):
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, obj: Campaign) -> str:
-        campaignchannels_count = obj.campaigns_channel.filter(status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
+        campaignchannels_count = obj.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
         htm_str = f'<span>{obj.name}</span>'
         if campaignchannels_count:
             htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
