@@ -78,7 +78,7 @@ class MainService:
         return self._response_raw
 
     def unpublished_campaign_channel_by_words(self, channel_tg_id, words: str):
-        data = dict(words=words, channel_tg_id=channel_tg_id, is_message_published=False) #toDO: is_message_published->publish_status='planned'
+        data = dict(words=words, channel_tg_id=channel_tg_id, publish_status='confirmed')
         url = self.urls['unpublished_campaign_channel_by_words']
         self._response_raw = self.client.post(url, json=data)
         return self._response_raw
