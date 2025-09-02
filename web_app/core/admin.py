@@ -589,7 +589,7 @@ class UserAdmin(UserAdmin): ...
 @register(ChannelAdmin)
 class ChannelAdminAdmin(ModelAdmin):
     list_display = ['username_display', 'first_name', 'last_name', 'phone_number', 'email', 'cooperation_form', 'legal_name']
-    readonly_fields = ['is_bot_installed']
+    readonly_fields = ['is_bot_installed', 'user']
     form = ChannelAdminForm
 
     def get_queryset(self, request):
