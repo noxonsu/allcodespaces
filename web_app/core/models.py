@@ -157,10 +157,10 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     invitation_link = models.URLField(max_length=250, verbose_name=_('ссылка-приглашение'), null=True, blank=True)
     members_count = models.PositiveIntegerField(verbose_name=_('Число подписчиков'), default=0, null=True)
     tg_id = models.TextField(verbose_name=_("tg id"), blank=True, null=True)
-    is_bot_installed = models.BooleanField(verbose_name=_('Бот установлен'), default=False)
+    is_bot_installed = models.BooleanField(verbose_name=_('Бот ТЕЛЕВИН'), default=False, help_text='Бот установлен')
     # to do delete
     # is_active = models.BooleanField(default=False, verbose_name=_('Подтвержден'))
-    status = models.CharField(verbose_name='Статус',choices=ChannelStatus.choices, default=ChannelStatus.PENDING, max_length=10)
+    status = models.CharField(verbose_name='Статус модерации',choices=ChannelStatus.choices, default=ChannelStatus.PENDING, max_length=10)
     meta = JSONField(null=True, blank=True, verbose_name=_('meta'))
     avatar_url = models.URLField(null=True, blank=True, verbose_name=_('avatar'))
     avg_posts_reach = models.FloatField(blank=True, verbose_name=_('Охват'), default=0, null=True)

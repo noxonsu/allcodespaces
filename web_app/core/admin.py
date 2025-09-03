@@ -48,6 +48,9 @@ class ChannelAdminInlinedForm(forms.ModelForm):
 
 
 class ChannelAdminInlined(admin.TabularInline):
+    class Media:
+        js = ['core/js/channel/inlines/channel_admin_inlined.js']
+
     form = ChannelAdminInlinedForm
     model = Channel.admins.through
     extra = 1
