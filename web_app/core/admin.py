@@ -12,7 +12,7 @@ from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
-from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm
+from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm, MessageModelForm
 from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status, \
     remove_fieldset_for_role
 from .exporter import QuerySetExporter
@@ -443,15 +443,11 @@ class CampaignAdmin(admin.ModelAdmin):
 
 
 
-class MessageModelForm(forms.ModelForm):
-    button_link = forms.URLField(required=True)
-
-    class Meta:
-        model = Message
-        fields = '__all__'
-
 @register(Message)
 class MessageAdmin(admin.ModelAdmin):
+    class Media:
+        js = ['core/js/message/change_form.js']
+
     readonly_fields = ['id', 'display_image', 'display_image_thumbil']
     list_display = ['__str__', 'message_type','display_image_thumbil' ]
     form = MessageModelForm
@@ -465,6 +461,9 @@ class MessageAdmin(admin.ModelAdmin):
         'button_str',
         'button_link',
         'is_external',
+        'ad_individual',
+        'ad_inn',
+        'erd',
         'display_image_thumbil',
         'id',
     ]
@@ -479,12 +478,13 @@ class MessageAdmin(admin.ModelAdmin):
             return mark_safe(f"<img src={obj.image.url} alt='image-{obj.title}' style='width:70%;height:70%;'>")
         return '-'
 
+    @admin.display(description='миниатюра')
     def display_image_thumbil(self, obj):
         if obj.image:
             text = f'''
             <div class="thumb-container" >
                 <a href="{obj.image.url}" data-jbox-image="thumb-image" title="{str(obj.image)}" >
-                    <img class="thumb-image" src="{obj.image.url}" alt="Thumbnail Image"> 
+                    <img class="thumb-image" src="{obj.image.url}" alt="миниатюра"> 
                 <a>
             </div>'''
             return mark_safe(text)

@@ -118,13 +118,17 @@ class Message(ExportModelOperationsMixin('message'), BaseModel):
     body = models.TextField(verbose_name=_('тело'))
     name = models.CharField(max_length=250, verbose_name=_('название'), null=True, blank=True)
     # button = models.ForeignKey('MessageLink', verbose_name='кнопка',on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
-    button_str = models.CharField(max_length=250, default='Click Me!', blank=True, verbose_name=_('название ссылки'))
-    button_link = models.URLField(null=True, blank=True, verbose_name=_('URL-адрес'))
+    button_str = models.CharField(max_length=250, default='Click Me!', blank=True, verbose_name=_('Текст на кнопке'))
+    button_link = models.URLField(null=True, blank=True, verbose_name=_('Посадочная страница'))
     is_external = models.BooleanField(default=False, verbose_name='Ссылка на канал телеграм?')
+    ad_individual = models.CharField(max_length=250, default='', blank=True, verbose_name='Юр. лицо рекламодателя')
+    ad_inn = models.CharField(max_length=250, default='', blank=True, verbose_name='ИНН рекламодателя')
+    erd = models.CharField(max_length=250, default='', blank=True, verbose_name='ERD')
 
     def __str__(self):
         str_ = self.name if self.name else self.title if self.title else self.body
-        return str_[:15] + '....'
+        len_str: int = len(str_)
+        return str_[:130] + '....' if len_str > 130 else str_
 
     class Meta:
         verbose_name_plural = 'Сообщения'
