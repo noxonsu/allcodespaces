@@ -13,7 +13,8 @@ from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
 from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm
-from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status
+from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status, \
+    remove_fieldset_for_role
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
 from .models import Channel, Campaign, Message, CampaignChannel, User, MessageLink, ChannelAdmin
@@ -160,6 +161,13 @@ class ChannelModelAdmin(admin.ModelAdmin):
     )
     form = ChannelForm
 
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        user = request.user
+        if user and not user.is_superuser and getattr(user, 'profile', None):
+            fieldsets = remove_fieldset_for_role(fieldsets, 'Статистика', user.profile, ChannelAdmin.Role.OWNER.value)
+        return fieldsets
+
     def formfield_for_dbfield(self, db_field, **kwargs):
         """Modify formfields for change/add """
         form_field = super().formfield_for_dbfield(db_field, **kwargs)
@@ -195,7 +203,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         client = TGStatClient()
         client.update_channel_info(obj)
         client.update_channel_stat(obj)
-        return mark_safe('<a href="" class="btn btn-success">обновить статистику &#128209;</a>')
+        return mark_safe('<a href="" class="btn btn-success">обновить статистику &#128201;</a>')
 
     def has_view_permission(self, request, obj=None):
         return True
