@@ -13,7 +13,13 @@ async def admin_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     service = MainService()
     logger.info(f'channel_admin_join: {from_user} is joining')
     service.channel_admin_join(from_user)
-    await context.bot.edit_message_text(text='This user has been registered successfully.', chat_id=update.message.chat_id, message_id=tg_response.message_id)
+    welcome_text = """
+        Добро пожаловать в ТЕЛЕВИН — платформу пассивного дохода на рекламе в Telegram!\n
+        Website – https://telewin.online/\n
+        Канал — https://t.me/telewin_online\n
+        Личный кабинет – https://app.telewin.online
+    """
+    await context.bot.edit_message_text(text=welcome_text, chat_id=update.message.chat_id, message_id=tg_response.message_id)
 
 
 async def handle_all_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
