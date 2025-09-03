@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/4.1/ref/settings/
 import os
 from pathlib import Path
 
+from django.utils.safestring import mark_safe
 
 from .app_settings import AppSettings
 
@@ -282,9 +283,16 @@ CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'default'
 
-
+LOGIN_WELCOME_MSG = """
+<div class="text-center" style="font-family: sans-serif">
+<p>&#128171; <strong>Добро пожаловать в ТЕЛЕВИН – платформу пассивного дохода на рекламе в Telegram!</strong> &#128171;</p>
+<a href='https://telewin.online/'>Web-site - https://telewin.online/ </a><br />
+<a href='https://t.me/telewin_online'>Канал – https://t.me/telewin_online</a><br />
+<p><strong> Если вы являетесь администратором канала, используйте логин через Telegram.</strong></p>
+</div>
+"""
 JAZZMIN_SETTINGS = {
-    "welcome_sign": "Welcome to the Telewin Admin, Please Login.",
+    "welcome_sign": mark_safe(LOGIN_WELCOME_MSG),
     "site_title": "Telewin Admin",
     "site_header": "Telewin",
     "site_brand": "Telewin Administration",
