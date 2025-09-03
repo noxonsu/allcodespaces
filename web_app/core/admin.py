@@ -12,8 +12,9 @@ from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
-from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm
-from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status
+from .admin_forms import CampaignAdminForm, ChannelAdminForm, ChannelForm, MessageModelForm
+from .admin_utils import MultipleSelectListFilter, CustomDateFieldListFilter, can_change_channel_status, \
+    remove_fieldset_for_role
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
 from .models import Channel, Campaign, Message, CampaignChannel, User, MessageLink, ChannelAdmin
@@ -27,9 +28,19 @@ class ChannelAdminInlinedForm(forms.ModelForm):
         queryset=ChannelAdmin.objects.all(),
         widget=Select(attrs={'class': 'form-control wide', 'data-channel_admin-select':""}),
     )
+    chat_room = forms.CharField(required=False, disabled=True, initial='' , widget=forms.TextInput(attrs={"class": "chat_room"}))
+
     class Meta:
         model = Channel.admins.through
         fields = '__all__'
+        labels = {
+            'channeladmin': "Имя",
+            'chat_room': "Переписка"
+        }
+        help_texts = {
+            'channeladmin': 'Администратор канала.',
+        }
+
     class Media:
         js = {
             'custom/channel_admin_inlined.js'
@@ -37,12 +48,15 @@ class ChannelAdminInlinedForm(forms.ModelForm):
 
 
 class ChannelAdminInlined(admin.TabularInline):
+    class Media:
+        js = ['core/js/channel/inlines/channel_admin_inlined.js']
+
     form = ChannelAdminInlinedForm
     model = Channel.admins.through
     extra = 1
     max_num = 10
-    verbose_name_plural = 'Администраторы канала'
-    verbose_name = 'Администратор канала'
+    verbose_name_plural = 'Администраторы'
+    verbose_name = 'Администраторы'
     template = 'admin/core/channel/channel_admin_tab_inlined.html'
 
     def get_queryset(self, request):
@@ -66,6 +80,9 @@ class ChannelAdminInlined(admin.TabularInline):
 
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
+    class Media:
+        js = ['core/js/admin_channel_model.js']
+
     readonly_fields = [
         'country',
         'category',
@@ -86,6 +103,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'avatar_image',
         'invitation_link',
         'refresh_statistics',
+        'btn_link_statistics',
     ]
     list_display = [
         'name_str',
@@ -115,15 +133,16 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("Общие", {
             "classes": ['wide'],
             'fields': (
-                'id',
+                'avatar_image',
                 'name',
-                'status',
+                'id',
                 'is_bot_installed',
+                'status',
                 'cpm',
-                'avatar_image'
+                'btn_link_statistics'
             ),
         }),
-        ('информация',{
+        ('Статистика',{
             'fields': (
                     'tg_id',
                     'country',
@@ -145,6 +164,13 @@ class ChannelModelAdmin(admin.ModelAdmin):
     )
     form = ChannelForm
 
+    def get_fieldsets(self, request, obj=None):
+        fieldsets = super().get_fieldsets(request, obj)
+        user = request.user
+        if user and not user.is_superuser and getattr(user, 'profile', None):
+            fieldsets = remove_fieldset_for_role(fieldsets, 'Статистика', user.profile, ChannelAdmin.Role.OWNER.value)
+        return fieldsets
+
     def formfield_for_dbfield(self, db_field, **kwargs):
         """Modify formfields for change/add """
         form_field = super().formfield_for_dbfield(db_field, **kwargs)
@@ -161,7 +187,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
         finally:
             return form_field
 
-
+    @admin.display(description='Статистика по кампаниям')
+    def btn_link_statistics(self, instance: Channel):
+        btn_htmlstr = f'<a class="btn btn-info" href="/core/campaignchannel/?channel__id__exact={instance.id}">Прийти &#128202;</a>' if instance else '&#10060;'
+        return mark_safe(btn_htmlstr)
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, instance: Channel) -> str:
@@ -176,7 +205,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         client = TGStatClient()
         client.update_channel_info(obj)
         client.update_channel_stat(obj)
-        return mark_safe('<a href="" class="btn btn-success">обновить статистику</a>')
+        return mark_safe('<a href="" class="btn btn-success">обновить статистику &#128201;</a>')
 
     def has_view_permission(self, request, obj=None):
         return True
@@ -201,10 +230,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    @admin.display()
+    #toDO: use template_tag to make logo instead of text
+    @admin.display(description='')
     def avatar_image(self, obj):
         if obj.avatar_url:
-            return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:70%;height:70%;'>")
+            return mark_safe(f"<img class='img-circle float-left'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;'>")
         return '-'
 
     def get_urls(self):
@@ -259,11 +289,6 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         return super().clean()
 
 
-    # def clean_deleted(self: Self):
-    #     to_delete = self.cleaned_data.get('DELETE', False)
-    #     to_delete_instance = self.cleaned_data.get('id' )
-    #     if to_delete and self.instance and self.instance.is_message_published:
-    #         raise ValidationError('Cannot delete published post!')
 
     class Meta:
         model = CampaignChannel
@@ -351,17 +376,19 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 
 @register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
+    class Media:
+        css = {
+            'all': ['core/css/campaign/change_form.css']
+        }
     list_max_show_all = 50
     list_per_page = 20
     form = CampaignAdminForm
-
     readonly_fields = [
         'id',
         'total_planed_views',
         'avg_cpm',
         'link_to_statistics',
     ]
-
     list_display = ['name_str', 'client', 'start_date', 'finish_date', 'status', 'budget']
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
     list_filter = [
@@ -369,25 +396,8 @@ class CampaignAdmin(admin.ModelAdmin):
         ('client', MultipleSelectListFilter),
         'status',
     ]
-
-    @admin.display(description='Название', ordering='name')
-    def name_str(self, obj: Campaign) -> str:
-        campaignchannels_count = obj.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
-        htm_str = f'<span>{obj.name}</span>'
-        if campaignchannels_count:
-            htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
-        return mark_safe(htm_str)
-
-    @admin.display(description='Статистики')
-    def link_to_statistics(self, obj: Campaign)->str:
-        if not obj.pk:
-            return '-'
-        return mark_safe(
-            f'<a class="btn btn-info" href="/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
-        )
-
     fieldsets = (
-        ("Общие(основная вкладка)", {
+        ("Общие", {
             "classes": ['wide'],
             'fields': (
                 'id',
@@ -405,30 +415,39 @@ class CampaignAdmin(admin.ModelAdmin):
                 'link_to_statistics'
             )
         }),
-        (
-            'Фильтры',
-            {
+        ('Фильтры',{
                 "fields": ['white_list', 'black_list']
-            }
-        ),
-        (
-            'Сообщение', {
+            }),
+        ('Сообщение', {
                 "classes": ['wide'],
                 'fields': ('message', )
-            }
-        ),
+            }),
     )
 
 
-class MessageModelForm(forms.ModelForm):
-    button_link = forms.URLField(required=True)
+    @admin.display(description='Название', ordering='name')
+    def name_str(self, obj: Campaign) -> str:
+        campaignchannels_count = obj.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
+        htm_str = f'<span>{obj.name}</span>'
+        if campaignchannels_count:
+            htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
+        return mark_safe(htm_str)
 
-    class Meta:
-        model = Message
-        fields = '__all__'
+    @admin.display(description='Статистики')
+    def link_to_statistics(self, obj: Campaign)->str:
+        if not obj.pk:
+            return '-'
+        return mark_safe(
+            f'<a class="btn btn-info" href="/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
+        )
+
+
 
 @register(Message)
 class MessageAdmin(admin.ModelAdmin):
+    class Media:
+        js = ['core/js/message/change_form.js']
+
     readonly_fields = ['id', 'display_image', 'display_image_thumbil']
     list_display = ['__str__', 'message_type','display_image_thumbil' ]
     form = MessageModelForm
@@ -442,6 +461,9 @@ class MessageAdmin(admin.ModelAdmin):
         'button_str',
         'button_link',
         'is_external',
+        'ad_individual',
+        'ad_inn',
+        'erd',
         'display_image_thumbil',
         'id',
     ]
@@ -456,12 +478,13 @@ class MessageAdmin(admin.ModelAdmin):
             return mark_safe(f"<img src={obj.image.url} alt='image-{obj.title}' style='width:70%;height:70%;'>")
         return '-'
 
+    @admin.display(description='миниатюра')
     def display_image_thumbil(self, obj):
         if obj.image:
             text = f'''
             <div class="thumb-container" >
                 <a href="{obj.image.url}" data-jbox-image="thumb-image" title="{str(obj.image)}" >
-                    <img class="thumb-image" src="{obj.image.url}" alt="Thumbnail Image"> 
+                    <img class="thumb-image" src="{obj.image.url}" alt="миниатюра"> 
                 <a>
             </div>'''
             return mark_safe(text)

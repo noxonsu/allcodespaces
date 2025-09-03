@@ -1,3 +1,5 @@
+from typing import Sequence
+
 from django.contrib import admin
 
 from core.models import ChannelAdmin, Channel, User
@@ -41,3 +43,14 @@ def can_change_channel_status(user: User)-> bool:
 def is_not_valid_channel_status(old_status: str, new_status: str) -> bool:
     """check if status is not valid."""
     return new_status and old_status and new_status == Channel.ChannelStatus.PENDING
+
+
+def remove_fieldset_for_role(fieldset: Sequence,fieldset_name: str, channel_admin: ChannelAdmin, role: str):
+    """This function remove a fieldset for a user if he has specific role"""
+    fieldset = list(fieldset)
+    if channel_admin.role == role and fieldset_name:
+        for _i, fields_tuple in enumerate(fieldset):
+            if fields_tuple[0] == fieldset_name:
+                del fieldset[_i]
+                break
+    return tuple(fieldset)

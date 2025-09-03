@@ -78,6 +78,10 @@ class ChannelAdmin(ExportModelOperationsMixin('channeladmin'), BaseModel):
         return role_permissions.get(self.role, _default_permissions)
 
     @property
+    def chat(self):
+        return f'https://t.me/{self.username}' if self.username else ''
+
+    @property
     def as_str(self):
         return f'{self.first_name} {self.last_name} ({self.username})'
 
@@ -114,13 +118,17 @@ class Message(ExportModelOperationsMixin('message'), BaseModel):
     body = models.TextField(verbose_name=_('тело'))
     name = models.CharField(max_length=250, verbose_name=_('название'), null=True, blank=True)
     # button = models.ForeignKey('MessageLink', verbose_name='кнопка',on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
-    button_str = models.CharField(max_length=250, default='Click Me!', blank=True, verbose_name=_('название ссылки'))
-    button_link = models.URLField(null=True, blank=True, verbose_name=_('URL-адрес'))
+    button_str = models.CharField(max_length=250, default='Click Me!', blank=True, verbose_name=_('Текст на кнопке'))
+    button_link = models.URLField(null=True, blank=True, verbose_name=_('Посадочная страница'))
     is_external = models.BooleanField(default=False, verbose_name='Ссылка на канал телеграм?')
+    ad_individual = models.CharField(max_length=250, default='', blank=True, verbose_name='Юр. лицо рекламодателя')
+    ad_inn = models.CharField(max_length=250, default='', blank=True, verbose_name='ИНН рекламодателя')
+    erd = models.CharField(max_length=250, default='', blank=True, verbose_name='ERD')
 
     def __str__(self):
         str_ = self.name if self.name else self.title if self.title else self.body
-        return str_[:15] + '....'
+        len_str: int = len(str_)
+        return str_[:130] + '....' if len_str > 130 else str_
 
     class Meta:
         verbose_name_plural = 'Сообщения'
@@ -153,10 +161,10 @@ class Channel(ExportModelOperationsMixin('channel'), BaseModel):
     invitation_link = models.URLField(max_length=250, verbose_name=_('ссылка-приглашение'), null=True, blank=True)
     members_count = models.PositiveIntegerField(verbose_name=_('Число подписчиков'), default=0, null=True)
     tg_id = models.TextField(verbose_name=_("tg id"), blank=True, null=True)
-    is_bot_installed = models.BooleanField(verbose_name=_('Бот установлен'), default=False)
+    is_bot_installed = models.BooleanField(verbose_name=_('Бот ТЕЛЕВИН'), default=False, help_text='Бот установлен')
     # to do delete
     # is_active = models.BooleanField(default=False, verbose_name=_('Подтвержден'))
-    status = models.CharField(verbose_name='Статус',choices=ChannelStatus.choices, default=ChannelStatus.PENDING, max_length=10)
+    status = models.CharField(verbose_name='Статус модерации',choices=ChannelStatus.choices, default=ChannelStatus.PENDING, max_length=10)
     meta = JSONField(null=True, blank=True, verbose_name=_('meta'))
     avatar_url = models.URLField(null=True, blank=True, verbose_name=_('avatar'))
     avg_posts_reach = models.FloatField(blank=True, verbose_name=_('Охват'), default=0, null=True)
@@ -392,18 +400,19 @@ class CampaignChannel(ExportModelOperationsMixin('campaignchannel'), BaseModel):
         self.clean_negative_fields()
 
     def clean_negative_fields(self):
-        fields = ['cpm',
-        'impressions_plan',
-        'impressions_fact',
+        fields = [
+            'cpm',
+            'impressions_plan',
+            'impressions_fact',
          ]
         for field in fields:
             if getattr(self, field, 0) and  getattr(self, field, 0) < 0 :
-                raise ValidationError({f'{field}': f'{field} is negative'})
+                raise ValidationError({f'{field}': 'Значение не может быть отрицательным'})
 
     def clean_add_to_campaign(self: Self):
         create = self._state.adding
         if create and getattr(self,'campaign', None) and self.campaign.finish_date < timezone.now().date():
-            raise ValidationError('campaign is finished')
+            raise ValidationError({"channel":'Невозможно добавить канал в завершенную кампанию'})
 
     def delete(self: Self, using=None, keep_parents=False):
         if self.is_message_published:

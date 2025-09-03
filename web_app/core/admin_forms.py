@@ -1,7 +1,7 @@
 from django import forms
 
 from core.admin_utils import is_empty, is_not_valid_channel_status
-from core.models import Campaign, Channel, ChannelAdmin
+from core.models import Campaign, Channel, ChannelAdmin, Message
 
 
 class ChannelForm(forms.ModelForm):
@@ -28,6 +28,12 @@ class CampaignAdminForm(forms.ModelForm):
             self.add_error('client', 'это обязательное поле')
         return client_value
 
+    def clean_budget(self):
+        budget = self.cleaned_data.get('budget')
+        if budget and budget < 0:
+            self.add_error('budget', 'Значение не может быть отрицательным')
+        return budget
+
     class Meta:
         model = Campaign
         fields = '__all__'
@@ -42,4 +48,12 @@ class ChannelAdminForm(forms.ModelForm):
 
     class Meta:
         model = ChannelAdmin
+        fields = '__all__'
+
+
+class MessageModelForm(forms.ModelForm):
+    button_link = forms.URLField(required=True, label='Посадочная страница', widget=forms.URLInput(attrs={'class': 'vTextField vAutocomplete'}))
+
+    class Meta:
+        model = Message
         fields = '__all__'
