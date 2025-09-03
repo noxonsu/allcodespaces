@@ -36,3 +36,7 @@
 .login-logo h1 picture img{
     width: 100% !important;
 }
+
+.main-sidebar{
+    overflow: hidden;
+}
