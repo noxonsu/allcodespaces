@@ -76,6 +76,9 @@ class ChannelAdminInlined(admin.TabularInline):
 
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
+    class Media:
+        js = ['core/js/admin_channel_model.js']
+
     readonly_fields = [
         'country',
         'category',
@@ -216,11 +219,12 @@ class ChannelModelAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
     #toDO: use template_tag to make logo instead of text
     @admin.display(description='')
     def avatar_image(self, obj):
         if obj.avatar_url:
-            return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;margin-left:-47%'>")
+            return mark_safe(f"<img class='img-circle float-left'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;'>")
         return '-'
 
     def get_urls(self):
