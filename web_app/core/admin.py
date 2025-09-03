@@ -41,8 +41,8 @@ class ChannelAdminInlined(admin.TabularInline):
     model = Channel.admins.through
     extra = 1
     max_num = 10
-    verbose_name_plural = 'Администраторы канала'
-    verbose_name = 'Администратор канала'
+    verbose_name_plural = 'Администраторы'
+    verbose_name = 'Администраторы'
     template = 'admin/core/channel/channel_admin_tab_inlined.html'
 
     def get_queryset(self, request):
@@ -66,6 +66,9 @@ class ChannelAdminInlined(admin.TabularInline):
 
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
+    class Media:
+        js = ['custom/admin_channel_model.js']
+
     readonly_fields = [
         'country',
         'category',
@@ -86,6 +89,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         'avatar_image',
         'invitation_link',
         'refresh_statistics',
+        'btn_link_statistics',
     ]
     list_display = [
         'name_str',
@@ -115,15 +119,16 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("Общие", {
             "classes": ['wide'],
             'fields': (
-                'id',
+                'avatar_image',
                 'name',
-                'status',
+                'id',
                 'is_bot_installed',
+                'status',
                 'cpm',
-                'avatar_image'
+                'btn_link_statistics'
             ),
         }),
-        ('информация',{
+        ('Статистика',{
             'fields': (
                     'tg_id',
                     'country',
@@ -161,7 +166,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
         finally:
             return form_field
 
-
+    #core/campaignchannel/?channel__id__exact=d4421bf4-1a38-4d75-8051-c1c1087f96fa
+    @admin.display(description='Статистика по кампаниям')
+    def btn_link_statistics(self, instance: Channel):
+        btn_htmlstr = f'<a class="btn btn-info" href="/core/campaignchannel/?channel__id__exact={instance.id}">Прийти &#128202;</a>' if instance else '&#10060;'
+        return mark_safe(btn_htmlstr)
 
     @admin.display(description='Название', ordering='name')
     def name_str(self, instance: Channel) -> str:
@@ -200,11 +209,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
-
-    @admin.display()
+    #toDO: use template_tag to make logo instead of text
+    @admin.display(description='')
     def avatar_image(self, obj):
         if obj.avatar_url:
-            return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:70%;height:70%;'>")
+            return mark_safe(f"<img class='img-circle'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;margin-left:-47%'>")
         return '-'
 
     def get_urls(self):
@@ -259,11 +268,6 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         return super().clean()
 
 
-    # def clean_deleted(self: Self):
-    #     to_delete = self.cleaned_data.get('DELETE', False)
-    #     to_delete_instance = self.cleaned_data.get('id' )
-    #     if to_delete and self.instance and self.instance.is_message_published:
-    #         raise ValidationError('Cannot delete published post!')
 
     class Meta:
         model = CampaignChannel

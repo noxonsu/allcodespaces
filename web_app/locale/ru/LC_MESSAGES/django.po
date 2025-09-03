@@ -1,0 +1,288 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-09-03 17:12+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
+"n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || "
+"(n%100>=11 && n%100<=14)? 2 : 3);\n"
+#: core/base_models.py:13
+msgid "created at"
+msgstr "создано"
+
+#: core/base_models.py:14
+msgid "updated at"
+msgstr "изменено"
+
+#: core/models.py:89 core/models.py:117
+msgid "название ссылки"
+msgstr "название ссылки"
+
+#: core/models.py:90 core/models.py:118
+msgid "URL-адрес"
+msgstr "ссылка"
+
+#: core/models.py:111
+msgid "изображение"
+msgstr "изображение"
+
+#: core/models.py:112
+msgid "видео"
+msgstr "видео"
+
+#: core/models.py:113
+msgid "заголовок"
+msgstr "заголовок"
+
+#: core/models.py:114
+msgid "тело"
+msgstr "тело"
+
+#: core/models.py:115
+msgid "название"
+msgstr "название"
+
+#: core/models.py:149 core/models.py:201
+msgid "Название"
+msgstr "Название"
+
+#: core/models.py:150
+msgid "Страна"
+msgstr "Страна"
+
+#: core/models.py:151
+msgid "Тематика"
+msgstr "Тематика"
+
+#: core/models.py:152
+msgid "username"
+msgstr ""
+
+#: core/models.py:153
+msgid "ссылка-приглашение"
+msgstr "ссылка-приглашение"
+
+#: core/models.py:154
+msgid "Число подписчиков"
+msgstr "Число подписчиков"
+
+#: core/models.py:155
+msgid "tg id"
+msgstr "ИД Тг"
+
+#: core/models.py:156
+msgid "Бот установлен"
+msgstr "Бот установлен"
+
+#: core/models.py:160
+msgid "meta"
+msgstr ""
+
+#: core/models.py:161
+msgid "avatar"
+msgstr "аватар"
+
+#: core/models.py:162
+msgid "Охват"
+msgstr ""
+
+#: core/models.py:163
+msgid "ER"
+msgstr "ER"
+
+#: core/models.py:164
+msgid "ERR"
+msgstr "ERR"
+
+#: core/models.py:165
+msgid "ERR24"
+msgstr "ERR24"
+
+#: core/models.py:166
+msgid "количество сообщений"
+msgstr "количество сообщений"
+
+#: core/models.py:167
+msgid "ежедневный охват"
+msgstr "ежедневный охват"
+
+#: core/models.py:168
+msgid "описание"
+msgstr "описание"
+
+#: core/models.py:169
+msgid "Язык"
+msgstr "Язык"
+
+#: core/models.py:202
+msgid "Статус"
+msgstr "Статус"
+
+#: core/models.py:203
+msgid "Бюджет (руб.)"
+msgstr "Бюджет (руб.)"
+
+#: core/models.py:204
+msgid "Дата старта"
+msgstr "Дата старта"
+
+#: core/models.py:205
+msgid "Дата окончания"
+msgstr "Дата окончания"
+
+#: core/models.py:207
+msgid "message"
+msgstr "сообщение"
+
+#: core/models.py:347
+msgid "Ожидает подтверждения"
+msgstr "Ожидает подтверждения"
+
+#: core/models.py:348
+msgid "Подтверждено"
+msgstr "Подтверждено"
+
+#: core/models.py:349
+msgid "опубликовано"
+msgstr "опубликовано"
+
+#: core/models.py:350
+msgid "удалённо"
+msgstr "удалённо"
+
+#: core/models.py:351
+msgid "Отклонено"
+msgstr "Отклонено"
+
+#: core/models.py:353
+msgid "Канал"
+msgstr "Канал"
+
+#: core/models.py:354
+msgid "Кампания"
+msgstr "Кампания"
+
+#: core/models.py:355
+msgid "СРМ (руб.)"
+msgstr "СРМ (руб.)"
+
+#: core/models.py:356
+msgid "План. Количество показов"
+msgstr "План. Количество показов"
+
+#: core/models.py:357
+msgid "Показы-факт"
+msgstr "Показы-факт"
+
+#: core/models.py:358
+msgid "Дата публикации"
+msgstr "Дата публикации"
+
+#: core/models_validators.py:18
+msgid "only confirmed channel can be added to campaign"
+msgstr ""
+
+#: core/override_django_locale.py:5
+#, python-format
+msgid "Add another %(model)s"
+msgstr "Добавить \"%(model)s\""
+
+#: templates/admin/base.html:98
+msgid "Search"
+msgstr "Поиск"
+
+#: templates/admin/base.html:159
+msgid "Account"
+msgstr "Аккаунт"
+
+#: templates/admin/base.html:162
+msgid "Change password"
+msgstr "Изменить пароль"
+
+#: templates/admin/base.html:167
+msgid "Log out"
+msgstr "Выйти"
+
+#: templates/admin/base.html:178
+msgid "See Profile"
+msgstr "Профиль"
+
+#: templates/admin/base.html:324
+msgid "Jazzmin version"
+msgstr " "
+
+#: templates/admin/base.html:327
+msgid "Copyright"
+msgstr ""
+
+#: templates/admin/base.html:327
+msgid "All rights reserved."
+msgstr ""
+
+#: templates/admin/base.html:343
+msgid "UI Configuration"
+msgstr ""
+
+#: templates/admin/base.html:347
+msgid "Copy this info your settings file to persist these UI changes"
+msgstr ""
+
+#: templates/admin/base.html:351
+msgid "Close"
+msgstr "закрыть"
+
+#: templates/admin/change_form.html:8 templates/admin/change_list.html:6
+#: templates/admin/core/campaignchannel/change_list.html:28
+msgid "Home"
+msgstr "Главное"
+
+#: templates/admin/change_form.html:18
+#, python-format
+msgid "Add %(name)s"
+msgstr ""
+
+#: templates/admin/core/campaign/campaign_channel_tabular.html:19
+#: templates/admin/core/channel/channel_admin_tab_inlined.html:19
+msgid "Delete?"
+msgstr "Удалить"
+
+#: templates/admin/core/campaign/campaign_channel_tabular.html:46
+#: templates/admin/core/channel/channel_admin_tab_inlined.html:46
+msgid "View on site"
+msgstr ""
+
+#: templates/admin/core/campaignchannel/change_list.html:63
+msgid "Please correct the error below."
+msgstr "Пожалуйста Исправьте ошибки"
+
+#: templates/admin/core/campaignchannel/change_list.html:65
+msgid "Please correct the errors below."
+msgstr "Пожалуйста Исправьте ошибки"
+
+#: templates/admin/login.html:17
+#, python-format
+msgid ""
+"You are authenticated as %(username)s, but are not authorized to access this "
+"page. Would you like to login to a different account?"
+msgstr ""
+
+#: templates/admin/login.html:65
+msgid "Forgotten your password or username?"
+msgstr ""
+
+#: templates/admin/login.html:73
+msgid "Log in"
+msgstr "Войти"
