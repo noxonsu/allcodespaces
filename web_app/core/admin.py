@@ -187,7 +187,6 @@ class ChannelModelAdmin(admin.ModelAdmin):
         finally:
             return form_field
 
-    #core/campaignchannel/?channel__id__exact=d4421bf4-1a38-4d75-8051-c1c1087f96fa
     @admin.display(description='Статистика по кампаниям')
     def btn_link_statistics(self, instance: Channel):
         btn_htmlstr = f'<a class="btn btn-info" href="/core/campaignchannel/?channel__id__exact={instance.id}">Прийти &#128202;</a>' if instance else '&#10060;'
@@ -377,17 +376,19 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 
 @register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
+    class Media:
+        css = {
+            'all': ['core/css/campaign/change_form.css']
+        }
     list_max_show_all = 50
     list_per_page = 20
     form = CampaignAdminForm
-
     readonly_fields = [
         'id',
         'total_planed_views',
         'avg_cpm',
         'link_to_statistics',
     ]
-
     list_display = ['name_str', 'client', 'start_date', 'finish_date', 'status', 'budget']
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
     list_filter = [
@@ -395,25 +396,8 @@ class CampaignAdmin(admin.ModelAdmin):
         ('client', MultipleSelectListFilter),
         'status',
     ]
-
-    @admin.display(description='Название', ordering='name')
-    def name_str(self, obj: Campaign) -> str:
-        campaignchannels_count = obj.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
-        htm_str = f'<span>{obj.name}</span>'
-        if campaignchannels_count:
-            htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
-        return mark_safe(htm_str)
-
-    @admin.display(description='Статистики')
-    def link_to_statistics(self, obj: Campaign)->str:
-        if not obj.pk:
-            return '-'
-        return mark_safe(
-            f'<a class="btn btn-info" href="/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
-        )
-
     fieldsets = (
-        ("Общие(основная вкладка)", {
+        ("Общие", {
             "classes": ['wide'],
             'fields': (
                 'id',
@@ -431,19 +415,32 @@ class CampaignAdmin(admin.ModelAdmin):
                 'link_to_statistics'
             )
         }),
-        (
-            'Фильтры',
-            {
+        ('Фильтры',{
                 "fields": ['white_list', 'black_list']
-            }
-        ),
-        (
-            'Сообщение', {
+            }),
+        ('Сообщение', {
                 "classes": ['wide'],
                 'fields': ('message', )
-            }
-        ),
+            }),
     )
+
+
+    @admin.display(description='Название', ordering='name')
+    def name_str(self, obj: Campaign) -> str:
+        campaignchannels_count = obj.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED, channel_post_id__isnull=False).count()
+        htm_str = f'<span>{obj.name}</span>'
+        if campaignchannels_count:
+            htm_str = f'<span class="tooltip-campaign" title="кол-во опубликованных постов ({campaignchannels_count})">{obj.name}</span>'
+        return mark_safe(htm_str)
+
+    @admin.display(description='Статистики')
+    def link_to_statistics(self, obj: Campaign)->str:
+        if not obj.pk:
+            return '-'
+        return mark_safe(
+            f'<a class="btn btn-info" href="/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
+        )
+
 
 
 class MessageModelForm(forms.ModelForm):

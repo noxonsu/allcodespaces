@@ -396,18 +396,19 @@ class CampaignChannel(ExportModelOperationsMixin('campaignchannel'), BaseModel):
         self.clean_negative_fields()
 
     def clean_negative_fields(self):
-        fields = ['cpm',
-        'impressions_plan',
-        'impressions_fact',
+        fields = [
+            'cpm',
+            'impressions_plan',
+            'impressions_fact',
          ]
         for field in fields:
             if getattr(self, field, 0) and  getattr(self, field, 0) < 0 :
-                raise ValidationError({f'{field}': f'{field} is negative'})
+                raise ValidationError({f'{field}': 'Значение не может быть отрицательным'})
 
     def clean_add_to_campaign(self: Self):
         create = self._state.adding
         if create and getattr(self,'campaign', None) and self.campaign.finish_date < timezone.now().date():
-            raise ValidationError('campaign is finished')
+            raise ValidationError({"channel":'Невозможно добавить канал в завершенную кампанию'})
 
     def delete(self: Self, using=None, keep_parents=False):
         if self.is_message_published:

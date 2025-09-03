@@ -28,6 +28,12 @@ class CampaignAdminForm(forms.ModelForm):
             self.add_error('client', 'это обязательное поле')
         return client_value
 
+    def clean_budget(self):
+        budget = self.cleaned_data.get('budget')
+        if budget and budget < 0:
+            self.add_error('budget', 'Значение не может быть отрицательным')
+        return budget
+
     class Meta:
         model = Campaign
         fields = '__all__'
