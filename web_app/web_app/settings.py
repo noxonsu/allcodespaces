@@ -310,7 +310,7 @@ JAZZMIN_SETTINGS = {
         "core.Channel": "fab fa-telegram-plane",
     },
 
-    'site_logo': 'custom/1.png',
+    'site_logo': 'custom/logo.gif',
     "site_icon": 'custom/fav.png',
     "hide_apps": [
         'django_celery_results',
