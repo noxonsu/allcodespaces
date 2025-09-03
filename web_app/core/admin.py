@@ -195,7 +195,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         client = TGStatClient()
         client.update_channel_info(obj)
         client.update_channel_stat(obj)
-        return mark_safe('<a href="" class="btn btn-success">обновить статистику</a>')
+        return mark_safe('<a href="" class="btn btn-success">обновить статистику &#128209;</a>')
 
     def has_view_permission(self, request, obj=None):
         return True
