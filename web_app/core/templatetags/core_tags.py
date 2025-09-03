@@ -72,10 +72,13 @@ def custom_result_list_totals(*args, **kwargs):
 def channeladmin_read_only(*args, **kwargs):
     field = kwargs['field']
     context = kwargs['context']
+    field_name = field.field.get('name')
     channeladmin = context.original.channeladmin
     read_only = not channeladmin.role == ChannelAdmin.Role.OWNER
-    if read_only:
-        return mark_safe(f'<span>{channeladmin}</a>')
+    if read_only and field_name == 'channeladmin':
+        return mark_safe(f'<span>{channeladmin}</span>')
+    if read_only and field_name == 'chat_room':
+        return mark_safe(f'<a class="btn btn-info" href="{channeladmin.chat}">&#128172;</a>')
     return field.contents()
 
 @register.simple_tag()

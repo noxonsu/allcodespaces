@@ -27,9 +27,19 @@ class ChannelAdminInlinedForm(forms.ModelForm):
         queryset=ChannelAdmin.objects.all(),
         widget=Select(attrs={'class': 'form-control wide', 'data-channel_admin-select':""}),
     )
+    chat_room = forms.CharField(required=False, disabled=True, initial='' , widget=forms.TextInput(attrs={"class": "chat_room"}))
+
     class Meta:
         model = Channel.admins.through
         fields = '__all__'
+        labels = {
+            'channeladmin': "Имя",
+            'chat_room': "Переписка"
+        }
+        help_texts = {
+            'channeladmin': 'Администратор канала.',
+        }
+
     class Media:
         js = {
             'custom/channel_admin_inlined.js'
@@ -66,9 +76,6 @@ class ChannelAdminInlined(admin.TabularInline):
 
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
-    class Media:
-        js = ['custom/admin_channel_model.js']
-
     readonly_fields = [
         'country',
         'category',

@@ -10,4 +10,9 @@ $(document).ready( function () {
             channel_admin_selector.select2({containerCss: {width: "50% !important"}});
         }
     });
+
+    var new_read_only_chat_rooms = $('td.field-chat_room input.chat_room');
+    if (new_read_only_chat_rooms.length > 0) {
+        new_read_only_chat_rooms.css('display', 'none');
+    }
 });

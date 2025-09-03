@@ -78,6 +78,10 @@ class ChannelAdmin(ExportModelOperationsMixin('channeladmin'), BaseModel):
         return role_permissions.get(self.role, _default_permissions)
 
     @property
+    def chat(self):
+        return f'https://t.me/{self.username}' if self.username else ''
+
+    @property
     def as_str(self):
         return f'{self.first_name} {self.last_name} ({self.username})'
 
