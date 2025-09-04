@@ -177,7 +177,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
-        extra_context = {}
+        extra_context = {} if not extra_context else extra_context
         extra_context["show_save_and_continue"] = False
         return super().changeform_view(request, object_id, extra_context=extra_context)
 
