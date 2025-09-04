@@ -13,7 +13,7 @@ def budget_cpm(impressions_plan=None, cpm=None):
     )
 
 
-def budget_cpm_from_qs(qs: "QuerySet[CampaignChannel]"): # noqa: F821
+def budget_cpm_from_qs(qs: "QuerySet[CampaignChannel]"):  # noqa: F821
     total = 0
     for row in qs:
         if row.campaign and row.channel:

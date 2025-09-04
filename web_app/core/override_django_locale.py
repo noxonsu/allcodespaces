@@ -6,7 +6,7 @@ and the contents of this file will be used to override the default messages of D
 # path to default django ru locale msgs .venv/lib/python3.13/site-packages/django/contrib/admin/locale/ru/LC_MESSAGES/django.po
 """
 
-_ = lambda s: s #noqa:E731
+_ = lambda s: s  # noqa:E731
 django_standard_messages_to_override = [
     _("Add another %(model)s"),
 ]

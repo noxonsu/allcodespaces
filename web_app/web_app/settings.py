@@ -319,11 +319,14 @@ JAZZMIN_SETTINGS = {
         "django_celery_beat.solarschedule",
         "core.messagelink",
     ],
-    "custom_links":{
-      "core":[
-          {'name': 'О Компании (in work..)', 'url': '/api/about', 'icon': 'fa-solid fa-building'},
-      ],
-
+    "custom_links": {
+        "core": [
+            {
+                "name": "О Компании (in work..)",
+                "url": "/api/about",
+                "icon": "fa-solid fa-building",
+            },
+        ],
     },
     # "language_chooser": True
 }

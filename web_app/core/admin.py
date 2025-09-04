@@ -22,7 +22,6 @@ from .admin_utils import (
     MultipleSelectListFilter,
     CustomDateFieldListFilter,
     can_change_channel_status,
-    remove_fieldset_for_role,
 )
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -179,7 +178,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
         extra_context = {}
-        extra_context['show_save_and_continue'] = False
+        extra_context["show_save_and_continue"] = False
         return super().changeform_view(request, object_id, extra_context=extra_context)
 
     def formfield_for_dbfield(self, db_field, **kwargs):
@@ -503,9 +502,7 @@ class CampaignAdmin(admin.ModelAdmin):
 class MessageAdmin(admin.ModelAdmin):
     class Media:
         js = ["core/js/message/change_form.js"]
-        css = {
-            'all': ["core/css/message/change_form.css"]
-        }
+        css = {"all": ["core/css/message/change_form.css"]}
 
     readonly_fields = ["id", "display_image", "display_image_thumbil"]
     list_display = ["__str__", "message_type", "display_image_thumbil"]

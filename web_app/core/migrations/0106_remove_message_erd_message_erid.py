@@ -4,19 +4,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0105_message_ad_individual_message_ad_inn_message_erd_and_more'),
+        ("core", "0105_message_ad_individual_message_ad_inn_message_erd_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='message',
-            name='erd',
+            model_name="message",
+            name="erd",
         ),
         migrations.AddField(
-            model_name='message',
-            name='erid',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='ERID'),
+            model_name="message",
+            name="erid",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="ERID"
+            ),
         ),
     ]
