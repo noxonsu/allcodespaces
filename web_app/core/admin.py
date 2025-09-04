@@ -28,7 +28,7 @@ class ChannelAdminInlinedForm(forms.ModelForm):
         queryset=ChannelAdmin.objects.all(),
         widget=Select(attrs={'class': 'form-control wide', 'data-channel_admin-select':""}),
     )
-    chat_room = forms.CharField(required=False, disabled=True, initial='' , widget=forms.TextInput(attrs={"class": "chat_room"}))
+    chat_room = forms.CharField(required=False, disabled=True, widget=forms.TextInput(attrs={"class": "chat_room"}))
 
     class Meta:
         model = Channel.admins.through
