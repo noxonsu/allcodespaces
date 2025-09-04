@@ -77,7 +77,7 @@ def channeladmin_read_only(*args, **kwargs):
     read_only = not channeladmin.role == ChannelAdmin.Role.OWNER
     if read_only and field_name == 'channeladmin':
         return mark_safe(f'<span>{channeladmin}</span>')
-    if read_only and field_name == 'chat_room':
+    if field.is_readonly and field_name == 'chat_room':
         return mark_safe(f'<a class="btn btn-info" href="{channeladmin.chat}">&#128172;</a>')
     return field.contents()
 
