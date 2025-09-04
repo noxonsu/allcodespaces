@@ -9,4 +9,4 @@ class CoreConfig(AppConfig):
     version = "1.0"
 
     def ready(self):
-        pass  # nooqe
+        from . import signals  # noqa

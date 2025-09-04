@@ -7,14 +7,14 @@ from web_app.logger import logger
 
 
 @transaction.atomic
-def change_channeladmin_group(instance: "ChannelAdmin"): #noqa:F821
+def change_channeladmin_group(instance: "ChannelAdmin"):  # noqa:F821
     logger.info(f"change_channeladmin_group: Changing user group for {instance=}")
     if not getattr(instance, "user", None):
         return
     if instance.user.groups.exists():
         instance.user.groups.clear()
 
-    def set_user_group(instance: "ChannelAdmin"): #noqa:F821
+    def set_user_group(instance: "ChannelAdmin"):  # noqa:F821
         user = instance.user
         group_name = instance.role
         group, created = Group.objects.get_or_create(name=group_name)
