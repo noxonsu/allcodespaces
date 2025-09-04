@@ -263,7 +263,6 @@ class ChannelModelAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         return False
 
-    # toDO: use template_tag to make logo instead of text
     @admin.display(description="")
     def avatar_image(self, obj):
         if obj.avatar_url:
