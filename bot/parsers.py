@@ -3,7 +3,14 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Json, Field, computed_field, field_serializer
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Json,
+    Field,
+    computed_field,
+    field_serializer,
+)
 from decimal import Decimal
 from settings import bot_settings
 
@@ -13,8 +20,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 class MessageLink(BaseModel):
     id: str | UUID
-    title: str = ''
-    url: str = ''
+    title: str = ""
+    url: str = ""
 
 
 class MessageParser(BaseModel):
@@ -22,54 +29,54 @@ class MessageParser(BaseModel):
 
     as_text: str
     id: str | UUID
-    name: str| None = ''
-    title: str | None = ''
-    body: str = 'Empty body'
-    image: str | None = ''
-    video: str | None = ''
-    created_at: str | datetime | None = ''
-    updated_at: str | datetime | None = ''
-    button: MessageLink| None = None
+    name: str | None = ""
+    title: str | None = ""
+    body: str = "Empty body"
+    image: str | None = ""
+    video: str | None = ""
+    created_at: str | datetime | None = ""
+    updated_at: str | datetime | None = ""
+    button: MessageLink | None = None
     is_external: bool = Field(default=False)
 
     @computed_field
     @property
     def has_video(self) -> bool:
-        return self.video != '' and self.video is not None
+        return self.video != "" and self.video is not None
 
     @computed_field
     @property
-    def has_button(self)-> bool:
-        return self.button != '' and self.button is not None
+    def has_button(self) -> bool:
+        return self.button != "" and self.button is not None
 
     @computed_field
     @property
-    def has_image(self)-> bool:
-        return self.image != '' and self.image is not None
+    def has_image(self) -> bool:
+        return self.image != "" and self.image is not None
 
     @computed_field
     @property
-    def image_local_path(self) -> str :
-        return BASE_DIR / 'media' / self.image if self.image else ''
+    def image_local_path(self) -> str:
+        return BASE_DIR / "media" / self.image if self.image else ""
 
     @computed_field
     @property
-    def video_local_path(self) -> str :
-        return BASE_DIR / 'media' / self.video if self.video else ''
+    def video_local_path(self) -> str:
+        return BASE_DIR / "media" / self.video if self.video else ""
 
 
 class ChannelParser(BaseModel):
     id: str | UUID
-    name: str = ''
-    tg_id : str | None = ''
-    is_bot_installed : bool = False
-    status : str = 'pending'
-    meta : Json | None = None
-    cpm : int = 0
+    name: str = ""
+    tg_id: str | None = ""
+    is_bot_installed: bool = False
+    status: str = "pending"
+    meta: Json | None = None
+    cpm: int = 0
 
-    @computed_field(description='determines if the channel is active')
+    @computed_field(description="determines if the channel is active")
     def is_active(self) -> bool:
-        return self.status == 'confirmed'
+        return self.status == "confirmed"
 
 
 class ChannelAdminParser(BaseModel):
@@ -85,22 +92,22 @@ class ChannelAdminParser(BaseModel):
 
 class CampaignParser(BaseModel):
     id: str | UUID
-    name: str = ''
-    budget: Decimal | str  = Decimal(0)
-    start_date:  str | datetime | None = None
+    name: str = ""
+    budget: Decimal | str = Decimal(0)
+    start_date: str | datetime | None = None
     finish_date: str | datetime | None = None
     message: MessageParser | None = None
     black_list: list[str] | list
     white_list: list[str] | list
-    client: str = ''
-    brand: str = ''
+    client: str = ""
+    brand: str = ""
 
     @classmethod
-    @field_serializer('star_date', 'finish_date,', mode='wrap', when_used='unless-none')
+    @field_serializer("star_date", "finish_date,", mode="wrap", when_used="unless-none")
     def serializer_dates_flds(cls, value: datetime | str) -> str:
-        return value.strftime('%Y-%m-%d')
+        return value.strftime("%Y-%m-%d")
 
-    @field_serializer('budget', check_fields=True,  when_used='unless-none')
+    @field_serializer("budget", check_fields=True, when_used="unless-none")
     def serialize_budget(self, val: Decimal):
         return str(val)
 
@@ -110,34 +117,33 @@ class CampaignChannelParserIn(BaseModel):
     channel: ChannelParser
     campaign: CampaignParser
     channel_admin: ChannelAdminParser
-    created_at: str | datetime| None = Field(default_factory=datetime.now)
+    created_at: str | datetime | None = Field(default_factory=datetime.now)
     impressions_plan: str | Decimal | None = None
     impressions_fact: str | Decimal | None = None
-    cpm: str| Decimal | None = None
-    path_click_analysis: str | None  = ''
-    channel_post_id: str | None  = ''
+    cpm: str | Decimal | None = None
+    path_click_analysis: str | None = ""
+    channel_post_id: str | None = ""
     message_publish_date: str | datetime | None = None
     is_message_published: bool | None = False
     is_approved: bool = False
 
     @classmethod
     @field_serializer(
-        'cpm', 'impressions_plan,impressions_fact', when_used='unless-none')
+        "cpm", "impressions_plan,impressions_fact", when_used="unless-none"
+    )
     def serialize_decimal_fields(cls, value: Decimal) -> str:
         return str(value)
 
     @classmethod
-    @field_serializer(
-        'create_at', 'is_message_published', when_used='unless-none')
+    @field_serializer("create_at", "is_message_published", when_used="unless-none")
     def serialize_datetime_fields(cls, value: datetime) -> str:
-        return value.strftime('%Y-%m-%d %H:%M:%S')
-
+        return value.strftime("%Y-%m-%d %H:%M:%S")
 
     @computed_field
     @property
     def analysis_link(self) -> str:
         if not self.has_message_button:
-            return 'https//app.telewin.online'
+            return "https//app.telewin.online"
         elif bot_settings.DEV or self.message_is_external:
             return self.message.button.url
 
@@ -150,42 +156,42 @@ class CampaignChannelParserIn(BaseModel):
 
     @computed_field
     @property
-    def has_message(self)-> bool:
+    def has_message(self) -> bool:
         return self.campaign and self.campaign.message
 
     @computed_field
     @property
-    def has_message_button(self)-> bool:
+    def has_message_button(self) -> bool:
         return self.has_message and self.campaign.message.has_button
 
     @computed_field
     @property
-    def has_message_video(self)-> bool:
+    def has_message_video(self) -> bool:
         return self.has_message and self.campaign.message.has_video
 
     @computed_field
     @property
-    def has_message_image(self)-> bool:
+    def has_message_image(self) -> bool:
         return self.has_message and self.campaign.message.has_image
 
     @computed_field
     @property
-    def message_as_text(self)-> str:
+    def message_as_text(self) -> str:
         return self.campaign.message.as_text
 
     @computed_field
     @property
-    def has_white_list(self)-> bool:
+    def has_white_list(self) -> bool:
         return self.campaign.white_list
 
     @computed_field
     @property
-    def has_black_list(self)-> bool:
+    def has_black_list(self) -> bool:
         return self.campaign.black_list
 
     @computed_field
     @property
-    def message(self)-> MessageParser | None:
+    def message(self) -> MessageParser | None:
         return self.campaign.message
 
     @computed_field
@@ -219,17 +225,17 @@ class CampaignChannelParserIn(BaseModel):
         if not message_text:
             return ""
         # p = r'(\w+-|[\w\@\_])'
-        p_to_words= r'@?\w+|\b\.\b\w+'
+        p_to_words = r"@?\w+|\b\.\b\w+"
         # p_to_words = r'(\w+-\w+|@?\w+)'
         match = re.findall(p_to_words, message_text)
-        return ','.join(match)
+        return ",".join(match)
 
 
 class UpdateFromUserParser(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     first_name: str = ""
     last_name: str | None = ""
-    tg_id: str | int = Field(validation_alias='id')
+    tg_id: str | int = Field(validation_alias="id")
     username: str = ""
-    role: str = 'owner'
+    role: str = "owner"
     is_bot_installed: bool = True
