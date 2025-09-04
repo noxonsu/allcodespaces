@@ -5,7 +5,7 @@
 {% get_jazzmin_ui_tweaks as jazzmin_ui %}
 
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+<html lang="{{ LANGUAGE_CODE|default:'en-us' }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,10 +16,10 @@
     <title>{% block title %}{{ title }} | {{ jazzmin_settings.site_title }}{% endblock %}</title>
 
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="{% static "vendor/fontawesome-free/css/all.min.css" %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome-free/css/all.min.css' %}">
 
     <!-- Bootstrap and adminLTE -->
-    <link rel="stylesheet" href="{% static "vendor/adminlte/css/adminlte.min.css" %}" id="adminlte-css">
+    <link rel="stylesheet" href="{% static 'vendor/adminlte/css/adminlte.min.css' %}" id="adminlte-css">
 
     <!-- Bootswatch theme -->
     {% if jazzmin_ui.theme.name != 'default' %}
@@ -31,7 +31,7 @@
     {% endif %}
 
     <!-- Custom fixes for django -->
-    <link rel="stylesheet" href="{% static "jazzmin/css/main.css" %}">
+    <link rel="stylesheet" href="{% static 'jazzmin/css/main.css' %}">
 
     {% if jazzmin_settings.custom_css %}
     <!-- Custom CSS -->
@@ -52,7 +52,7 @@
     {% block extrastyle %} {% endblock %}
     {% block extrahead %} {% endblock %}
 </head>
-<body class="hold-transition{% if not jazzmin_settings.show_sidebar %} no-sidebar{% else %} sidebar-mini{% endif %} {% sidebar_status request %} {% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %} {{ jazzmin_ui.body_classes }} {% if jazzmin_ui.dark_mode_theme %}theme-dark{% endif %}" data-admin-utc-offset="{% now "Z" %}">
+<body class="hold-transition {% if not jazzmin_settings.show_sidebar %} no-sidebar {% else %} sidebar-mini {% endif %} {% sidebar_status request %} {% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %} {{ jazzmin_ui.body_classes }} {% if jazzmin_ui.dark_mode_theme %}theme-dark{% endif %}" data-admin-utc-offset="{% now 'Z' %}">
 
 <div class="wrapper">
 
@@ -357,23 +357,23 @@
 {% endif %}
 
 <!-- jQuery -->
-<script src="{% static "admin/js/vendor/jquery/jquery.js" %}"></script>
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 <!-- Bootstrap 4 -->
-<script src="{% static "vendor/bootstrap/js/bootstrap.min.js" %}"></script>
+<script src="{% static 'vendor/bootstrap/js/bootstrap.min.js' %}"></script>
 <!-- AdminLTE App -->
-<script src="{% static "vendor/adminlte/js/adminlte.min.js" %}"></script>
+<script src="{% static 'vendor/adminlte/js/adminlte.min.js' %}"></script>
 <!-- Django customisations -->
-<script src="{% static "jazzmin/js/main.js" %}"></script>
+<script src="{% static 'jazzmin/js/main.js' %}"></script>
 
 {% if jazzmin_settings.custom_js %}
-<script src="{% static jazzmin_settings.custom_js %}"></script>
+<script src="{% static 'jazzmin_settings.custom_js' %}"></script>
 {% endif %}
 
 {% if jazzmin_settings.show_ui_builder %}
 <script>
     window.ui_changes = {{ jazzmin_ui.raw|as_json|safe }};
 </script>
-<script src="{% static "jazzmin/js/ui-builder.js" %}"></script>
+<script src="{% static 'jazzmin/js/ui-builder.js' %}"></script>
 {% endif %}
 
 <!--jBox-->

@@ -1,6 +1,6 @@
 {% extends "registration/base.html" %}
 
-{% load i18n jazzmin %}
+{% load i18n static jazzmin %}
 {% get_jazzmin_settings request as jazzmin_settings %}
 {% get_jazzmin_ui_tweaks as jazzmin_ui %}
 
@@ -75,4 +75,22 @@
             </div>
         </div>
     </form>
+{% endblock %}
+{% block extrajs %}
+<script type="module">
+$(document).ready(function () {
+    /*** This resting value of the jazzmin_menu to have the default formation as closed   ***/
+    function setCookie(name, value, date) {
+        var expires = "";
+        if (date) {
+            date.setTime(date.getTime());
+            expires = "; expires=" + date.toUTCString();
+        }
+        document.cookie = name + "=" + (value || "")  + expires + "; path=/";
+    }
+
+    setCookie('jazzy_menu', 'closed');
+
+});
+</script>
 {% endblock %}

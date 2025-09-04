@@ -293,6 +293,7 @@ JAZZMIN_SETTINGS = {
     "welcome_sign": mark_safe(LOGIN_WELCOME_MSG),
     "site_title": "Telewin Admin",
     "site_header": "Telewin",
+    "show_sidebar": True,
     "site_brand": "Telewin Administration",
     "show_ui_builder": False,
     "related_modal_active": True,
@@ -317,13 +318,6 @@ JAZZMIN_SETTINGS = {
         "django_celery_beat.clockedschedule",
         "django_celery_beat.solarschedule",
         "core.messagelink",
-    ],
-    "topmenu_links": [
-        {"model": "core.Campaign"},
-        {"model": "core.Channel"},
-        {"model": "core.Message"},
-        {"model": "core.ChanelAdmin"},
-        {"model": "core.CampaignChannel"},
     ],
     # "language_chooser": True
 }
