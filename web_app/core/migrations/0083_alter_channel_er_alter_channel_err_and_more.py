@@ -4,25 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0082_alter_channel_category_alter_channel_country'),
+        ("core", "0082_alter_channel_category_alter_channel_country"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='er',
-            field=models.FloatField(blank=True, default=0, verbose_name='ER'),
+            model_name="channel",
+            name="er",
+            field=models.FloatField(blank=True, default=0, verbose_name="ER"),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='err',
-            field=models.FloatField(blank=True, default=0, verbose_name='ERR'),
+            model_name="channel",
+            name="err",
+            field=models.FloatField(blank=True, default=0, verbose_name="ERR"),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='err_24',
-            field=models.FloatField(blank=True, default=0, verbose_name='ERR24'),
+            model_name="channel",
+            name="err_24",
+            field=models.FloatField(blank=True, default=0, verbose_name="ERR24"),
         ),
     ]

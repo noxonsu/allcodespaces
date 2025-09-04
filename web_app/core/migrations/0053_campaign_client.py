@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0052_alter_campaignchannel_publish_status'),
+        ("core", "0052_alter_campaignchannel_publish_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='campaign',
-            name='client',
-            field=models.CharField(blank=True, default='', help_text='Клиент', verbose_name='Клиент'),
+            model_name="campaign",
+            name="client",
+            field=models.CharField(
+                blank=True, default="", help_text="Клиент", verbose_name="Клиент"
+            ),
         ),
     ]

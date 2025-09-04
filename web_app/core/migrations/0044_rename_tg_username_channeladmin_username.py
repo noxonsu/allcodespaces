@@ -4,15 +4,14 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0043_channeladmin_tg_id'),
+        ("core", "0043_channeladmin_tg_id"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='channeladmin',
-            old_name='tg_username',
-            new_name='username',
+            model_name="channeladmin",
+            old_name="tg_username",
+            new_name="username",
         ),
     ]

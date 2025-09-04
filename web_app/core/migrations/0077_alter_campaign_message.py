@@ -5,15 +5,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0076_auto_20250714_2208'),
+        ("core", "0076_auto_20250714_2208"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaign',
-            name='message',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='campaigns', to='core.message', verbose_name='message'),
+            model_name="campaign",
+            name="message",
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="campaigns",
+                to="core.message",
+                verbose_name="message",
+            ),
         ),
     ]

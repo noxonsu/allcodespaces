@@ -30,23 +30,27 @@ SECRET_KEY = app_settings.SECRET_KEY
 
 # Enable/Disable DEBUG Mode
 DEBUG = app_settings.DEBUG
-ALLOWED_HOSTS = [
-    '.localhost',
-    '127.0.0.1',
-    'web-app',
-    '.telewin.online',
-    '51.250.45.63',
-    '91.108.5.74',
-] if not DEBUG else ['*']
+ALLOWED_HOSTS = (
+    [
+        ".localhost",
+        "127.0.0.1",
+        "web-app",
+        ".telewin.online",
+        "51.250.45.63",
+        "91.108.5.74",
+    ]
+    if not DEBUG
+    else ["*"]
+)
 
 # Add here your deployment HOSTS
 CSRF_TRUSTED_ORIGINS = [
-    'https://*.telewin.online',
-    'http://localhost',
-    'http://localhost:8000',
-    'http://localhost:8001',
-    'http://127.0.0.1:8000',
-    'http://127.0.0.1:8001',
+    "https://*.telewin.online",
+    "http://localhost",
+    "http://localhost:8000",
+    "http://localhost:8001",
+    "http://127.0.0.1:8000",
+    "http://127.0.0.1:8001",
 ]
 
 
@@ -55,7 +59,7 @@ X_FRAME_OPTIONS = "SAMEORIGIN"
 # Application definition
 
 INSTALLED_APPS = [
-    'jazzmin',
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -64,16 +68,16 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "corsheaders",
     "drf_yasg",
-    'rest_framework',
-    'rest_framework.authtoken',
-    'django_celery_beat',
-    'django_celery_results',
-    'core',
-    'django_prometheus',
+    "rest_framework",
+    "rest_framework.authtoken",
+    "django_celery_beat",
+    "django_celery_results",
+    "core",
+    "django_prometheus",
 ]
 
 MIDDLEWARE = [
-    'django_prometheus.middleware.PrometheusBeforeMiddleware',
+    "django_prometheus.middleware.PrometheusBeforeMiddleware",
     "django.middleware.security.SecurityMiddleware",
     # "core.middlewares.IPMiddleware",
     # "core.middlewares.PathRestrictMiddleware",
@@ -85,12 +89,12 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    'django_prometheus.middleware.PrometheusAfterMiddleware',
+    "django_prometheus.middleware.PrometheusAfterMiddleware",
 ]
 
 
 # to allow TG-login
-SECURE_CROSS_ORIGIN_OPENER_POLICY='same-origin-allow-popups'
+SECURE_CROSS_ORIGIN_OPENER_POLICY = "same-origin-allow-popups"
 ###
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_HEADERS = (
@@ -113,9 +117,9 @@ CORS_ALLOW_METHODS = (
 
 ROOT_URLCONF = "web_app.urls"
 
-AUTH_USER_MODEL = 'core.User'
+AUTH_USER_MODEL = "core.User"
 
-HOME_TEMPLATES = os.path.join(BASE_DIR, 'templates')
+HOME_TEMPLATES = os.path.join(BASE_DIR, "templates")
 
 TEMPLATES = [
     {
@@ -136,17 +140,17 @@ TEMPLATES = [
 WSGI_APPLICATION = "web_app.wsgi.application"
 
 DATABASES = {
-  'default': {
-    'ENGINE'  : 'django_prometheus.db.backends.' + app_settings.DB_ENGINE,
-    'NAME'    : app_settings.DB_NAME,
-    'USER'    : app_settings.DB_USERNAME,
-    'PASSWORD': app_settings.DB_PASS,
-    'HOST'    : app_settings.DB_HOST,
-    'PORT'    : app_settings.DB_PORT,
-    "TEST": {
-        "NAME": "app_test_db",
-        'TEMPLATE': 'template0',
-    }
+    "default": {
+        "ENGINE": "django_prometheus.db.backends." + app_settings.DB_ENGINE,
+        "NAME": app_settings.DB_NAME,
+        "USER": app_settings.DB_USERNAME,
+        "PASSWORD": app_settings.DB_PASS,
+        "HOST": app_settings.DB_HOST,
+        "PORT": app_settings.DB_PORT,
+        "TEST": {
+            "NAME": "app_test_db",
+            "TEMPLATE": "template0",
+        },
     },
 }
 
@@ -181,61 +185,59 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
-STATIC_URL = '/static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "static")
 
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 
-STATICFILES_DIRS = (
-    BASE_DIR / 'core' / 'static',
-)
+STATICFILES_DIRS = (BASE_DIR / "core" / "static",)
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-LOGIN_REDIRECT_URL = '/core/campaignchannel/'
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+LOGIN_REDIRECT_URL = "/core/campaignchannel/"
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 # cash
 CACHES = {
-    'default': {
-        'BACKEND': 'django_prometheus.cache.backends.redis.RedisCache',
-        'LOCATION': "redis://redis:6379/1",
+    "default": {
+        "BACKEND": "django_prometheus.cache.backends.redis.RedisCache",
+        "LOCATION": "redis://redis:6379/1",
         "OPTIONS": {
             "CLIENT_CLASS": "django_redis.client.DefaultClient",
-        }
+        },
     }
 }
 
 # logging
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
         },
-        'django.request': {
-            'handlers': ['console'],
-            'level': 'INFO',
-            'propagate': True,
+        "django.request": {
+            "handlers": ["console"],
+            "level": "INFO",
+            "propagate": True,
         },
     },
 }
@@ -245,15 +247,14 @@ SESSION_CACHE_ALIAS = "default"
 
 
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+        "rest_framework.authentication.TokenAuthentication",
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.AllowAny",
         # 'rest_framework.permissions.DjangoModelPermissions',
     ],
-
     # 'DEFAULT_THROTTLE_CLASSES': [
     #     'rest_framework.throttling.AnonRateThrottle',
     #     # 'rest_framework.throttling.UserRateThrottle'
@@ -262,17 +263,14 @@ REST_FRAMEWORK = {
     #     "anon": "5/h",
     #     'user': '1000/h',
     # }
-
 }
-
-
 
 
 CSRF_COOKIE_HTTPONLY = False
 
 # swagger
 SWAGGER_SETTINGS = {
-    'VALIDATOR_URL': 'http://localhost:8189',
+    "VALIDATOR_URL": "http://localhost:8189",
 }
 
 
@@ -280,8 +278,8 @@ SWAGGER_SETTINGS = {
 CELERY_TIMEZONE = "UTC"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'default'
+CELERY_RESULT_BACKEND = "django-db"
+CELERY_CACHE_BACKEND = "default"
 
 LOGIN_WELCOME_MSG = """
 <div class="text-center" style="font-family: sans-serif">
@@ -298,8 +296,8 @@ JAZZMIN_SETTINGS = {
     "site_brand": "Telewin Administration",
     "show_ui_builder": False,
     "related_modal_active": True,
-    "custom_css": 'custom/main.css',
-    "custom_js": 'custom/main.js',
+    "custom_css": "custom/main.css",
+    "custom_js": "custom/main.js",
     "site_logo_classes": "img",
     "icons": {
         "core.User": "fas fa-user-alt",
@@ -309,24 +307,23 @@ JAZZMIN_SETTINGS = {
         "core.ChannelAdmin": "fas fa-glasses",
         "core.Channel": "fab fa-telegram-plane",
     },
-
-    'site_logo': 'custom/logo.gif',
-    "site_icon": 'custom/fav.png',
+    "site_logo": "custom/logo.gif",
+    "site_icon": "custom/fav.png",
     "hide_apps": [
-        'django_celery_results',
-        'authtoken',
+        "django_celery_results",
+        "authtoken",
     ],
-    'hide_models': [
-        'django_celery_beat.clockedschedule',
-        'django_celery_beat.solarschedule',
-        'core.messagelink'
+    "hide_models": [
+        "django_celery_beat.clockedschedule",
+        "django_celery_beat.solarschedule",
+        "core.messagelink",
     ],
     "topmenu_links": [
-        {"model": 'core.Campaign'},
-        {"model": 'core.Channel'},
-        {"model": 'core.Message'},
-        {"model": 'core.ChanelAdmin'},
-        {"model": 'core.CampaignChannel'},
+        {"model": "core.Campaign"},
+        {"model": "core.Channel"},
+        {"model": "core.Message"},
+        {"model": "core.ChanelAdmin"},
+        {"model": "core.CampaignChannel"},
     ],
     # "language_chooser": True
 }
@@ -339,16 +336,16 @@ JAZZMIN_UI_TWEAKS = {}
 USE_X_FORWARDED_HOST = True
 
 IP_BLOCKLIST = [
-    '188.212.125.110',
-    '143.42.206.215',
-    '93.174.93.12',
-    '95.128.157.155',
-    '149.50.96.114',
-    '40.76.124.166',
-    '65.49.1.66',
+    "188.212.125.110",
+    "143.42.206.215",
+    "93.174.93.12",
+    "95.128.157.155",
+    "149.50.96.114",
+    "40.76.124.166",
+    "65.49.1.66",
 ]
 
 # Locale
 LOCALE_PATHS = [
-    BASE_DIR / 'locale',
+    BASE_DIR / "locale",
 ]

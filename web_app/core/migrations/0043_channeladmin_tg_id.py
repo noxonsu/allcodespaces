@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0042_alter_campaign_black_list_alter_campaign_white_list'),
+        ("core", "0042_alter_campaign_black_list_alter_campaign_white_list"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channeladmin',
-            name='tg_id',
-            field=models.IntegerField(default=0, verbose_name='ID в Телеграм'),
+            model_name="channeladmin",
+            name="tg_id",
+            field=models.IntegerField(default=0, verbose_name="ID в Телеграм"),
         ),
     ]

@@ -4,22 +4,38 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0013_message_button'),
+        ("core", "0013_message_button"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='messagelink',
-            options={'get_latest_by': [models.OrderBy(models.F('created_at'), descending=True, nulls_last=True), models.OrderBy(models.F('updated_at'), descending=True, nulls_last=True)], 'ordering': [models.OrderBy(models.F('created_at'), descending=True, nulls_last=True), models.OrderBy(models.F('updated_at'), descending=True, nulls_last=True)]},
+            name="messagelink",
+            options={
+                "get_latest_by": [
+                    models.OrderBy(
+                        models.F("created_at"), descending=True, nulls_last=True
+                    ),
+                    models.OrderBy(
+                        models.F("updated_at"), descending=True, nulls_last=True
+                    ),
+                ],
+                "ordering": [
+                    models.OrderBy(
+                        models.F("created_at"), descending=True, nulls_last=True
+                    ),
+                    models.OrderBy(
+                        models.F("updated_at"), descending=True, nulls_last=True
+                    ),
+                ],
+            },
         ),
         migrations.AlterUniqueTogether(
-            name='messagelink',
+            name="messagelink",
             unique_together=set(),
         ),
         migrations.RemoveField(
-            model_name='messagelink',
-            name='message',
+            model_name="messagelink",
+            name="message",
         ),
     ]

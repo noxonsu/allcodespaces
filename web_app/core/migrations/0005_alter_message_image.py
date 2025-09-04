@@ -5,15 +5,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0004_alter_user_tg_id'),
+        ("core", "0004_alter_user_tg_id"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='message',
-            name='image',
-            field=models.ImageField(blank=True, null=True, upload_to=core.models.Message.image_path, verbose_name='image'),
+            model_name="message",
+            name="image",
+            field=models.ImageField(
+                blank=True,
+                null=True,
+                upload_to=core.models.Message.image_path,
+                verbose_name="image",
+            ),
         ),
     ]

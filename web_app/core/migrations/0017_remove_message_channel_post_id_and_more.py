@@ -4,32 +4,33 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0016_campaignchannel_is_message_published'),
+        ("core", "0016_campaignchannel_is_message_published"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='message',
-            name='channel_post_id',
+            model_name="message",
+            name="channel_post_id",
         ),
         migrations.RemoveField(
-            model_name='message',
-            name='is_message_published',
+            model_name="message",
+            name="is_message_published",
         ),
         migrations.RemoveField(
-            model_name='message',
-            name='message_publish_date',
+            model_name="message",
+            name="message_publish_date",
         ),
         migrations.AddField(
-            model_name='campaignchannel',
-            name='channel_post_id',
+            model_name="campaignchannel",
+            name="channel_post_id",
             field=models.TextField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='campaignchannel',
-            name='message_publish_date',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='message published date'),
+            model_name="campaignchannel",
+            name="message_publish_date",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="message published date"
+            ),
         ),
     ]

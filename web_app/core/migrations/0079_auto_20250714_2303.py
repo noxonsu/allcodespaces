@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 def on_commit(apps, schema):
-    CampaignChannel = apps.get_model('core', 'CampaignChannel')
+    CampaignChannel = apps.get_model("core", "CampaignChannel")
     CampaignChannel.objects.filter(channel_admin__isnull=True).delete()
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0078_alter_campaignchannel_channel_admin'),
+        ("core", "0078_alter_campaignchannel_channel_admin"),
     ]
 
     operations = [

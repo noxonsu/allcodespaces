@@ -4,19 +4,28 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0054_channel_avg_posts_reach_channel_er_channel_err_and_more'),
+        ("core", "0054_channel_avg_posts_reach_channel_er_channel_err_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='channel',
-            name='geo',
+            model_name="channel",
+            name="geo",
         ),
         migrations.AddField(
-            model_name='channel',
-            name='country',
-            field=models.CharField(blank=True, choices=[('Choice_1', 'choice_1'), ('Choice_2', 'choice_2'), ('Choice_3', 'choice_3')], max_length=10, null=True, verbose_name='Страна'),
+            model_name="channel",
+            name="country",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("Choice_1", "choice_1"),
+                    ("Choice_2", "choice_2"),
+                    ("Choice_3", "choice_3"),
+                ],
+                max_length=10,
+                null=True,
+                verbose_name="Страна",
+            ),
         ),
     ]

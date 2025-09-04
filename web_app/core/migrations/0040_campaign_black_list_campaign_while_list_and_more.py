@@ -5,25 +5,43 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0039_campaignchannel_channel_admin'),
+        ("core", "0039_campaignchannel_channel_admin"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='campaign',
-            name='black_list',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(max_length=250), blank=True, default=list, help_text='если пусто то не будет фильтровать', size=None, verbose_name='запрещённые слова'),
+            model_name="campaign",
+            name="black_list",
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.CharField(max_length=250),
+                blank=True,
+                default=list,
+                help_text="если пусто то не будет фильтровать",
+                size=None,
+                verbose_name="запрещённые слова",
+            ),
         ),
         migrations.AddField(
-            model_name='campaign',
-            name='while_list',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(max_length=250), blank=True, default=list, help_text='если пусто то не будет фильтровать', size=None, verbose_name='разрешённые слова'),
+            model_name="campaign",
+            name="while_list",
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.CharField(max_length=250),
+                blank=True,
+                default=list,
+                help_text="если пусто то не будет фильтровать",
+                size=None,
+                verbose_name="разрешённые слова",
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='channels',
-            field=models.ManyToManyField(blank=True, related_name='admins', to='core.channel', verbose_name='Каналы'),
+            model_name="channeladmin",
+            name="channels",
+            field=models.ManyToManyField(
+                blank=True,
+                related_name="admins",
+                to="core.channel",
+                verbose_name="Каналы",
+            ),
         ),
     ]

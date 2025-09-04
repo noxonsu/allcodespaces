@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0028_alter_user_options'),
+        ("core", "0028_alter_user_options"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='meta',
-            field=models.JSONField(blank=True, null=True, verbose_name='meta'),
+            model_name="channel",
+            name="meta",
+            field=models.JSONField(blank=True, null=True, verbose_name="meta"),
         ),
     ]

@@ -4,20 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0072_alter_message_button'),
+        ("core", "0072_alter_message_button"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='message',
-            name='button_link',
-            field=models.URLField(blank=True, null=True, verbose_name='URL-адрес'),
+            model_name="message",
+            name="button_link",
+            field=models.URLField(blank=True, null=True, verbose_name="URL-адрес"),
         ),
         migrations.AlterField(
-            model_name='message',
-            name='button_str',
-            field=models.CharField(blank=True, default='Click Me!', max_length=250, verbose_name='название ссылки'),
+            model_name="message",
+            name="button_str",
+            field=models.CharField(
+                blank=True,
+                default="Click Me!",
+                max_length=250,
+                verbose_name="название ссылки",
+            ),
         ),
     ]

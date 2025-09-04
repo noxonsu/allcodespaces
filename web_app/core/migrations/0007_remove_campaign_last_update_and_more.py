@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0006_remove_channel_owner_remove_message_footer_and_more'),
+        ("core", "0006_remove_channel_owner_remove_message_footer_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='campaign',
-            name='last_update',
+            model_name="campaign",
+            name="last_update",
         ),
         migrations.RemoveField(
-            model_name='channel',
-            name='last_update',
+            model_name="channel",
+            name="last_update",
         ),
     ]

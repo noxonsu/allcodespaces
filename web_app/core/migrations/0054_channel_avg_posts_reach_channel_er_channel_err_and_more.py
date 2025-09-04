@@ -4,30 +4,35 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0053_campaign_client'),
+        ("core", "0053_campaign_client"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='avg_posts_reach',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='Охват'),
+            model_name="channel",
+            name="avg_posts_reach",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="Охват"
+            ),
         ),
         migrations.AddField(
-            model_name='channel',
-            name='er',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='ER'),
+            model_name="channel",
+            name="er",
+            field=models.PositiveIntegerField(blank=True, default=0, verbose_name="ER"),
         ),
         migrations.AddField(
-            model_name='channel',
-            name='err',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='ERR'),
+            model_name="channel",
+            name="err",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="ERR"
+            ),
         ),
         migrations.AddField(
-            model_name='channel',
-            name='err_24',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='ERR24'),
+            model_name="channel",
+            name="err_24",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="ERR24"
+            ),
         ),
     ]

@@ -6,18 +6,18 @@ from web_app.logger import logger
 
 
 def on_commit(apps, schema):
-    ChannelAdmin = apps.get_model('core', 'ChannelAdmin')
-    Group = apps.get_model('auth', 'Group')
+    ChannelAdmin = apps.get_model("core", "ChannelAdmin")
+    Group = apps.get_model("auth", "Group")
     channel_admins = ChannelAdmin.objects.filter(user__isnull=True)
-    User = apps.get_model('core', 'User')
-    logger.info(f'found {len(channel_admins)} channel admins')
+    User = apps.get_model("core", "User")
+    logger.info(f"found {len(channel_admins)} channel admins")
     for channel_admin in channel_admins:
-        logger.info(f'{channel_admin=} in process.')
+        logger.info(f"{channel_admin=} in process.")
         user = User.objects.filter(username=channel_admin.username).first()
         if not user:
             user = User.objects.create_user(
                 username=channel_admin.username,
-                password=channel_admin.username +'123123456',
+                password=channel_admin.username + "123123456",
                 profile=channel_admin,
                 first_name=channel_admin.first_name,
                 last_name=channel_admin.last_name,
@@ -35,13 +35,12 @@ def on_commit(apps, schema):
 
         user.groups.clear()
         user.groups.add(Group.objects.get(name=channel_admin.role))
-        logger.info(f'{channel_admin=} Done.')
+        logger.info(f"{channel_admin=} Done.")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0085_remove_user_channel_remove_user_tg_id_and_more'),
+        ("core", "0085_remove_user_channel_remove_user_tg_id_and_more"),
     ]
 
     operations = [

@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0067_channeladmin_user_alter_user_role'),
+        ("core", "0067_channeladmin_user_alter_user_role"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channeladmin',
-            name='role',
-            field=models.CharField(choices=[('owner', 'Владелец канала'), ('manager', 'Менеджер Системы')], default='owner', max_length=50),
+            model_name="channeladmin",
+            name="role",
+            field=models.CharField(
+                choices=[("owner", "Владелец канала"), ("manager", "Менеджер Системы")],
+                default="owner",
+                max_length=50,
+            ),
         ),
     ]

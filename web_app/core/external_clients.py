@@ -14,25 +14,38 @@ class MessageTGStatClient:
         self.serializer_channel_stat = TGChannelStat
 
     def update_message_views(self, *, response, campaign_channel):
-        if response.status_code == status.HTTP_200_OK and response.json()['status'] == 'ok':
-            logger.info(f'update_message_views {response.json()=}')
+        if (
+            response.status_code == status.HTTP_200_OK
+            and response.json()["status"] == "ok"
+        ):
+            logger.info(f"update_message_views {response.json()=}")
             serializer = self.serializer_message(data=response.json())
             serializer.is_valid(raise_exception=True)
             return serializer.save(campaign_channel=campaign_channel)
 
     def update_channel_info(self, *, response, channel: Channel):
-        if response.status_code == status.HTTP_200_OK and response.json()['status'] == 'ok':
-            response_json_data = response.json()['response']
-            logger.info(f'update_channel_info {response_json_data=}')
-            serializer = self.serializer_channel_info(instance=channel, data=response_json_data, partial=True)
+        if (
+            response.status_code == status.HTTP_200_OK
+            and response.json()["status"] == "ok"
+        ):
+            response_json_data = response.json()["response"]
+            logger.info(f"update_channel_info {response_json_data=}")
+            serializer = self.serializer_channel_info(
+                instance=channel, data=response_json_data, partial=True
+            )
             serializer.is_valid(raise_exception=True)
             return serializer.save()
 
     def update_channel_stat(self, *, response, channel: Channel):
-        if response.status_code == status.HTTP_200_OK and response.json()['status'] == 'ok':
-            response_json_data = response.json()['response']
-            logger.info(f'update_channel_stat {response_json_data=}')
-            serializer = self.serializer_channel_stat(instance=channel, data=response_json_data, partial=True)
+        if (
+            response.status_code == status.HTTP_200_OK
+            and response.json()["status"] == "ok"
+        ):
+            response_json_data = response.json()["response"]
+            logger.info(f"update_channel_stat {response_json_data=}")
+            serializer = self.serializer_channel_stat(
+                instance=channel, data=response_json_data, partial=True
+            )
             serializer.is_valid(raise_exception=True)
             return serializer.save()
 
@@ -52,49 +65,47 @@ class ExternalClient:
 class TGStatClient(ExternalClient):
     def __init__(self):
         super().__init__()
-        self.token = '5f282a9bda3653ffd84d029cc537a6b0'
+        self.token = "5f282a9bda3653ffd84d029cc537a6b0"
         self.service = MessageTGStatClient()
 
     def get_client_kwargs(self):
-        return {'base_url': "https://api.tgstat.ru"}
+        return {"base_url": "https://api.tgstat.ru"}
 
     def update_message_views(self, campaign_channel):
         try:
             response = self.client.get(
-            '/posts/get',
-            params={
-                "token": self.token,
-                "postId": f't.me/c/{campaign_channel.channel.tg_id}/'+str(campaign_channel.channel_post_id)
-                })
-            print(f'update_message_views{response.json()=}')
-            return self.service.update_message_views(response=response, campaign_channel=campaign_channel)
+                "/posts/get",
+                params={
+                    "token": self.token,
+                    "postId": f"t.me/c/{campaign_channel.channel.tg_id}/"
+                    + str(campaign_channel.channel_post_id),
+                },
+            )
+            print(f"update_message_views{response.json()=}")
+            return self.service.update_message_views(
+                response=response, campaign_channel=campaign_channel
+            )
         except Exception as e:
-            logger.error(f'update_message_views Error: {str(e)}')
-
+            logger.error(f"update_message_views Error: {str(e)}")
 
     def update_channel_info(self, channel: Channel):
         try:
             response = self.client.get(
-                '/channels/get',
-                params={
-                    "token": self.token,
-                    "channelId": channel.tg_id
-                })
-            logger.info(f'update_channel_info: {response.url=} {response.status_code=}')
+                "/channels/get",
+                params={"token": self.token, "channelId": channel.tg_id},
+            )
+            logger.info(f"update_channel_info: {response.url=} {response.status_code=}")
             return self.service.update_channel_info(response=response, channel=channel)
         except Exception as e:
-            logger.error(f'update_channel_info Error: {str(e)}')
-
+            logger.error(f"update_channel_info Error: {str(e)}")
 
     def update_channel_stat(self, channel: Channel):
         try:
             response = self.client.get(
-                '/channels/stat',
-                params={
-                    "token": self.token,
-                    "channelId": channel.tg_id
-                })
-            print(f'update_channel_stat {response.json()=}')
+                "/channels/stat",
+                params={"token": self.token, "channelId": channel.tg_id},
+            )
+            print(f"update_channel_stat {response.json()=}")
             return self.service.update_channel_stat(response=response, channel=channel)
         except Exception as e:
-            logger.error(f'update_channel_stat Error: {str(e)}')
+            logger.error(f"update_channel_stat Error: {str(e)}")

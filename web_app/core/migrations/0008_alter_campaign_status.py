@@ -4,15 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0007_remove_campaign_last_update_and_more'),
+        ("core", "0007_remove_campaign_last_update_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaign',
-            name='status',
-            field=models.CharField(choices=[('active', 'active'), ('paused', 'paused')], default='paused', max_length=6, verbose_name='status'),
+            model_name="campaign",
+            name="status",
+            field=models.CharField(
+                choices=[("active", "active"), ("paused", "paused")],
+                default="paused",
+                max_length=6,
+                verbose_name="status",
+            ),
         ),
     ]

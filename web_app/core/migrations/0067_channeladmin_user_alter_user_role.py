@@ -6,20 +6,33 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0066_alter_campaignchannel_options_and_more'),
+        ("core", "0066_alter_campaignchannel_options_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channeladmin',
-            name='user',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to=settings.AUTH_USER_MODEL, verbose_name='Профиль'),
+            model_name="channeladmin",
+            name="user",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Профиль",
+            ),
         ),
         migrations.AlterField(
-            model_name='user',
-            name='role',
-            field=models.CharField(blank=True, choices=[('administrator', 'Super Administrator'), ('admin', 'Administrator')], max_length=50, null=True),
+            model_name="user",
+            name="role",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("administrator", "Super Administrator"),
+                    ("admin", "Administrator"),
+                ],
+                max_length=50,
+                null=True,
+            ),
         ),
     ]

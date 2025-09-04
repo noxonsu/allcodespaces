@@ -4,14 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0046_campaignchannel_is_approved'),
+        ("core", "0046_campaignchannel_is_approved"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='channeladmin',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Администратор каналов', 'verbose_name_plural': 'Администраторы каналов'},
+            name="channeladmin",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Администратор каналов",
+                "verbose_name_plural": "Администраторы каналов",
+            },
         ),
     ]

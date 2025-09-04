@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0033_alter_campaignchannel_publish_status'),
+        ("core", "0033_alter_campaignchannel_publish_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='campaignchannel',
-            name='clicks',
-            field=models.PositiveIntegerField(default=0, help_text='clicks by users on the campaign'),
+            model_name="campaignchannel",
+            name="clicks",
+            field=models.PositiveIntegerField(
+                default=0, help_text="clicks by users on the campaign"
+            ),
         ),
     ]

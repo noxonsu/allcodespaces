@@ -4,37 +4,40 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0010_campaign_channel_post_id_and_more'),
+        ("core", "0010_campaign_channel_post_id_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='campaign',
-            name='channel_post_id',
+            model_name="campaign",
+            name="channel_post_id",
         ),
         migrations.RemoveField(
-            model_name='campaign',
-            name='is_message_published',
+            model_name="campaign",
+            name="is_message_published",
         ),
         migrations.RemoveField(
-            model_name='campaign',
-            name='message_publish_date',
+            model_name="campaign",
+            name="message_publish_date",
         ),
         migrations.AddField(
-            model_name='message',
-            name='channel_post_id',
+            model_name="message",
+            name="channel_post_id",
             field=models.TextField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='message',
-            name='is_message_published',
-            field=models.BooleanField(default=False, verbose_name='is message published in th channel'),
+            model_name="message",
+            name="is_message_published",
+            field=models.BooleanField(
+                default=False, verbose_name="is message published in th channel"
+            ),
         ),
         migrations.AddField(
-            model_name='message',
-            name='message_publish_date',
-            field=models.DateTimeField(blank=True, null=True, verbose_name='message published date'),
+            model_name="message",
+            name="message_publish_date",
+            field=models.DateTimeField(
+                blank=True, null=True, verbose_name="message published date"
+            ),
         ),
     ]

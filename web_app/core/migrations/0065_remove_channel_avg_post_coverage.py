@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0064_alter_channel_is_active'),
+        ("core", "0064_alter_channel_is_active"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='channel',
-            name='avg_post_coverage',
+            model_name="channel",
+            name="avg_post_coverage",
         ),
     ]

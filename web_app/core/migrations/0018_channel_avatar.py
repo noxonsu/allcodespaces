@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0017_remove_message_channel_post_id_and_more'),
+        ("core", "0017_remove_message_channel_post_id_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='avatar',
-            field=models.URLField(blank=True, null=True, verbose_name='avatar'),
+            model_name="channel",
+            name="avatar",
+            field=models.URLField(blank=True, null=True, verbose_name="avatar"),
         ),
     ]

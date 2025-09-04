@@ -4,71 +4,88 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0084_alter_channel_avg_posts_reach_and_more'),
+        ("core", "0084_alter_channel_avg_posts_reach_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='user',
-            name='channel',
+            model_name="user",
+            name="channel",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='tg_id',
+            model_name="user",
+            name="tg_id",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='tg_photo_url',
+            model_name="user",
+            name="tg_photo_url",
         ),
         migrations.RemoveField(
-            model_name='user',
-            name='tg_username',
+            model_name="user",
+            name="tg_username",
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='about',
-            field=models.TextField(blank=True, default='', null=True, verbose_name='описание'),
+            model_name="channel",
+            name="about",
+            field=models.TextField(
+                blank=True, default="", null=True, verbose_name="описание"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='avg_posts_reach',
-            field=models.FloatField(blank=True, default=0, null=True, verbose_name='Охват'),
+            model_name="channel",
+            name="avg_posts_reach",
+            field=models.FloatField(
+                blank=True, default=0, null=True, verbose_name="Охват"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='daily_reach',
-            field=models.FloatField(blank=True, default=0, null=True, verbose_name='ежедневный охват'),
+            model_name="channel",
+            name="daily_reach",
+            field=models.FloatField(
+                blank=True, default=0, null=True, verbose_name="ежедневный охват"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='er',
-            field=models.FloatField(blank=True, default=0, null=True, verbose_name='ER'),
+            model_name="channel",
+            name="er",
+            field=models.FloatField(
+                blank=True, default=0, null=True, verbose_name="ER"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='err',
-            field=models.FloatField(blank=True, default=0, null=True, verbose_name='ERR'),
+            model_name="channel",
+            name="err",
+            field=models.FloatField(
+                blank=True, default=0, null=True, verbose_name="ERR"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='err_24',
-            field=models.FloatField(blank=True, default=0, null=True, verbose_name='ERR24'),
+            model_name="channel",
+            name="err_24",
+            field=models.FloatField(
+                blank=True, default=0, null=True, verbose_name="ERR24"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='language',
-            field=models.CharField(blank=True, default='', null=True, verbose_name='Язык'),
+            model_name="channel",
+            name="language",
+            field=models.CharField(
+                blank=True, default="", null=True, verbose_name="Язык"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='members_count',
-            field=models.PositiveIntegerField(default=0, null=True, verbose_name='Число подписчиков'),
+            model_name="channel",
+            name="members_count",
+            field=models.PositiveIntegerField(
+                default=0, null=True, verbose_name="Число подписчиков"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='posts_count',
-            field=models.PositiveIntegerField(blank=True, default=0, null=True, verbose_name='количество сообщений'),
+            model_name="channel",
+            name="posts_count",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, null=True, verbose_name="количество сообщений"
+            ),
         ),
     ]

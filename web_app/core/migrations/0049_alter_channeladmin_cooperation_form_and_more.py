@@ -4,45 +4,67 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0048_alter_channeladmin_cooperation_form'),
+        ("core", "0048_alter_channeladmin_cooperation_form"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channeladmin',
-            name='cooperation_form',
-            field=models.CharField(blank=True, choices=[('legal', 'ФЛ (без статуса СЗ)'), ('c3', 'СЗ'), ('entrepreneur', 'ИП'), ('ooo', 'ООО')], default='legal', max_length=50, verbose_name='Форма сотрудничества'),
+            model_name="channeladmin",
+            name="cooperation_form",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("legal", "ФЛ (без статуса СЗ)"),
+                    ("c3", "СЗ"),
+                    ("entrepreneur", "ИП"),
+                    ("ooo", "ООО"),
+                ],
+                default="legal",
+                max_length=50,
+                verbose_name="Форма сотрудничества",
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='email',
-            field=models.EmailField(blank=True, default='', max_length=250, verbose_name='Е-маил'),
+            model_name="channeladmin",
+            name="email",
+            field=models.EmailField(
+                blank=True, default="", max_length=250, verbose_name="Е-маил"
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='first_name',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='Имя'),
+            model_name="channeladmin",
+            name="first_name",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="Имя"
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='inn',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='ИНН'),
+            model_name="channeladmin",
+            name="inn",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="ИНН"
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='last_name',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='Фамилия'),
+            model_name="channeladmin",
+            name="last_name",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="Фамилия"
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='legal_name',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='Название юр.лица'),
+            model_name="channeladmin",
+            name="legal_name",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="Название юр.лица"
+            ),
         ),
         migrations.AlterField(
-            model_name='channeladmin',
-            name='phone_number',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='Моб.телефон'),
+            model_name="channeladmin",
+            name="phone_number",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="Моб.телефон"
+            ),
         ),
     ]

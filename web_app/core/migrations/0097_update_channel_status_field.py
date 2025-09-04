@@ -5,32 +5,26 @@ from django.db.models import When, Case, Q, Value
 
 
 def on_commit(apps, schema):
-    """Add default status for old channels """
+    """Add default status for old channels"""
 
-    Channel = apps.get_model('core.Channel')
+    Channel = apps.get_model("core.Channel")
     Channel.objects.update(
         status=Case(
-            When(condition=Q(is_active=True), then=Value('confirmed')),
-            default=Value('pending'),
+            When(condition=Q(is_active=True), then=Value("confirmed")),
+            default=Value("pending"),
         )
     )
 
 
 def rollback(apps, schema):
     """Runs on downgrade"""
-    Channel = apps.get('core.Channel')
-    Channel.objects.update(status='pending')
+    Channel = apps.get("core.Channel")
+    Channel.objects.update(status="pending")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0096_alter_channel_status'),
+        ("core", "0096_alter_channel_status"),
     ]
 
-    operations = [
-        migrations.RunPython(
-            on_commit,
-            rollback
-        )
-    ]
+    operations = [migrations.RunPython(on_commit, rollback)]

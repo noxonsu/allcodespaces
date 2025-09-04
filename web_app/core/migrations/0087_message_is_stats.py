@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0086_auto_20250720_2024'),
+        ("core", "0086_auto_20250720_2024"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='message',
-            name='is_stats',
+            model_name="message",
+            name="is_stats",
             field=models.BooleanField(default=True),
         ),
     ]

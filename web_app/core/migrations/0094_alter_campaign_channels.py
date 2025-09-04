@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0093_campaign_brand'),
+        ("core", "0093_campaign_brand"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaign',
-            name='channels',
-            field=models.ManyToManyField(blank=True, through='core.CampaignChannel', to='core.channel'),
+            model_name="campaign",
+            name="channels",
+            field=models.ManyToManyField(
+                blank=True, through="core.CampaignChannel", to="core.channel"
+            ),
         ),
     ]

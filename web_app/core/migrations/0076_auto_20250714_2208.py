@@ -5,13 +5,13 @@ from django.db import migrations
 
 def on_commit(apps, schema):
     "remove all empty campaigns"
-    Campaign = apps.get_model('core', 'Campaign')
+    Campaign = apps.get_model("core", "Campaign")
     Campaign.objects.filter(message__isnull=True).delete()
 
-class Migration(migrations.Migration):
 
+class Migration(migrations.Migration):
     dependencies = [
-        ('core', '0075_alter_channeladmin_tg_id'),
+        ("core", "0075_alter_channeladmin_tg_id"),
     ]
 
     operations = [

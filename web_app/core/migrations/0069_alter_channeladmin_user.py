@@ -6,15 +6,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0068_alter_channeladmin_role'),
+        ("core", "0068_alter_channeladmin_role"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channeladmin',
-            name='user',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='profile', to=settings.AUTH_USER_MODEL, verbose_name='Профиль'),
+            model_name="channeladmin",
+            name="user",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="profile",
+                to=settings.AUTH_USER_MODEL,
+                verbose_name="Профиль",
+            ),
         ),
     ]

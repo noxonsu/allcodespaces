@@ -4,15 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0047_alter_channeladmin_options'),
+        ("core", "0047_alter_channeladmin_options"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channeladmin',
-            name='cooperation_form',
-            field=models.CharField(choices=[('legal', 'ФЛ (без статуса СЗ)'), ('c3', 'СЗ'), ('entrepreneur', 'ИП'), ('ooo', 'ООО')], default='legal', max_length=50, verbose_name='Форма сотрудничества'),
+            model_name="channeladmin",
+            name="cooperation_form",
+            field=models.CharField(
+                choices=[
+                    ("legal", "ФЛ (без статуса СЗ)"),
+                    ("c3", "СЗ"),
+                    ("entrepreneur", "ИП"),
+                    ("ooo", "ООО"),
+                ],
+                default="legal",
+                max_length=50,
+                verbose_name="Форма сотрудничества",
+            ),
         ),
     ]

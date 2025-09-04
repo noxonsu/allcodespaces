@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0029_alter_channel_meta'),
+        ("core", "0029_alter_channel_meta"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='is_message_published',
-            field=models.BooleanField(default='planned', verbose_name='опубликовано'),
+            model_name="campaignchannel",
+            name="is_message_published",
+            field=models.BooleanField(default="planned", verbose_name="опубликовано"),
         ),
     ]

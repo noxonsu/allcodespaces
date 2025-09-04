@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0014_alter_messagelink_options_and_more'),
+        ("core", "0014_alter_messagelink_options_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='messagelink',
-            name='position',
+            model_name="messagelink",
+            name="position",
         ),
         migrations.RemoveField(
-            model_name='messagelink',
-            name='type',
+            model_name="messagelink",
+            name="type",
         ),
     ]

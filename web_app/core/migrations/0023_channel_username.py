@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0022_message_video'),
+        ("core", "0022_message_video"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='username',
-            field=models.CharField(blank=True, max_length=250, null=True, verbose_name='username'),
+            model_name="channel",
+            name="username",
+            field=models.CharField(
+                blank=True, max_length=250, null=True, verbose_name="username"
+            ),
         ),
     ]

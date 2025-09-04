@@ -5,27 +5,32 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0005_alter_message_image'),
+        ("core", "0005_alter_message_image"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='channel',
-            name='owner',
+            model_name="channel",
+            name="owner",
         ),
         migrations.RemoveField(
-            model_name='message',
-            name='footer',
+            model_name="message",
+            name="footer",
         ),
         migrations.RemoveField(
-            model_name='message',
-            name='header',
+            model_name="message",
+            name="header",
         ),
         migrations.AddField(
-            model_name='user',
-            name='channel',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='owners', to='core.channel'),
+            model_name="user",
+            name="channel",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.SET_NULL,
+                related_name="owners",
+                to="core.channel",
+            ),
         ),
     ]

@@ -5,15 +5,20 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0012_remove_campaignchannel_channel_post_id_and_more'),
+        ("core", "0012_remove_campaignchannel_channel_post_id_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='message',
-            name='button',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='messages', to='core.messagelink'),
+            model_name="message",
+            name="button",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="messages",
+                to="core.messagelink",
+            ),
         ),
     ]
