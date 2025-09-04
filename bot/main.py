@@ -107,7 +107,7 @@ async def main():
             <b><i>📨 Получен запрос на публикацию рекламного сообщения в вашем канале:📬. </i></b>
             🪧 <b><i>Рекламодатель</i></b>: {campaign_channel.campaign.client},
             🪧 <b><i>Бренд</i></b>: {campaign_channel.campaign.brand},
-            🪧 <b><i>CPM</i></b>: {campaign_channel.channel.cpm}
+            🪧 <b><i>CPM</i></b>: {campaign_channel.cpm}
         """
         await application.bot.send_message(
             chat_id=campaign_channel.channel_admin.tg_id,
