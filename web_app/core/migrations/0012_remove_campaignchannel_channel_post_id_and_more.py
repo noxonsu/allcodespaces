@@ -4,26 +4,25 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0011_remove_campaign_channel_post_id_and_more'),
+        ("core", "0011_remove_campaign_channel_post_id_and_more"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='campaignchannel',
-            name='channel_post_id',
+            model_name="campaignchannel",
+            name="channel_post_id",
         ),
         migrations.RemoveField(
-            model_name='campaignchannel',
-            name='is_message_published',
+            model_name="campaignchannel",
+            name="is_message_published",
         ),
         migrations.RemoveField(
-            model_name='campaignchannel',
-            name='message',
+            model_name="campaignchannel",
+            name="message",
         ),
         migrations.RemoveField(
-            model_name='campaignchannel',
-            name='message_publish_date',
+            model_name="campaignchannel",
+            name="message_publish_date",
         ),
     ]

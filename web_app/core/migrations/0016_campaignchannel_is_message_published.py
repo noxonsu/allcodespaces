@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0015_remove_messagelink_position_remove_messagelink_type'),
+        ("core", "0015_remove_messagelink_position_remove_messagelink_type"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='campaignchannel',
-            name='is_message_published',
-            field=models.BooleanField(default=False, verbose_name='message published'),
+            model_name="campaignchannel",
+            name="is_message_published",
+            field=models.BooleanField(default=False, verbose_name="message published"),
         ),
     ]

@@ -5,15 +5,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0021_rename_avatar_channel_avatar_url'),
+        ("core", "0021_rename_avatar_channel_avatar_url"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='message',
-            name='video',
-            field=models.FileField(blank=True, null=True, upload_to=core.models.Message.image_path, verbose_name='video'),
+            model_name="message",
+            name="video",
+            field=models.FileField(
+                blank=True,
+                null=True,
+                upload_to=core.models.Message.image_path,
+                verbose_name="video",
+            ),
         ),
     ]

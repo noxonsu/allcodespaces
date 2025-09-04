@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0050_campaign_inn_advertiser_campaign_token_ord'),
+        ("core", "0050_campaign_inn_advertiser_campaign_token_ord"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='is_approved',
-            field=models.BooleanField(default=False, verbose_name='Разрешено'),
+            model_name="campaignchannel",
+            name="is_approved",
+            field=models.BooleanField(default=False, verbose_name="Разрешено"),
         ),
     ]

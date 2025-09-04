@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0059_alter_channel_country'),
+        ("core", "0059_alter_channel_country"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='category',
-            field=models.CharField(blank=True, max_length=10, null=True, verbose_name='Тематика'),
+            model_name="channel",
+            name="category",
+            field=models.CharField(
+                blank=True, max_length=10, null=True, verbose_name="Тематика"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='is_bot_installed',
-            field=models.BooleanField(default=False, verbose_name='Бот установлен'),
+            model_name="channel",
+            name="is_bot_installed",
+            field=models.BooleanField(default=False, verbose_name="Бот установлен"),
         ),
     ]

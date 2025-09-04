@@ -4,15 +4,14 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0055_remove_channel_geo_channel_country'),
+        ("core", "0055_remove_channel_geo_channel_country"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='channel',
-            old_name='subject',
-            new_name='category',
+            model_name="channel",
+            old_name="subject",
+            new_name="category",
         ),
     ]

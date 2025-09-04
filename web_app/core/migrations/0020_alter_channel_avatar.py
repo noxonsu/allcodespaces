@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0019_alter_channel_avatar'),
+        ("core", "0019_alter_channel_avatar"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='avatar',
-            field=models.URLField(blank=True, null=True, verbose_name='avatar'),
+            model_name="channel",
+            name="avatar",
+            field=models.URLField(blank=True, null=True, verbose_name="avatar"),
         ),
     ]

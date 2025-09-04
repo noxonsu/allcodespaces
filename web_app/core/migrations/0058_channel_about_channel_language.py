@@ -4,20 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0057_channel_daily_reach_channel_posts_count'),
+        ("core", "0057_channel_daily_reach_channel_posts_count"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='about',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='daily reach'),
+            model_name="channel",
+            name="about",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="daily reach"
+            ),
         ),
         migrations.AddField(
-            model_name='channel',
-            name='language',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='daily reach'),
+            model_name="channel",
+            name="language",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="daily reach"
+            ),
         ),
     ]

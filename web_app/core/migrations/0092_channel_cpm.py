@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0091_alter_campaign_status'),
+        ("core", "0091_alter_campaign_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='cpm',
-            field=models.PositiveIntegerField(default=0, verbose_name='CPM'),
+            model_name="channel",
+            name="cpm",
+            field=models.PositiveIntegerField(default=0, verbose_name="CPM"),
         ),
     ]

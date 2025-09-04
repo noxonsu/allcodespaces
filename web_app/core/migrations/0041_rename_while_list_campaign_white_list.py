@@ -4,15 +4,14 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0040_campaign_black_list_campaign_while_list_and_more'),
+        ("core", "0040_campaign_black_list_campaign_while_list_and_more"),
     ]
 
     operations = [
         migrations.RenameField(
-            model_name='campaign',
-            old_name='while_list',
-            new_name='white_list',
+            model_name="campaign",
+            old_name="while_list",
+            new_name="white_list",
         ),
     ]

@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0073_alter_message_button_link_alter_message_button_str'),
+        ("core", "0073_alter_message_button_link_alter_message_button_str"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='message',
-            name='button',
+            model_name="message",
+            name="button",
         ),
     ]

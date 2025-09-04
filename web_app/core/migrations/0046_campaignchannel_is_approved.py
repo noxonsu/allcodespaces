@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0045_channeladmin_is_bot_installed'),
+        ("core", "0045_channeladmin_is_bot_installed"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='campaignchannel',
-            name='is_approved',
-            field=models.BooleanField(default=False, verbose_name='Одобрено'),
+            model_name="campaignchannel",
+            name="is_approved",
+            field=models.BooleanField(default=False, verbose_name="Одобрено"),
         ),
     ]

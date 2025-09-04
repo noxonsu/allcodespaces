@@ -5,26 +5,23 @@ from django.db import migrations
 
 
 def on_commit(apps, schema):
-    Message = apps.get_model('core', 'Message')
+    Message = apps.get_model("core", "Message")
     messages = []
     for message in Message.objects.all():
         button = message.button
         if button:
             button_str = button.title
             button_link = button.url
-            message.button_str=button_str
+            message.button_str = button_str
             message.button_link = button_link
-            messages.append( message)
-    Message.objects.bulk_update(messages, ['button_str', 'button_link'])
-    print('Messages Updated!')
+            messages.append(message)
+    Message.objects.bulk_update(messages, ["button_str", "button_link"])
+    print("Messages Updated!")
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0071_message_button_link_message_button_str'),
+        ("core", "0071_message_button_link_message_button_str"),
     ]
 
-    operations = [
-        migrations.RunPython(on_commit, migrations.RunPython.noop)
-    ]
+    operations = [migrations.RunPython(on_commit, migrations.RunPython.noop)]

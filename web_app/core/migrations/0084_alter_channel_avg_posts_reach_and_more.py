@@ -4,20 +4,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0083_alter_channel_er_alter_channel_err_and_more'),
+        ("core", "0083_alter_channel_er_alter_channel_err_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='avg_posts_reach',
-            field=models.FloatField(blank=True, default=0, verbose_name='Охват'),
+            model_name="channel",
+            name="avg_posts_reach",
+            field=models.FloatField(blank=True, default=0, verbose_name="Охват"),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='daily_reach',
-            field=models.FloatField(blank=True, default=0, verbose_name='ежедневный охват'),
+            model_name="channel",
+            name="daily_reach",
+            field=models.FloatField(
+                blank=True, default=0, verbose_name="ежедневный охват"
+            ),
         ),
     ]

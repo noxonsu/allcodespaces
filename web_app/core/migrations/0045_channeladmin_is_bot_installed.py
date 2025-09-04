@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0044_rename_tg_username_channeladmin_username'),
+        ("core", "0044_rename_tg_username_channeladmin_username"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channeladmin',
-            name='is_bot_installed',
-            field=models.BooleanField(default=False, verbose_name='Бот'),
+            model_name="channeladmin",
+            name="is_bot_installed",
+            field=models.BooleanField(default=False, verbose_name="Бот"),
         ),
     ]

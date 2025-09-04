@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0088_alter_message_is_stats'),
+        ("core", "0088_alter_message_is_stats"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='message',
-            name='is_stats',
-            field=models.BooleanField(default=False, verbose_name='Ссылка на канал телеграм?'),
+            model_name="message",
+            name="is_stats",
+            field=models.BooleanField(
+                default=False, verbose_name="Ссылка на канал телеграм?"
+            ),
         ),
     ]

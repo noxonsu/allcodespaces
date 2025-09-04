@@ -5,30 +5,86 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0034_campaignchannel_clicks'),
+        ("core", "0034_campaignchannel_clicks"),
     ]
 
     operations = [
         migrations.CreateModel(
-            name='ChannelAdmin',
+            name="ChannelAdmin",
             fields=[
-                ('id', models.UUIDField(db_index=True, default=uuid.uuid4, editable=False, primary_key=True, serialize=False)),
-                ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='created at')),
-                ('updated_at', models.DateTimeField(auto_now=True, verbose_name='updated at')),
-                ('tg_username', models.CharField(default='', max_length=250, verbose_name='Ник в Телеграм')),
-                ('first_name', models.CharField(default='', max_length=250, verbose_name='Имя')),
-                ('last_name', models.CharField(default='', max_length=250, verbose_name='Фамилия')),
-                ('phone_number', models.CharField(default='', max_length=250, verbose_name='Моб.телефон')),
-                ('email', models.EmailField(default='', max_length=250, verbose_name='Е-маил')),
-                ('inn', models.PositiveIntegerField(default=0, verbose_name='ИНН')),
-                ('legal_name', models.CharField(default='', max_length=250, verbose_name='Название юр.лица')),
+                (
+                    "id",
+                    models.UUIDField(
+                        db_index=True,
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "created_at",
+                    models.DateTimeField(auto_now_add=True, verbose_name="created at"),
+                ),
+                (
+                    "updated_at",
+                    models.DateTimeField(auto_now=True, verbose_name="updated at"),
+                ),
+                (
+                    "tg_username",
+                    models.CharField(
+                        default="", max_length=250, verbose_name="Ник в Телеграм"
+                    ),
+                ),
+                (
+                    "first_name",
+                    models.CharField(default="", max_length=250, verbose_name="Имя"),
+                ),
+                (
+                    "last_name",
+                    models.CharField(
+                        default="", max_length=250, verbose_name="Фамилия"
+                    ),
+                ),
+                (
+                    "phone_number",
+                    models.CharField(
+                        default="", max_length=250, verbose_name="Моб.телефон"
+                    ),
+                ),
+                (
+                    "email",
+                    models.EmailField(
+                        default="", max_length=250, verbose_name="Е-маил"
+                    ),
+                ),
+                ("inn", models.PositiveIntegerField(default=0, verbose_name="ИНН")),
+                (
+                    "legal_name",
+                    models.CharField(
+                        default="", max_length=250, verbose_name="Название юр.лица"
+                    ),
+                ),
             ],
             options={
-                'ordering': [models.OrderBy(models.F('created_at'), descending=True, nulls_last=True), models.OrderBy(models.F('updated_at'), descending=True, nulls_last=True)],
-                'get_latest_by': [models.OrderBy(models.F('created_at'), descending=True, nulls_last=True), models.OrderBy(models.F('updated_at'), descending=True, nulls_last=True)],
-                'abstract': False,
+                "ordering": [
+                    models.OrderBy(
+                        models.F("created_at"), descending=True, nulls_last=True
+                    ),
+                    models.OrderBy(
+                        models.F("updated_at"), descending=True, nulls_last=True
+                    ),
+                ],
+                "get_latest_by": [
+                    models.OrderBy(
+                        models.F("created_at"), descending=True, nulls_last=True
+                    ),
+                    models.OrderBy(
+                        models.F("updated_at"), descending=True, nulls_last=True
+                    ),
+                ],
+                "abstract": False,
             },
         ),
     ]

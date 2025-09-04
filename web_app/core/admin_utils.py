@@ -14,7 +14,7 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
         super().__init__(*args, **kwargs)
         self.display_rename_to = {
             "Дата не указана": "Не опубликовано",
-            "Дата указана":"все время"
+            "Дата указана": "все время",
         }
         self._display_rename_to()
 
@@ -27,7 +27,7 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
                     links[index_] = list(links[index_])
                     links[index_][0] = self.display_rename_to.get(key, links[index_][0])
                     links[index_] = tuple(links[index_])
-                index_+=1
+                index_ += 1
             self.links = tuple(links)
 
 
@@ -36,16 +36,23 @@ def is_empty(value: str) -> bool:
     return not value or value and value.strip() == ""
 
 
-def can_change_channel_status(user: User)-> bool:
+def can_change_channel_status(user: User) -> bool:
     """Validate if a certain user can change the channel status."""
-    return user and (user.is_superuser or getattr(user, 'profile', None) and user.profile.role == ChannelAdmin.Role.MANAGER)
+    return user and (
+        user.is_superuser
+        or getattr(user, "profile", None)
+        and user.profile.role == ChannelAdmin.Role.MANAGER
+    )
+
 
 def is_not_valid_channel_status(old_status: str, new_status: str) -> bool:
     """check if status is not valid."""
     return new_status and old_status and new_status == Channel.ChannelStatus.PENDING
 
 
-def remove_fieldset_for_role(fieldset: Sequence,fieldset_name: str, channel_admin: ChannelAdmin, role: str):
+def remove_fieldset_for_role(
+    fieldset: Sequence, fieldset_name: str, channel_admin: ChannelAdmin, role: str
+):
     """This function remove a fieldset for a user if he has specific role"""
     fieldset = list(fieldset)
     if channel_admin.role == role and fieldset_name:

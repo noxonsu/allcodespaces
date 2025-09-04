@@ -5,7 +5,7 @@
 {% get_jazzmin_ui_tweaks as jazzmin_ui %}
 
 <!DOCTYPE html>
-<html lang="{{ LANGUAGE_CODE|default:"en-us" }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
+<html lang="{{ LANGUAGE_CODE|default:'en-us' }}" {% if LANGUAGE_BIDI %}dir="rtl"{% endif %}>
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -16,10 +16,10 @@
     <title>{% block title %}{{ title }} | {{ jazzmin_settings.site_title }}{% endblock %}</title>
 
     <!-- Font Awesome Icons -->
-    <link rel="stylesheet" href="{% static "vendor/fontawesome-free/css/all.min.css" %}">
+    <link rel="stylesheet" href="{% static 'vendor/fontawesome-free/css/all.min.css' %}">
 
     <!-- Bootstrap and adminLTE -->
-    <link rel="stylesheet" href="{% static "vendor/adminlte/css/adminlte.min.css" %}" id="adminlte-css">
+    <link rel="stylesheet" href="{% static 'vendor/adminlte/css/adminlte.min.css' %}" id="adminlte-css">
 
     <!-- Bootswatch theme -->
     {% if jazzmin_ui.theme.name != 'default' %}
@@ -31,7 +31,7 @@
     {% endif %}
 
     <!-- Custom fixes for django -->
-    <link rel="stylesheet" href="{% static "jazzmin/css/main.css" %}">
+    <link rel="stylesheet" href="{% static 'jazzmin/css/main.css' %}">
 
     {% if jazzmin_settings.custom_css %}
     <!-- Custom CSS -->
@@ -52,7 +52,7 @@
     {% block extrastyle %} {% endblock %}
     {% block extrahead %} {% endblock %}
 </head>
-<body class="hold-transition{% if not jazzmin_settings.show_sidebar %} no-sidebar{% else %} sidebar-mini{% endif %} {% sidebar_status request %} {% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %} {{ jazzmin_ui.body_classes }} {% if jazzmin_ui.dark_mode_theme %}theme-dark{% endif %}" data-admin-utc-offset="{% now "Z" %}">
+<body class="hold-transition {% if not jazzmin_settings.show_sidebar %} no-sidebar {% else %} sidebar-mini {% endif %} {% sidebar_status request %} {% if is_popup %}popup {% endif %}{% block bodyclass %}{% endblock %} {{ jazzmin_ui.body_classes }} {% if jazzmin_ui.dark_mode_theme %}theme-dark{% endif %}" data-admin-utc-offset="{% now 'Z' %}">
 
 <div class="wrapper">
 
@@ -192,22 +192,23 @@
                 </a>
 
                 <div class="sidebar">
-                    <div class="user-panel mt-3 pb-3 mb-3 d-flex">
-                        <div class="image">
-                            {% if jazzmin_settings|has_jazzmin_setting:"user_avatar" %}
-                                <img src="{% get_user_avatar request.user %}" width="160px" class="img-circle elevation-2" alt="User Image">
-                            {% else %}
-                                <i class="fas fa-inverse user-profile fa-user-circle"></i>
-                            {% endif %}
-                        </div>
-                        <div class="info">
-                            {% if perms|can_view_self %}
-                                <a href="{% jazzy_admin_url request.user request.current_app|default:"admin" %}" class="d-block">{{ request.user }}</a>
-                            {% else %}
-                                <span class="d-block" style="color: white;">{{ request.user }}</span>
-                            {% endif %}
-                        </div>
-                    </div>
+<!--                   #Comment remove the unneeded user avatar and username-->
+<!--                    <div class="user-panel mt-3 pb-3 mb-3 d-flex">-->
+<!--                        <div class="image">-->
+<!--                            {% if jazzmin_settings|has_jazzmin_setting:"user_avatar" %}-->
+<!--                                <img src="{% get_user_avatar request.user %}" width="160px" class="img-circle elevation-2" alt="User Image">-->
+<!--                            {% else %}-->
+<!--                                <i class="fas fa-inverse user-profile fa-user-circle"></i>-->
+<!--                            {% endif %}-->
+<!--                        </div>-->
+<!--                        <div class="info">-->
+<!--                            {% if perms|can_view_self %}-->
+<!--                                <a href="{% jazzy_admin_url request.user request.current_app|default:"admin" %}" class="d-block">{{ request.user }}</a>-->
+<!--                            {% else %}-->
+<!--                                <span class="d-block" style="color: white;">{{ request.user }}</span>-->
+<!--                            {% endif %}-->
+<!--                        </div>-->
+<!--                    </div>-->
 
                     <nav class="mt-2">
                         <ul class="nav nav-pills nav-sidebar flex-column {{ jazzmin_ui.sidebar_list_classes }}" data-widget="treeview" role="menu" data-collapsible="false">
@@ -357,13 +358,13 @@
 {% endif %}
 
 <!-- jQuery -->
-<script src="{% static "admin/js/vendor/jquery/jquery.js" %}"></script>
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 <!-- Bootstrap 4 -->
-<script src="{% static "vendor/bootstrap/js/bootstrap.min.js" %}"></script>
+<script src="{% static 'vendor/bootstrap/js/bootstrap.min.js' %}"></script>
 <!-- AdminLTE App -->
-<script src="{% static "vendor/adminlte/js/adminlte.min.js" %}"></script>
+<script src="{% static 'vendor/adminlte/js/adminlte.min.js' %}"></script>
 <!-- Django customisations -->
-<script src="{% static "jazzmin/js/main.js" %}"></script>
+<script src="{% static 'jazzmin/js/main.js' %}"></script>
 
 {% if jazzmin_settings.custom_js %}
 <script src="{% static jazzmin_settings.custom_js %}"></script>
@@ -373,7 +374,7 @@
 <script>
     window.ui_changes = {{ jazzmin_ui.raw|as_json|safe }};
 </script>
-<script src="{% static "jazzmin/js/ui-builder.js" %}"></script>
+<script src="{% static 'jazzmin/js/ui-builder.js' %}"></script>
 {% endif %}
 
 <!--jBox-->

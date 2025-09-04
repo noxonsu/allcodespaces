@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0074_remove_message_button'),
+        ("core", "0074_remove_message_button"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channeladmin',
-            name='tg_id',
-            field=models.CharField(default=0, verbose_name='ID в Телеграм'),
+            model_name="channeladmin",
+            name="tg_id",
+            field=models.CharField(default=0, verbose_name="ID в Телеграм"),
         ),
     ]

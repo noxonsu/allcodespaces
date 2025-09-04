@@ -4,20 +4,29 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0030_alter_campaignchannel_is_message_published'),
+        ("core", "0030_alter_campaignchannel_is_message_published"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='is_message_published',
-            field=models.BooleanField(default=False, verbose_name='опубликовано'),
+            model_name="campaignchannel",
+            name="is_message_published",
+            field=models.BooleanField(default=False, verbose_name="опубликовано"),
         ),
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='publish_status',
-            field=models.CharField(blank=True, choices=[('planned', 'запланировано'), ('published', 'опубликовано'), ('deleted', 'удалённо')], default='planned', max_length=30, null=True),
+            model_name="campaignchannel",
+            name="publish_status",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("planned", "запланировано"),
+                    ("published", "опубликовано"),
+                    ("deleted", "удалённо"),
+                ],
+                default="planned",
+                max_length=30,
+                null=True,
+            ),
         ),
     ]

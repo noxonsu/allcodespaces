@@ -4,18 +4,17 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0101_update_publish_status_new_status'),
+        ("core", "0101_update_publish_status_new_status"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='campaignchannel',
-            name='is_approved',
+            model_name="campaignchannel",
+            name="is_approved",
         ),
         migrations.RemoveField(
-            model_name='campaignchannel',
-            name='is_message_published',
+            model_name="campaignchannel",
+            name="is_message_published",
         ),
     ]

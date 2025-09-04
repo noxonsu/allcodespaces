@@ -4,35 +4,50 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0104_alter_channel_status'),
+        ("core", "0104_alter_channel_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='message',
-            name='ad_individual',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='Юр. лицо рекламодателя'),
+            model_name="message",
+            name="ad_individual",
+            field=models.CharField(
+                blank=True,
+                default="",
+                max_length=250,
+                verbose_name="Юр. лицо рекламодателя",
+            ),
         ),
         migrations.AddField(
-            model_name='message',
-            name='ad_inn',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='ИНН рекламодателя'),
+            model_name="message",
+            name="ad_inn",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="ИНН рекламодателя"
+            ),
         ),
         migrations.AddField(
-            model_name='message',
-            name='erd',
-            field=models.CharField(blank=True, default='', max_length=250, verbose_name='ERD'),
+            model_name="message",
+            name="erd",
+            field=models.CharField(
+                blank=True, default="", max_length=250, verbose_name="ERD"
+            ),
         ),
         migrations.AlterField(
-            model_name='message',
-            name='button_link',
-            field=models.URLField(blank=True, null=True, verbose_name='Посадочная страница'),
+            model_name="message",
+            name="button_link",
+            field=models.URLField(
+                blank=True, null=True, verbose_name="Посадочная страница"
+            ),
         ),
         migrations.AlterField(
-            model_name='message',
-            name='button_str',
-            field=models.CharField(blank=True, default='Click Me!', max_length=250, verbose_name='Текст на кнопке'),
+            model_name="message",
+            name="button_str",
+            field=models.CharField(
+                blank=True,
+                default="Click Me!",
+                max_length=250,
+                verbose_name="Текст на кнопке",
+            ),
         ),
     ]

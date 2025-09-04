@@ -4,15 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0095_channel_status'),
+        ("core", "0095_channel_status"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='status',
-            field=models.CharField(choices=[('pending', 'На модерации'), ('confirmed', 'Подтверждено'), ('rejected', 'Отказано')], default='pending', max_length=10, verbose_name='Статус'),
+            model_name="channel",
+            name="status",
+            field=models.CharField(
+                choices=[
+                    ("pending", "На модерации"),
+                    ("confirmed", "Подтверждено"),
+                    ("rejected", "Отказано"),
+                ],
+                default="pending",
+                max_length=10,
+                verbose_name="Статус",
+            ),
         ),
     ]

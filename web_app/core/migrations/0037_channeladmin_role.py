@@ -4,15 +4,18 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0036_channeladmin_cooperation_form'),
+        ("core", "0036_channeladmin_cooperation_form"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channeladmin',
-            name='role',
-            field=models.CharField(choices=[('owner', 'Владелец канала'), ('manager', 'Менеджер')], default='manager', max_length=50),
+            model_name="channeladmin",
+            name="role",
+            field=models.CharField(
+                choices=[("owner", "Владелец канала"), ("manager", "Менеджер")],
+                default="manager",
+                max_length=50,
+            ),
         ),
     ]

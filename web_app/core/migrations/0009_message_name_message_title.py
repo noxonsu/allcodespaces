@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0008_alter_campaign_status'),
+        ("core", "0008_alter_campaign_status"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='message',
-            name='name',
-            field=models.TextField(blank=True, null=True, verbose_name='name'),
+            model_name="message",
+            name="name",
+            field=models.TextField(blank=True, null=True, verbose_name="name"),
         ),
         migrations.AddField(
-            model_name='message',
-            name='title',
-            field=models.TextField(blank=True, null=True, verbose_name='title'),
+            model_name="message",
+            name="title",
+            field=models.TextField(blank=True, null=True, verbose_name="title"),
         ),
     ]

@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0062_alter_channel_about_alter_channel_language'),
+        ("core", "0062_alter_channel_about_alter_channel_language"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='about',
-            field=models.TextField(blank=True, default='', verbose_name='описание'),
+            model_name="channel",
+            name="about",
+            field=models.TextField(blank=True, default="", verbose_name="описание"),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='language',
-            field=models.CharField(blank=True, default='', verbose_name='Язык'),
+            model_name="channel",
+            name="language",
+            field=models.CharField(blank=True, default="", verbose_name="Язык"),
         ),
     ]

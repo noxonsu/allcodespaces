@@ -8,6 +8,5 @@ class CoreConfig(AppConfig):
     verbose_name_plural = " "
     version = "1.0"
 
-
     def ready(self):
-        from . import signals  #nooqe
+        pass  # nooqe

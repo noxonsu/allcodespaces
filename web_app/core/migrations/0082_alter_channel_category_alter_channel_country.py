@@ -4,20 +4,23 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0081_alter_campaignchannel_channel_admin'),
+        ("core", "0081_alter_campaignchannel_channel_admin"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='category',
-            field=models.CharField(blank=True, max_length=250, null=True, verbose_name='Тематика'),
+            model_name="channel",
+            name="category",
+            field=models.CharField(
+                blank=True, max_length=250, null=True, verbose_name="Тематика"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='country',
-            field=models.CharField(blank=True, max_length=250, null=True, verbose_name='Страна'),
+            model_name="channel",
+            name="country",
+            field=models.CharField(
+                blank=True, max_length=250, null=True, verbose_name="Страна"
+            ),
         ),
     ]

@@ -4,15 +4,16 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0023_channel_username'),
+        ("core", "0023_channel_username"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='invitation_link',
-            field=models.URLField(blank=True, max_length=250, null=True, verbose_name='invitation link'),
+            model_name="channel",
+            name="invitation_link",
+            field=models.URLField(
+                blank=True, max_length=250, null=True, verbose_name="invitation link"
+            ),
         ),
     ]

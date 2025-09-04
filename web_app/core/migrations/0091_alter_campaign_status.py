@@ -4,15 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0090_rename_is_stats_message_is_external'),
+        ("core", "0090_rename_is_stats_message_is_external"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaign',
-            name='status',
-            field=models.CharField(choices=[('active', 'активный'), ('paused', 'приостановлено')], default='paused', max_length=6, verbose_name='Статус'),
+            model_name="campaign",
+            name="status",
+            field=models.CharField(
+                choices=[("active", "активный"), ("paused", "приостановлено")],
+                default="paused",
+                max_length=6,
+                verbose_name="Статус",
+            ),
         ),
     ]

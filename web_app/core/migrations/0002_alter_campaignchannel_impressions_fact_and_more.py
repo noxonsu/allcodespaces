@@ -4,20 +4,19 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0001_initial'),
+        ("core", "0001_initial"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='impressions_fact',
-            field=models.IntegerField(default=0, verbose_name='fact views count'),
+            model_name="campaignchannel",
+            name="impressions_fact",
+            field=models.IntegerField(default=0, verbose_name="fact views count"),
         ),
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='impressions_plan',
-            field=models.IntegerField(default=0, verbose_name='planed views count'),
+            model_name="campaignchannel",
+            name="impressions_plan",
+            field=models.IntegerField(default=0, verbose_name="planed views count"),
         ),
     ]

@@ -4,19 +4,26 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0065_remove_channel_avg_post_coverage'),
+        ("core", "0065_remove_channel_avg_post_coverage"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='campaignchannel',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Статистика по РК', 'verbose_name_plural': 'Статистика по РК'},
+            name="campaignchannel",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Статистика по РК",
+                "verbose_name_plural": "Статистика по РК",
+            },
         ),
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='clicks',
-            field=models.PositiveIntegerField(default=0, help_text='clicks by users on the campaign', verbose_name='Клики'),
+            model_name="campaignchannel",
+            name="clicks",
+            field=models.PositiveIntegerField(
+                default=0,
+                help_text="clicks by users on the campaign",
+                verbose_name="Клики",
+            ),
         ),
     ]

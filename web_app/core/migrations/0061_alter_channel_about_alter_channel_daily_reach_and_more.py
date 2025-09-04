@@ -4,30 +4,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0060_alter_channel_category_and_more'),
+        ("core", "0060_alter_channel_category_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='about',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='описание'),
+            model_name="channel",
+            name="about",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="описание"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='daily_reach',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='ежедневный охват'),
+            model_name="channel",
+            name="daily_reach",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="ежедневный охват"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='language',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='Язык'),
+            model_name="channel",
+            name="language",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="Язык"
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='posts_count',
-            field=models.PositiveIntegerField(blank=True, default=0, verbose_name='количество сообщений'),
+            model_name="channel",
+            name="posts_count",
+            field=models.PositiveIntegerField(
+                blank=True, default=0, verbose_name="количество сообщений"
+            ),
         ),
     ]

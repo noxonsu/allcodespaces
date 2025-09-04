@@ -4,14 +4,13 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0097_update_channel_status_field'),
+        ("core", "0097_update_channel_status_field"),
     ]
 
     operations = [
         migrations.RemoveField(
-            model_name='channel',
-            name='is_active',
+            model_name="channel",
+            name="is_active",
         ),
     ]

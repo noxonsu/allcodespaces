@@ -4,25 +4,24 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0002_alter_campaignchannel_impressions_fact_and_more'),
+        ("core", "0002_alter_campaignchannel_impressions_fact_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='user',
-            name='tg_id',
+            model_name="user",
+            name="tg_id",
             field=models.IntegerField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='user',
-            name='tg_photo_url',
+            model_name="user",
+            name="tg_photo_url",
             field=models.URLField(blank=True, null=True),
         ),
         migrations.AddField(
-            model_name='user',
-            name='tg_username',
+            model_name="user",
+            name="tg_username",
             field=models.CharField(blank=True, max_length=500, null=True),
         ),
     ]

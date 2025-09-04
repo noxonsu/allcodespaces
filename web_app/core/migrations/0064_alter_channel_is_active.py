@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0063_alter_channel_about_alter_channel_language'),
+        ("core", "0063_alter_channel_about_alter_channel_language"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='channel',
-            name='is_active',
-            field=models.BooleanField(default=False, verbose_name='Подтвержден'),
+            model_name="channel",
+            name="is_active",
+            field=models.BooleanField(default=False, verbose_name="Подтвержден"),
         ),
     ]

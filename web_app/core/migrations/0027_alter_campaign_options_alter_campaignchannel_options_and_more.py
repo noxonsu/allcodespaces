@@ -4,30 +4,49 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0026_campaignchannel_publish_status_and_more'),
+        ("core", "0026_campaignchannel_publish_status_and_more"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='campaign',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Кампания', 'verbose_name_plural': 'Кампании'},
+            name="campaign",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Кампания",
+                "verbose_name_plural": "Кампании",
+            },
         ),
         migrations.AlterModelOptions(
-            name='campaignchannel',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Кампания-Канал', 'verbose_name_plural': 'Кампании-Каналы'},
+            name="campaignchannel",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Кампания-Канал",
+                "verbose_name_plural": "Кампании-Каналы",
+            },
         ),
         migrations.AlterModelOptions(
-            name='channel',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Канал', 'verbose_name_plural': 'Каналы'},
+            name="channel",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Канал",
+                "verbose_name_plural": "Каналы",
+            },
         ),
         migrations.AlterModelOptions(
-            name='message',
-            options={'ordering': ['-created_at'], 'verbose_name': 'Сообщение', 'verbose_name_plural': 'Сообщения'},
+            name="message",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "Сообщение",
+                "verbose_name_plural": "Сообщения",
+            },
         ),
         migrations.AlterModelOptions(
-            name='messagelink',
-            options={'ordering': ['-created_at'], 'verbose_name': 'ссылка', 'verbose_name_plural': 'ссылки'},
+            name="messagelink",
+            options={
+                "ordering": ["-created_at"],
+                "verbose_name": "ссылка",
+                "verbose_name_plural": "ссылки",
+            },
         ),
     ]

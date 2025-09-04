@@ -1,15 +1,22 @@
 import pytest
 
-from core.tests.factories import MessageFactory, ChannelFactory, CampaignFactory, ChannelAdminFactory, \
-    CampaignChannelFactory
+from core.tests.factories import (
+    MessageFactory,
+    ChannelFactory,
+    CampaignFactory,
+    ChannelAdminFactory,
+    CampaignChannelFactory,
+)
 
 
 def create_campaign_channel(is_external):
     message = MessageFactory(is_external=is_external)
-    campaign = CampaignFactory(message=message, status='active')
+    campaign = CampaignFactory(message=message, status="active")
     channel = ChannelFactory()
     channeladmin = ChannelAdminFactory()
-    return CampaignChannelFactory(campaign=campaign, channel=channel, channel_admin=channeladmin)
+    return CampaignChannelFactory(
+        campaign=campaign, channel=channel, channel_admin=channeladmin
+    )
 
 
 @pytest.fixture()

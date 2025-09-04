@@ -5,15 +5,21 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0077_alter_campaign_message'),
+        ("core", "0077_alter_campaign_message"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaignchannel',
-            name='channel_admin',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.DO_NOTHING, related_name='channel_campaigns', to='core.channeladmin', verbose_name='Админ'),
+            model_name="campaignchannel",
+            name="channel_admin",
+            field=models.ForeignKey(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.DO_NOTHING,
+                related_name="channel_campaigns",
+                to="core.channeladmin",
+                verbose_name="Админ",
+            ),
         ),
     ]

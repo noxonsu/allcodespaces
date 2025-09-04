@@ -5,20 +5,33 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0041_rename_while_list_campaign_white_list'),
+        ("core", "0041_rename_while_list_campaign_white_list"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='campaign',
-            name='black_list',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(max_length=250), blank=True, default=list, help_text='разделитель , (если пусто то не будет фильтровать)', size=None, verbose_name='запрещённые слова (разделитель ,)'),
+            model_name="campaign",
+            name="black_list",
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.CharField(max_length=250),
+                blank=True,
+                default=list,
+                help_text="разделитель , (если пусто то не будет фильтровать)",
+                size=None,
+                verbose_name="запрещённые слова (разделитель ,)",
+            ),
         ),
         migrations.AlterField(
-            model_name='campaign',
-            name='white_list',
-            field=django.contrib.postgres.fields.ArrayField(base_field=models.CharField(max_length=250), blank=True, default=list, help_text='разделитель , (если пусто то не будет фильтровать)', size=None, verbose_name='разрешённые слова (разделитель ,)'),
+            model_name="campaign",
+            name="white_list",
+            field=django.contrib.postgres.fields.ArrayField(
+                base_field=models.CharField(max_length=250),
+                blank=True,
+                default=list,
+                help_text="разделитель , (если пусто то не будет фильтровать)",
+                size=None,
+                verbose_name="разрешённые слова (разделитель ,)",
+            ),
         ),
     ]

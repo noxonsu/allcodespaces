@@ -4,20 +4,26 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0049_alter_channeladmin_cooperation_form_and_more'),
+        ("core", "0049_alter_channeladmin_cooperation_form_and_more"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='campaign',
-            name='inn_advertiser',
-            field=models.PositiveIntegerField(blank=True, default=0, help_text='ИНН рекламодателя', verbose_name='ИНН рекламодателя'),
+            model_name="campaign",
+            name="inn_advertiser",
+            field=models.PositiveIntegerField(
+                blank=True,
+                default=0,
+                help_text="ИНН рекламодателя",
+                verbose_name="ИНН рекламодателя",
+            ),
         ),
         migrations.AddField(
-            model_name='campaign',
-            name='token_ord',
-            field=models.CharField(blank=True, default='', help_text='Токен ОРД', verbose_name='Токен ОРД'),
+            model_name="campaign",
+            name="token_ord",
+            field=models.CharField(
+                blank=True, default="", help_text="Токен ОРД", verbose_name="Токен ОРД"
+            ),
         ),
     ]

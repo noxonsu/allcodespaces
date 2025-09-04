@@ -4,30 +4,51 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0024_channel_invitation_link'),
+        ("core", "0024_channel_invitation_link"),
     ]
 
     operations = [
         migrations.AddField(
-            model_name='channel',
-            name='geo',
-            field=models.CharField(blank=True, choices=[('Choice_1', 'choice_1'), ('Choice_2', 'choice_2'), ('Choice_3', 'choice_3')], max_length=10, null=True, verbose_name='geo'),
+            model_name="channel",
+            name="geo",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("Choice_1", "choice_1"),
+                    ("Choice_2", "choice_2"),
+                    ("Choice_3", "choice_3"),
+                ],
+                max_length=10,
+                null=True,
+                verbose_name="geo",
+            ),
         ),
         migrations.AddField(
-            model_name='channel',
-            name='members_count',
-            field=models.PositiveIntegerField(blank=True, null=True, verbose_name='members_count'),
+            model_name="channel",
+            name="members_count",
+            field=models.PositiveIntegerField(
+                blank=True, null=True, verbose_name="members_count"
+            ),
         ),
         migrations.AddField(
-            model_name='channel',
-            name='subject',
-            field=models.CharField(blank=True, choices=[('Choice_1', 'choice_1'), ('Choice_2', 'choice_2'), ('Choice_3', 'choice_3')], max_length=10, null=True, verbose_name='subject'),
+            model_name="channel",
+            name="subject",
+            field=models.CharField(
+                blank=True,
+                choices=[
+                    ("Choice_1", "choice_1"),
+                    ("Choice_2", "choice_2"),
+                    ("Choice_3", "choice_3"),
+                ],
+                max_length=10,
+                null=True,
+                verbose_name="subject",
+            ),
         ),
         migrations.AlterField(
-            model_name='channel',
-            name='is_bot_installed',
-            field=models.BooleanField(default=False, verbose_name='bot'),
+            model_name="channel",
+            name="is_bot_installed",
+            field=models.BooleanField(default=False, verbose_name="bot"),
         ),
     ]

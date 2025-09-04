@@ -4,15 +4,14 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('core', '0087_message_is_stats'),
+        ("core", "0087_message_is_stats"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='message',
-            name='is_stats',
-            field=models.BooleanField(default=True, verbose_name='отслеживать клики?'),
+            model_name="message",
+            name="is_stats",
+            field=models.BooleanField(default=True, verbose_name="отслеживать клики?"),
         ),
     ]
