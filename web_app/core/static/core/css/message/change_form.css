@@ -1,0 +1,7 @@
+input#video-clear_id, input#image-clear_id {
+    margin-left: 2% !important;
+}
+
+label.btn-outline-info, label[for='video-clear_id'], label[for='image-clear_id']{
+    font-weight: 500 !important;
+}

@@ -1,6 +1,7 @@
 from django.contrib.auth import login
 from django.http import HttpResponsePermanentRedirect
 from django.shortcuts import get_object_or_404
+from django.views.generic import TemplateView
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
@@ -178,3 +179,12 @@ class ChannelAdminViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(data=serializer.data, status=status.HTTP_200_OK)
+
+
+class AboutView(TemplateView):
+    template_name = 'core/about.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['is_popup'] = False
+        return context

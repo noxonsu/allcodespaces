@@ -515,6 +515,9 @@ class CampaignAdmin(admin.ModelAdmin):
 class MessageAdmin(admin.ModelAdmin):
     class Media:
         js = ["core/js/message/change_form.js"]
+        css = {
+            'all': ["core/css/message/change_form.css"]
+        }
 
     readonly_fields = ["id", "display_image", "display_image_thumbil"]
     list_display = ["__str__", "message_type", "display_image_thumbil"]

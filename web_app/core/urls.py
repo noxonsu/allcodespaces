@@ -6,6 +6,7 @@ from .views import (
     CampaignChannelViewSet,
     TGLoginView,
     ChannelAdminViewSet,
+    AboutView,
 )
 
 app_name = "core"
@@ -30,6 +31,7 @@ api_urls = [
 ]
 
 urlpatterns = [
+    path("about", AboutView.as_view()),
     path("login/tg", TGLoginView.as_view()),
     path("", include(api_urls)),
 ]

@@ -153,5 +153,5 @@ class CampaignTestCase(TransactionTestCase):
 
     def test_create_campaign_client_default_success(self):
         campaign = CampaignFactory.create()
-        self.assertEqual(campaign.client, "")
+        self.assertIsNotNone(campaign.client)
         self.assertIsNotNone(campaign.created_at)

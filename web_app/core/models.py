@@ -185,7 +185,7 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
     ad_inn = models.CharField(
         max_length=250, default="", blank=True, verbose_name="ИНН рекламодателя"
     )
-    erd = models.CharField(max_length=250, default="", blank=True, verbose_name="ERD")
+    erid = models.CharField(max_length=250, default="", blank=True, verbose_name="ERID")
 
     def __str__(self):
         str_ = self.name if self.name else self.title if self.title else self.body
