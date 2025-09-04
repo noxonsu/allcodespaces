@@ -282,11 +282,11 @@ CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "default"
 
 LOGIN_WELCOME_MSG = """
-<div class="text-center" style="font-family: sans-serif">
-<p>&#128171; <strong>Добро пожаловать в ТЕЛЕВИН – платформу пассивного дохода на рекламе в Telegram!</strong> &#128171;</p>
+<div class="text-center">
+<p>&#128171; Добро пожаловать в ТЕЛЕВИН – платформу пассивного дохода на рекламе в Telegram! &#128171;</p>
 <a href='https://telewin.online/'>Web-site - https://telewin.online/ </a><br />
 <a href='https://t.me/telewin_online'>Канал – https://t.me/telewin_online</a><br />
-<p><strong> Если вы являетесь администратором канала, используйте логин через Telegram.</strong></p>
+<p> Если вы являетесь администратором канала, используйте логин через Telegram.</p>
 </div>
 """
 JAZZMIN_SETTINGS = {
