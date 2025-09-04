@@ -522,7 +522,7 @@ class MessageAdmin(admin.ModelAdmin):
         "is_external",
         "ad_individual",
         "ad_inn",
-        "erd",
+        "erid",
         "display_image_thumbil",
         "id",
     ]
