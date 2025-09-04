@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Json, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Json, Field, computed_field, field_serializer
 from decimal import Decimal
 from settings import bot_settings
 
@@ -27,8 +27,8 @@ class MessageParser(BaseModel):
     body: str = 'Empty body'
     image: str | None = ''
     video: str | None = ''
-    created_at: str | None = ''
-    updated_at: str | None = ''
+    created_at: str | datetime | None = ''
+    updated_at: str | datetime | None = ''
     button: MessageLink| None = None
     is_external: bool = Field(default=False)
 
@@ -57,14 +57,19 @@ class MessageParser(BaseModel):
     def video_local_path(self) -> str :
         return BASE_DIR / 'media' / self.video if self.video else ''
 
+
 class ChannelParser(BaseModel):
     id: str | UUID
     name: str = ''
     tg_id : str | None = ''
     is_bot_installed : bool = False
-    is_active : bool = False
+    status : str = 'pending'
     meta : Json | None = None
     cpm : int = 0
+
+    @computed_field(description='determines if the channel is active')
+    def is_active(self) -> bool:
+        return self.status == 'confirmed'
 
 
 class ChannelAdminParser(BaseModel):
@@ -74,22 +79,30 @@ class ChannelAdminParser(BaseModel):
     first_name: str
     last_name: str
     phone_number: str
-    tg_id: int
+    tg_id: int | str
     is_bot_installed: bool
-
 
 
 class CampaignParser(BaseModel):
     id: str | UUID
     name: str = ''
-    budget: Decimal = Decimal(0)
-    start_date: datetime | None = None
-    finish_date: datetime | None = None
+    budget: Decimal | str  = Decimal(0)
+    start_date:  str | datetime | None = None
+    finish_date: str | datetime | None = None
     message: MessageParser | None = None
     black_list: list[str] | list
     white_list: list[str] | list
     client: str = ''
     brand: str = ''
+
+    @classmethod
+    @field_serializer('star_date', 'finish_date,', mode='wrap', when_used='unless-none')
+    def serializer_dates_flds(cls, value: datetime | str) -> str:
+        return value.strftime('%Y-%m-%d')
+
+    @field_serializer('budget', check_fields=True,  when_used='unless-none')
+    def serialize_budget(self, val: Decimal):
+        return str(val)
 
 
 class CampaignChannelParserIn(BaseModel):
@@ -97,15 +110,28 @@ class CampaignChannelParserIn(BaseModel):
     channel: ChannelParser
     campaign: CampaignParser
     channel_admin: ChannelAdminParser
-    created_at: datetime| None = Field(default_factory=datetime.now)
-    impressions_plan: Decimal | None = None
-    impressions_fact: Decimal | None = None
-    cpm: Decimal | None = None
+    created_at: str | datetime| None = Field(default_factory=datetime.now)
+    impressions_plan: str | Decimal | None = None
+    impressions_fact: str | Decimal | None = None
+    cpm: str| Decimal | None = None
     path_click_analysis: str | None  = ''
     channel_post_id: str | None  = ''
-    message_publish_date: datetime | None = None
+    message_publish_date: str | datetime | None = None
     is_message_published: bool | None = False
     is_approved: bool = False
+
+    @classmethod
+    @field_serializer(
+        'cpm', 'impressions_plan,impressions_fact', when_used='unless-none')
+    def serialize_decimal_fields(cls, value: Decimal) -> str:
+        return str(value)
+
+    @classmethod
+    @field_serializer(
+        'create_at', 'is_message_published', when_used='unless-none')
+    def serialize_datetime_fields(cls, value: datetime) -> str:
+        return value.strftime('%Y-%m-%d %H:%M:%S')
+
 
     @computed_field
     @property
@@ -116,6 +142,7 @@ class CampaignChannelParserIn(BaseModel):
             return self.message.button.url
 
         return bot_settings.SCHEMA_DOMAIN + self.path_click_analysis
+
     @computed_field
     @property
     def message_is_external(self) -> bool:
