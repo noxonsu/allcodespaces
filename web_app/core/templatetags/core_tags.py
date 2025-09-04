@@ -90,7 +90,7 @@ def channeladmin_read_only(*args, **kwargs):
         return mark_safe(f"<span>{channeladmin}</span>")
     if field.is_readonly and field_name == "chat_room":
         return mark_safe(
-            f'<a class="btn btn-info" href="{channeladmin.chat}">&#128172;</a>'
+            f'<a class="btn btn-info" target="_blank" href="{channeladmin.chat}">&#128172;</a>'
         )
     return field.contents()
 

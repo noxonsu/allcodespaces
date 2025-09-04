@@ -8,7 +8,7 @@
             {{ inline_admin_formset.formset.non_form_errors }}
             <table class="table table-hover text-nowrap">
                 <thead><tr>
-                    <th class="original"></th>
+                    <th class="original d-none"></th>
                     {% for field in inline_admin_formset.fields %}
                         {% if not field.widget.is_hidden %}
                             <th class="column-{{ field.name }}{% if field.required %} required{% endif %}">{{ field.label|capfirst }}
@@ -26,7 +26,7 @@
                     {% endif %}
                     <tr class="form-row{% if inline_admin_form.original or inline_admin_form.show_url %} has_original{% endif %}{% if forloop.last and inline_admin_formset.has_add_permission %} empty-form{% endif %}"
                         id="{{ inline_admin_formset.formset.prefix }}-{% if not forloop.last %}{{ forloop.counter0 }}{% else %}empty{% endif %}">
-                        <td class="original">
+                        <td class="original d-none">
                             {% if inline_admin_form.original or inline_admin_form.show_url %}
                             <p>
                                 {% if inline_admin_form.original %}

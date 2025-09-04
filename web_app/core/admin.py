@@ -56,9 +56,6 @@ class ChannelAdminInlinedForm(forms.ModelForm):
         model = Channel.admins.through
         fields = "__all__"
         labels = {"channeladmin": "Имя", "chat_room": "Переписка"}
-        help_texts = {
-            "channeladmin": "Администратор канала.",
-        }
 
     class Media:
         js = {"custom/channel_admin_inlined.js"}
@@ -85,12 +82,6 @@ class ChannelAdminInlined(admin.TabularInline):
 
     def has_change_permission(self, request, obj=None):
         return False
-
-    def has_delete_permission(self, request, obj=None):
-        return True
-
-    def has_add_permission(self, request, obj):
-        return True
 
 
 @register(Channel)
@@ -185,14 +176,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
     )
     form = ChannelForm
 
-    def get_fieldsets(self, request, obj=None):
-        fieldsets = super().get_fieldsets(request, obj)
-        user = request.user
-        if user and not user.is_superuser and getattr(user, "profile", None):
-            fieldsets = remove_fieldset_for_role(
-                fieldsets, "Статистика", user.profile, ChannelAdmin.Role.OWNER.value
-            )
-        return fieldsets
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
+        extra_context = {}
+        extra_context['show_save_and_continue'] = False
+        return super().changeform_view(request, object_id, extra_context=extra_context)
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         """Modify formfields for change/add"""
@@ -213,7 +201,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
     @admin.display(description="Статистика по кампаниям")
     def btn_link_statistics(self, instance: Channel):
         btn_htmlstr = (
-            f'<a class="btn btn-info" href="/core/campaignchannel/?channel__id__exact={instance.id}">Прийти &#128202;</a>'
+            f'<a class="btn btn-info" href="/core/campaignchannel/?channel__id__exact={instance.id}">Перейти &#128202;</a>'
             if instance
             else "&#10060;"
         )
