@@ -30,7 +30,6 @@ from starlette.requests import Request
 from starlette.responses import Response, JSONResponse
 from starlette.routing import Route
 
-from http import HTTPStatus
 
 
 async def main():

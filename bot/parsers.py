@@ -5,8 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Json, Field, computed_field
 from decimal import Decimal
-
 from settings import bot_settings
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 

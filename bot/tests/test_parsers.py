@@ -1,9 +1,6 @@
-import re
-
 import pytest
 
-from parsers import ChannelParser, CampaignChannelParserIn
-# from bot.tests.py_data import GET_CHANNELS, GET_CAMPAIGN_CHANNEL
+from parsers import CampaignChannelParserIn
 
 
 channel_in_data = [[1,1]]
