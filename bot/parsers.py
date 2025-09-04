@@ -64,6 +64,7 @@ class ChannelParser(BaseModel):
     is_bot_installed : bool = False
     is_active : bool = False
     meta : Json | None = None
+    cpm : int = 0
 
 
 class ChannelAdminParser(BaseModel):
@@ -87,6 +88,8 @@ class CampaignParser(BaseModel):
     message: MessageParser | None = None
     black_list: list[str] | list
     white_list: list[str] | list
+    client: str = ''
+    brand: str = ''
 
 
 class CampaignChannelParserIn(BaseModel):

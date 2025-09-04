@@ -1,6 +1,7 @@
 import asyncio
 
 import uvicorn
+from telegram.constants import ParseMode
 
 from parsers import CampaignChannelParserIn
 from bot_handlers import (
@@ -78,9 +79,16 @@ async def main():
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
+        msg_txt: str = f"""
+            <b><i>📨 Получен запрос на публикацию рекламного сообщения в вашем канале:📬. </i></b>
+            🪧 <b><i>Рекламодатель</i></b>: {campaign_channel.campaign.client},
+            🪧 <b><i>Бренд</i></b>: {campaign_channel.campaign.brand},
+            🪧 <b><i>CPM</i></b>: {campaign_channel.channel.cpm}
+        """
         await application.bot.send_message(
             chat_id=campaign_channel.channel_admin.tg_id,
-            text='Запрос на публикацию рекламного сообщения в вашем канале',
+            text=msg_txt,
+            parse_mode=ParseMode.HTML,
             reply_markup=reply_markup
         )
         return JSONResponse({"status": "ok"})
