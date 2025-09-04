@@ -105,8 +105,8 @@ async def main():
         reply_markup = InlineKeyboardMarkup(keyboard)
         msg_txt: str = f"""
             <b><i>📨 Получен запрос на публикацию рекламного сообщения в вашем канале:📬. </i></b>
-            🪧 <b><i>Рекламодатель</i></b>: {campaign_channel.campaign.client},
-            🪧 <b><i>Бренд</i></b>: {campaign_channel.campaign.brand},
+            🪧 <b><i>Рекламодатель</i></b>: {campaign_channel.campaign.client}
+            🪧 <b><i>Бренд</i></b>: {campaign_channel.campaign.brand}
             🪧 <b><i>CPM</i></b>: {campaign_channel.cpm}
         """
         await application.bot.send_message(
