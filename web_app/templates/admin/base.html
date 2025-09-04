@@ -187,7 +187,7 @@
 
             <aside class="main-sidebar elevation-4 {{ jazzmin_ui.sidebar_classes }}" id="jazzy-sidebar">
                 <a href="{% url 'admin:index' %}" class="brand-link {{ jazzmin_ui.brand_classes }}" id="jazzy-logo">
-                    <img src="{% static '/custom/2.png' %}" alt="{{ jazzmin_settings.site_header }} Logo" class="{{ jazzmin_settings.site_logo_classes }} brand-image" style="opacity: .8; width: 88%">
+                    <img src="{% static '/custom/logo-mini.gif' %}" alt="{{ jazzmin_settings.site_header }} Logo" class="{{ jazzmin_settings.site_logo_classes }} brand-image" style="opacity: .8; width: 88%">
                     <span class="brand-text" style="opacity: 0.0; color:#4f5962;">{{ jazzmin_settings.site_brand }}</span>
                 </a>
 
@@ -391,7 +391,35 @@
 </script>
 {% endblock %}
 
-{% block extrajs %}{% endblock %}
+{% block extrajs %}
+    <script>
+        $(document).ready(()=>{
+                if (!$('body').hasClass('sidebar-collapse')){
+                    $('.brand-image').attr('src', 'static/custom/2.png');
+                }
+
+            $('aside.main-sidebar').on('mouseover', ()=>{
+                $('.brand-image').attr('src', 'static/custom/2.png');
+            });
+
+            $('aside.main-sidebar').on('mouseleave', ()=>{
+                if ($('body').hasClass('sidebar-collapse')){
+                    $('.brand-image').attr('src', 'static/custom/logo-mini.gif');
+                }
+            });
+
+            $('a[data-widget="pushmenu"], i.fas.fas-bars').on('click', ()=>{
+                var collapsed = $('body').hasClass('sidebar-collapse');
+                if (collapsed) {
+                    $('.brand-image').attr('src', 'static/custom/2.png');
+                }else{
+                    $('.brand-image').attr('src', 'static/custom/logo-mini.gif');
+                }
+            });
+
+        });
+    </script>
+{% endblock %}
 
 
 </body>
