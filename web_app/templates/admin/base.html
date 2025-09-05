@@ -395,25 +395,25 @@
     <script>
         $(document).ready(()=>{
                 if (!$('body').hasClass('sidebar-collapse')){
-                    $('.brand-image').attr('src', 'static/custom/2.png');
+                    $('.brand-image').attr('src', '/static/custom/2.png');
                 }
 
             $('aside.main-sidebar').on('mouseover', ()=>{
-                $('.brand-image').attr('src', 'static/custom/2.png');
+                $('.brand-image').attr('src', '/static/custom/2.png');
             });
 
             $('aside.main-sidebar').on('mouseleave', ()=>{
                 if ($('body').hasClass('sidebar-collapse')){
-                    $('.brand-image').attr('src', 'static/custom/logo-mini.gif');
+                    $('.brand-image').attr('src', '/static/custom/logo-mini.gif');
                 }
             });
 
             $('a[data-widget="pushmenu"], i.fas.fas-bars').on('click', ()=>{
                 var collapsed = $('body').hasClass('sidebar-collapse');
                 if (collapsed) {
-                    $('.brand-image').attr('src', 'static/custom/2.png');
+                    $('.brand-image').attr('src', '/static/custom/2.png');
                 }else{
-                    $('.brand-image').attr('src', 'static/custom/logo-mini.gif');
+                    $('.brand-image').attr('src', '/static/custom/logo-mini.gif');
                 }
             });
 
