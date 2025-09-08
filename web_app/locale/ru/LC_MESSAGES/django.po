@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-08 13:37+0000\n"
+"POT-Creation-Date: 2025-09-08 13:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -236,33 +236,29 @@ msgid "See Profile"
 msgstr "Профиль"
 
 #: templates/admin/base.html:325
-msgid "Jazzmin version"
-msgstr " "
-
-#: templates/admin/base.html:328
 msgid "Copyright"
-msgstr ""
+msgstr "ООО «ТЕЛЕВИН» ИНН 9707043478"
 
-#: templates/admin/base.html:328
+#: templates/admin/base.html:325
 msgid "All rights reserved."
-msgstr ""
+msgstr "Все права защищены."
 
-#: templates/admin/base.html:344
+#: templates/admin/base.html:341
 msgid "UI Configuration"
 msgstr ""
 
-#: templates/admin/base.html:348
+#: templates/admin/base.html:345
 msgid "Copy this info your settings file to persist these UI changes"
 msgstr ""
 
-#: templates/admin/base.html:352
+#: templates/admin/base.html:349
 msgid "Close"
 msgstr "закрыть"
 
 #: templates/admin/change_form.html:18
-#, python-format
-msgid "Add %(name)s"
-msgstr ""
+#: templates/admin/change_list_object_tools.html:8
+msgid "Add"
+msgstr "Доабвить"
 
 #: templates/admin/change_form_object_tools.html:6
 msgid "History"
@@ -287,18 +283,18 @@ msgstr "Пожалуйста Исправьте ошибки"
 msgid "Please correct the errors below."
 msgstr "Пожалуйста Исправьте ошибки"
 
-#: templates/admin/login.html:18
+#: templates/admin/login.html:17
 #, python-format
 msgid ""
 "You are authenticated as %(username)s, but are not authorized to access this "
 "page. Would you like to login to a different account?"
 msgstr ""
 
-#: templates/admin/login.html:66
+#: templates/admin/login.html:65
 msgid "Forgotten your password or username?"
 msgstr ""
 
-#: templates/admin/login.html:74
+#: templates/admin/login.html:73
 msgid "Log in"
 msgstr "Войти"
 
@@ -311,6 +307,13 @@ msgstr "Вы вышли из системы. Чтобы войти, нажмит
 #| msgid "Log in"
 msgid "Log in again"
 msgstr "Войти"
+
+#~ msgid "Jazzmin version"
+#~ msgstr " "
+
+#, python-format
+#~ msgid "Add %(name)s"
+#~ msgstr "Добавить"
 
 #~ msgid "Бот установлен"
 #~ msgstr "Бот установлен"

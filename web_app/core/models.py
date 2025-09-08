@@ -28,8 +28,8 @@ class User(ExportModelOperationsMixin("user"), AbstractUser):
     role = models.CharField(choices=Role.choices, max_length=50, null=True, blank=True)
 
     class Meta:
-        verbose_name_plural = "Пользователи"
-        verbose_name = "Пользователь"
+        verbose_name_plural = "Сотрудники"
+        verbose_name = "Сотрудник"
         ordering = ["-date_joined"]
 
 
@@ -193,8 +193,8 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
         return str_[:130] + "...." if len_str > 130 else str_
 
     class Meta:
-        verbose_name_plural = "Сообщения"
-        verbose_name = "Сообщение"
+        verbose_name_plural = "Креативы"
+        verbose_name = "Креатив"
         ordering = ["-created_at"]
 
     @property

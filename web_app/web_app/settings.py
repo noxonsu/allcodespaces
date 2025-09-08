@@ -326,6 +326,11 @@ JAZZMIN_SETTINGS = {
                 "url": "/api/about",
                 "icon": "fa-solid fa-building",
             },
+            {
+                "name": "Сотрудники",
+                "permissions": ["user.view_user"],
+            },
+
         ],
     },
     # "language_chooser": True
