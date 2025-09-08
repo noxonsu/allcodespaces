@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from functools import cached_property
+
 from django.utils.safestring import mark_safe
 from django_prometheus.models import ExportModelOperationsMixin
 
@@ -118,6 +120,15 @@ class ChannelAdmin(ExportModelOperationsMixin("channeladmin"), BaseModel):
             "owner": _default_permissions,
         }
         return role_permissions.get(self.role, _default_permissions)
+
+    @cached_property
+    def is_owner(self):
+        return self.role == self.Role.OWNER
+
+    @cached_property
+    def is_manger(self):
+        return self.role == self.Role.MANAGER
+
 
     @property
     def chat(self):
