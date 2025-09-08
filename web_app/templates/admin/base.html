@@ -184,7 +184,6 @@
         {% block sidebar %}
         {% if jazzmin_settings.show_sidebar %}
             {% get_side_menu as side_menu_list %}
-
             <aside class="main-sidebar elevation-4 {{ jazzmin_ui.sidebar_classes }}" id="jazzy-sidebar">
                 <a href="{% url 'admin:index' %}" class="brand-link {{ jazzmin_ui.brand_classes }}" id="jazzy-logo">
                     <img src="{% static '/custom/logo-mini.gif' %}" alt="{{ jazzmin_settings.site_header }} Logo" class="{{ jazzmin_settings.site_logo_classes }} brand-image" style="opacity: .8; width: 88%">
@@ -237,6 +236,7 @@
                     </nav>
                 </div>
             </aside>
+
         {% endif %}
         {% endblock %}
     {% endif %}
@@ -250,6 +250,10 @@
                         <div class="col-12 col-md-auto d-flex flex-grow-1 align-items-center">
                             <h1 class="h4 m-0 pr-3 mr-3 border-right">{% block content_title %}{% endblock %}</h1>
                             {% block breadcrumbs %}{% endblock %}
+                                {{using}}
+                                {{context}}
+                            asdasdasdasd
+
                         </div>
                         {% block page_actions %}{% endblock %}
                     </div>
@@ -257,7 +261,8 @@
             </div>
             {% endif %}
         {% block main %} {%  endblock %}
-            <div class="content">
+
+        <div class="content">
                 <div class="container-fluid">
                     <section id="content" class="content">
                         {% block messages %}
