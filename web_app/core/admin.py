@@ -118,7 +118,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "members_count",
         "category",
         "is_bot_installed",
-        "status",
+        "status_html",
         "avg_posts_reach",
         "cpm",
         "er",
@@ -260,6 +260,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
                 f"<img class='img-circle float-left'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;'>"
             )
         return "-"
+
+    @admin.display(description="Модерация", ordering="-status")
+    def status_html(self, obj: Channel):
+        return Channel.ChannelStatus(obj.status).to_html()
 
     @admin.display(description='')
     def invitation_link_display(self, ob: Channel):

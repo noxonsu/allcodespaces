@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from django.utils.safestring import mark_safe
 from django_prometheus.models import ExportModelOperationsMixin
 
 from .utils import RolePermissions
@@ -240,6 +241,16 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         PENDING = "pending", "На модерации"
         CONFIRMED = "confirmed", "Подтверждено"
         REJECTED = "rejected", "Отказано"
+
+        def to_html(self):
+            if self.value == 'confirmed':
+                html_str= '<img src="/static/admin/img/icon-yes.svg" alt="True">'
+            elif self.value == 'rejected':
+                html_str='<img src="/static/admin/img/icon-no.svg" alt="False">'
+            else:
+                html_str= '<i class="fa-solid fa-hourglass"></i>'
+
+            return mark_safe(html_str)
 
     name = models.CharField(max_length=250, verbose_name=_("Название"))
     country = models.CharField(
