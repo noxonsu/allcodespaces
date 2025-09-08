@@ -106,23 +106,24 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "tg_id",
         "is_bot_installed",
         "avatar_image",
+        "invitation_link_display",
         "invitation_link",
         "refresh_statistics",
         "btn_link_statistics",
     ]
     list_display = [
+        "avatar_image",
         "name_str",
-        "invitation_link",
-        "country",
-        "language",
+        "invitation_link_display",
         "members_count",
-        "status",
+        "category",
         "is_bot_installed",
+        "status",
         "avg_posts_reach",
+        "cpm",
         "er",
         "err",
         "err_24",
-        "category",
     ]
     inlines = [ChannelAdminInlined]
     ordering = ["-created_at"]
@@ -133,6 +134,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "status",
         "is_bot_installed",
     ]
+    list_display_links = ['name_str']
     empty_value_display = "-"
     fieldsets = (
         (
@@ -174,6 +176,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ),
     )
     form = ChannelForm
+
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
@@ -257,6 +260,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
                 f"<img class='img-circle float-left'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;'>"
             )
         return "-"
+
+    @admin.display(description='')
+    def invitation_link_display(self, ob: Channel):
+        return mark_safe(f'<a target="_blank" href="{ob.invitation_link}"><i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i></a>')
 
     def get_urls(self):
         urls = super().get_urls()
