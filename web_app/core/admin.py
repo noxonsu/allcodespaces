@@ -505,7 +505,7 @@ class MessageAdmin(admin.ModelAdmin):
         css = {"all": ["core/css/message/change_form.css"]}
 
     readonly_fields = ["id", "display_image", "display_image_thumbil"]
-    list_display = ["__str__", "message_type", "display_image_thumbil"]
+    list_display = ["__str__",'title_display' ,"message_type", "display_image_thumbil"]
     form = MessageModelForm
 
     fields = [
@@ -527,6 +527,13 @@ class MessageAdmin(admin.ModelAdmin):
     @admin.display(description="Body")
     def message_body(self, obj):
         return obj.body[:15] + "..."
+
+    @admin.display(description="заголовок", ordering='-title', empty_value='-')
+    def title_display(self, obj):
+        if obj.title and len(obj.title) > 50:
+            return obj.title[:50] + "..."
+        return obj.title
+
 
     @admin.display(description="Displayed Image")
     def display_image(self, obj):
