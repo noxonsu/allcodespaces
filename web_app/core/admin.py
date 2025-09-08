@@ -21,7 +21,7 @@ from .admin_forms import (
 from .admin_utils import (
     MultipleSelectListFilter,
     CustomDateFieldListFilter,
-    can_change_channel_status,
+    can_change_channel_status, CustomChoiceFilter, CustomBooleanFilter,
 )
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -117,7 +117,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "invitation_link_display",
         "members_count",
         "category",
-        "is_bot_installed",
+        "is_bot_installed_html",
         "status_html",
         "avg_posts_reach",
         "cpm",
@@ -131,8 +131,8 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("name", MultipleSelectListFilter),
         ("country", MultipleSelectListFilter),
         ("language", MultipleSelectListFilter),
-        "status",
-        "is_bot_installed",
+        ("status", CustomChoiceFilter),
+        ("is_bot_installed", CustomBooleanFilter)
     ]
     list_display_links = ['name_str']
     empty_value_display = "-"
@@ -208,6 +208,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
             else "&#10060;"
         )
         return mark_safe(btn_htmlstr)
+
+    @admin.display(description="Бот", ordering='is_bot_installed', boolean=True)
+    def is_bot_installed_html(self, instance: Channel):
+        return instance.is_bot_installed
 
     @admin.display(description="Название", ordering="name")
     def name_str(self, instance: Channel) -> str:

@@ -31,6 +31,14 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
             self.links = tuple(links)
 
 
+class CustomChoiceFilter(admin.ChoicesFieldListFilter):
+    template = "admin/filter_one.html"
+
+class CustomBooleanFilter(admin.BooleanFieldListFilter):
+    template = "admin/filter_one.html"
+
+
+
 def is_empty(value: str) -> bool:
     """Check if value is empty."""
     return not value or value and value.strip() == ""
