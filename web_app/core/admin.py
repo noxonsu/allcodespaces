@@ -132,7 +132,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("country", MultipleSelectListFilter),
         ("language", MultipleSelectListFilter),
         ("status", CustomChoiceFilter),
-        ("is_bot_installed", CustomBooleanFilter)
+        ("is_bot_installed", CustomBooleanFilter),
     ]
     list_display_links = ['name_str']
     empty_value_display = "-"
