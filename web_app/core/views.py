@@ -187,4 +187,16 @@ class AboutView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context["is_popup"] = False
+        context['available_apps'] = [
+            {
+                "app_label": 'core',
+                'models': [
+                    {"object_name":'channeladmin', 'admin_url': '/core/message/', 'name': "Администраторы каналов"},
+                    {"object_name":'campaign', 'admin_url': '/core/campaign/', 'name': "Кампании"},
+                    {"object_name":'channel', 'admin_url': '/core/channel/', 'name': "Каналы"},
+                    {"object_name":'campaignchannel', 'admin_url': '/core/campaignchannel/', 'name': "Статистика по РК"},
+                ]
+            }
+        ]
+        context['title'] = 'О нас'
         return context

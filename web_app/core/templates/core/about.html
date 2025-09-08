@@ -2,15 +2,25 @@
 {% load i18n static jazzmin admin_urls  admin_list %}
 {% get_jazzmin_settings request as jazzmin_settings %}
 {% get_jazzmin_ui_tweaks as jazzmin_ui %}
+
 {% block breadcrumbs %}
     <ol class="breadcrumb">
         <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">{% trans 'Home' %}</a></li>
         <li class="breadcrumb-item active">О нас</li>
     </ol>
 {% endblock %}
-{% block content %}
-<p class="text-lg-center font-italic "> ТЕЛЕВИН — это рекламная платформа в Telegram, объединяющая владельцев каналов и рекламодателей.
+
+{% block main %}
+<div class="jumbotron jumbotron-fluid">
+  <div class="container">
+    <p class="container display-4">
+     ТЕЛЕВИН — это рекламная платформа в Telegram, объединяющая владельцев каналов и рекламодателей.
 Наша цель — создавать прозрачные и удобные механизмы для заработка на рекламе.
 Мы гарантируем честные расчёты, поддержку на каждом этапе и доступ к инструментам автоматизации.
-ООО «ТЕЛЕВИН», ИНН 9707043478. </p>
+ООО «ТЕЛЕВИН», ИНН 9707043478.
+    </p>
+  </div>
+</div>
+
+
 {% endblock %}
