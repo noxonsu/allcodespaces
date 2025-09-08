@@ -15,7 +15,7 @@
             </li>
             <li class="breadcrumb-item active">
                 {% if add %}
-                    {% blocktrans with name=opts.verbose_name %}Add {{ name }}{% endblocktrans %}
+                    {% blocktrans with name=opts.verbose_name %}Add{% endblocktrans %}
                 {% else %}
                     {{ original|truncatewords:"18" }}
                 {% endif %}

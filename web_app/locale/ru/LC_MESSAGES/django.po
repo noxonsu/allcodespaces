@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-09-03 17:12+0000\n"
+"POT-Creation-Date: 2025-09-08 13:57+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -19,175 +19,184 @@ msgstr ""
 "Plural-Forms: nplurals=4; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
 "n%10<=4 && (n%100<12 || n%100>14) ? 1 : n%10==0 || (n%10>=5 && n%10<=9) || "
 "(n%100>=11 && n%100<=14)? 2 : 3);\n"
-#: core/base_models.py:13
+
+#: core/base_models.py:17
 msgid "created at"
 msgstr "создано"
 
-#: core/base_models.py:14
+#: core/base_models.py:18
 msgid "updated at"
 msgstr "изменено"
 
-#: core/models.py:89 core/models.py:117
+#: core/models.py:133
 msgid "название ссылки"
 msgstr "название ссылки"
 
-#: core/models.py:90 core/models.py:118
+#: core/models.py:134
 msgid "URL-адрес"
 msgstr "ссылка"
 
-#: core/models.py:111
+#: core/models.py:157
 msgid "изображение"
 msgstr "изображение"
 
-#: core/models.py:112
+#: core/models.py:160
 msgid "видео"
 msgstr "видео"
 
-#: core/models.py:113
+#: core/models.py:163
 msgid "заголовок"
 msgstr "заголовок"
 
-#: core/models.py:114
+#: core/models.py:165
 msgid "тело"
 msgstr "тело"
 
-#: core/models.py:115
+#: core/models.py:167
 msgid "название"
 msgstr "название"
 
-#: core/models.py:149 core/models.py:201
+#: core/models.py:174
+msgid "Текст на кнопке"
+msgstr ""
+
+#: core/models.py:177
+msgid "Посадочная страница"
+msgstr ""
+
+#: core/models.py:227 core/models.py:308
 msgid "Название"
 msgstr "Название"
 
-#: core/models.py:150
+#: core/models.py:229
 msgid "Страна"
 msgstr "Страна"
 
-#: core/models.py:151
+#: core/models.py:232
 msgid "Тематика"
 msgstr "Тематика"
 
-#: core/models.py:152
+#: core/models.py:235
 msgid "username"
 msgstr ""
 
-#: core/models.py:153
+#: core/models.py:238
 msgid "ссылка-приглашение"
 msgstr "ссылка-приглашение"
 
-#: core/models.py:154
+#: core/models.py:241
 msgid "Число подписчиков"
 msgstr "Число подписчиков"
 
-#: core/models.py:155
+#: core/models.py:243
 msgid "tg id"
 msgstr "ИД Тг"
 
-#: core/models.py:156
-msgid "Бот установлен"
-msgstr "Бот установлен"
+#: core/models.py:245
+msgid "Бот ТЕЛЕВИН"
+msgstr ""
 
-#: core/models.py:160
+#: core/models.py:255
 msgid "meta"
 msgstr ""
 
-#: core/models.py:161
+#: core/models.py:256
 msgid "avatar"
 msgstr "аватар"
 
-#: core/models.py:162
+#: core/models.py:258
 msgid "Охват"
 msgstr ""
 
-#: core/models.py:163
+#: core/models.py:260
 msgid "ER"
 msgstr "ER"
 
-#: core/models.py:164
+#: core/models.py:261
 msgid "ERR"
 msgstr "ERR"
 
-#: core/models.py:165
+#: core/models.py:263
 msgid "ERR24"
 msgstr "ERR24"
 
-#: core/models.py:166
+#: core/models.py:266
 msgid "количество сообщений"
 msgstr "количество сообщений"
 
-#: core/models.py:167
+#: core/models.py:269
 msgid "ежедневный охват"
 msgstr "ежедневный охват"
 
-#: core/models.py:168
+#: core/models.py:272
 msgid "описание"
 msgstr "описание"
 
-#: core/models.py:169
+#: core/models.py:275
 msgid "Язык"
 msgstr "Язык"
 
-#: core/models.py:202
+#: core/models.py:312
 msgid "Статус"
 msgstr "Статус"
 
-#: core/models.py:203
+#: core/models.py:316
 msgid "Бюджет (руб.)"
 msgstr "Бюджет (руб.)"
 
-#: core/models.py:204
+#: core/models.py:321
 msgid "Дата старта"
 msgstr "Дата старта"
 
-#: core/models.py:205
+#: core/models.py:322
 msgid "Дата окончания"
 msgstr "Дата окончания"
 
-#: core/models.py:207
+#: core/models.py:328
 msgid "message"
 msgstr "сообщение"
 
-#: core/models.py:347
+#: core/models.py:570
 msgid "Ожидает подтверждения"
 msgstr "Ожидает подтверждения"
 
-#: core/models.py:348
+#: core/models.py:571
 msgid "Подтверждено"
 msgstr "Подтверждено"
 
-#: core/models.py:349
+#: core/models.py:572
 msgid "опубликовано"
 msgstr "опубликовано"
 
-#: core/models.py:350
+#: core/models.py:573
 msgid "удалённо"
 msgstr "удалённо"
 
-#: core/models.py:351
+#: core/models.py:574
 msgid "Отклонено"
 msgstr "Отклонено"
 
-#: core/models.py:353
+#: core/models.py:579
 msgid "Канал"
 msgstr "Канал"
 
-#: core/models.py:354
+#: core/models.py:585
 msgid "Кампания"
 msgstr "Кампания"
 
-#: core/models.py:355
+#: core/models.py:589
 msgid "СРМ (руб.)"
 msgstr "СРМ (руб.)"
 
-#: core/models.py:356
+#: core/models.py:592
 msgid "План. Количество показов"
 msgstr "План. Количество показов"
 
-#: core/models.py:357
+#: core/models.py:596
 msgid "Показы-факт"
 msgstr "Показы-факт"
 
-#: core/models.py:358
+#: core/models.py:598
 msgid "Дата публикации"
 msgstr "Дата публикации"
 
@@ -195,10 +204,16 @@ msgstr "Дата публикации"
 msgid "only confirmed channel can be added to campaign"
 msgstr ""
 
-#: core/override_django_locale.py:5
+#: core/override_django_locale.py:11
 #, python-format
 msgid "Add another %(model)s"
 msgstr "Добавить \"%(model)s\""
+
+#: core/templates/core/about.html:7 templates/admin/change_form.html:8
+#: templates/admin/change_list.html:6
+#: templates/admin/core/campaignchannel/change_list.html:28
+msgid "Home"
+msgstr "Главное"
 
 #: templates/admin/base.html:98
 msgid "Search"
@@ -220,49 +235,45 @@ msgstr "Выйти"
 msgid "See Profile"
 msgstr "Профиль"
 
-#: templates/admin/base.html:324
-msgid "Jazzmin version"
-msgstr " "
-
-#: templates/admin/base.html:327
+#: templates/admin/base.html:325
 msgid "Copyright"
-msgstr ""
+msgstr "ООО «ТЕЛЕВИН» ИНН 9707043478"
 
-#: templates/admin/base.html:327
+#: templates/admin/base.html:325
 msgid "All rights reserved."
-msgstr ""
+msgstr "Все права защищены."
 
-#: templates/admin/base.html:343
+#: templates/admin/base.html:341
 msgid "UI Configuration"
 msgstr ""
 
-#: templates/admin/base.html:347
+#: templates/admin/base.html:345
 msgid "Copy this info your settings file to persist these UI changes"
 msgstr ""
 
-#: templates/admin/base.html:351
+#: templates/admin/base.html:349
 msgid "Close"
 msgstr "закрыть"
 
-#: templates/admin/change_form.html:8 templates/admin/change_list.html:6
-#: templates/admin/core/campaignchannel/change_list.html:28
-msgid "Home"
-msgstr "Главное"
-
 #: templates/admin/change_form.html:18
-#, python-format
-msgid "Add %(name)s"
+#: templates/admin/change_list_object_tools.html:8
+msgid "Add"
+msgstr "Доабвить"
+
+#: templates/admin/change_form_object_tools.html:6
+msgid "History"
+msgstr ""
+
+#: templates/admin/change_form_object_tools.html:8
+#: templates/admin/core/campaign/campaign_channel_tabular.html:46
+#: templates/admin/core/channel/channel_admin_tab_inlined.html:46
+msgid "View on site"
 msgstr ""
 
 #: templates/admin/core/campaign/campaign_channel_tabular.html:19
 #: templates/admin/core/channel/channel_admin_tab_inlined.html:19
 msgid "Delete?"
 msgstr "Удалить"
-
-#: templates/admin/core/campaign/campaign_channel_tabular.html:46
-#: templates/admin/core/channel/channel_admin_tab_inlined.html:46
-msgid "View on site"
-msgstr ""
 
 #: templates/admin/core/campaignchannel/change_list.html:63
 msgid "Please correct the error below."
@@ -286,3 +297,23 @@ msgstr ""
 #: templates/admin/login.html:73
 msgid "Log in"
 msgstr "Войти"
+
+#: templates/registration/logged_out.html:7
+msgid "You have logged out, to log in press on button"
+msgstr "Вы вышли из системы. Чтобы войти, нажмите на кнопку."
+
+#: templates/registration/logged_out.html:11
+#, fuzzy
+#| msgid "Log in"
+msgid "Log in again"
+msgstr "Войти"
+
+#~ msgid "Jazzmin version"
+#~ msgstr " "
+
+#, python-format
+#~ msgid "Add %(name)s"
+#~ msgstr "Добавить"
+
+#~ msgid "Бот установлен"
+#~ msgstr "Бот установлен"
