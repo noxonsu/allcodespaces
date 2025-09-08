@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from django.utils.safestring import mark_safe
 from django_prometheus.models import ExportModelOperationsMixin
 
 from .utils import RolePermissions
@@ -203,6 +206,21 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
         return f"<b>{title}</b>\n{self.body}"
 
     @property
+    def footer(self):
+        _footer = ''
+        if self.ad_inn and self.ad_individual and self.erid:
+            _footer = (
+                f'Телевин Реклама: {self.ad_individual},'+
+                f'ИНН: {self.ad_inn},'
+                +f'erid: {self.erid}'
+            )
+        return _footer
+
+    @property
+    def is_published(self: Message) -> bool:
+        return
+
+    @property
     @admin.display(description="Тип")
     def message_type(self) -> str:
         return (
@@ -224,6 +242,16 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         CONFIRMED = "confirmed", "Подтверждено"
         REJECTED = "rejected", "Отказано"
 
+        def to_html(self):
+            if self.value == 'confirmed':
+                html_str= '<img src="/static/admin/img/icon-yes.svg" alt="True">'
+            elif self.value == 'rejected':
+                html_str='<img src="/static/admin/img/icon-no.svg" alt="False">'
+            else:
+                html_str= '<i class="fa-solid fa-hourglass"></i>'
+
+            return mark_safe(html_str)
+
     name = models.CharField(max_length=250, verbose_name=_("Название"))
     country = models.CharField(
         max_length=250, verbose_name=_("Страна"), null=True, blank=True
@@ -238,7 +266,7 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         max_length=250, verbose_name=_("ссылка-приглашение"), null=True, blank=True
     )
     members_count = models.PositiveIntegerField(
-        verbose_name=_("Число подписчиков"), default=0, null=True
+        verbose_name=_("Подписчики"), default=0, null=True
     )
     tg_id = models.TextField(verbose_name=_("tg id"), blank=True, null=True)
     is_bot_installed = models.BooleanField(

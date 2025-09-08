@@ -21,7 +21,7 @@ from .admin_forms import (
 from .admin_utils import (
     MultipleSelectListFilter,
     CustomDateFieldListFilter,
-    can_change_channel_status,
+    can_change_channel_status, CustomChoiceFilter, CustomBooleanFilter,
 )
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -106,23 +106,24 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "tg_id",
         "is_bot_installed",
         "avatar_image",
+        "invitation_link_display",
         "invitation_link",
         "refresh_statistics",
         "btn_link_statistics",
     ]
     list_display = [
+        "avatar_image",
         "name_str",
-        "invitation_link",
-        "country",
-        "language",
+        "invitation_link_display",
         "members_count",
-        "status",
-        "is_bot_installed",
+        "category",
+        "is_bot_installed_html",
+        "status_html",
         "avg_posts_reach",
+        "cpm",
         "er",
         "err",
         "err_24",
-        "category",
     ]
     inlines = [ChannelAdminInlined]
     ordering = ["-created_at"]
@@ -130,9 +131,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("name", MultipleSelectListFilter),
         ("country", MultipleSelectListFilter),
         ("language", MultipleSelectListFilter),
-        "status",
-        "is_bot_installed",
+        ("status", CustomChoiceFilter),
+        ("is_bot_installed", CustomBooleanFilter),
     ]
+    list_display_links = ['name_str']
     empty_value_display = "-"
     fieldsets = (
         (
@@ -175,6 +177,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
     )
     form = ChannelForm
 
+
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
         extra_context = {} if not extra_context else extra_context
@@ -205,6 +208,10 @@ class ChannelModelAdmin(admin.ModelAdmin):
             else "&#10060;"
         )
         return mark_safe(btn_htmlstr)
+
+    @admin.display(description="Бот", ordering='is_bot_installed', boolean=True)
+    def is_bot_installed_html(self, instance: Channel):
+        return instance.is_bot_installed
 
     @admin.display(description="Название", ordering="name")
     def name_str(self, instance: Channel) -> str:
@@ -257,6 +264,14 @@ class ChannelModelAdmin(admin.ModelAdmin):
                 f"<img class='img-circle float-left'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;'>"
             )
         return "-"
+
+    @admin.display(description="Модерация", ordering="-status")
+    def status_html(self, obj: Channel):
+        return Channel.ChannelStatus(obj.status).to_html()
+
+    @admin.display(description='')
+    def invitation_link_display(self, ob: Channel):
+        return mark_safe(f'<a target="_blank" href="{ob.invitation_link}"><i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i></a>')
 
     def get_urls(self):
         urls = super().get_urls()
