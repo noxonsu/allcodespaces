@@ -2,6 +2,8 @@ from django import forms
 
 from core.admin_utils import is_empty, is_not_valid_channel_status
 from core.models import Campaign, Channel, ChannelAdmin, Message
+from core.utils import bulk_notify_channeladmin
+from web_app.logger import logger
 
 
 class ChannelForm(forms.ModelForm):
@@ -62,6 +64,19 @@ class ChannelAdminForm(forms.ModelForm):
     class Meta:
         model = ChannelAdmin
         fields = "__all__"
+
+    def clean_channels(self):
+        channels = self.cleaned_data.get("channels")
+        instance: ChannelAdmin = self.instance
+        old_channels = instance.channels.all()
+        try:
+            added_channels = channels.difference(old_channels)
+            rows = [ChannelAdmin.channels.through(channel=add_channel, channeladmin=instance) for add_channel in
+                    added_channels]  # making objects in memory after it will be added
+            bulk_notify_channeladmin(list_data=rows, roles={ChannelAdmin.Role.OWNER})
+        except Exception as e:
+            logger.error(f'[ChannelAdminForm] clean_channels {e}')
+        return channels
 
 
 class MessageModelForm(forms.ModelForm):

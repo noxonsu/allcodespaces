@@ -1,6 +1,7 @@
 from celery import app
 
-from web_app.logger import log_func
+from core.utils import BotNotifier
+from web_app.logger import log_func, logger
 from core.external_clients import TGStatClient
 from core.models import CampaignChannel
 
@@ -32,3 +33,16 @@ def update_campaign_channel_views(*args, **kwargs):
     client = TGStatClient()
     campaign_channel = CampaignChannel.objects.get(pk=id)
     client.update_message_views(campaign_channel)
+
+
+@app.shared_task(
+    bind=True,
+)
+def task_notify_channeladmin_was_added_channel(*args, **kwargs) -> None:
+    """Send msg in telegram to a channeladmin that he was added in a channel"""
+    logger.info("[Task]task_notify_channeladmin_was_added_channel has started.")
+
+    bot_service = BotNotifier()
+    bot_service.channeladmin_added(
+        channel_name=kwargs['channel_name'],
+        channeladmin_tgid=kwargs['channeladmin_tgid'])

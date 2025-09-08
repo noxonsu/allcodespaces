@@ -35,7 +35,7 @@ from .models import (
 )
 from django.contrib.admin import register, ModelAdmin
 
-from .utils import budget_cpm_from_qs
+from .utils import budget_cpm_from_qs,  bulk_notify_channeladmin
 
 
 class ChannelAdminInlinedForm(forms.ModelForm):
@@ -199,6 +199,17 @@ class ChannelModelAdmin(admin.ModelAdmin):
             pass
         finally:
             return form_field
+
+    def save_related(self, request, form, formsets, change):
+        """Notify a ChannelAdmin that he was added to a channel"""
+
+        res =  super().save_related(request, form, formsets, change)
+        for row in formsets:
+            new_objects = row.new_objects
+            if new_objects:
+                bulk_notify_channeladmin(new_objects, roles={ChannelAdmin.Role.OWNER})
+
+        return res
 
     @admin.display(description="Статистика по кампаниям")
     def btn_link_statistics(self, instance: Channel):
