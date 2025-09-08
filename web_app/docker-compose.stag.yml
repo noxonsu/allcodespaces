@@ -165,11 +165,12 @@ services:
       - "443:443"
     volumes:
       - ./nginx/stag.conf:/etc/nginx/nginx.conf:ro
-      - app_certificates:/app_certificates
       - /etc/localtime:/etc/localtime:ro
       - ./nginx/certbot/conf:/etc/letsencrypt
+      - ./nginx/certbot/www:/var/www/certbot
       - media:/media/
       - static:/static/
+
     env_file:
       - nginx/.env_file
     networks:
@@ -192,13 +193,13 @@ services:
     volumes:
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
+
     entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 720 & wait $${!}; done;'"  # Renew certificates every 720 hours = month
 
 networks:
     network_default:
 volumes:
   PGDATA:
-  app_certificates:
   nginx_certbot_conf:
   nginx_certbot_www:
   media:
