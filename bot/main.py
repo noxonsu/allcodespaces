@@ -111,10 +111,23 @@ async def main():
             reply_markup=reply_markup,
         )
         return JSONResponse({"status": "ok"})
+    async def channeladmin_added(request: Request) -> Response:
+        try:
+            request = await request.json()
+            await application.bot.send_message(
+                chat_id=request['tg_id'],
+                text=request['msg'],
+                parse_mode=ParseMode.HTML,
+            )
+            return JSONResponse({"status": "ok"})
+        except Exception as e:
+            print(f"BOT:[channeladmin_added] {e}")
+            return JSONResponse({"status": "error"}, status_code=500)
 
     starlette_app = Starlette(
         routes=[
             Route("/telegram", telegram, methods=["POST"]),
+            Route("/telegram/channeladmin-added", channeladmin_added, methods=["POST"]),
             Route(
                 "/telegram/public-campaign-channel",
                 public_campaign_channel,
