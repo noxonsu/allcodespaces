@@ -28,4 +28,32 @@ $(document).ready(function () {
         inputVideo.replaceWith(inputVideoReplace);
     }
 
+    function editResultListColsClass(){
+        var _str_ = $("#result_list  tbody  [role=row] .field-__str__")
+        if (_str_ && $(_str_).length > 0) {
+            if (! $(_str_).hasClass('col-6')) {
+                $(_str_).addClass('col-6')
+            }
+        }
+        var col_title = $("#result_list  tbody  [role=row] [class^='field-title']")
+        if (col_title && $(col_title).length > 0) {
+            if (! $(col_title).hasClass('col-md')) {
+                $(col_title).addClass('col-md')
+            }
+        }
+        var col_message_type = $("#result_list  tbody  [role=row] .field-message_type")
+        if (col_message_type && $(col_message_type).length > 0) {
+            if (! $(col_message_type).hasClass('col-sm')) {
+                $(col_message_type).addClass('col-sm')
+            }
+        }
+        var col_img_th = $("#result_list  tbody  [role=row] [class^='field-display_image']")
+        if (col_img_th && $(col_img_th).length > 0) {
+            if (! $(col_img_th).hasClass('col-sm')) {
+                $(col_img_th).addClass('col-sm')
+            }
+        }
+
+    }
+    editResultListColsClass();
 });

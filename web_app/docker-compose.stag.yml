@@ -77,6 +77,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=@y+4f#AEB6tLy]d7
     volumes:
       - ./grafana_datasource.yml:/etc/grafana/provisioning/datasources/datasources.yml
+      - grafana_data:/etc/grafana
 
   celery-worker:
     restart: "on-failure"
@@ -204,4 +205,5 @@ volumes:
   nginx_certbot_www:
   media:
   prometheus_data:
+  grafana_data:
   static:

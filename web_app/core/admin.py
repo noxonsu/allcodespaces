@@ -530,8 +530,8 @@ class MessageAdmin(admin.ModelAdmin):
 
     @admin.display(description="заголовок", ordering='-title', empty_value='-')
     def title_display(self, obj):
-        if obj.title and len(obj.title) > 50:
-            return obj.title[:50] + "..."
+        if obj.title and len(obj.title) > 80:
+            return obj.title[:80] + "..."
         return obj.title
 
 
