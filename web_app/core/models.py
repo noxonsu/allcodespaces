@@ -33,8 +33,8 @@ class User(ExportModelOperationsMixin("user"), AbstractUser):
     role = models.CharField(choices=Role.choices, max_length=50, null=True, blank=True)
 
     class Meta:
-        verbose_name_plural = "Сотрудники"
-        verbose_name = "Сотрудник"
+        verbose_name_plural = "Пользователи"
+        verbose_name = "Пользователь"
         ordering = ["-date_joined"]
 
 
