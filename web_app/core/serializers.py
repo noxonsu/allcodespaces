@@ -314,7 +314,7 @@ class ExporterSerializer(serializers.ModelSerializer):
     impressions_fact = serializers.IntegerField(label="Показы")
     clicks = serializers.IntegerField(label="Заработано")
     earned_money = serializers.FloatField(label="Клики")
-    is_approved = serializers.SerializerMethodField(label="Разрешено")
+    publish_status = serializers.CharField(label="Статус публикации", source='get_publish_status_display')
 
     def get_message_publish_date(self, instance):
         return (
@@ -323,8 +323,6 @@ class ExporterSerializer(serializers.ModelSerializer):
             else "-"
         )
 
-    def get_is_approved(self, val):
-        return "Да" if val else "Нет"
 
     class Meta:
         model = CampaignChannel
@@ -335,7 +333,7 @@ class ExporterSerializer(serializers.ModelSerializer):
             "impressions_fact",
             "clicks",
             "earned_money",
-            "is_approved",
+            "publish_status",
         ]
         _owner_fields = [
             "channel",
@@ -343,7 +341,7 @@ class ExporterSerializer(serializers.ModelSerializer):
             "impressions_fact",
             "clicks",
             "earned_money",
-            "is_approved",
+            "publish_status",
         ]
 
     def get_cols_names(self):
