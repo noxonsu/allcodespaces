@@ -109,7 +109,7 @@ def hide_delete_box(*args, **kwargs):
 
 
 @register.simple_tag(takes_context=True)
-def totals_bar(context, *args, **kwargs):
+def campaign_channels_totals_bar(context, *args, **kwargs):
     formset = kwargs['form'].formset
     totals = formset.queryset.aggregate(
         total_clicks=Sum("clicks"),
