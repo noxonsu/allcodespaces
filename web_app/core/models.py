@@ -655,6 +655,10 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     )
     objects = CampaignChannelQs.as_manager()
 
+    @cached_property
+    def link_type_str(self: CampaignChannel):
+        return  'Web' if self.campaign.message and self.campaign.message.is_external else 'TG-канал'
+
     @property
     def ctr(self):
         val = '-'

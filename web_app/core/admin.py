@@ -639,9 +639,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "message_publish_date",
         "impressions_plan_col",
         "impressions_fact",
-        "precentage_col",
         "clicks",
-        "ctr_col",
         "earned_money",
     ]
 
@@ -659,12 +657,29 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "message_publish_date",
         "channel_post_id",
         "clicks",
+        "clicks",
+        'campaign_client',
+        'campaign_brand',
+        'link_target',
         "publish_status",
         "impressions_fact_owner",
     ]
 
     def has_add_permission(self, request):
         return False
+
+    @admin.display(description='Рекламодатель')
+    def campaign_client(self, instance: CampaignChannel):
+        return instance.campaign.client
+
+    @admin.display(description='Бренд')
+    def campaign_brand(self, instance: CampaignChannel):
+        return instance.campaign.brand
+
+    @admin.display(description='Target')
+    def link_target(self, instance: CampaignChannel):
+        val = f'<a href="{instance.campaign.message.button_link}" target="_blank">{instance.link_type_str}</a>'
+        return mark_safe(val)
 
     @admin.display(description="Показы-план", ordering="impressions_plan")
     def impressions_plan_col(self, obj):
