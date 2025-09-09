@@ -1,10 +1,8 @@
 import re
 
 from django import template
+from django.db.models import Sum, F, Q, Avg, DecimalField
 
-# from django.contrib.admin.templatetags.admin_list import result_list
-# from django.contrib.admin.templatetags.base import InclusionAdminNode
-# from django.contrib.admin.views.main import ChangeList
 from django.utils.safestring import mark_safe
 
 from core.models import ChannelAdmin
@@ -108,3 +106,28 @@ def hide_delete_box(*args, **kwargs):
         DELETE_field = form["DELETE"]
         DELETE_field.field.disabled = True
     return field.contents()
+
+
+@register.simple_tag(takes_context=True)
+def totals_bar(context, *args, **kwargs):
+    formset = kwargs['form'].formset
+    totals = formset.queryset.aggregate(
+        total_clicks=Sum("clicks"),
+        total_impressions_fact=Sum("impressions_fact"),
+        total_budget=Sum(F("cpm") * F('impressions_plan') / 1000, filter=Q(cpm__gte=1 , impressions_plan__gte=1), default=0),
+        total_impressions_plan=Sum("impressions_plan"),
+        avg_cpm=Avg("cpm", default=0, filter=Q(cpm__gte=1)),
+        avg_cpm_plan=Avg("plan_cpm", default=0, filter=Q(plan_cpm__gte=1)),
+    )
+    total_clicks, total_impressions_fact, total_budget, total_impressions_plan, avg_cpm, avg_cpm_plan = totals.values()
+    hidden_tags = f"""
+        <div id='campaign_channels_totals'> 
+            <label data-totals-clicks={total_clicks}></label>
+            <label data-totals-impressions-fact={total_impressions_fact}></label>
+            <label data-totals-budget={total_budget:.2f}></label>
+            <label data-totals-impressions-plan={total_impressions_plan}></label>
+            <label data-totals-avg-cpm={avg_cpm:.2f}></label>
+            <label data-totals-avg-cpm-plan={avg_cpm_plan:.2f}></label>
+        </div>
+    """
+    return mark_safe(hidden_tags)

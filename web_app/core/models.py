@@ -623,6 +623,9 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     cpm = models.DecimalField(
         max_digits=8, decimal_places=2, verbose_name=_("СРМ (руб.)")
     )
+    plan_cpm = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name=_("План. CPM"), default=0
+    )
     impressions_plan = models.IntegerField(
         verbose_name=_("План. Количество показов"),
         default=0,
@@ -650,9 +653,24 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         on_delete=models.SET_NULL,
         null=True,
     )
-    # is_approved = models.BooleanField(default=False, verbose_name='Разрешено')
-
     objects = CampaignChannelQs.as_manager()
+
+    @property
+    def ctr(self):
+        val = '-'
+        if self.clicks and self.impressions_fact:
+            val = self.clicks / self.impressions_fact * 100
+        elif self.impressions_fact and self.clicks:
+            val = 0
+        return val
+
+    @property
+    def cpm_diff(self):
+        return ((1 - self.plan_cpm) / self.cpm  * 100) * -1 if self.plan_cpm and self.cpm else 0
+
+    @property
+    def budget(self):
+        return self.cpm * self.impressions_fact / 1000 if self.cpm and self.impressions_fact else 0
 
     @property
     def is_message_published(self) -> bool:

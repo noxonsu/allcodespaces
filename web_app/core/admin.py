@@ -320,6 +320,11 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         required=True,
     )
 
+
+    class Meta:
+        model = CampaignChannel
+        fields = "__all__"
+
     def clean(self: Self):
         from core.utils import budget_cpm
 
@@ -352,9 +357,6 @@ class CampaignChannelInlinedForm(forms.ModelForm):
 
         return super().clean()
 
-    class Meta:
-        model = CampaignChannel
-        fields = "__all__"
 
 
 class CampaignChannelInlined(admin.TabularInline):
@@ -365,13 +367,32 @@ class CampaignChannelInlined(admin.TabularInline):
     readonly_fields = [
         "impressions_fact",
         "message_publish_date",
+        "channel_invitation_link",
         "channel_post_id",
         "publish_status",
         "clicks",
         "update_statistics",
+        "cpm_diff",
+        "ctr",
+        "budget",
+    ]
+    fields = [
+        'channel',
+        'channel_invitation_link',
+        'channel_admin',
+        'cpm',
+        'plan_cpm',
+        'cpm_diff',
+        'impressions_plan',
+        'impressions_fact',
+        'clicks',
+        'ctr',
+        'budget',
+        'update_statistics',
     ]
     form = CampaignChannelInlinedForm
     template = "admin/core/campaign/campaign_channel_tabular.html"
+
 
     class Media:
         js = {"custom/campaign_channel_inlined.js"}
@@ -388,6 +409,21 @@ class CampaignChannelInlined(admin.TabularInline):
             )
         else:
             return "-"
+
+    @admin.display(description="Ссылка на канал в ТГ")
+    def channel_invitation_link(self, instance):
+        return mark_safe(f'<a target="_blank" href="{instance.channel.invitation_link}">'
+                         f'<i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i>'
+                         f'</a>') if getattr(instance, "channel", None) else "-"
+
+
+    @admin.display(description='Разница')
+    def cpm_diff(self, instance):
+        return round(instance.cpm_diff,2) if instance.cpm_diff else 0
+
+    @admin.display(description='Бюджет')
+    def budget(self, instance):
+        return instance.budget
 
     def has_change_permission(self, request, obj=None):
         return False
