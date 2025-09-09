@@ -13,7 +13,7 @@ from django.contrib import admin
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
-from django.db.models import JSONField, Sum, Avg
+from django.db.models import JSONField, Sum, Avg, F, Q
 from django.utils.translation import gettext_lazy as _
 from rest_framework.request import Request
 
@@ -337,8 +337,8 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     """Campaign of channel/s"""
 
     class Statuses(models.TextChoices):
-        ACTIVE = "active", "активный"
-        PAUSED = "paused", "приостановлено"
+        ACTIVE = "active", "Активна"
+        PAUSED = "paused", "На паузе"
 
     name = models.CharField(max_length=250, verbose_name=_("Название"))
     status = models.CharField(
@@ -354,7 +354,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         validators=[campaign_budget_validator],
     )
     start_date = models.DateField(verbose_name=_("Дата старта"))
-    finish_date = models.DateField(verbose_name=_("Дата окончания"))
+    finish_date = models.DateField(verbose_name=_("Дата завершения"))
     channels = models.ManyToManyField("Channel", through="CampaignChannel", blank=True)
     message = models.ForeignKey(
         to="Message",
@@ -386,7 +386,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         blank=True, default="", verbose_name="Токен ОРД", help_text="Токен ОРД"
     )
     client = models.CharField(
-        blank=True, default="", verbose_name="Клиент", help_text="Клиент"
+        blank=True, default="", verbose_name="Рекламодатель", help_text="Клиент"
     )
     brand = models.CharField(default="", verbose_name="Бренд", help_text="Бренд")
 
@@ -403,16 +403,24 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     # admin methods
     @property
     def total_clicks(self):
-        return self.campaigns_channel.aggregate(Sum("clicks"))["clicks__sum"] or 0
+        return self.campaigns_channel.aggregate(Sum("clicks", default=0))["clicks__sum"]
 
     @property
     def total_impressions_fact(self):
         return (
-            self.campaigns_channel.aggregate(Sum("impressions_fact"))[
-                "impressions_fact__sum"
-            ]
-            or 0
+            self.campaigns_channel.aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
         )
+
+    @property
+    def total_views_fact_over_plan(self):
+        return (
+            self.campaigns_channel
+            .aggregate(total=
+                Sum(F("impressions_fact") / F("impressions_plan") * 100,
+                    default=0,
+                    filter=Q(impressions_fact__gte=1, impressions_plan__gte=1)) )
+        )['total']
+
 
     @property
     def total_ctr(self):
@@ -532,10 +540,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
             else "-"
         )
 
-    @admin.display(description="План. Количество показов")
+    @admin.display(description="ПП")
     def total_planed_views(self):
         return (
-            f"{self.campaigns_channel.aggregate(Sum('impressions_plan'))['impressions_plan__sum']:.2f}"
+            f"{self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']:.2f}"
             if self.campaigns_channel.exists()
             else "-"
         )
@@ -588,6 +596,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
             raise ValidationError(
                 {"finish_date": "Дата окончания РК не может быть раньше даты старта"}
             )
+
+    @cached_property
+    def link_type_str(self: CampaignChannel):
+        return  'Web' if self.message and self.message.is_external else 'TG-канал'
 
     def clean(self: Self):
         super().clean()

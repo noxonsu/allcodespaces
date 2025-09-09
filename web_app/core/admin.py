@@ -494,6 +494,7 @@ class CampaignAdmin(admin.ModelAdmin):
     list_max_show_all = 50
     list_per_page = 20
     form = CampaignAdminForm
+    list_display_links = ['name_str']
     readonly_fields = [
         "id",
         "total_planed_views",
@@ -501,11 +502,18 @@ class CampaignAdmin(admin.ModelAdmin):
         "link_to_statistics",
     ]
     list_display = [
-        "name_str",
         "client",
+        "brand",
+        "link_type",
+        "name_str",
+        "status",
         "start_date",
         "finish_date",
-        "status",
+        "total_planed_views",
+        "total_planed_fact",
+        "total_views_fact_over_plan",
+        "total_clicks",
+        "total_ctr",
         "budget",
     ]
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
@@ -545,7 +553,28 @@ class CampaignAdmin(admin.ModelAdmin):
         extra_context["show_save_and_add_another"] = False
         return super().changeform_view(request, object_id, extra_context=extra_context)
 
-    @admin.display(description="Название", ordering="name")
+    @admin.display(description='ПФ')
+    def total_planed_fact(self,  instance: Campaign):
+        return instance.total_impressions_fact
+
+    @admin.display(description='%')
+    def total_views_fact_over_plan(self,  instance: Campaign):
+        val =  instance.total_views_fact_over_plan
+        return round(val,2) if val else '-'
+
+    @admin.display(description='Клики')
+    def total_clicks(self,  instance: Campaign):
+        return instance.total_clicks
+
+    @admin.display(description='CTR')
+    def total_ctr(self,  instance: Campaign):
+        return instance.total_ctr
+
+    @admin.display(description='Target')
+    def link_type(self, instance: Campaign):
+        return mark_safe(f"<a href='{instance.message.button_link}'>{instance.link_type_str}</a>")
+
+    @admin.display(description="Кампания", ordering="name")
     def name_str(self, obj: Campaign) -> str:
         campaignchannels_count = obj.campaigns_channel.filter(
             publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED,
