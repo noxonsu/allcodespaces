@@ -33,8 +33,8 @@ class User(ExportModelOperationsMixin("user"), AbstractUser):
     role = models.CharField(choices=Role.choices, max_length=50, null=True, blank=True)
 
     class Meta:
-        verbose_name_plural = "Сотрудники"
-        verbose_name = "Сотрудник"
+        verbose_name_plural = "Пользователи"
+        verbose_name = "Пользователь"
         ordering = ["-date_joined"]
 
 
@@ -733,8 +733,8 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         )
 
     class Meta:
-        verbose_name = "Статистика по РК"
-        verbose_name_plural = "Статистика по РК"
+        verbose_name = "Статистика"
+        verbose_name_plural = "Статистики"
         ordering = ["-created_at"]
 
     @property
