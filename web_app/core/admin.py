@@ -270,11 +270,11 @@ class ChannelModelAdmin(admin.ModelAdmin):
 
     @admin.display(description="")
     def avatar_image(self, obj):
+        img_template = "<img class='img-circle float-left'  src={} alt='image-{}' style='width:80px;height:80px;'>"
+        img_html = img_template.format('static/custom/default.jpg', obj.name)
         if obj.avatar_url:
-            return mark_safe(
-                f"<img class='img-circle float-left'  src={obj.avatar_url} alt='image-{obj.name}' style='width:80px;height:80px;'>"
-            )
-        return "-"
+            img_html = img_template.format(obj.avatar_url, obj.name)
+        return mark_safe(img_html)
 
     @admin.display(description="Модерация", ordering="-status")
     def status_html(self, obj: Channel):
