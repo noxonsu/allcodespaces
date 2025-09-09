@@ -320,7 +320,6 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         required=True,
     )
 
-
     class Meta:
         model = CampaignChannel
         fields = "__all__"
@@ -423,7 +422,7 @@ class CampaignChannelInlined(admin.TabularInline):
 
     @admin.display(description='Бюджет')
     def budget(self, instance):
-        return instance.budget
+        return round(instance.budget,2) if instance.budget else 0
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -538,6 +537,13 @@ class CampaignAdmin(admin.ModelAdmin):
         ),
         ("Креатив", {"classes": ["wide"], "fields": ("message",)}),
     )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
+        extra_context = {} if not extra_context else extra_context
+        extra_context["show_save_and_continue"] = False
+        extra_context["show_save_and_add_another"] = False
+        return super().changeform_view(request, object_id, extra_context=extra_context)
 
     @admin.display(description="Название", ordering="name")
     def name_str(self, obj: Campaign) -> str:
