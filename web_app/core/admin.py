@@ -454,6 +454,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 class CampaignAdmin(admin.ModelAdmin):
     class Media:
         css = {"all": ["core/css/campaign/change_form.css"]}
+        js = ['core/js/campaign/change_form.js']
 
     list_max_show_all = 50
     list_per_page = 20
@@ -484,24 +485,22 @@ class CampaignAdmin(admin.ModelAdmin):
             {
                 "classes": ["wide"],
                 "fields": (
-                    "id",
                     "name",
-                    "status",
+                    "client",
+                    "brand",
                     "budget",
                     "start_date",
                     "finish_date",
-                    "inn_advertiser",
-                    "client",
-                    "brand",
-                    "token_ord",
-                    "avg_cpm",
-                    "total_planed_views",
-                    "link_to_statistics",
+                    "white_list",
+                    "black_list",
+                    "status",
+                    # "avg_cpm",
+                    # "total_planed_views",
+                    # "link_to_statistics",
                 ),
             },
         ),
-        ("Фильтры", {"fields": ["white_list", "black_list"]}),
-        ("Сообщение", {"classes": ["wide"], "fields": ("message",)}),
+        ("Креатив", {"classes": ["wide"], "fields": ("message",)}),
     )
 
     @admin.display(description="Название", ordering="name")

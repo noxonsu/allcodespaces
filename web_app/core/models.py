@@ -222,14 +222,10 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
         if self.ad_inn and self.ad_individual and self.erid:
             _footer = (
                 f'Телевин Реклама: {self.ad_individual},'+
-                f'ИНН: {self.ad_inn},'
-                +f'erid: {self.erid}'
+                f' ИНН: {self.ad_inn},'
+                +f' erid: {self.erid}'
             )
         return _footer
-
-    @property
-    def is_published(self: Message) -> bool:
-        return
 
     @property
     @admin.display(description="Тип")
@@ -370,14 +366,14 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         base_field=models.CharField(max_length=250),
         blank=True,
         default=list,
-        verbose_name="разрешённые слова (разделитель ,)",
+        verbose_name="разрешённые слова",
         help_text="разделитель , (если пусто то не будет фильтровать)",
     )
     black_list = ArrayField(
         base_field=models.CharField(max_length=250),
         blank=True,
         default=list,
-        verbose_name="запрещённые слова (разделитель ,)",
+        verbose_name="запрещённые слова",
         help_text="разделитель , (если пусто то не будет фильтровать)",
     )
     inn_advertiser = models.PositiveIntegerField(
