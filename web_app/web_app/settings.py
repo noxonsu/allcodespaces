@@ -322,7 +322,7 @@ JAZZMIN_SETTINGS = {
     "custom_links": {
         "core": [
             {
-                "name": "О Компании (in work..)",
+                "name": "О Компании",
                 "url": "/api/about",
                 "icon": "fa-solid fa-building",
             },
