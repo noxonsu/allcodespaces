@@ -20,6 +20,7 @@ from core.serializers import (
     CampaignChannelClickSerializer,
     ChannelAdminSerializer,
 )
+from core.utils import get_template_side_data
 
 
 class ChannelViewSet(ModelViewSet):
@@ -186,17 +187,12 @@ class AboutView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
+        core_models = get_template_side_data('core')
+        celery_models = get_template_side_data('django_celery_beat', nav_header_name='Периодические Задачи',  exclude=['periodictasks'])
+        auth_models = get_template_side_data('auth', nav_header_name='Пользователи и группы', exclude=['permission'])
         context["is_popup"] = False
-        context['available_apps'] = [
-            {
-                "app_label": 'core',
-                'models': [
-                    {"object_name":'channeladmin', 'admin_url': '/core/message/', 'name': "Администраторы каналов"},
-                    {"object_name":'campaign', 'admin_url': '/core/campaign/', 'name': "Кампании"},
-                    {"object_name":'channel', 'admin_url': '/core/channel/', 'name': "Каналы"},
-                    {"object_name":'campaignchannel', 'admin_url': '/core/campaignchannel/', 'name': "Статистика по РК"},
-                ]
-            }
-        ]
+        context.update(available_apps=[core_models.app_models, celery_models.app_models, auth_models.app_models])
         context['title'] = 'О нас'
+        context['is_popup'] = False
+
         return context

@@ -3,11 +3,9 @@
 {% get_jazzmin_settings request as jazzmin_settings %}
 {% get_jazzmin_ui_tweaks as jazzmin_ui %}
 
-{% block breadcrumbs %}
-    <ol class="breadcrumb">
-        <li class="breadcrumb-item"><a href="{% url 'admin:index' %}">{% trans 'Home' %}</a></li>
-        <li class="breadcrumb-item active">О нас</li>
-    </ol>
+
+{% block content_title %}
+    О компании
 {% endblock %}
 
 {% block main %}
