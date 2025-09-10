@@ -13,7 +13,7 @@ from django.contrib import admin
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.contrib.postgres.fields import ArrayField
-from django.db.models import JSONField, Sum, Avg
+from django.db.models import JSONField, Sum, Avg, F, Q
 from django.utils.translation import gettext_lazy as _
 from rest_framework.request import Request
 
@@ -222,14 +222,10 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
         if self.ad_inn and self.ad_individual and self.erid:
             _footer = (
                 f'Телевин Реклама: {self.ad_individual},'+
-                f'ИНН: {self.ad_inn},'
-                +f'erid: {self.erid}'
+                f' ИНН: {self.ad_inn},'
+                +f' erid: {self.erid}'
             )
         return _footer
-
-    @property
-    def is_published(self: Message) -> bool:
-        return
 
     @property
     @admin.display(description="Тип")
@@ -341,8 +337,8 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     """Campaign of channel/s"""
 
     class Statuses(models.TextChoices):
-        ACTIVE = "active", "активный"
-        PAUSED = "paused", "приостановлено"
+        ACTIVE = "active", "Активна"
+        PAUSED = "paused", "На паузе"
 
     name = models.CharField(max_length=250, verbose_name=_("Название"))
     status = models.CharField(
@@ -358,7 +354,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         validators=[campaign_budget_validator],
     )
     start_date = models.DateField(verbose_name=_("Дата старта"))
-    finish_date = models.DateField(verbose_name=_("Дата окончания"))
+    finish_date = models.DateField(verbose_name=_("Дата завершения"))
     channels = models.ManyToManyField("Channel", through="CampaignChannel", blank=True)
     message = models.ForeignKey(
         to="Message",
@@ -370,14 +366,14 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         base_field=models.CharField(max_length=250),
         blank=True,
         default=list,
-        verbose_name="разрешённые слова (разделитель ,)",
+        verbose_name="разрешённые слова",
         help_text="разделитель , (если пусто то не будет фильтровать)",
     )
     black_list = ArrayField(
         base_field=models.CharField(max_length=250),
         blank=True,
         default=list,
-        verbose_name="запрещённые слова (разделитель ,)",
+        verbose_name="запрещённые слова",
         help_text="разделитель , (если пусто то не будет фильтровать)",
     )
     inn_advertiser = models.PositiveIntegerField(
@@ -390,7 +386,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         blank=True, default="", verbose_name="Токен ОРД", help_text="Токен ОРД"
     )
     client = models.CharField(
-        blank=True, default="", verbose_name="Клиент", help_text="Клиент"
+        blank=True, default="", verbose_name="Рекламодатель", help_text="Клиент"
     )
     brand = models.CharField(default="", verbose_name="Бренд", help_text="Бренд")
 
@@ -407,16 +403,24 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     # admin methods
     @property
     def total_clicks(self):
-        return self.campaigns_channel.aggregate(Sum("clicks"))["clicks__sum"] or 0
+        return self.campaigns_channel.aggregate(Sum("clicks", default=0))["clicks__sum"]
 
     @property
     def total_impressions_fact(self):
         return (
-            self.campaigns_channel.aggregate(Sum("impressions_fact"))[
-                "impressions_fact__sum"
-            ]
-            or 0
+            self.campaigns_channel.aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
         )
+
+    @property
+    def total_views_fact_over_plan(self):
+        return (
+            self.campaigns_channel
+            .aggregate(total=
+                Sum(F("impressions_fact") / F("impressions_plan") * 100,
+                    default=0,
+                    filter=Q(impressions_fact__gte=1, impressions_plan__gte=1)) )
+        )['total']
+
 
     @property
     def total_ctr(self):
@@ -536,10 +540,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
             else "-"
         )
 
-    @admin.display(description="План. Количество показов")
+    @admin.display(description="ПП")
     def total_planed_views(self):
         return (
-            f"{self.campaigns_channel.aggregate(Sum('impressions_plan'))['impressions_plan__sum']:.2f}"
+            f"{self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']:.2f}"
             if self.campaigns_channel.exists()
             else "-"
         )
@@ -593,6 +597,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
                 {"finish_date": "Дата окончания РК не может быть раньше даты старта"}
             )
 
+    @cached_property
+    def link_type_str(self: CampaignChannel):
+        return  'Web' if self.message and self.message.is_external else 'TG-канал'
+
     def clean(self: Self):
         super().clean()
         self.clean_wordsfilters()
@@ -627,6 +635,9 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     cpm = models.DecimalField(
         max_digits=8, decimal_places=2, verbose_name=_("СРМ (руб.)")
     )
+    plan_cpm = models.DecimalField(
+        max_digits=8, decimal_places=2, verbose_name=_("План. CPM"), default=0
+    )
     impressions_plan = models.IntegerField(
         verbose_name=_("План. Количество показов"),
         default=0,
@@ -654,9 +665,28 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         on_delete=models.SET_NULL,
         null=True,
     )
-    # is_approved = models.BooleanField(default=False, verbose_name='Разрешено')
-
     objects = CampaignChannelQs.as_manager()
+
+    @cached_property
+    def link_type_str(self: CampaignChannel):
+        return  'Web' if self.campaign.message and self.campaign.message.is_external else 'TG-канал'
+
+    @property
+    def ctr(self):
+        val = '-'
+        if self.clicks and self.impressions_fact:
+            val = self.clicks / self.impressions_fact * 100
+        elif self.impressions_fact and self.clicks:
+            val = 0
+        return val
+
+    @property
+    def cpm_diff(self):
+        return ((1 - self.plan_cpm) / self.cpm  * 100) * -1 if self.plan_cpm and self.cpm else 0
+
+    @property
+    def budget(self):
+        return self.cpm * self.impressions_fact / 1000 if self.cpm and self.impressions_fact else 0
 
     @property
     def is_message_published(self) -> bool:

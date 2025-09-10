@@ -25,4 +25,24 @@ $(document).ready( function() {
             });
         });
   }
+function addTotalsTr() {
+        newRow = `<tr class='form-row has_original dynamic-campaigns_channel' id='campaigns_channel-totals'> 
+                    <td class="campaigns_channel-totals-label field-channel"><lable class="h6 font-weight-bold font-italic" style="color:#64748b;">Итого</lable></td>
+                    <td class="campaigns_channel-totals-field-1 field-channel_invitation_link"></td>
+                    <td class="campaigns_channel-totals-field-2 field-channel_admin"></td>
+                    <td class="campaigns_channel-totals-field-3 field-cpm">${$('label[data-totals-avg-cpm]').data('totals-avg-cpm')}</td>
+                    <td class="campaigns_channel-totals-field-4 field-plan_cpm">${$('label[data-totals-avg-cpm-plan]').data('totals-avg-cpm-plan')}</td>
+                    <td class="campaigns_channel-totals-field-5 field-cpm_diff">${$('label[data-totals-cpm-diff]').data('totals-cpm-diff')}</td>
+                    <td class="campaigns_channel-totals-field-6 field-impressions_plan">${$('label[data-totals-impressions-plan]').data('totals-impressions-plan')}</td>
+                    <td class="campaigns_channel-totals-field-7 field-impressions_fact">${$('label[data-totals-impressions-fact]').data('totals-impressions-fact')}</td>
+                    <td class="campaigns_channel-totals-field-8 field-clicks">${$('label[data-totals-clicks]').data('totals-clicks')}</td>
+                    <td class="campaigns_channel-totals-field-9 field-ctr">${$('label[data-totals-ctr]').data('totals-ctr')}</td>
+                    <td class="campaigns_channel-totals-field-10 field-budget">${$('label[data-totals-budget]').data('totals-budget')}</td>
+                    <td class=""></td>
+                    <td class=""></td>
+                  </tr>`;
+    $(newRow).insertAfter($('#campaign-channel-table tr:last'));
+}
+
+addTotalsTr()
 });

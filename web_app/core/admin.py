@@ -320,6 +320,10 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         required=True,
     )
 
+    class Meta:
+        model = CampaignChannel
+        fields = "__all__"
+
     def clean(self: Self):
         from core.utils import budget_cpm
 
@@ -352,9 +356,6 @@ class CampaignChannelInlinedForm(forms.ModelForm):
 
         return super().clean()
 
-    class Meta:
-        model = CampaignChannel
-        fields = "__all__"
 
 
 class CampaignChannelInlined(admin.TabularInline):
@@ -365,13 +366,32 @@ class CampaignChannelInlined(admin.TabularInline):
     readonly_fields = [
         "impressions_fact",
         "message_publish_date",
+        "channel_invitation_link",
         "channel_post_id",
         "publish_status",
         "clicks",
         "update_statistics",
+        "cpm_diff",
+        "ctr",
+        "budget",
+    ]
+    fields = [
+        'channel',
+        'channel_invitation_link',
+        'channel_admin',
+        'cpm',
+        'plan_cpm',
+        'cpm_diff',
+        'impressions_plan',
+        'impressions_fact',
+        'clicks',
+        'ctr',
+        'budget',
+        'update_statistics',
     ]
     form = CampaignChannelInlinedForm
     template = "admin/core/campaign/campaign_channel_tabular.html"
+
 
     class Media:
         js = {"custom/campaign_channel_inlined.js"}
@@ -388,6 +408,21 @@ class CampaignChannelInlined(admin.TabularInline):
             )
         else:
             return "-"
+
+    @admin.display(description="Ссылка на канал в ТГ")
+    def channel_invitation_link(self, instance):
+        return mark_safe(f'<a target="_blank" href="{instance.channel.invitation_link}">'
+                         f'<i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i>'
+                         f'</a>') if getattr(instance, "channel", None) else "-"
+
+
+    @admin.display(description='Разница')
+    def cpm_diff(self, instance):
+        return round(instance.cpm_diff,2) if instance.cpm_diff else 0
+
+    @admin.display(description='Бюджет')
+    def budget(self, instance):
+        return round(instance.budget,2) if instance.budget else 0
 
     def has_change_permission(self, request, obj=None):
         return False
@@ -454,10 +489,12 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
 class CampaignAdmin(admin.ModelAdmin):
     class Media:
         css = {"all": ["core/css/campaign/change_form.css"]}
+        js = ['core/js/campaign/change_form.js']
 
     list_max_show_all = 50
     list_per_page = 20
     form = CampaignAdminForm
+    list_display_links = ['name_str']
     readonly_fields = [
         "id",
         "total_planed_views",
@@ -465,11 +502,18 @@ class CampaignAdmin(admin.ModelAdmin):
         "link_to_statistics",
     ]
     list_display = [
-        "name_str",
         "client",
+        "brand",
+        "link_type",
+        "name_str",
+        "status",
         "start_date",
         "finish_date",
-        "status",
+        "total_planed_views",
+        "total_planed_fact",
+        "total_views_fact_over_plan",
+        "total_clicks",
+        "total_ctr",
         "budget",
     ]
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
@@ -484,27 +528,53 @@ class CampaignAdmin(admin.ModelAdmin):
             {
                 "classes": ["wide"],
                 "fields": (
-                    "id",
                     "name",
-                    "status",
+                    "client",
+                    "brand",
                     "budget",
                     "start_date",
                     "finish_date",
-                    "inn_advertiser",
-                    "client",
-                    "brand",
-                    "token_ord",
-                    "avg_cpm",
-                    "total_planed_views",
-                    "link_to_statistics",
+                    "white_list",
+                    "black_list",
+                    "status",
+                    # "avg_cpm",
+                    # "total_planed_views",
+                    # "link_to_statistics",
                 ),
             },
         ),
-        ("Фильтры", {"fields": ["white_list", "black_list"]}),
-        ("Сообщение", {"classes": ["wide"], "fields": ("message",)}),
+        ("Креатив", {"classes": ["wide"], "fields": ("message",)}),
     )
 
-    @admin.display(description="Название", ordering="name")
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
+        extra_context = {} if not extra_context else extra_context
+        extra_context["show_save_and_continue"] = False
+        extra_context["show_save_and_add_another"] = False
+        return super().changeform_view(request, object_id, extra_context=extra_context)
+
+    @admin.display(description='ПФ')
+    def total_planed_fact(self,  instance: Campaign):
+        return instance.total_impressions_fact
+
+    @admin.display(description='%')
+    def total_views_fact_over_plan(self,  instance: Campaign):
+        val =  instance.total_views_fact_over_plan
+        return round(val,2) if val else '-'
+
+    @admin.display(description='Клики')
+    def total_clicks(self,  instance: Campaign):
+        return instance.total_clicks
+
+    @admin.display(description='CTR')
+    def total_ctr(self,  instance: Campaign):
+        return instance.total_ctr
+
+    @admin.display(description='Target')
+    def link_type(self, instance: Campaign):
+        return mark_safe(f"<a href='{instance.message.button_link}'>{instance.link_type_str}</a>")
+
+    @admin.display(description="Кампания", ordering="name")
     def name_str(self, obj: Campaign) -> str:
         campaignchannels_count = obj.campaigns_channel.filter(
             publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED,
@@ -598,9 +668,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "message_publish_date",
         "impressions_plan_col",
         "impressions_fact",
-        "precentage_col",
         "clicks",
-        "ctr_col",
         "earned_money",
     ]
 
@@ -618,12 +686,29 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "message_publish_date",
         "channel_post_id",
         "clicks",
+        "clicks",
+        'campaign_client',
+        'campaign_brand',
+        'link_target',
         "publish_status",
         "impressions_fact_owner",
     ]
 
     def has_add_permission(self, request):
         return False
+
+    @admin.display(description='Рекламодатель')
+    def campaign_client(self, instance: CampaignChannel):
+        return instance.campaign.client
+
+    @admin.display(description='Бренд')
+    def campaign_brand(self, instance: CampaignChannel):
+        return instance.campaign.brand
+
+    @admin.display(description='Target')
+    def link_target(self, instance: CampaignChannel):
+        val = f'<a href="{instance.campaign.message.button_link}" target="_blank">{instance.link_type_str}</a>'
+        return mark_safe(val)
 
     @admin.display(description="Показы-план", ordering="impressions_plan")
     def impressions_plan_col(self, obj):
@@ -665,6 +750,19 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         return mark_safe(
             f'<a href="/core/campaign/{obj.campaign.id}/change/"> {obj.campaign}</a>'
         )
+
+    @admin.display(description='')
+    def channel_tg_link(self, instance: CampaignChannel):
+        return mark_safe(f'<a target="_blank" href="{instance.channel.invitation_link}"><i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i></a>')
+
+    @admin.display(description='Старт')
+    def start_date(self, instance):
+        return instance.campaign.start_date
+
+    @admin.display(description='Стоп')
+    def finish_date(self, instance):
+        return instance.campaign.finish_date
+
 
     def export_to_xlsx(self, request):
         self.message_user(request, "Выгрузка в excel запущено")
@@ -714,12 +812,21 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         response = super().get_list_display(request).copy()
         user = request.user
         if user.groups.filter(name__in=["owner", "owners"]):
-            response.remove("campaign_link")  # remove first col
-            response.remove("impressions_plan_col")
-            response.remove("precentage_col")
-            i_ = response.index("impressions_fact")
-            response[i_] = "impressions_fact_owner"
-            return response
+            fields = [
+                'campaign_client',
+                'campaign_brand',
+                'link_target',
+                'campaign',
+                'channel_link',
+                'channel_tg_link',
+                'publish_status',
+                'start_date',
+                'finish_date',
+                'impressions_fact',
+                'clicks',
+                'earned_money',
+            ]
+            return fields
         return response
 
     def get_list_filter(self, request):

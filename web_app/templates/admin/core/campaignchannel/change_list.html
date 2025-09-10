@@ -88,6 +88,12 @@
                                     </div>
                                 </div>
                                 {% result_list cl %}
+                            {% if  request.user.profile.is_owner and cl.full_result_count >= 1 %}
+                                <p>
+                                    В столбце "Заработок" отображается ваш чистый доход, комиссию и рекламный сбор оплачивает рекламодатель (<a href="#" target="_blank">подробнее</a>).
+                                </p>
+                            {% endif %}
+
                                 {% if action_form and actions_on_bottom and cl.show_admin_actions %}
                                     <div class="row">
                                         <div class="col-12">
