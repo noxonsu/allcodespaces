@@ -1,5 +1,6 @@
 from django.contrib.auth import login
-from django.http import HttpResponsePermanentRedirect
+from django.contrib.auth.views import LoginView
+from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
 from django_filters.rest_framework.backends import DjangoFilterBackend
@@ -196,3 +197,30 @@ class AboutView(TemplateView):
         context['is_popup'] = False
 
         return context
+
+
+
+def user_get_redirect_url(user):
+    next_page = '/core/campaignchannel/'
+    if user.is_owner:
+        next_page = '/core/channel/'
+    return next_page
+
+
+class CustomLoginView(LoginView):
+    """Custom redirect user based on his role"""
+    template_name = "admin/login.html"
+    next_page = '/core/campaignchannel/'
+
+    def get_success_url(self):
+        return user_get_redirect_url(self.request.user) or self.get_default_redirect_url()
+
+
+
+def index_view(request):
+    if request.user.is_authenticated:
+        url = user_get_redirect_url(request.user)
+    else:
+        url = '/core/campaignchannel/'
+
+    return HttpResponseRedirect(url)
