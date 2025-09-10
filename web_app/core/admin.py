@@ -387,8 +387,12 @@ class CampaignChannelInlined(admin.TabularInline):
         'clicks',
         'ctr',
         'budget',
+        'publish_status',
+        'message_publish_date',
+        'channel_post_id',
         'update_statistics',
     ]
+
     form = CampaignChannelInlinedForm
     template = "admin/core/campaign/campaign_channel_tabular.html"
 
