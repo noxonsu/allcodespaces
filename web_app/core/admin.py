@@ -751,6 +751,19 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             f'<a href="/core/campaign/{obj.campaign.id}/change/"> {obj.campaign}</a>'
         )
 
+    @admin.display(description='')
+    def channel_tg_link(self, instance: CampaignChannel):
+        return mark_safe(f'<a target="_blank" href="{instance.channel.invitation_link}"><i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i></a>')
+
+    @admin.display(description='Старт')
+    def start_date(self, instance):
+        return instance.campaign.start_date
+
+    @admin.display(description='Стоп')
+    def finish_date(self, instance):
+        return instance.campaign.finish_date
+
+
     def export_to_xlsx(self, request):
         self.message_user(request, "Выгрузка в excel запущено")
         cols = [
@@ -799,12 +812,21 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         response = super().get_list_display(request).copy()
         user = request.user
         if user.groups.filter(name__in=["owner", "owners"]):
-            response.remove("campaign_link")  # remove first col
-            response.remove("impressions_plan_col")
-            response.remove("precentage_col")
-            i_ = response.index("impressions_fact")
-            response[i_] = "impressions_fact_owner"
-            return response
+            fields = [
+                'campaign_client',
+                'campaign_brand',
+                'link_target',
+                'campaign',
+                'channel_link',
+                'channel_tg_link',
+                'publish_status',
+                'start_date',
+                'finish_date',
+                'impressions_fact',
+                'clicks',
+                'earned_money',
+            ]
+            return fields
         return response
 
     def get_list_filter(self, request):
