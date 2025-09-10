@@ -40,6 +40,9 @@ function addTotalsTr() {
                     <td class="campaigns_channel-totals-field-10 field-budget">${$('label[data-totals-budget]').data('totals-budget')}</td>
                     <td class=""></td>
                     <td class=""></td>
+                    <td class=""></td>
+                    <td class=""></td>
+                    <td class=""></td>
                   </tr>`;
     $(newRow).insertAfter($('#campaign-channel-table tr:last'));
 }

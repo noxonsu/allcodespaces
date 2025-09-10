@@ -94,11 +94,15 @@ class BotNotifier:
             logger.error(f"channeladmin_added: {e}")
 
 
-def get_template_side_data(app_name: str, nav_header_name='', exclude=None):
+def get_template_side_data(app_name: str, nav_header_name='', exclude=None, permissions=None):
         class SideMenuObject:
-            def __init__(self, app_name: str, nav_header_name=nav_header_name, exclude: Sequence[str]=None):
+            def __init__(self, app_name: str,
+                         nav_header_name=nav_header_name,
+                         exclude: Sequence[str]=None,
+                         permissions_list=None):
                 self.app_label = app_name
                 self.nav_header_name = nav_header_name
+                self._permissions = permissions_list if permissions_list else []
                 self._data = {}
                 self._exclude = exclude if exclude else set()
                 self._set_up()
@@ -126,12 +130,12 @@ def get_template_side_data(app_name: str, nav_header_name='', exclude=None):
                 self._models = apps.get_models(self.app_label)
 
 
-            def add_model(self, model_name: str, name:str,icon=None, permissions=None):
+            def add_model(self, model_name: str, name:str,icon=None):
                 model_settings: dict = dict(object_name=model_name, admin_url=f'/{self.app_label}/{model_name}/', name=name)
                 if icon:
                     model_settings.update(icon=icon)
-                if permissions:
-                    model_settings.update(permissions=permissions)
+                if self._permissions:
+                    model_settings.update(permissions=self._permissions)
                 self._data['models'].append(model_settings)
 
             def add_models(self):
@@ -147,4 +151,4 @@ def get_template_side_data(app_name: str, nav_header_name='', exclude=None):
             def app_models(self):
                 return self._data
 
-        return SideMenuObject(app_name, nav_header_name, exclude)
+        return SideMenuObject(app_name, nav_header_name, exclude, permissions_list=permissions)

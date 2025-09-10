@@ -32,6 +32,18 @@ class User(ExportModelOperationsMixin("user"), AbstractUser):
 
     role = models.CharField(choices=Role.choices, max_length=50, null=True, blank=True)
 
+    @cached_property
+    def has_profile(self):
+        return getattr(self, 'profile',  None)
+
+    @cached_property
+    def is_owner(self):
+        return self.has_profile and self.profile.is_owner
+
+    @cached_property
+    def is_manager(self):
+        return self.has_profile and self.profile.is_manger
+
     class Meta:
         verbose_name_plural = "Пользователи"
         verbose_name = "Пользователь"
@@ -214,7 +226,7 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
     @property
     def as_text(self) -> str:
         title = self.title if self.title else self.name
-        return f"<b>{title}</b>\n{self.body}\n\n{self.footer}"
+        return f"<b>{title}</b>\n{self.body}\n\n<i>{self.footer}</i>"
 
     @property
     def footer(self):
