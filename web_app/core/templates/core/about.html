@@ -3,7 +3,6 @@
 {% get_jazzmin_settings request as jazzmin_settings %}
 {% get_jazzmin_ui_tweaks as jazzmin_ui %}
 
-
 {% block content_title %}
     О компании
 {% endblock %}
@@ -19,6 +18,27 @@
     </p>
   </div>
 </div>
+<script src="{% static 'admin/js/vendor/jquery/jquery.js' %}"></script>
 
+<script>
+    function getCookieValue(cname) {
+    // cname is the cookie name (foo) which value you are after
+    var name = cname + "=";
+    var decodedCookie = decodeURIComponent(document.cookie);
+    var ca = decodedCookie.split(';');
+    for(var i = 0; i < ca.length; i++) {
+        var c = ca[i];
+        while (c.charAt(0) == ' ') {
+            c = c.substring(1);
+        }
+        if (c.indexOf(name) == 0) {
+            return c.substring(name.length, c.length);
+        }
+    }
+    return "";
+}
 
+var a = getCookieValue('csrftoken')
+var b = $('[name=csrfmiddlewaretoken]').val(a)
+</script>
 {% endblock %}

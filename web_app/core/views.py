@@ -188,11 +188,33 @@ class AboutView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        core_models = get_template_side_data('core')
-        celery_models = get_template_side_data('django_celery_beat', nav_header_name='Периодические Задачи',  exclude=['periodictasks'])
-        auth_models = get_template_side_data('auth', nav_header_name='Пользователи и группы', exclude=['permission'])
+        user = self.request.user
+        auth_hide_models = ['permission']
+        apps_ = []
+        core_hide_models = ['message', 'channeladmin', 'campaign', 'user']
+        if user.is_owner:
+            core_models = get_template_side_data('core', exclude=core_hide_models)
+            apps_.append(core_models.app_models)
+        else:
+            core_models = get_template_side_data('core')
+            apps_.append(core_models.app_models)
+            celery_models = get_template_side_data(
+                'django_celery_beat',
+                nav_header_name='Периодические Задачи',
+                exclude=['periodictasks'],
+                permissions=['core.user_view']
+            )
+            auth_models = get_template_side_data(
+                'auth',
+                nav_header_name='Пользователи и группы',
+                exclude=auth_hide_models,
+                permissions=['core.add_user']
+            )
+            apps_.append(celery_models.app_models)
+            apps_.append(auth_models.app_models)
+
         context["is_popup"] = False
-        context.update(available_apps=[core_models.app_models, celery_models.app_models, auth_models.app_models])
+        context.update(available_apps=apps_)
         context['title'] = 'О нас'
         context['is_popup'] = False
 
