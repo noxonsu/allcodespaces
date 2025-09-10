@@ -214,7 +214,7 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
     @property
     def as_text(self) -> str:
         title = self.title if self.title else self.name
-        return f"<b>{title}</b>\n{self.body}\n{self.footer}"
+        return f"<b>{title}</b>\n{self.body}\n\n{self.footer}"
 
     @property
     def footer(self):
