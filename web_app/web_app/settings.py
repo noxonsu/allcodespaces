@@ -330,13 +330,13 @@ JAZZMIN_SETTINGS = {
                 "name": "Сотрудники",
                 "permissions": ["user.view_user"],
             },
-
         ],
     },
     # "language_chooser": True
+    "order_with_respect_to": ["core.channeladmin", "core.campaign", "core.channel", "core.message", "core.user", "core.campaignchannel", 'django_celery_beat.crontabschedule', 'django_celery_beat.intervalschedule', 'django_celery_beat.periodictask'],
+
 }
 
-JAZZMIN_UI_TWEAKS = {}
 
 
 # handler404 = '404.html'

@@ -1,6 +1,10 @@
 from decimal import Decimal
+from functools import cached_property
 from string import Template
+from typing import Sequence
+
 import requests
+from django.apps import apps
 
 from web_app.app_settings import app_settings
 from web_app.logger import logger
@@ -89,3 +93,58 @@ class BotNotifier:
         except Exception as e:
             logger.error(f"channeladmin_added: {e}")
 
+
+def get_template_side_data(app_name: str, nav_header_name='', exclude=None):
+        class SideMenuObject:
+            def __init__(self, app_name: str, nav_header_name=nav_header_name, exclude: Sequence[str]=None):
+                self.app_label = app_name
+                self.nav_header_name = nav_header_name
+                self._data = {}
+                self._exclude = exclude if exclude else set()
+                self._set_up()
+                self.add_models()
+
+            @cached_property
+            def _prepare_app_models(self):
+                def filter_model(model):
+                    return model._meta.app_label == self.app_label\
+                        and model._meta.db_table.startswith(app_name+'_')\
+                        and model._meta.auto_created is False\
+                        and model._meta.model_name not in self._exclude
+
+                return [
+                    (model._meta.model_name, model._meta.verbose_name_plural.capitalize())
+                    for model in self._models
+                    if filter_model(model)
+                ]
+
+
+            def _set_up(self):
+                self._data['app_label'] = self.app_label
+                self._data['models'] = []
+                self._data['name'] = self.nav_header_name
+                self._models = apps.get_models(self.app_label)
+
+
+            def add_model(self, model_name: str, name:str,icon=None, permissions=None):
+                model_settings: dict = dict(object_name=model_name, admin_url=f'/{self.app_label}/{model_name}/', name=name)
+                if icon:
+                    model_settings.update(icon=icon)
+                if permissions:
+                    model_settings.update(permissions=permissions)
+                self._data['models'].append(model_settings)
+
+            def add_models(self):
+                for model_name, name in self._prepare_app_models:
+                    self.add_model(model_name, name)
+
+            def remove_model(self, model_name: str):
+                for i in self._data['models']:
+                    if i['object_name'] == model_name:
+                        del i['object_name']
+
+            @property
+            def app_models(self):
+                return self._data
+
+        return SideMenuObject(app_name, nav_header_name, exclude)
