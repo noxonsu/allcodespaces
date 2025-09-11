@@ -510,6 +510,7 @@ class CampaignAdmin(admin.ModelAdmin):
         "brand",
         "link_type",
         "name_str",
+        "total_channels",
         "status",
         "start_date",
         "finish_date",
@@ -556,6 +557,10 @@ class CampaignAdmin(admin.ModelAdmin):
         extra_context["show_save_and_continue"] = False
         extra_context["show_save_and_add_another"] = False
         return super().changeform_view(request, object_id, extra_context=extra_context)
+
+    @admin.display(description='Каналы')
+    def total_channels(self, instance: Campaign):
+        return instance.total_channels_count
 
     @admin.display(description='ПФ')
     def total_planed_fact(self,  instance: Campaign):

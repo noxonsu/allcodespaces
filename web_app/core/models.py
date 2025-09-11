@@ -425,11 +425,13 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     @cached_property
     def total_views_fact_over_plan(self):
-        val = 0
+        impressions_fact = 0
+        impressions_plan = 0
         for row in self.campaigns_channel.all():
             if row.impressions_fact > 0 and row.impressions_plan > 0:
-                val+= row.impressions_fact / row.impressions_plan
-        return val * 100 if val else 0
+                impressions_fact+= row.impressions_fact
+                impressions_plan+= row.impressions_plan
+        return impressions_fact / impressions_plan * 100 if impressions_fact and impressions_plan else 0
 
     @property
     def total_ctr(self):
