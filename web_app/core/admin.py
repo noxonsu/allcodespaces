@@ -21,7 +21,7 @@ from .admin_forms import (
 from .admin_utils import (
     MultipleSelectListFilter,
     CustomDateFieldListFilter,
-    can_change_channel_status, CustomChoiceFilter, CustomBooleanFilter,
+    can_change_channel_status, CustomChoiceFilter, CustomBooleanFilter, CustomAllValuesFieldListFilter,
 )
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -128,9 +128,9 @@ class ChannelModelAdmin(admin.ModelAdmin):
     inlines = [ChannelAdminInlined]
     ordering = ["-created_at"]
     list_filter = [
-        ("name", MultipleSelectListFilter),
-        ("country", MultipleSelectListFilter),
-        ("language", MultipleSelectListFilter),
+        ("name",CustomAllValuesFieldListFilter),
+        ("country",CustomAllValuesFieldListFilter),
+        ("language",CustomAllValuesFieldListFilter),
         ("status", CustomChoiceFilter),
         ("is_bot_installed", CustomBooleanFilter),
     ]

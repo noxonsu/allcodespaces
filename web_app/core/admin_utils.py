@@ -31,12 +31,15 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
             self.links = tuple(links)
 
 
+
+class CustomAllValuesFieldListFilter(admin.AllValuesFieldListFilter):
+    template = "admin/filter_one.html"
+
 class CustomChoiceFilter(admin.ChoicesFieldListFilter):
     template = "admin/filter_one.html"
 
 class CustomBooleanFilter(admin.BooleanFieldListFilter):
     template = "admin/filter_one.html"
-
 
 
 def is_empty(value: str) -> bool:
