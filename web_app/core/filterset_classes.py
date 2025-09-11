@@ -11,8 +11,6 @@ class CampaignChannelFilterSet(FilterSet):
     is_message_published = filters.BooleanFilter(method="filter_is_message_published")
 
     def filter_is_message_published(self, queryset, name, value):
-        print(f"{value=}")
-        print(f"{type(value)=}")
         if value is True:
             return queryset.filter(
                 publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
@@ -72,10 +70,17 @@ class CampaignChannelFilterSet(FilterSet):
             ):
                 results.append(campaign_channel.id)
 
-            elif (
+            elif ( # allow to be published when the is words found in white_set and there is no bad_list1
                 campaign_channel.is_approved
                 and not _in(words_set, bad_set)
                 and _in(words_set, white_set)
+            ):
+                results.append(campaign_channel.id)
+
+            elif ( # allow to be published when the is no white_set provided and the words not found as bad_set
+                campaign_channel.is_approved
+                and not _in(words_set, bad_set)
+                and not white_set
             ):
                 results.append(campaign_channel.id)
 
