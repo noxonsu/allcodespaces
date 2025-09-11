@@ -420,7 +420,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @property
     def total_impressions_fact(self):
         return (
-            self.campaigns_channel.aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
+            self.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
         )
 
     @cached_property
@@ -428,7 +428,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         impressions_fact = 0
         impressions_plan = 0
         for row in self.campaigns_channel.all():
-            if row.impressions_fact > 0 and row.impressions_plan > 0:
+            if row.impressions_fact > 0 and row.impressions_plan > 0 and row.publish_status in {CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED}:
                 impressions_fact+= row.impressions_fact
                 impressions_plan+= row.impressions_plan
         return impressions_fact / impressions_plan * 100 if impressions_fact and impressions_plan else 0
