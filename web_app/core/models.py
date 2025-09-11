@@ -776,7 +776,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
 
     class Meta:
         verbose_name = "Статистика"
-        verbose_name_plural = "Статистики"
+        verbose_name_plural = "Статистика"
         ordering = ["-created_at"]
 
     @property
