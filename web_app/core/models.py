@@ -423,16 +423,13 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
             self.campaigns_channel.aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
         )
 
-    @property
+    @cached_property
     def total_views_fact_over_plan(self):
-        return (
-            self.campaigns_channel
-            .aggregate(total=
-                Sum(F("impressions_fact") / F("impressions_plan") * 100,
-                    default=0,
-                    filter=Q(impressions_fact__gte=1, impressions_plan__gte=1)) )
-        )['total']
-
+        val = 0
+        for row in self.campaigns_channel.all():
+            if row.impressions_fact > 0 and row.impressions_plan > 0:
+                val+= row.impressions_fact / row.impressions_plan
+        return val * 100 if val else 0
 
     @property
     def total_ctr(self):
@@ -555,7 +552,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @admin.display(description="ПП")
     def total_planed_views(self):
         return (
-            f"{self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']:.2f}"
+            self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']
             if self.campaigns_channel.exists()
             else "-"
         )

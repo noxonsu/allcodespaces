@@ -1,35 +1,15 @@
 import re
 
 from django import template
-from django.db.models import Sum, F, Q, Avg, DecimalField, QuerySet, Count
-from django.template import RequestContext
-from django.template.defaultfilters import safe
-from django.utils.html import json_script, escape
+from django.db.models import Sum, F, Q, Avg
 
 from django.utils.safestring import mark_safe
 
-from core.models import ChannelAdmin, Channel, CampaignChannel
+from core.models import ChannelAdmin
 
 register = template.Library()
 
 
-# def result_list_custom(cl):
-#     """
-#     Display the headers and data list together.
-#     """
-#     data = result_list(cl)
-#     return data
-#
-# # @register.simple_tag(takes_context=True)
-# @register.simple_tag()
-# def custom_result_list(parser, token):
-#     return InclusionAdminNode(
-#         parser,
-#         token,
-#         func=result_list_custom,
-#         template_name="change_list_results.html",
-#         takes_context=False,
-#     )
 
 
 @register.simple_tag()
