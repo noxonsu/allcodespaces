@@ -326,15 +326,21 @@ JAZZMIN_SETTINGS = {
                 "url": "/api/about",
                 "icon": "fa-solid fa-building",
             },
-            {
-                "name": "Сотрудники",
-                "permissions": ["user.view_user"],
-            },
         ],
     },
     # "language_chooser": True
-    "order_with_respect_to": ["core.channeladmin", "core.campaign", "core.channel", "core.message", "core.user", "core.campaignchannel", 'django_celery_beat.crontabschedule', 'django_celery_beat.intervalschedule', 'django_celery_beat.periodictask'],
-
+    "order_with_respect_to": [
+        "core.channeladmin",
+        "core.campaign",
+        "core.channel",
+        "core.message",
+        "core.user",
+    ]
+    #     "core.campaignchannel",
+    #     'django_celery_beat.crontabschedule',
+    #     'django_celery_beat.intervalschedule',
+    #     'django_celery_beat.periodictask'
+    # ],
 }
 
 
