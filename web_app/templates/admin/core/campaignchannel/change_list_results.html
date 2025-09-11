@@ -1,4 +1,4 @@
-{% load i18n static jazzmin core_tags %}
+{% load i18n static admin_urls admin_modify jazzmin core_tags %}
 
 {% if result_hidden_fields %}
 <div class="hiddenfields">
@@ -6,7 +6,18 @@
 </div>
 {% endif %}
 
-{% if results %}
+
+{% if cl.show_text %}
+<p class="text-muted">
+    Скоро здесь появится статистика по вашим кампаниям
+</p>
+{% elif cl.show_card  %}
+<div class="alert alert-success alert-dismissible">
+        <button type="button" class="close" data-dismiss="alert" aria-hidden="true">×</button>
+    {{ "Вы не добавили ни одного канала. Посмотрите" |capfirst}} <a href="https://telewin.online" target="_blank"> инструкцию</a>
+    {{", как добавить канал" |capfirst}}
+</div>
+{% elif results %}
     <div class="card">
         <div class="card-body table-responsive p-0">
             <table id="result_list" class="table table-striped">
@@ -48,10 +59,10 @@
                                   {% custom_result_list_totals cl=cl result=result %}
                             </tr>
                         {% endif %}
-
                 {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 {% endif %}
+
