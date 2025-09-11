@@ -427,10 +427,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     def total_views_fact_over_plan(self):
         return (
             self.campaigns_channel
-            .aggregate(total=
-                Sum(F("impressions_fact") / F("impressions_plan") * 100,
-                    default=0,
-                    filter=Q(impressions_fact__gte=1, impressions_plan__gte=1)) )
+            .aggregate(total=Sum(
+                F("impressions_fact") / F("impressions_plan") * 100,
+                default=0,
+                filter=Q(impressions_fact__gte=1, impressions_plan__gte=1)) )
         )['total']
 
 
@@ -555,7 +555,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @admin.display(description="ПП")
     def total_planed_views(self):
         return (
-            f"{self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']:.2f}"
+            self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']
             if self.campaigns_channel.exists()
             else "-"
         )
