@@ -5,7 +5,7 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
-from django.db.models import Sum, QuerySet, Count
+from django.db.models import Sum, QuerySet, Count, Q
 from django.forms import Select
 from django.http import JsonResponse, FileResponse
 from django.urls import path
@@ -826,22 +826,18 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     def _get_owner_qs(self,  request, *args, **kwargs):
         qs: QuerySet[CampaignChannel]  = kwargs.get('qs', super().get_queryset(request))
         channel_admin = kwargs['channel_admin']
-        qs =  qs.filter(
-            channel__in=channel_admin.channels.values_list("id", flat=True),
-        ).exclude(
-            channel__status__in=(Channel.ChannelStatus.REJECTED, Channel.ChannelStatus.PENDING),
-        )
-        if not qs.exists():
+        channels = Channel.objects.filter(admins=channel_admin)
+        print(f'{channels.filter(~Q(status=Channel.ChannelStatus.CONFIRMED)).exists()=}')
+        if channels.filter(~Q(status=Channel.ChannelStatus.CONFIRMED)).exists():
             self.show_card = True
-            return qs
-
-        qs = qs.alias(
-            channel_campaign_count=Count('channel__channel_campaigns__campaign')
-        ).filter(channel__status=Channel.ChannelStatus.CONFIRMED)
-
-        if qs.filter(channel_campaign_count=0).exists():
+            return qs.none()
+        elif channels.filter(status=Channel.ChannelStatus.CONFIRMED).exists()\
+            and not qs.filter(channel__in=channels.all(), channel_admin=channel_admin).exists():
             self.show_text = True
-        return qs
+            return qs.none()
+
+        return qs.filter(channel_admin=channel_admin)
+
 
 
     def get_list_display(self, request):
