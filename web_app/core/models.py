@@ -425,13 +425,8 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     @cached_property
     def total_views_fact_over_plan(self):
-        impressions_fact = 0
-        impressions_plan = 0
-        for row in self.campaigns_channel.all():
-            if row.impressions_fact > 0 and row.impressions_plan > 0 and row.publish_status in {CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED}:
-                impressions_fact+= row.impressions_fact
-                impressions_plan+= row.impressions_plan
-        return impressions_fact / impressions_plan * 100 if impressions_fact and impressions_plan else 0
+        return self.total_impressions_fact / self.total_planed_views() * 100 if self.total_planed_views and self.total_impressions_fact else 0
+
 
     @property
     def total_ctr(self):
