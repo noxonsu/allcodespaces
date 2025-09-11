@@ -425,7 +425,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     @cached_property
     def total_views_fact_over_plan(self):
-        return self.total_impressions_fact / self.total_planed_views() * 100 if self.total_planed_views and self.total_impressions_fact else 0
+        return self.total_impressions_fact / self.total_planed_views() * 100 if self.total_planed_views() and self.total_impressions_fact else 0
 
 
     @property
