@@ -1,11 +1,14 @@
 import re
 
 from django import template
-from django.db.models import Sum, F, Q, Avg, DecimalField
+from django.db.models import Sum, F, Q, Avg, DecimalField, QuerySet, Count
+from django.template import RequestContext
+from django.template.defaultfilters import safe
+from django.utils.html import json_script, escape
 
 from django.utils.safestring import mark_safe
 
-from core.models import ChannelAdmin
+from core.models import ChannelAdmin, Channel, CampaignChannel
 
 register = template.Library()
 
@@ -108,8 +111,11 @@ def hide_delete_box(*args, **kwargs):
     return field.contents()
 
 
+# use escape  html to not xss attacks
 @register.simple_tag(takes_context=True)
 def campaign_channels_totals_bar(context, *args, **kwargs):
+    """simply passing datas to javascript by data- attr"""
+
     formset = kwargs['form'].formset
     totals = formset.queryset.aggregate(
         total_clicks=Sum("clicks",default=0),

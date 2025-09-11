@@ -5,7 +5,7 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
-from django.db.models import Sum
+from django.db.models import Sum, QuerySet, Count
 from django.forms import Select
 from django.http import JsonResponse, FileResponse
 from django.urls import path
@@ -806,11 +806,38 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             return qs
         elif not channel_admin:
             return qs.none()
-        elif channel_admin and user.groups.filter(name__in=["owner", "owners"]):
-            return qs.filter(
-                channel__in=channel_admin.channels.values_list("id", flat=True)
-            )
+        elif channel_admin and user.groups.filter(name__in=["owner", "owners"]).exists() or user.is_owner:
+            return self._get_owner_qs(request, qs=qs, channel_admin=channel_admin)
         return qs
+
+
+    def get_changelist_instance(self, request):
+        res = super().get_changelist_instance(request)
+        res.show_text = getattr(self, 'show_text', False)
+        res.show_card = getattr(self, 'show_card', False)
+        return res
+
+
+    def _get_owner_qs(self,  request, *args, **kwargs):
+        qs: QuerySet[CampaignChannel]  = kwargs.get('qs', super().get_queryset(request))
+        channel_admin = kwargs['channel_admin']
+        qs =  qs.filter(
+            channel__in=channel_admin.channels.values_list("id", flat=True),
+        ).exclude(
+            channel__status__in=(Channel.ChannelStatus.REJECTED, Channel.ChannelStatus.PENDING),
+        )
+        if not qs.exists():
+            self.show_card = True
+            return qs
+
+        qs = qs.alias(
+            channel_campaign_count=Count('channel__channel_campaigns__campaign')
+        ).filter(channel__status=Channel.ChannelStatus.CONFIRMED)
+
+        if qs.filter(channel_campaign_count=0).exists():
+            self.show_text = True
+        return qs
+
 
     def get_list_display(self, request):
         response = super().get_list_display(request).copy()
