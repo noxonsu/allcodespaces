@@ -10,6 +10,8 @@ class MultipleSelectListFilter(admin.AllValuesFieldListFilter):
 
 
 class CustomDateFieldListFilter(admin.DateFieldListFilter):
+    template = "admin/filter_one.html"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.display_rename_to = {
@@ -31,12 +33,17 @@ class CustomDateFieldListFilter(admin.DateFieldListFilter):
             self.links = tuple(links)
 
 
+class CustomRelatedFilterListFilter(admin.RelatedFieldListFilter):
+    template = "admin/filter_one.html"
+
 
 class CustomAllValuesFieldListFilter(admin.AllValuesFieldListFilter):
     template = "admin/filter_one.html"
 
+
 class CustomChoiceFilter(admin.ChoicesFieldListFilter):
     template = "admin/filter_one.html"
+
 
 class CustomBooleanFilter(admin.BooleanFieldListFilter):
     template = "admin/filter_one.html"

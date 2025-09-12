@@ -22,6 +22,7 @@ from .admin_utils import (
     MultipleSelectListFilter,
     CustomDateFieldListFilter,
     can_change_channel_status, CustomChoiceFilter, CustomBooleanFilter, CustomAllValuesFieldListFilter,
+    CustomRelatedFilterListFilter,
 )
 from .exporter import QuerySetExporter
 from .external_clients import TGStatClient
@@ -523,9 +524,9 @@ class CampaignAdmin(admin.ModelAdmin):
     ]
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
     list_filter = [
-        ("name", MultipleSelectListFilter),
-        ("client", MultipleSelectListFilter),
-        "status",
+        ("name", CustomAllValuesFieldListFilter),
+        ("client", CustomAllValuesFieldListFilter),
+        ("status", CustomChoiceFilter)
     ]
     fieldsets = (
         (
@@ -682,10 +683,10 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     ]
 
     list_filter = [
-        "campaign",
-        "channel",
+        ("campaign",CustomRelatedFilterListFilter),
+        ("channel",CustomRelatedFilterListFilter),
         ("message_publish_date", CustomDateFieldListFilter),
-        "publish_status",
+        ("publish_status", CustomChoiceFilter),
     ]
     readonly_fields = [
         "ctr_col",
@@ -702,6 +703,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "publish_status",
         "impressions_fact_owner",
     ]
+
 
     def has_add_permission(self, request):
         return False
