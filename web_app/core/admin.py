@@ -523,9 +523,14 @@ class CampaignAdmin(admin.ModelAdmin):
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
     list_filter = [
         ("name", CustomAllValuesFieldListFilter),
+        ("brand", CustomAllValuesFieldListFilter),
         ("client", CustomAllValuesFieldListFilter),
-        ("status", CustomChoiceFilter)
+        ("status", CustomChoiceFilter),
+        ("start_date",CustomDateFieldListFilter),
+        ("finish_date",CustomDateFieldListFilter),
     ]
+
+
     fieldsets = (
         (
             "Общие",
