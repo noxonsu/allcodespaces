@@ -3,11 +3,12 @@ from functools import cached_property
 from django.templatetags.l10n import localize
 from rest_framework import serializers
 from core.models import Channel, Message, CampaignChannel, User, Campaign, ChannelAdmin
+from core.utils import validate_channel_avtar_url
 
 
 class ChannelSerializer(serializers.ModelSerializer):
     avatar = serializers.URLField(
-        source="avatar_url", required=False, allow_blank=True, allow_null=True
+        source="avatar_url", required=False, allow_blank=True, allow_null=True, default='/static/custom/default.jpg'
     )
 
     class Meta:
@@ -29,10 +30,17 @@ class ChannelSerializer(serializers.ModelSerializer):
             channel.save()
         else:
             channel = super().create(validated_data)
+
         service = TGStatClient()
         service.update_channel_info(channel=channel)
         service.update_channel_stat(channel=channel)
+
         return channel
+
+    def validate_avatar(self, url):
+        from core.utils import validate_channel_avtar_url
+        return validate_channel_avtar_url(url)
+
 
 
 class ListMessageSerializer(serializers.ListSerializer):
@@ -240,7 +248,7 @@ class TGChannelInfo(serializers.ModelSerializer):
         allow_null=True, required=False, source="members_count"
     )
     image640 = serializers.CharField(
-        allow_null=True, allow_blank=True, source="avatar_url"
+        allow_null=True, allow_blank=True, source="avatar_url", default='/static/custom/default.jpg'
     )
 
     def validate_link(self, link: str):
@@ -249,6 +257,13 @@ class TGChannelInfo(serializers.ModelSerializer):
         if not link and self.instance and self.instance.avatar_url:
             return self.instance.avatar_url
         return link
+
+    def validate_image640(self, image_url: str):
+        try:
+             return validate_channel_avtar_url(image_url)
+        except:
+            return '/static/custom/default.jpg' if not image_url.startswith('https') else image_url
+
 
     class Meta:
         model = Channel
