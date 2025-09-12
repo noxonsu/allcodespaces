@@ -866,7 +866,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     def get_list_filter(self, request):
         response = super().get_list_filter(request).copy()
         user = request.user
-        if user.groups.filter(name__in=["owners", "owner"]):
+        if user.groups.filter(name__in=["owners", "owner"]) and 'campaign' in response:
             response.remove("campaign")  # remove first col
             return response
         return response
