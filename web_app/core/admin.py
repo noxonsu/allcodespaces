@@ -130,8 +130,6 @@ class ChannelModelAdmin(admin.ModelAdmin):
     ordering = ["-created_at"]
     list_filter = [
         ("name",CustomAllValuesFieldListFilter),
-        ("country",CustomAllValuesFieldListFilter),
-        ("language",CustomAllValuesFieldListFilter),
         ("status", CustomChoiceFilter),
         ("is_bot_installed", CustomBooleanFilter),
     ]
