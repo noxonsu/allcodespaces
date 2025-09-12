@@ -262,7 +262,7 @@ class TGChannelInfo(serializers.ModelSerializer):
         try:
              return validate_channel_avtar_url(image_url)
         except:
-            return '/static/custom/default.jpg' if not image_url.startswith('https') else image_url
+            return '/static/custom/default.jpg' if not image_url.startswith('https') or not image_url.startswith('//static')   else image_url
 
 
     class Meta:
