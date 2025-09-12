@@ -14,6 +14,8 @@ from ..admin_utils import is_not_valid_channel_status
 from ..models import Campaign, Channel
 from faker import Faker
 
+from ..utils import update_broken_channel_avatar
+
 faker = Faker()
 
 pytestmark = [pytest.mark.django_db]
@@ -124,6 +126,39 @@ class ChannelTestCase(TransactionTestCase):
             self.old_channel.status, Channel.ChannelStatus.PENDING
         )
         self.assertTrue(is_not_valid)  # this means that status is not valid
+
+    def test_create_channel_has_default_avatar(self):
+        channel = Channel.objects.create(name='channel for testing')
+        self.assertIsNotNone(channel.avatar_url, 'must be a value in the avatar_url by default')
+        self.assertEqual(channel.avatar_url, '/static/custom/default.jpg')
+
+
+class UtilsTestCase(TransactionTestCase):
+
+    def test_update_broken_avatar_success(self):
+        channels = ChannelFactory.create_batch(size=10)
+        i = 0
+
+        for channel in channels[i:i+3]:
+            # must be excluded from updating
+            channel.avatar_url = '/static/custom/default.jpg'
+            channel.save()
+            i+=1
+
+        for channel in channels[i:i+2]:
+            # must be excluded from updating
+            channel.avatar_url = 'https://google.com'
+            channel.save()
+            i+=1
+
+        update_broken_channel_avatar()
+
+        self.assertEqual(Channel.objects.count(), 10)
+        self.assertFalse(Channel.objects.filter(avatar_url__isnull=True).exists())
+        self.assertFalse(Channel.objects.filter(avatar_url="invalid-url").exists(), 'Should be updated to default avatar')
+        self.assertEqual(Channel.objects.filter(avatar_url="https://google.com").count(), 2, 'Should be not updated')
+        self.assertEqual(Channel.objects.filter(avatar_url="/static/custom/default.jpg").count(), 8)
+
 
 
 class CampaignTestCase(TransactionTestCase):
