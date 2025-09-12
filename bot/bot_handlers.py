@@ -17,7 +17,8 @@ async def admin_start_handler(update: Update, context: ContextTypes.DEFAULT_TYPE
     welcome_text =("Добро пожаловать в ТЕЛЕВИН — платформу пассивного дохода на рекламе в Telegram!\n"+
     "Website – https://telewin.online/\n"+
     "Канал — https://t.me/telewin_online\n"+
-    "Личный кабинет – https://app.telewin.online")
+    "Личный кабинет – https://app.telewin.online\n"+
+    "Инструкция – https://telewin.online/instruction\n")
 
     await context.bot.edit_message_text(
         text=welcome_text,
