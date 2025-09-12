@@ -5,7 +5,7 @@ from django import forms
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
-from django.db.models import Sum, QuerySet, Count, Q
+from django.db.models import Sum, QuerySet, Q
 from django.forms import Select
 from django.http import JsonResponse, FileResponse
 from django.urls import path
@@ -19,7 +19,6 @@ from .admin_forms import (
     MessageModelForm,
 )
 from .admin_utils import (
-    MultipleSelectListFilter,
     CustomDateFieldListFilter,
     can_change_channel_status, CustomChoiceFilter, CustomBooleanFilter, CustomAllValuesFieldListFilter,
     CustomRelatedFilterListFilter,
@@ -494,6 +493,7 @@ class CampaignAdmin(admin.ModelAdmin):
         css = {"all": ["core/css/campaign/change_form.css"]}
         js = ['core/js/campaign/change_form.js']
 
+    actions = None
     list_max_show_all = 50
     list_per_page = 20
     form = CampaignAdminForm
@@ -827,7 +827,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         qs: QuerySet[CampaignChannel]  = kwargs.get('qs', super().get_queryset(request))
         channel_admin = kwargs['channel_admin']
         channels = Channel.objects.filter(admins=channel_admin)
-        print(f'{channels.filter(~Q(status=Channel.ChannelStatus.CONFIRMED)).exists()=}')
         if channels.filter(~Q(status=Channel.ChannelStatus.CONFIRMED)).exists():
             self.show_card = True
             return qs.none()
@@ -836,7 +835,11 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             self.show_text = True
             return qs.none()
 
-        return qs.filter(channel_admin=channel_admin)
+        if not qs.filter(channel_admin=channel_admin, channel__in=channels.all()).exists():
+            self.show_card = True
+            return qs.none()
+        return qs.filter(channel_admin=channel_admin, channel__in=channels.all())
+
 
 
 
