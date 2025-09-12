@@ -191,3 +191,23 @@ def update_broken_channel_avatar() ->None:
         no = Channel.objects.bulk_update(channels_list, fields=['avatar_url'])
         logger.info(f'Channel ({no}) avatars updated')
 
+
+
+def validate_channel_avtar_url(url):
+    """Return default url if no invalid image was provided or None"""
+    default_path = '/static/custom/default.jpg'
+    try:
+        if url and url.startswith('//static'):
+            """this is url for tgstat images"""
+            url = 'https:'+url
+
+        response = requests.get(
+            url=url,
+            timeout=10
+        )
+        if not response.headers['Content-Type'].startswith('image/'):
+                url = default_path
+    except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout, requests.exceptions.MissingSchema) as e:
+            url=default_path
+
+    return url
