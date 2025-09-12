@@ -2,9 +2,12 @@ from decimal import Decimal
 from functools import cached_property
 from string import Template
 from typing import Sequence
+from warnings import deprecated
 
 import requests
 from django.apps import apps
+from django.db.models import Q
+from django.db.transaction import atomic
 
 from web_app.app_settings import app_settings
 from web_app.logger import logger
@@ -152,3 +155,39 @@ def get_template_side_data(app_name: str, nav_header_name='', exclude=None, perm
                 return self._data
 
         return SideMenuObject(app_name, nav_header_name, exclude, permissions_list=permissions)
+
+@atomic
+@deprecated('this function would be removed soon')
+def update_broken_channel_avatar() ->None:
+    """ this function is meant to update all avatars to have a default image"""
+    from core.models import Channel
+
+    default_path = '/static/custom/default.jpg'
+    channels = Channel.objects.filter(~Q(avatar_url=default_path))
+    channels_list = []
+
+    for channel in channels:
+        try:
+            url = channel.avatar_url
+            if channel.avatar_url and channel.avatar_url.startswith('//static'):
+                """this is url for tgstat images"""
+                url = 'https:'+channel.avatar_url
+
+            response = requests.get(
+                url=url,
+                timeout=10
+            )
+            if not response.headers['Content-Type'].startswith('image/'):
+                    channel.avatar_url = default_path
+                    channels_list.append(channel)
+
+
+        except (requests.exceptions.ConnectionError, requests.exceptions.ReadTimeout, requests.exceptions.MissingSchema) as e:
+            logger.info(f'{channel.avatar_url=} is to be updated')
+            channel.avatar_url=default_path
+            channels_list.append(channel)
+
+    if channels_list:
+        no = Channel.objects.bulk_update(channels_list, fields=['avatar_url'])
+        logger.info(f'Channel ({no}) avatars updated')
+

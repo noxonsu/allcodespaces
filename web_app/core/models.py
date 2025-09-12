@@ -300,7 +300,7 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         max_length=10,
     )
     meta = JSONField(null=True, blank=True, verbose_name=_("meta"))
-    avatar_url = models.URLField(null=True, blank=True, verbose_name=_("avatar"))
+    avatar_url = models.URLField(null=True, blank=True, verbose_name=_("avatar"),  default='/static/custom/default.jpg')
     avg_posts_reach = models.FloatField(
         blank=True, verbose_name=_("Охват"), default=0, null=True
     )
