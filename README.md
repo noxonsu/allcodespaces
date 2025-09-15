@@ -21,6 +21,12 @@
 - Grafana/loki
 - Grafana/promtail
 
+## Docker
+- Docker файлы находятся в папке web_app
+  - файл docker-compose.yml для Dev
+  - файл docker-compose.stag.yml для прод
+  
+
 ## Dev
 запустить приложение для разработки довольно просто
 - в корневой папке проекта где находится файл Makefile
