@@ -812,9 +812,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         user = request.user
         channel_admin = ChannelAdmin.objects.filter(user=user).first()
-        if not channel_admin and not user.is_superuser:
-            return qs.none()
-        elif channel_admin and user.groups.filter(name__in=["owner", "owners"]).exists() or user.is_owner:
+        if channel_admin and user.groups.filter(name__in=["owner", "owners"]).exists() or user.is_owner:
             return self._get_owner_qs(request, qs=qs, channel_admin=channel_admin)
         return qs
 
