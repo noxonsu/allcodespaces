@@ -29,6 +29,7 @@ $(document).ready( function() {
                         $('#'+id_select_channel_admin).append(option).trigger('change');
                     }else{
                         $('[data-channel_admin-select]').prop('disabled', false);
+                        $('#'+id_select_channel_admin).empty();
                     }
                 });
 
