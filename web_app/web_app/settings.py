@@ -175,7 +175,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = "ru"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Moscow"
 
 USE_I18N = True
 
@@ -318,6 +318,10 @@ JAZZMIN_SETTINGS = {
         "django_celery_beat.clockedschedule",
         "django_celery_beat.solarschedule",
         "core.messagelink",
+        "auth.group",
+        "django_celery_beat.crontabschedule",
+        "django_celery_beat.periodictask",
+        "django_celery_beat.intervalschedule",
     ],
     "custom_links": {
         "core": [
@@ -326,6 +330,37 @@ JAZZMIN_SETTINGS = {
                 "url": "/api/about",
                 "icon": "fa-solid fa-building",
             },
+
+        ],
+        "auth": [
+            {
+                "name": "Группы",
+                "url": "/auth/group/",
+                "icon": "fa-solid fa-user-group",
+                'permissions': ["auth.add_user"],
+            },
+        ],
+        "django_celery_beat": [
+            {
+                "name": "Crontab",
+                "url": "/django_celery_beat/crontabschedule/",
+                "icon": "fa-solid fa-clock",
+                'permissions': ["auth.add_user"],
+            },
+            {
+                "name": "Интервалы",
+                "url": "/django_celery_beat/intervalschedule/",
+                "icon": "fa-solid fa-repeat",
+                'permissions': ["auth.add_user"],
+            },
+
+            {
+                "name": "Периодические задачи",
+                "url": "/django_celery_beat/periodictask/",
+                "icon": "fa-solid fa-list-check",
+                'permissions': ["auth.add_user"],
+            },
+
         ],
     },
     # "language_chooser": True

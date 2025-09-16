@@ -1,10 +1,11 @@
+import  factory.fuzzy
+import factory.random
+
 from factory.django import DjangoModelFactory
 import factory.random
-from factory import SubFactory
 from faker import Faker
 
-from core.models import ChannelAdmin
-
+from core.models import ChannelAdmin, Channel
 
 faker = Faker()
 
@@ -63,11 +64,31 @@ class ChannelFactory(DjangoModelFactory):
     daily_reach = factory.Faker("pyfloat", min_value=1)
 
 
+class GroupFactory(DjangoModelFactory):
+    class Meta:
+        model = "auth.Group"
+        django_get_or_create = ('name',)
+
+    name = factory.fuzzy.FuzzyChoice(ChannelAdmin.Role.choices, getter=lambda x: x[0])
+
 class UserFactory(DjangoModelFactory):
     class Meta:
         model = "core.User"
 
-    username = factory.Faker("name")
+    username = factory.Faker("user_name")
+    password = factory.django.Password('psswd')
+    first_name = factory.Sequence(lambda n: 'first_name %03d' % n)
+    last_name = factory.Sequence(lambda n: 'last_name %03d' % n)
+
+
+    @factory.post_generation
+    def groups(self, create, extracted, **kwargs):
+        if not create or not extracted:
+            # Simple build, or nothing to add, do nothing.
+            return
+
+        group = GroupFactory(name=ChannelAdmin.Role(extracted)) # using get_or_create for get or create a group
+        self.groups.add(group)
 
 
 class ChannelAdminFactory(DjangoModelFactory):
@@ -86,9 +107,21 @@ class ChannelAdminFactory(DjangoModelFactory):
         [i[0] for i in ChannelAdmin.CooperationFormChoices.choices]
     )
     legal_name = faker.text()
-    role = faker.random.choice([i[0] for i in ChannelAdmin.Role.choices])
+    role = factory.fuzzy.FuzzyChoice(ChannelAdmin.Role.choices, getter=lambda x: x[0])
     is_bot_installed = factory.Faker("boolean")
-    user = SubFactory(UserFactory)
+    # user = factory.RelatedFactory( # the user is created by django signals!!!
+    #     'core.tests.factories.UserFactory',
+    #     groups=factory.SelfAttribute('..profile.role')
+    # )
+
+    @factory.post_generation
+    def channels(self, created, extracted, **kwargs):
+        if not created or not extracted:
+            return
+        size = extracted.get('size', 1)
+        status = extracted.get('status', Channel.ChannelStatus.PENDING)
+        channels = ChannelFactory.create_batch(size=size, status=status)
+        self.channels.set(channels)
 
 
 class CampaignChannelFactory(DjangoModelFactory):

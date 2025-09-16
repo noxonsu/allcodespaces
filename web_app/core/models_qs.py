@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, Permission
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
-from django.db.models import Manager
+from django.db.models import Manager, QuerySet
 
 from web_app.logger import logger
 
@@ -36,4 +36,8 @@ def change_channeladmin_group(instance: "ChannelAdmin"):  # noqa:F821
     instance.user.refresh_from_db()
 
 
-class ChannelAdminManager(Manager): ...
+class ChannelAdminManager(Manager):
+
+    def channels_by_status(self, _id, status) -> QuerySet['Channel']:
+        from core.models import Channel
+        return self.get(id=_id).channels.filter(status=Channel.ChannelStatus(status))

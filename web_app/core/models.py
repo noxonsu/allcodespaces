@@ -42,7 +42,7 @@ class User(ExportModelOperationsMixin("user"), AbstractUser):
 
     @cached_property
     def is_manager(self):
-        return self.has_profile and self.profile.is_manger
+        return self.has_profile and self.profile.is_manager
 
     class Meta:
         verbose_name_plural = "Пользователи"
@@ -138,7 +138,7 @@ class ChannelAdmin(ExportModelOperationsMixin("channeladmin"), BaseModel):
         return self.role == self.Role.OWNER
 
     @cached_property
-    def is_manger(self):
+    def is_manager(self):
         return self.role == self.Role.MANAGER
 
 
