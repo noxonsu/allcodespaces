@@ -2,30 +2,69 @@ $(document).ready( function() {
     $.fn.exists = function() {
     return this.length > 0;
   };
+
     var select_channel = $('select[data-channel-select]');
-    if (select_channel.exists()) {
-        select_channel.on('change', function (e) {
-            var channel_id = this.value;
-            var location_splited = location.href.split('/')
-            var protocol = location_splited[0]
-            var domain = location_splited[2]
-            var campaign_id = location_splited[5]
-            var url = protocol + '//' + domain + '/core/channel/'+`${channel_id}/channel-admins-list`
-            $.ajax({
-                url:url ,
-                method: "GET",
-            }).done(function (list_admins){
-                $('[data-channel_admin-select]').empty();
-                if (list_admins.length > 0) {
-                    var option = new Option(list_admins[0]['text'], list_admins[0]['id'], true, true);
-                    $('[data-channel_admin-select]').append(option).trigger('change');
-                }else{
-                    $('[data-channel_admin-select]').prop('disabled', false);
-                }
+
+    function getChannelAdmin(){
+        var select_channel = $('select[data-channel-select]');
+        select_channel.each(function () {
+            $(this).on('change', function (e) {
+                var channel_id = this.value;
+                var location_splited = location.href.split('/')
+                var protocol = location_splited[0]
+                var domain = location_splited[2]
+                var campaign_id = location_splited[5]
+                var url = protocol + '//' + domain + '/core/channel/'+`${channel_id}/channel-admins-list`
+                var id_select_channel_admin = $(this).attr('id') + '_admin';
+                console.log('weqweqwe', id_select_channel_admin);
+
+                $.ajax({
+                    url:url ,
+                    method: "GET",
+                }).done(function (list_admins){
+                    // $('[data-channel_admin-select]').empty();
+                    if (list_admins.length > 0) {
+                        var option = new Option(list_admins[0]['text'], list_admins[0]['id'], true, true);
+                        // $('[data-channel_admin-select]').append(option).trigger('change');
+                        $('#'+id_select_channel_admin).append(option).trigger('change');
+                    }else{
+                        $('[data-channel_admin-select]').prop('disabled', false);
+                    }
+                });
+
             });
         });
-  }
-function addTotalsTr() {
+
+    }
+    getChannelAdmin()
+
+
+const waitForElement = (selector, callback) => {
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(mutation => {
+      mutation.addedNodes.forEach(node => {
+        if (node.matches && node.matches(selector)) {
+          callback(node);
+          observer.disconnect();
+        }
+      });
+    });
+  });
+
+  observer.observe(document.body, { childList: true, subtree: true });
+};
+
+waitForElement('.add-row', element => {
+  $(element).click(
+      function (e){
+        $('[data-channel_admin-select]').eq(-2).empty();
+        getChannelAdmin()
+      }
+  );
+});
+
+
+    function addTotalsTr() {
         newRow = `<tr class='form-row has_original dynamic-campaigns_channel' id='campaigns_channel-totals'> 
                     <td class="campaigns_channel-totals-label field-channel"><lable class="h6 font-weight-bold font-italic" style="color:#64748b;">Итого</lable></td>
                     <td class="campaigns_channel-totals-field-1 field-channel_invitation_link"></td>
@@ -46,6 +85,5 @@ function addTotalsTr() {
                   </tr>`;
     $(newRow).insertAfter($('#campaign-channel-table tr:last'));
 }
-
-addTotalsTr()
+    addTotalsTr()
 });
