@@ -830,8 +830,8 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         qs: QuerySet[CampaignChannel]  = kwargs.get('qs', super().get_queryset(request))
         channel_admin = kwargs['channel_admin']
 
-        channels = ChannelAdmin.objects.channels_by_status(channel_admin.id)
-        if not channels.filter(status=Channel.ChannelStatus.CONFIRMED).exists():
+        channels = ChannelAdmin.objects.channels_by_status(channel_admin.id, Channel.ChannelStatus.CONFIRMED)
+        if not channels.exists():
             self.show_card = True
             self.show_text = False
             return qs.none()
