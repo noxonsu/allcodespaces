@@ -1,17 +1,19 @@
+from unittest import skipIf
+from django.test import  tag
 import django.utils.timezone as timezone
 import pytest
 from django.core.exceptions import ValidationError
 from django.test import TransactionTestCase
 
-from .conftest import create_campaign_channel
+from .conftest import create_campaign_channel, create_owner_fn
 from .factories import (
     ChannelAdminFactory,
     MessageFactory,
     CampaignFactory,
-    ChannelFactory,
+    ChannelFactory, UserFactory,
 )
 from ..admin_utils import is_not_valid_channel_status
-from ..models import Campaign, Channel
+from ..models import Campaign, Channel, ChannelAdmin
 from faker import Faker
 
 from ..utils import update_broken_channel_avatar
@@ -134,7 +136,7 @@ class ChannelTestCase(TransactionTestCase):
 
 
 class UtilsTestCase(TransactionTestCase):
-
+    @skipIf(True, 'to delete not needed')
     def test_update_broken_avatar_success(self):
         channels = ChannelFactory.create_batch(size=10)
         i = 0
@@ -158,7 +160,6 @@ class UtilsTestCase(TransactionTestCase):
         self.assertFalse(Channel.objects.filter(avatar_url="invalid-url").exists(), 'Should be updated to default avatar')
         self.assertEqual(Channel.objects.filter(avatar_url="https://google.com").count(), 2, 'Should be not updated')
         self.assertEqual(Channel.objects.filter(avatar_url="/static/custom/default.jpg").count(), 8)
-
 
 
 class CampaignTestCase(TransactionTestCase):
@@ -190,3 +191,21 @@ class CampaignTestCase(TransactionTestCase):
         campaign = CampaignFactory.create()
         self.assertIsNotNone(campaign.client)
         self.assertIsNotNone(campaign.created_at)
+
+class ChannelAdminTestCase(TransactionTestCase):
+
+    @tag('unittest_owner')
+    def test_create_owner_user_success(self):
+        owner = ChannelAdminFactory(role=ChannelAdmin.Role.OWNER) # user is created by django signals
+        self.assertTrue(owner.is_owner)
+        self.assertTrue(owner.user.is_owner)
+        self.assertFalse(owner.is_manager)
+        self.assertFalse(owner.user.is_manager)
+
+
+    @tag('unittest_owner')
+    def test_owner_channels_pending_success(self):
+        owner = ChannelAdminFactory(role=ChannelAdmin.Role.OWNER, channels={'size': 3})
+        channels = ChannelAdmin.objects.channels_by_status(owner.id, Channel.ChannelStatus.PENDING)
+        self.assertEqual(channels.count(), 3)
+

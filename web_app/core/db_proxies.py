@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from datetime import timedelta
 from decimal import Decimal
 
@@ -69,3 +71,11 @@ class CampaignChannelQs(QuerySet):
         return self.aggregate(
             total_budgets=Sum("impressions_plan") / Decimal(1000) * Sum("cpm")
         )["total_budgets"]
+
+    def admin_channel_status_qs(self, channel_admin_id, channel_status) -> CampaignChannelQs:
+        from core.models import ChannelAdmin
+        channels = ChannelAdmin.objects.channels_by_status(channel_admin_id, channel_status)
+        return self.filter(
+            channel__in=channels,
+            channel_admin_id=channel_admin_id,
+        )

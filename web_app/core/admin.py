@@ -812,9 +812,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         user = request.user
         channel_admin = ChannelAdmin.objects.filter(user=user).first()
-        if user.is_superuser:
-            return qs
-        elif not channel_admin:
+        if not channel_admin and not user.is_superuser:
             return qs.none()
         elif channel_admin and user.groups.filter(name__in=["owner", "owners"]).exists() or user.is_owner:
             return self._get_owner_qs(request, qs=qs, channel_admin=channel_admin)
@@ -831,18 +829,18 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     def _get_owner_qs(self,  request, *args, **kwargs):
         qs: QuerySet[CampaignChannel]  = kwargs.get('qs', super().get_queryset(request))
         channel_admin = kwargs['channel_admin']
-        channels = Channel.objects.filter(admins=channel_admin)
-        if channels.filter(~Q(status=Channel.ChannelStatus.CONFIRMED)).exists():
+
+        channels = ChannelAdmin.objects.channels_by_status(channel_admin.id)
+        if not channels.filter(status=Channel.ChannelStatus.CONFIRMED).exists():
             self.show_card = True
+            self.show_text = False
             return qs.none()
-        elif channels.filter(status=Channel.ChannelStatus.CONFIRMED).exists()\
-            and not qs.filter(channel__in=channels.all(), channel_admin=channel_admin).exists():
+
+        if not CampaignChannel.objects.admin_channel_status_qs(channel_admin.id, status=Channel.ChannelStatus.CONFIRMED).exists():
+            self.show_card = False
             self.show_text = True
             return qs.none()
 
-        if not qs.filter(channel_admin=channel_admin, channel__in=channels.all()).exists():
-            self.show_card = True
-            return qs.none()
         return qs.filter(channel_admin=channel_admin, channel__in=channels.all())
 
 
