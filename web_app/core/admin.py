@@ -836,7 +836,7 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             self.show_text = False
             return qs.none()
 
-        if not CampaignChannel.objects.admin_channel_status_qs(channel_admin.id, status=Channel.ChannelStatus.CONFIRMED).exists():
+        if not CampaignChannel.objects.admin_channel_status_qs(channel_admin.id, Channel.ChannelStatus.CONFIRMED).exists():
             self.show_card = False
             self.show_text = True
             return qs.none()
