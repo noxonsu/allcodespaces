@@ -317,6 +317,7 @@ JAZZMIN_SETTINGS = {
     "hide_models": [
         "django_celery_beat.clockedschedule",
         "django_celery_beat.solarschedule",
+        "core.user",
         "core.messagelink",
         "auth.group",
         "django_celery_beat.crontabschedule",
@@ -325,6 +326,12 @@ JAZZMIN_SETTINGS = {
     ],
     "custom_links": {
         "core": [
+            {
+                "name": "Пользователи",
+                "url": "/core/user",
+                "icon": "fas fa-user-alt",
+                'permissions': ["auth.add_user"],
+            },
             {
                 "name": "О Компании",
                 "url": "/api/about",
