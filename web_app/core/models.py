@@ -744,6 +744,11 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
 
     def clean_add_to_campaign(self: Self):
         create = self._state.adding
+        if getattr(self, 'campaign', None) and not self.campaign.finish_date:
+            raise ValidationError({'finish_date': "это обязательное поле"})
+        if getattr(self, 'campaign', None) and not self.campaign.start_date:
+            raise ValidationError({'start_date': "это обязательное поле"})
+
         if (
             create
             and getattr(self, "campaign", None)
