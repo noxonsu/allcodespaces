@@ -16,7 +16,7 @@ from .admin_forms import (
     CampaignAdminForm,
     ChannelAdminForm,
     ChannelForm,
-    MessageModelForm,
+    MessageModelForm, CampaignChannelInlinedForm,
 )
 from .admin_utils import (
     CustomDateFieldListFilter,
@@ -303,64 +303,13 @@ class ChannelModelAdmin(admin.ModelAdmin):
         return JsonResponse(data=data, safe=False)
 
 
-class CampaignChannelInlinedForm(forms.ModelForm):
-    channel = forms.ModelChoiceField(
-        queryset=Channel.objects.all(),
-        widget=Select(
-            attrs={"class": "form-group", "data-channel-select": ""},
-        ),
-    )
-    channel_admin = forms.ModelChoiceField(
-        queryset=ChannelAdmin.objects.all(),
-        widget=Select(
-            attrs={"class": "form-group", "data-channel_admin-select": ""},
-        ),
-        required=True,
-    )
-
-    class Meta:
-        model = CampaignChannel
-        fields = "__all__"
-
-    def clean(self: Self):
-        from core.utils import budget_cpm
-
-        instance: CampaignChannel = self.instance
-        campaign: Campaign = self.cleaned_data.get("campaign")
-        cpm: Decimal = self.cleaned_data.get("cpm", 0)
-        impressions_plan: Decimal = self.cleaned_data.get("impressions_plan", 0)
-        budget: Decimal = campaign.budget
-        if not budget:
-            raise ValidationError("бюджет обязательное поле")
-        current_total_budget = budget_cpm(cpm=cpm, impressions_plan=impressions_plan)
-        if not campaign or (campaign and not campaign.id):
-            if current_total_budget > budget:
-                raise ValidationError(
-                    {
-                        "cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"
-                    }
-                )
-        elif instance and campaign.budget:
-            total_budget = budget_cpm_from_qs(
-                CampaignChannel.objects.filter(campaign=campaign, channel__isnull=False)
-            )
-            total_budget += current_total_budget
-            if total_budget > campaign.budget:
-                raise ValidationError(
-                    {
-                        "cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"
-                    }
-                )
-
-        return super().clean()
-
-
-
 class CampaignChannelInlined(admin.TabularInline):
+    """CampaignChannel in campaign model admin"""
+
+    class Media:
+        js = {"custom/campaign_channel_inlined.js"}
+
     model = CampaignChannel
-    verbose_name = "Канал"
-    verbose_name_plural = "Каналы"
-    extra = 1
     readonly_fields = [
         "impressions_fact",
         "message_publish_date",
@@ -390,13 +339,11 @@ class CampaignChannelInlined(admin.TabularInline):
         'channel_post_id',
         'update_statistics',
     ]
-
+    extra = 1
+    verbose_name = "Канал"
+    verbose_name_plural = "Каналы"
     form = CampaignChannelInlinedForm
     template = "admin/core/campaign/campaign_channel_tabular.html"
-
-
-    class Media:
-        js = {"custom/campaign_channel_inlined.js"}
 
     @admin.display(description="Обновить статистику")
     def update_statistics(self, instance):
@@ -416,7 +363,6 @@ class CampaignChannelInlined(admin.TabularInline):
         return mark_safe(f'<a target="_blank" href="{instance.channel.invitation_link}">'
                          f'<i class="fab fa-telegram-plane blue-color" style="font-size: 40px"></i>'
                          f'</a>') if getattr(instance, "channel", None) else "-"
-
 
     @admin.display(description='Разница')
     def cpm_diff(self, instance):
@@ -496,8 +442,6 @@ class CampaignAdmin(admin.ModelAdmin):
     actions = None
     list_max_show_all = 50
     list_per_page = 20
-    form = CampaignAdminForm
-    list_display_links = ['name_str']
     readonly_fields = [
         "id",
         "total_planed_views",
@@ -520,7 +464,6 @@ class CampaignAdmin(admin.ModelAdmin):
         "total_ctr",
         "budget",
     ]
-    inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
     list_filter = [
         ("name", CustomAllValuesFieldListFilter),
         ("brand", CustomAllValuesFieldListFilter),
@@ -529,8 +472,6 @@ class CampaignAdmin(admin.ModelAdmin):
         ("start_date",CustomDateFieldListFilter),
         ("finish_date",CustomDateFieldListFilter),
     ]
-
-
     fieldsets = (
         (
             "Общие",
@@ -554,13 +495,9 @@ class CampaignAdmin(admin.ModelAdmin):
         ),
         ("Креатив", {"classes": ["wide"], "fields": ("message",)}),
     )
-
-    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
-        """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
-        extra_context = {} if not extra_context else extra_context
-        extra_context["show_save_and_continue"] = False
-        extra_context["show_save_and_add_another"] = False
-        return super().changeform_view(request, object_id, extra_context=extra_context)
+    list_display_links = ['name_str']
+    form = CampaignAdminForm
+    inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
 
     @admin.display(description='Каналы')
     def total_channels(self, instance: Campaign):
@@ -605,6 +542,13 @@ class CampaignAdmin(admin.ModelAdmin):
         return mark_safe(
             f'<a class="btn btn-info" href="/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
         )
+
+    def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
+        """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
+        extra_context = {} if not extra_context else extra_context
+        extra_context["show_save_and_continue"] = False
+        extra_context["show_save_and_add_another"] = False
+        return super().changeform_view(request, object_id, extra_context=extra_context)
 
 
 @register(Message)
@@ -684,7 +628,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "clicks",
         "earned_money",
     ]
-
     list_filter = [
         ("campaign",CustomRelatedFilterListFilter),
         ("channel",CustomRelatedFilterListFilter),
@@ -706,10 +649,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
         "publish_status",
         "impressions_fact_owner",
     ]
-
-
-    def has_add_permission(self, request):
-        return False
 
     @admin.display(description='Рекламодатель')
     def campaign_client(self, instance: CampaignChannel):
@@ -750,15 +689,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             f'<a href="/core/channel/{obj.channel.id}/change/"> {obj.channel}</a>'
         )
 
-    def _remove_changelist_delete_obj(self, actions_dict):
-        if "delete_selected" in actions_dict:
-            del actions_dict["delete_selected"]
-
-    def get_actions(self, request):
-        response = super().get_actions(request)
-        self._remove_changelist_delete_obj(response)
-        return response
-
     @admin.display(description="Название РК", ordering="campaign")
     def campaign_link(self, obj: CampaignChannel):
         return mark_safe(
@@ -777,6 +707,18 @@ class CampaignChannelAdmin(admin.ModelAdmin):
     def finish_date(self, instance):
         return instance.campaign.finish_date
 
+    @admin.display(description="Показы", ordering="impressions_fact")
+    def impressions_fact_owner(self, obj):
+        return obj.impressions_fact if obj.impressions_fact else "-"
+
+    def _remove_changelist_delete_obj(self, actions_dict):
+        if "delete_selected" in actions_dict:
+            del actions_dict["delete_selected"]
+
+    def get_actions(self, request):
+        response = super().get_actions(request)
+        self._remove_changelist_delete_obj(response)
+        return response
 
     def export_to_xlsx(self, request):
         self.message_user(request, "Выгрузка в excel запущено")
@@ -816,13 +758,11 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             return self._get_owner_qs(request, qs=qs, channel_admin=channel_admin)
         return qs
 
-
     def get_changelist_instance(self, request):
         res = super().get_changelist_instance(request)
         res.show_text = getattr(self, 'show_text', False)
         res.show_card = getattr(self, 'show_card', False)
         return res
-
 
     def _get_owner_qs(self,  request, *args, **kwargs):
         qs: QuerySet[CampaignChannel]  = kwargs.get('qs', super().get_queryset(request))
@@ -840,9 +780,6 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             return qs.none()
 
         return qs.filter(channel_admin=channel_admin, channel__in=channels.all())
-
-
-
 
     def get_list_display(self, request):
         response = super().get_list_display(request).copy()
@@ -873,9 +810,8 @@ class CampaignChannelAdmin(admin.ModelAdmin):
             return response
         return response
 
-    @admin.display(description="Показы", ordering="impressions_fact")
-    def impressions_fact_owner(self, obj):
-        return obj.impressions_fact if obj.impressions_fact else "-"
+    def has_add_permission(self, request):
+        return False
 
 
 @register(User)

@@ -1,8 +1,12 @@
+from decimal import Decimal
+
 from django import forms
+from django.core.exceptions import ValidationError
+from django.forms import Select
 
 from core.admin_utils import is_empty, is_not_valid_channel_status
-from core.models import Campaign, Channel, ChannelAdmin, Message
-from core.utils import bulk_notify_channeladmin
+from core.models import Campaign, Channel, ChannelAdmin, Message, CampaignChannel
+from core.utils import bulk_notify_channeladmin, budget_cpm_from_qs
 from web_app.logger import logger
 
 
@@ -89,3 +93,72 @@ class MessageModelForm(forms.ModelForm):
     class Meta:
         model = Message
         fields = "__all__"
+
+
+
+class CampaignChannelInlinedForm(forms.ModelForm):
+    channel = forms.ModelChoiceField(
+        queryset=Channel.objects.all(),
+        widget=Select(
+            attrs={"class": "form-group", "data-channel-select": ""},
+        ),
+        required=False,
+        blank=True
+    )
+    channel_admin = forms.ModelChoiceField(
+        queryset=ChannelAdmin.objects.all(),
+        widget=Select(
+            attrs={"class": "form-group", "data-channel_admin-select": ""},
+        ),
+        required=False,
+        blank=True
+    )
+    cpm = forms.IntegerField(required=False, min_value=0)
+    plan_cpm = forms.IntegerField(required=False,  min_value=0)
+    impressions_plan = forms.IntegerField(required=False, min_value=0)
+
+    class Meta:
+        model = CampaignChannel
+        fields = "__all__"
+
+    def clean(self):
+        from core.utils import budget_cpm
+        instance: CampaignChannel = self.instance
+        campaign: Campaign = self.cleaned_data.get("campaign")
+        cpm: Decimal = self.cleaned_data.get("cpm", 0)
+        impressions_plan: Decimal = self.cleaned_data.get("impressions_plan", 0)
+        budget: Decimal = campaign.budget
+
+        if not budget:
+            raise ValidationError("бюджет обязательное поле")
+
+        current_total_budget = budget_cpm(cpm=cpm, impressions_plan=impressions_plan)
+        if not campaign or (campaign and not campaign.id):
+            if current_total_budget > budget:
+                raise ValidationError(
+                    {
+                        "cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"
+                    }
+                )
+        elif instance and campaign.budget:
+            total_budget = budget_cpm_from_qs(
+                CampaignChannel.objects.filter(campaign=campaign, channel__isnull=False)
+            )
+            total_budget += current_total_budget
+            if total_budget > campaign.budget:
+                raise ValidationError(
+                    {
+                        "cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"
+                    }
+                )
+
+        channel = self.cleaned_data.get("channel")
+        channel_admin = self.cleaned_data.get("channel_admin")
+        required_fields = ['cpm', 'plan_cpm', 'impressions_plan']
+        if channel and channel_admin:
+            for field in required_fields:
+                if not self.cleaned_data.get(field):
+                    raise ValidationError({field: "обязательное поле"})
+
+        return super().clean()
+
