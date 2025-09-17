@@ -159,6 +159,5 @@ class CampaignChannelInlinedForm(forms.ModelForm):
             for field in required_fields:
                 if not self.cleaned_data.get(field):
                     raise ValidationError({field: "обязательное поле"})
-
         return super().clean()
 
