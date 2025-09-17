@@ -1,10 +1,10 @@
 [project]
-name = "TeleWinBackend"
-version = "1.4.2"
-description = ""
+name = "web-app"
+version = "0.1.0"
+description = "TeleWinBackend"
 authors = [{name ="Ahmed Mohamed"}]
+readme = "README.md"
 requires-python =">=3.13,<4.0"
-#readme = "README.md"
 dependencies = [
     "django>=5.2",
     "django-jazzmin>=3.0.1",
@@ -31,20 +31,17 @@ dependencies = [
     "httpx (>=0.28.1,<0.29.0)"
 ]
 
-[tool.poetry]
-package-mode = false
 
-[tool.poetry.group.dev.dependencies]
-factory-boy = "^3.3.3"
-pytest = "^8.3.5"
-ruff = "^0.12.11"
-
-[build-system]
-requires = ["poetry-core>=2.0.0,<3.0.0"]
-build-backend = "poetry.core.masonry.api"
-
+[dependency-groups]
+dev = [
+    "factory-boy>=3.3.3",
+    "pytest>=8.4.2",
+    "ruff>=0.13.0",
+]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = 'web_app.settings'
 markers = ['django_db']
 python_files = 'test_*.py'
+
+
