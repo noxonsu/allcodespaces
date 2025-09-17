@@ -1,11 +1,39 @@
 $(document).ready( function() {
-    $.fn.exists = function() {
-    return this.length > 0;
-  };
 
-    var select_channel = $('select[data-channel-select]');
+    function getChannelAdmin(protocol, domain, channel_id, dom_element) {
+        var url = protocol + '//' + domain + '/core/channel/'+`${channel_id}/channel-admins-list`
+        var id_select_channel_admin = $(dom_element).attr('id') + '_admin';
+        $.ajax({
+            url:url ,
+            method: "GET",
+        }).done(function (list_admins){
+            if (list_admins.length > 0) {
+                var option = new Option(list_admins[0]['text'], list_admins[0]['id'], true, true);
+                $('#'+id_select_channel_admin).append(option).trigger('change');
+            }else{
+                $('[data-channel_admin-select]').prop('disabled', false);
+                $('#'+id_select_channel_admin).empty();
+            }
+        });
 
-    function getChannelAdmin(){
+    }
+
+    function getChannelCpm(protocol, domain, channel_id, dom_element) {
+        var url = protocol + '//' + domain + '/core/channel/'+`${channel_id}/channel-cpm-get`
+        var id_select_channel_cpm = $(dom_element).attr('id').split('-').slice(0, 2).join('-') + '-cpm';
+        $.ajax({
+            url:url ,
+            method: "GET",
+        }).done(function (response){
+            if (response) {
+                $('#'+id_select_channel_cpm).val(response['value']);
+            }else{
+                $('#'+id_select_channel_cpm).empty();            }
+        });
+
+    }
+
+    function onChannelSelectChange(){
         var select_channel = $('select[data-channel-select]');
         select_channel.each(function () {
             $(this).on('change', function (e) {
@@ -13,34 +41,15 @@ $(document).ready( function() {
                 var location_splited = location.href.split('/')
                 var protocol = location_splited[0]
                 var domain = location_splited[2]
-                var campaign_id = location_splited[5]
-                var url = protocol + '//' + domain + '/core/channel/'+`${channel_id}/channel-admins-list`
-                var id_select_channel_admin = $(this).attr('id') + '_admin';
-                console.log('weqweqwe', id_select_channel_admin);
-
-                $.ajax({
-                    url:url ,
-                    method: "GET",
-                }).done(function (list_admins){
-                    // $('[data-channel_admin-select]').empty();
-                    if (list_admins.length > 0) {
-                        var option = new Option(list_admins[0]['text'], list_admins[0]['id'], true, true);
-                        // $('[data-channel_admin-select]').append(option).trigger('change');
-                        $('#'+id_select_channel_admin).append(option).trigger('change');
-                    }else{
-                        $('[data-channel_admin-select]').prop('disabled', false);
-                        $('#'+id_select_channel_admin).empty();
-                    }
-                });
-
+                getChannelAdmin(protocol, domain, channel_id, this)
+                getChannelCpm(protocol, domain, channel_id, this)
             });
         });
 
     }
-    getChannelAdmin()
+    onChannelSelectChange();
 
-
-const waitForElement = (selector, callback) => {
+    const waitForElement = (selector, callback) => {
   const observer = new MutationObserver(mutations => {
     mutations.forEach(mutation => {
       mutation.addedNodes.forEach(node => {
@@ -54,16 +63,13 @@ const waitForElement = (selector, callback) => {
 
   observer.observe(document.body, { childList: true, subtree: true });
 };
-
-waitForElement('.add-row', element => {
-  $(element).click(
-      function (e){
-        $('[data-channel_admin-select]').eq(-2).empty();
-        getChannelAdmin()
-      }
-  );
-});
-
+    waitForElement('.add-row', element => {
+        $(element).click(
+            function (e){
+                $('[data-channel_admin-select]').eq(-2).empty();
+                onChannelSelectChange();
+        });
+    });
 
     function addTotalsTr() {
         newRow = `<tr class='form-row has_original dynamic-campaigns_channel' id='campaigns_channel-totals'> 
@@ -86,5 +92,6 @@ waitForElement('.add-row', element => {
                   </tr>`;
     $(newRow).insertAfter($('#campaign-channel-table tr:last'));
 }
-    addTotalsTr()
+    addTotalsTr();
+
 });

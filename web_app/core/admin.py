@@ -288,8 +288,13 @@ class ChannelModelAdmin(admin.ModelAdmin):
             path(
                 "<uuid:object_id>/channel-admins-list",
                 self.admin_site.admin_view(self.filter_channel_admin_inlined),
-            )
+            ),
         )
+        urls.append(
+        path(
+            "<uuid:object_id>/channel-cpm-get",
+            self.admin_site.admin_view(self.get_channel_cpm_inlined)))
+
         return urls
 
     def filter_channel_admin_inlined(self, request, object_id):
@@ -301,6 +306,14 @@ class ChannelModelAdmin(admin.ModelAdmin):
         if data:
             data[0].update({"selected": "selected"})
         return JsonResponse(data=data, safe=False)
+
+    def get_channel_cpm_inlined(self, request, object_id):
+        """Get Cpm for inlined camoagin channel inlined"""
+        channel = Channel.objects.filter(id=object_id).first()
+        data = dict(value=0)
+        if channel:
+            data['value'] = channel.cpm or 0
+        return JsonResponse(data=data)
 
 
 class CampaignChannelInlined(admin.TabularInline):
