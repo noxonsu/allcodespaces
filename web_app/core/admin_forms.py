@@ -157,7 +157,7 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         required_fields = ['cpm', 'plan_cpm', 'impressions_plan']
         if channel and channel_admin:
             for field in required_fields:
-                if not self.cleaned_data.get(field):
+                if self.cleaned_data.get(field) is None:
                     raise ValidationError({field: "обязательное поле"})
         return super().clean()
 
