@@ -639,7 +639,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         related_name="campaigns_channel",
     )
     cpm = models.DecimalField(
-        max_digits=8, decimal_places=2, verbose_name=_("СРМ (руб.)")
+        max_digits=8, decimal_places=2, verbose_name=_("СРМ (руб.)"), default=0
     )
     plan_cpm = models.DecimalField(
         max_digits=8, decimal_places=2, verbose_name=_("План. CPM"), default=0
@@ -653,7 +653,6 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     message_publish_date = models.DateTimeField(
         null=True, blank=True, verbose_name=_("Дата публикации")
     )
-    # is_message_published = models.BooleanField(verbose_name=_('опубликовано'), default=False)
     publish_status = models.CharField(
         verbose_name="Статус публикации",
         max_length=30,
@@ -758,10 +757,6 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
                 {"channel": "Невозможно добавить канал в завершенную кампанию"}
             )
 
-    def delete(self: Self, using=None, keep_parents=False):
-        if self.is_message_published:
-            return
-        return super().delete(using, keep_parents)
 
     @property
     def budget_cpm(self):
