@@ -16,15 +16,15 @@ RUN apt-get install -y libssl-dev libffi-dev build-essential libpq-dev python3-d
 RUN apt-get install -y gettext # needed to translation
 
 RUN pip install --upgrade pip
-RUN pip install poetry
-#RUN poetry config virtualenvs.in-project false # Do not create vir-env, use current env
-#RUN poetry config virtualenvs.create false # Do not create vir-env, use current env
-RUN poetry install
+RUN pip install uv
+
+RUN uv lock
+RUN uv sync --python $(which python) # using system python 
+RUN uv pip install --python $(which python) --all-extras -r pyproject.toml # using system python 
 
 # Running statisfiles
 CMD python manage.py collectstatic --no-input
 
 # Running Migrations
-CMD python manage.py makemigrations
 CMD python manage.py migrate
 
