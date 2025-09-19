@@ -100,7 +100,7 @@ def campaign_channels_totals_bar(context, *args, **kwargs):
     totals = formset.queryset.aggregate(
         total_clicks=Sum("clicks",default=0),
         total_impressions_fact=Sum("impressions_fact",default=0),
-        total_budget=Sum(F("cpm") * F('impressions_fact') / 1000, filter=Q(cpm__gte=1 , impressions_plan__gte=1), default=0),
+        total_budget=Sum(F("cpm") * F('impressions_fact') / 1000, filter=Q(cpm__gte=1 , impressions_fact__gte=1), default=0),
         total_impressions_plan=Sum("impressions_plan", default=0),
         total_ctr=Sum(F('clicks') / F("impressions_fact") * 100, filter=Q(clicks__gte=1, impressions_fact__gte=1), default=0),
         total_cpm_diff=(1- Sum('plan_cpm', filter=Q(plan_cpm__gte=1)) / Sum("cpm", filter=Q(cpm__gte=1))) * 100 * -1,
