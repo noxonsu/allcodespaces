@@ -103,14 +103,13 @@ def campaign_channels_totals_bar(context, *args, **kwargs):
         total_budget=Sum(F("cpm") * F('impressions_fact') / 1000, filter=Q(cpm__gte=1 , impressions_fact__gte=1), default=0),
         total_impressions_plan=Sum("impressions_plan", default=0),
         total_ctr=Sum(F('clicks') / F("impressions_fact") * 100, filter=Q(clicks__gte=1, impressions_fact__gte=1), default=0),
-        # total_cpm_diff=(1- Sum('plan_cpm', filter=Q(plan_cpm__gte=1, cpm__gte=1)) / Sum("cpm", filter=Q(cpm__gte=1, plan_cpm__gte=1 )) ) * 100 * -1,
         total_cpm = Sum('cpm'),
         total_plan_cpm=Sum('total_plan_cpm'),
         avg_cpm=Avg("cpm", default=0, filter=Q(cpm__gte=1)),
         avg_cpm_plan=Avg("plan_cpm", default=0, filter=Q(plan_cpm__gte=1)),
         )
     total_clicks, total_impressions_fact, total_budget, total_impressions_plan, total_ctr,total_cpm, total_plan_cpm, avg_cpm, avg_cpm_plan = totals.values()
-    total_cpm_diff = (1- total_plan_cpm / total_cpm) * 100 -1 if total_plan_cpm and total_cpm else 0
+    total_cpm_diff = (1- total_plan_cpm / total_cpm) * 100 *-1 if total_plan_cpm and total_cpm else 0
     hidden_tags = f"""
         <div id='campaign_channels_totals'> 
             <label data-totals-clicks={total_clicks}></label>
