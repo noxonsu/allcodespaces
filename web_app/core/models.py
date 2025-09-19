@@ -687,7 +687,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
 
     @property
     def cpm_diff(self):
-        return ((1 - self.plan_cpm) / self.cpm  * 100) * -1 if self.plan_cpm and self.cpm else 0
+        return (1 - self.plan_cpm / self.cpm ) * 100 * -1 if self.plan_cpm and self.cpm else 0
 
     @property
     def budget(self):
