@@ -103,7 +103,7 @@ def campaign_channels_totals_bar(context, *args, **kwargs):
         total_budget=Sum(F("cpm") * F('impressions_plan') / 1000, filter=Q(cpm__gte=1 , impressions_plan__gte=1), default=0),
         total_impressions_plan=Sum("impressions_plan", default=0),
         total_ctr=Sum(F('clicks') / F("impressions_fact") * 100, filter=Q(clicks__gte=1, impressions_fact__gte=1), default=0),
-        total_cpm_diff=Sum((1 - F('plan_cpm')) / F("cpm") * 100 * -1, filter=Q(plan_cpm__gte=1, cpm__gte=1), default=0),
+        total_cpm_diff=Sum((1 - F('plan_cpm') / F("cpm")) * 100 * -1, filter=Q(plan_cpm__gte=1, cpm__gte=1), default=0),
         avg_cpm=Avg("cpm", default=0, filter=Q(cpm__gte=1)),
         avg_cpm_plan=Avg("plan_cpm", default=0, filter=Q(plan_cpm__gte=1)),
     )
