@@ -3,11 +3,12 @@ from typing import Self
 
 from django import forms
 from django.contrib import admin
+from django.contrib.auth import login, logout
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, QuerySet, Q
 from django.forms import Select
-from django.http import JsonResponse, FileResponse
+from django.http import JsonResponse, FileResponse, HttpResponseRedirect
 from django.urls import path
 from django.utils.safestring import mark_safe
 
@@ -318,7 +319,6 @@ class ChannelModelAdmin(admin.ModelAdmin):
 
 class CampaignChannelInlined(admin.TabularInline):
     """CampaignChannel in campaign model admin"""
-
     class Media:
         js = {"custom/campaign_channel_inlined.js"}
 
@@ -828,7 +828,18 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 
 
 @register(User)
-class UserAdmin(UserAdmin): ...
+class UserAdmin(UserAdmin):
+    actions = [
+        'login_as'
+    ]
+    list_display = (
+        'username', 'email', 'first_name', 'last_name', 'is_superuser', 'is_staff'
+    )
+
+    def login_as(self, request, instance):
+        logout(request)
+        login(request, instance.first())
+        return HttpResponseRedirect(redirect_to='/')
 
 
 @register(ChannelAdmin)
