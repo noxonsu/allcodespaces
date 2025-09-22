@@ -27,8 +27,9 @@ $(document).ready( function() {
         }).done(function (response){
             if (response) {
                 $('#'+id_select_channel_cpm).val(response['value']);
+                $('#'+id_select_channel_cpm).attr('readonly', 'readonly');
             }else{
-                $('#'+id_select_channel_cpm).empty();            }
+                $('#'+id_select_channel_cpm).empty();}
         });
 
     }
@@ -93,5 +94,4 @@ $(document).ready( function() {
     $(newRow).insertAfter($('#campaign-channel-table tr:last'));
 }
     addTotalsTr();
-
 });

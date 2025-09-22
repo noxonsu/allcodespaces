@@ -140,12 +140,12 @@ class CampaignChannelInlinedForm(forms.ModelForm):
                         "cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"
                     }
                 )
-        elif instance and campaign.budget:
+        elif instance and budget:
             total_budget = budget_cpm_from_qs(
                 CampaignChannel.objects.filter(campaign=campaign, channel__isnull=False)
             )
-            total_budget += current_total_budget
-            if total_budget > campaign.budget:
+            total_budget+=current_total_budget
+            if total_budget > budget:
                 raise ValidationError(
                     {
                         "cpm": "Суммарный бюджет каналов больше чем указанный бюджет кампании"
