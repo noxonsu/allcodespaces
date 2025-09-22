@@ -59,7 +59,7 @@ def can_change_channel_status(user: User) -> bool:
     profile = getattr(user, "profile", None)
     if not user:
         return False
-    return user.is_superuser or (profile and (user.is_manager or profile.is_manager))
+    return user.is_superuser or user.is_manager
 
 
 
