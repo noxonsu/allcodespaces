@@ -56,11 +56,9 @@ def is_empty(value: str) -> bool:
 
 def can_change_channel_status(user: User) -> bool:
     """Validate if a certain user can change the channel status."""
-    profile = getattr(user, "profile", None)
     if not user:
         return False
     return user.is_superuser or user.is_manager
-
 
 
 def is_not_valid_channel_status(old_status: str, new_status: str) -> bool:
