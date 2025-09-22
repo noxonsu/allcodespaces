@@ -19,7 +19,7 @@ def get_property_attr(col, model, attr_name):
 
 def budget_cpm(impressions_plan=None, cpm=None):
     return (
-        Decimal(Decimal(impressions_plan / 1000) * cpm).quantize(Decimal("0.01"))
+        Decimal(Decimal(impressions_plan / 1000) * cpm).quantize(Decimal("0.011"))
         if cpm and impressions_plan
         else 0
     )
