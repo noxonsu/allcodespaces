@@ -381,7 +381,7 @@ class CampaignChannelInlined(admin.TabularInline):
     def cpm_diff(self, instance):
         val= round(instance.cpm_diff,2) if instance.cpm_diff else 0
         return f'{val} %'
-    
+
     @admin.display(description='Бюджет')
     def budget(self, instance):
         return round(instance.budget,2) if instance.budget else 0
