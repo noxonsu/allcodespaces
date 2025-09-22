@@ -79,7 +79,7 @@ $(document).ready( function() {
                     <td class="campaigns_channel-totals-field-2 field-channel_admin"></td>
                     <td class="campaigns_channel-totals-field-3 field-cpm">${$('label[data-totals-avg-cpm]').data('totals-avg-cpm')}</td>
                     <td class="campaigns_channel-totals-field-4 field-plan_cpm">${$('label[data-totals-avg-cpm-plan]').data('totals-avg-cpm-plan')}</td>
-                    <td class="campaigns_channel-totals-field-5 field-cpm_diff">${$('label[data-totals-cpm-diff]').data('totals-cpm-diff')}</td>
+                    <td class="campaigns_channel-totals-field-5 field-cpm_diff">${$('label[data-totals-cpm-diff]').data('totals-cpm-diff')} %</td>
                     <td class="campaigns_channel-totals-field-6 field-impressions_plan">${$('label[data-totals-impressions-plan]').data('totals-impressions-plan')}</td>
                     <td class="campaigns_channel-totals-field-7 field-impressions_fact">${$('label[data-totals-impressions-fact]').data('totals-impressions-fact')}</td>
                     <td class="campaigns_channel-totals-field-8 field-clicks">${$('label[data-totals-clicks]').data('totals-clicks')}</td>
