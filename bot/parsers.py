@@ -121,6 +121,7 @@ class CampaignChannelParserIn(BaseModel):
     impressions_plan: str | Decimal | None = None
     impressions_fact: str | Decimal | None = None
     cpm: str | Decimal | None = None
+    plan_cpm: str | Decimal | None = Decimal(0.0)
     path_click_analysis: str | None = ""
     channel_post_id: str | None = ""
     message_publish_date: str | datetime | None = None
