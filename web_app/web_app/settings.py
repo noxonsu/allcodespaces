@@ -239,7 +239,14 @@ LOGGING = {
             "level": "INFO",
             "propagate": True,
         },
+        "django.db.backends": {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': True,
+        }
     },
+
+
 }
 
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
@@ -286,7 +293,7 @@ LOGIN_WELCOME_MSG = """
 <p>&#128171; Добро пожаловать в ТЕЛЕВИН – платформу пассивного дохода на рекламе в Telegram! &#128171;</p>
 <a href='https://telewin.online/'>Web-site - https://telewin.online/ </a><br />
 <a href='https://t.me/telewin_online'>Канал – https://t.me/telewin_online</a><br />
-<p> Если вы являетесь администратором канала, используйте логин через Telegram.</p>
+<p> Если вы являетесь администратором канала, используйте кнопку входа через Telegram.</p>
 </div>
 """
 JAZZMIN_SETTINGS = {
