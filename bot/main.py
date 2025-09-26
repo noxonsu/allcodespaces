@@ -103,7 +103,7 @@ async def main():
             ]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
-        msg_txt: str = f"""Получен запрос на публикацию рекламного сообщения в вашем канале. Рекламодатель: {campaign_channel.campaign.client}, Бренд: {campaign_channel.campaign.brand}, CPM {campaign_channel.plan_cpm}"""
+        msg_txt: str = f"""Получен запрос на публикацию рекламного сообщения в вашем канале. Рекламодатель: {campaign_channel.campaign.client}, Бренд: {campaign_channel.campaign.brand}, План. CPM {campaign_channel.plan_cpm}"""
         await application.bot.send_message(
             chat_id=campaign_channel.channel_admin.tg_id,
             text=msg_txt,
