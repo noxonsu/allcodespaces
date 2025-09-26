@@ -141,12 +141,13 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
             "message_publish_date",
             "channel_post_id",
             "cpm",
+            "plan_cpm",
             "campaign",
             "channel_admin",
             "is_approved",
             "path_click_analysis",
         ]
-        extra_kwargs = {"path_click_analysis": {"read_only": True}}
+        extra_kwargs = {"path_click_analysis": {"read_only": True}, 'plan_cpm': {'required': False}}
 
 
 class CampaignChannelClickSerializer(serializers.Serializer):
