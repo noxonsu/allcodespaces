@@ -674,7 +674,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
 
     @cached_property
     def link_type_str(self: CampaignChannel):
-        return  'Web' if self.campaign.message and self.campaign.message.is_external else 'TG-канал'
+        return  'TG-канал' if self.campaign.message and self.campaign.message.is_external else 'Web'
 
     @property
     def ctr(self):
