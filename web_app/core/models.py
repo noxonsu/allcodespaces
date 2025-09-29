@@ -605,7 +605,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     @cached_property
     def link_type_str(self: CampaignChannel):
-        return  'Web' if self.message and self.message.is_external else 'TG-канал'
+        return  'TG-канал' if getattr(self, 'message', None) and self.message.is_external else 'Web'
 
     def clean(self: Self):
         super().clean()
@@ -674,7 +674,9 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
 
     @cached_property
     def link_type_str(self: CampaignChannel):
-        return  'TG-канал' if self.campaign.message and self.campaign.message.is_external else 'Web'
+        if getattr(self, 'campaign', None):
+            return  self.campaign.link_type_str
+        return '-'
 
     @property
     def ctr(self):
