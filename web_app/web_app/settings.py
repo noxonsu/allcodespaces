@@ -36,6 +36,8 @@ ALLOWED_HOSTS = (
         "127.0.0.1",
         "web-app",
         ".telewin.online",
+        ".wpmix.net",
+        "telewin.wpmix.net",
         "51.250.45.63",
         "91.108.5.74",
     ]
@@ -46,6 +48,9 @@ ALLOWED_HOSTS = (
 # Add here your deployment HOSTS
 CSRF_TRUSTED_ORIGINS = [
     "https://*.telewin.online",
+    "https://*.wpmix.net",
+    "https://telewin.wpmix.net",
+    "http://telewin.wpmix.net",
     "http://localhost",
     "http://localhost:8000",
     "http://localhost:8001",
@@ -397,6 +402,7 @@ JAZZMIN_SETTINGS = {
 # handler404 = '404.html'
 # handler500 = '500.html'
 USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')  # Для Cloudflare Flexible SSL
 
 IP_BLOCKLIST = [
     "188.212.125.110",

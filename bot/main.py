@@ -143,6 +143,7 @@ async def main():
             port=bot_settings.PORT,
             use_colors=True,
             host="0.0.0.0",
+            reload=True,  # Автоперезагрузка при изменении файлов
         )
     )
 

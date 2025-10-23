@@ -11,9 +11,15 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 COPY . .
 
-RUN apt-get update -y
-RUN apt-get install -y libssl-dev libffi-dev build-essential libpq-dev python3-dev gcc python3-psycopg2 # needed to install some lib related with DB
-RUN apt-get install -y gettext # needed to translation
+# Создать папку для логов
+RUN mkdir -p /app/logs && chmod 777 /app/logs
+
+# Отключить Post-Invoke скрипты apt для избежания проблем с runc
+RUN echo 'APT::Update::Post-Invoke-Success "";' > /etc/apt/apt.conf.d/99no-post-invoke && \
+    apt-get update -y && \
+    apt-get install -y --no-install-recommends libssl-dev libffi-dev build-essential libpq-dev python3-dev gcc python3-psycopg2 gettext && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /etc/apt/apt.conf.d/99no-post-invoke
 
 RUN pip install --upgrade pip
 RUN pip install uv
