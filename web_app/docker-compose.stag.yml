@@ -7,7 +7,10 @@ services:
     build:
       context: ./
       dockerfile: ./dockerb/Dockerfile
-    entrypoint: gunicorn  --config  gunicorn-cfg.py web_app.wsgi
+    entrypoint:
+      - /bin/sh
+      - -c
+      - python3 manage.py collectstatic --no-input && gunicorn --config gunicorn-cfg.py web_app.wsgi
     depends_on:
       - web-db
     networks:
@@ -18,7 +21,7 @@ services:
     volumes:
       - ./:/app
       - media:/app/media/
-      - ./static/:/app/static/
+      - static:/app/staticfiles/
 
   prometheus-app:
     image: prom/prometheus:latest
