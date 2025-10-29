@@ -1,3 +1,25 @@
 #id_status_error{
     color: darkred;
 }
+
+#publication_slots-group table th,
+#publication_slots-group table td {
+    vertical-align: middle;
+}
+
+#publication_slots-group select[data-channel-slot-select],
+#publication_slots-group select[data-channel-select] {
+    min-width: 190px;
+}
+
+#publication_slots-group .vTimeField {
+    width: 130px;
+    text-align: center;
+    margin: 0 4px;
+}
+
+#publication_slots-group .time {
+    display: flex;
+    align-items: center;
+    margin: 0;
+}

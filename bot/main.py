@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime, timezone as dt_timezone
 
 import uvicorn
 from telegram.constants import ParseMode
@@ -87,29 +88,88 @@ async def main():
         campaign_channel: CampaignChannelParserIn = (
             CampaignChannelParserIn.model_validate(request)
         )
-        campaign_channel.channel.tg_id = campaign_channel.channel_admin.tg_id
-        await _public_message(application.bot, [campaign_channel])
+        # НЕ перезаписываем channel.tg_id - он должен остаться tg_id канала, а не админа!
 
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    "Разрешить 👍",
-                    callback_data=f"@#!approve_campaign_:{campaign_channel.id}",
-                ),
-                InlineKeyboardButton(
-                    "Отклонить ⛔",
-                    callback_data=f"@#!decline_campaign_:{campaign_channel.id}",
-                ),
+        # Проверяем требует ли канал ручного подтверждения
+        require_manual_approval = getattr(campaign_channel.channel, 'require_manual_approval', False)
+
+        publish_at = campaign_channel.message_publish_date
+        if isinstance(publish_at, str):
+            try:
+                publish_at = datetime.fromisoformat(publish_at)
+            except ValueError:
+                publish_at = None
+        if publish_at and publish_at.tzinfo is None:
+            publish_at = publish_at.replace(tzinfo=dt_timezone.utc)
+
+        async def publish_messages():
+            from services import MainService
+            posts_data = await _public_message(application.bot, [campaign_channel])
+            # Обновляем channel_post_id в БД после публикации
+            if posts_data:
+                service = MainService()
+                for post_data in posts_data:
+                    service.update_public_messages_info(
+                        post_data["campaign_channel_id"], post_data
+                    )
+
+        # Если требуется ручное подтверждение - отправляем уведомление с кнопками
+        if require_manual_approval:
+            keyboard = [
+                [
+                    InlineKeyboardButton(
+                        "Разрешить 👍",
+                        callback_data=f"@#!approve_campaign_:{campaign_channel.id}",
+                    ),
+                    InlineKeyboardButton(
+                        "Отклонить ⛔",
+                        callback_data=f"@#!decline_campaign_:{campaign_channel.id}",
+                    ),
+                ]
             ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        msg_txt: str = f"""Получен запрос на публикацию рекламного сообщения в вашем канале. Рекламодатель: {campaign_channel.campaign.client}, Бренд: {campaign_channel.campaign.brand}, План. CPM {campaign_channel.plan_cpm}"""
-        await application.bot.send_message(
-            chat_id=campaign_channel.channel_admin.tg_id,
-            text=msg_txt,
-            parse_mode=ParseMode.HTML,
-            reply_markup=reply_markup,
-        )
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            format_label = (
+                campaign_channel.campaign.format_display or campaign_channel.campaign.format
+            )
+            scheduled_info = (
+                f", Публикация: {campaign_channel.scheduled_publication_at}"
+                if campaign_channel.scheduled_publication_at
+                else ""
+            )
+            slot = campaign_channel.publication_slot or {}
+            slot_info = ""
+            if slot:
+                slot_info = f", Слот: {slot.get('weekday')} {slot.get('start_time')}-{slot.get('end_time')}"
+
+            msg_txt: str = (
+                "Получен запрос на публикацию рекламного сообщения в вашем канале. "
+                f"Рекламодатель: {campaign_channel.campaign.client}, "
+                f"Бренд: {campaign_channel.campaign.brand}, "
+                f"Формат: {format_label}"
+                f"{scheduled_info}, План. CPM {campaign_channel.plan_cpm}{slot_info}"
+            )
+            await application.bot.send_message(
+                chat_id=campaign_channel.channel_admin.tg_id,
+                text=msg_txt,
+                parse_mode=ParseMode.HTML,
+                reply_markup=reply_markup,
+            )
+        else:
+            # Автоматическое размещение - публикуем сразу
+            if publish_at:
+                now = datetime.now(publish_at.tzinfo or dt_timezone.utc)
+                delay = (publish_at - now).total_seconds()
+                if delay > 5:
+                    async def delayed_publish():
+                        await asyncio.sleep(delay)
+                        await publish_messages()
+
+                    asyncio.create_task(delayed_publish())
+                else:
+                    await publish_messages()
+            else:
+                await publish_messages()
+
         return JSONResponse({"status": "ok"})
 
     async def channeladmin_added(request: Request) -> Response:

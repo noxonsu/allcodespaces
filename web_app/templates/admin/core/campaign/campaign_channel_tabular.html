@@ -22,6 +22,9 @@
                     {% if inline_admin_form.form.non_field_errors %}
                         <tr class="row-form-errors text-danger"><td colspan="{{ inline_admin_form|cell_count }}">{{ inline_admin_form.form.non_field_errors }}</td></tr>
                     {% endif %}
+                    {% if inline_admin_formset.formset.non_form_errors and forloop.first %}
+                        <tr class="row-form-errors text-danger"><td colspan="{{ inline_admin_form|cell_count }}">{{ inline_admin_formset.formset.non_form_errors }}</td></tr>
+                    {% endif %}
                     <tr class="form-row{% if inline_admin_form.original or inline_admin_form.show_url %} has_original{% endif %}{% if forloop.last and inline_admin_formset.has_add_permission %} empty-form{% endif %}"
                         id="{{ inline_admin_formset.formset.prefix }}-{% if not forloop.last %}{{ forloop.counter0 }}{% else %}empty{% endif %}">
                             {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}

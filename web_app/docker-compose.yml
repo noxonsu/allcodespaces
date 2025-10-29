@@ -130,6 +130,8 @@ services:
     volumes:
       - ../bot:/bot
       - media:/media/
+    ports:
+      - "8001:8001"
 
   reverse-proxy:
     image: "nginx:alpine"

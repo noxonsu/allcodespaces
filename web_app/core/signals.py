@@ -1,10 +1,11 @@
 import requests
-from django.db.models.signals import pre_save
+from django.db.models.signals import pre_save, post_save
 from django.dispatch import receiver, Signal
 from rest_framework.renderers import JSONRenderer
+from datetime import time
 
 from web_app.app_settings import app_settings
-from core.models import CampaignChannel, ChannelAdmin
+from core.models import CampaignChannel, ChannelAdmin, Channel, ChannelPublicationSlot
 from web_app.logger import logger
 from .models_qs import change_channeladmin_group
 from .serializers import CampaignChannelSerializer
@@ -39,6 +40,10 @@ def get_create_channel_admin_user(**kwargs):
 
 
 def send_message_to_channel_admin(instance: CampaignChannel) -> None:
+    """
+    Отправляет уведомление владельцу канала о новой публикации с запросом на подтверждение.
+    Вызывается только если канал требует ручного подтверждения.
+    """
     try:
         if (
             instance.id
@@ -54,8 +59,8 @@ def send_message_to_channel_admin(instance: CampaignChannel) -> None:
                 data=data,
                 headers={"content-type": "application/json"},
             )
-            print(f"message sent to {instance.channel_admin}")
-            print(f"response {response} {response.content}")
+            logger.info(f"Sent approval request to {instance.channel_admin} for campaign channel #{instance.id}")
+            logger.info(f"Response: {response.status_code} {response.content}")
     except Exception as e:
         logger.error("send_message_to_channel_admin:" + str(e))
 
@@ -71,8 +76,29 @@ def campaignchannel_pre_save(
     **kwargs,
 ):
     state_adding = instance._state.adding
-    if state_adding:
-        send_message_to_channel_admin(instance)
+    if state_adding and instance.channel:
+        # Устанавливаем начальный статус в зависимости от настроек канала
+        if not instance.channel.require_manual_approval:
+            # Автоматическое подтверждение
+            instance.publish_status = CampaignChannel.PublishStatusChoices.CONFIRMED
+            logger.info(f"Auto-set CONFIRMED status for campaign channel (channel requires no manual approval)")
+
+
+@receiver(signal=post_save, sender=CampaignChannel)
+def campaignchannel_post_save(
+    signal: Signal,
+    sender: CampaignChannel,
+    instance: CampaignChannel,
+    created: bool,
+    raw,
+    using,
+    update_fields,
+    **kwargs,
+):
+    if created:
+        # Отправляем уведомление владельцу канала если требуется ручное подтверждение
+        if instance.channel and instance.channel.require_manual_approval:
+            send_message_to_channel_admin(instance)
 
 
 @receiver(signal=pre_save, sender=ChannelAdmin)
@@ -98,3 +124,33 @@ def change_channeladmin_group_receiver(
         not channel_admin or (channel_admin and instance.role != channel_admin.role)
     ):
         change_channeladmin_group(instance)
+
+
+@receiver(signal=post_save, sender=Channel)
+def create_default_publication_slots(
+    signal: Signal,
+    sender: Channel,
+    instance: Channel,
+    created: bool,
+    raw,
+    using,
+    update_fields,
+    **kwargs,
+):
+    """Create default publication slots (8:00-21:00) for all weekdays when channel is created"""
+    if created and not raw:
+        # Create hourly slots from 8:00 to 21:00 for all weekdays
+        slots_to_create = []
+        for weekday in range(7):  # 0=Monday to 6=Sunday
+            for hour in range(8, 21):  # 8:00 to 20:00
+                slots_to_create.append(
+                    ChannelPublicationSlot(
+                        channel=instance,
+                        weekday=weekday,
+                        start_time=time(hour, 0),
+                        end_time=time(hour + 1, 0),
+                    )
+                )
+
+        ChannelPublicationSlot.objects.bulk_create(slots_to_create, ignore_conflicts=True)
+        logger.info(f"Created {len(slots_to_create)} default publication slots for channel {instance.name}")

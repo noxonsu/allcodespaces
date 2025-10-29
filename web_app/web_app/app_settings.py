@@ -16,6 +16,7 @@ class AppSettings(BaseSettings):
     DEBUG: bool = False
     ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "app.telewin.online"]
     DOMAIN_URI: str = "https://app.telewin.online"
+    TELEGRAM_BOT_USERNAME: str = "telewin_0001_bot"
     DJANGO_SETTINGS_MODULE: str = "web_app.settings"
 
 

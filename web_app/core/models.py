@@ -7,6 +7,7 @@ from django_prometheus.models import ExportModelOperationsMixin
 
 from .utils import RolePermissions
 from decimal import Decimal
+from datetime import datetime
 from typing import Self
 
 from django.contrib import admin
@@ -23,6 +24,20 @@ from core.models_qs import ChannelAdminManager
 from core.models_validators import campaign_budget_validator
 from django.core.exceptions import ValidationError
 from django.utils import timezone
+
+
+class PlacementFormat(models.TextChoices):
+    SPONSORSHIP = "sponsorship", "Спонсорство"
+    FIXED_SLOT = "fixed_slot", "Фикс-слот"
+    AUTOPILOT = "autopilot", "Автопилот"
+
+
+def default_supported_formats() -> list[str]:
+    return list(PlacementFormat.values)
+
+
+SPONSORSHIP_BODY_LENGTH_LIMIT = 160
+SPONSORSHIP_BUTTON_LIMIT = 1
 
 
 class User(ExportModelOperationsMixin("user"), AbstractUser):
@@ -114,6 +129,7 @@ class ChannelAdmin(ExportModelOperationsMixin("channeladmin"), BaseModel):
             content_types=(
                 "CampaignChannel",
                 "Channel",
+                "ChannelPublicationSlot",
             ),
             permissions=("view_campaignchannel", "view_channel"),
         )
@@ -205,6 +221,12 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
     is_external = models.BooleanField(
         default=False, verbose_name="Ссылка на канал телеграм?"
     )
+    format = models.CharField(
+        max_length=32,
+        choices=PlacementFormat.choices,
+        default=PlacementFormat.FIXED_SLOT,
+        verbose_name="Формат размещения",
+    )
     ad_individual = models.CharField(
         max_length=250, default="", blank=True, verbose_name="Юр. лицо рекламодателя"
     )
@@ -251,6 +273,27 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
             if self.image
             else "-"
         )
+
+    @property
+    def button_count(self) -> int:
+        return 1 if self.button_link and self.button_str else 0
+
+    def clean(self):
+        super().clean()
+        if self.format == PlacementFormat.SPONSORSHIP:
+            body = self.body or ""
+            if len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
+                raise ValidationError(
+                    {
+                        "body": f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов."
+                    }
+                )
+            if self.button_count > SPONSORSHIP_BUTTON_LIMIT:
+                raise ValidationError(
+                    {
+                        "button_link": "Для формата «Спонсорство» допустима только одна кнопка."
+                    }
+                )
 
 
 class Channel(ExportModelOperationsMixin("channel"), BaseModel):
@@ -322,6 +365,20 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         blank=True, verbose_name=_("Язык"), default="", null=True
     )
     cpm = models.PositiveIntegerField("CPM", default=0)
+    supported_formats = ArrayField(
+        base_field=models.CharField(
+            max_length=32,
+            choices=PlacementFormat.choices,
+        ),
+        blank=True,
+        default=default_supported_formats,
+        verbose_name="Поддерживаемые форматы",
+    )
+    require_manual_approval = models.BooleanField(
+        default=False,
+        verbose_name="Требует ручного подтверждения",
+        help_text="Если включено, владелец канала должен вручную подтверждать каждую публикацию"
+    )
 
     def __str__(self):
         return self.name
@@ -339,10 +396,61 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         elif val is None:
             self.status = Channel.ChannelStatus.PENDING
 
+    def supports_format(self, format_code: str) -> bool:
+        if not format_code:
+            return True
+        formats = self.supported_formats or []
+        if not formats:
+            return True
+        return format_code in formats
+
     class Meta:
         verbose_name_plural = "Каналы"
         verbose_name = "Канал"
         ordering = ["-created_at"]
+
+
+class ChannelPublicationSlot(BaseModel):
+    class Weekday(models.IntegerChoices):
+        MONDAY = 0, "Понедельник"
+        TUESDAY = 1, "Вторник"
+        WEDNESDAY = 2, "Среда"
+        THURSDAY = 3, "Четверг"
+        FRIDAY = 4, "Пятница"
+        SATURDAY = 5, "Суббота"
+        SUNDAY = 6, "Воскресенье"
+
+    channel = models.ForeignKey(
+        Channel,
+        on_delete=models.CASCADE,
+        related_name="publication_slots",
+        verbose_name="Канал",
+    )
+    weekday = models.IntegerField(
+        choices=Weekday.choices, verbose_name="День недели"
+    )
+    start_time = models.TimeField(verbose_name="Начало")
+    end_time = models.TimeField(verbose_name="Окончание")
+
+    class Meta:
+        verbose_name = "Доступный слот публикации"
+        verbose_name_plural = "Доступные слоты публикации"
+        ordering = ["channel", "weekday", "start_time"]
+        unique_together = ("channel", "weekday", "start_time", "end_time")
+
+    def clean(self):
+        super().clean()
+        if self.start_time >= self.end_time:
+            raise ValidationError(
+                {"end_time": "Время окончания должно быть позже времени начала"}
+            )
+
+    def __str__(self):
+        return f"{self.get_weekday_display()} {self.start_time}-{self.end_time}"
+
+    @property
+    def label(self) -> str:
+        return f"{self.get_weekday_display()} {self.start_time.strftime('%H:%M')} - {self.end_time.strftime('%H:%M')}"
 
 
 class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
@@ -353,6 +461,12 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         PAUSED = "paused", "На паузе"
 
     name = models.CharField(max_length=250, verbose_name=_("Название"))
+    format = models.CharField(
+        max_length=32,
+        choices=PlacementFormat.choices,
+        default=PlacementFormat.FIXED_SLOT,
+        verbose_name="Формат размещения",
+    )
     status = models.CharField(
         choices=Statuses.choices,
         max_length=6,
@@ -367,6 +481,12 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     )
     start_date = models.DateField(verbose_name=_("Дата старта"))
     finish_date = models.DateField(verbose_name=_("Дата завершения"))
+    slot_publication_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Дата и время публикации",
+        help_text="Обязательно для формата «Фикс-слот»",
+    )
     channels = models.ManyToManyField("Channel", through="CampaignChannel", blank=True)
     message = models.ForeignKey(
         to="Message",
@@ -406,6 +526,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def is_fixed_slot(self) -> bool:
+        return self.format == PlacementFormat.FIXED_SLOT
 
     class Meta:
         verbose_name_plural = "Кампании"
@@ -609,6 +733,30 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     def clean(self: Self):
         super().clean()
+        if self.pk:
+            original_format = (
+                Campaign.objects.filter(pk=self.pk)
+                .values_list("format", flat=True)
+                .first()
+            )
+            if original_format and original_format != self.format:
+                raise ValidationError(
+                    {"format": "Невозможно изменить формат после создания кампании."}
+                )
+        message_obj = None
+        if self.message_id:
+            message_obj = getattr(self, "_message_cache", None)
+            if message_obj is None:
+                message_obj = Message.objects.filter(pk=self.message_id).first()
+            if not message_obj:
+                raise ValidationError({"message": "Выбранный креатив не найден"})
+            if message_obj.format != self.format:
+                raise ValidationError(
+                    {"message": "Формат кампании должен совпадать с форматом креатива."}
+                )
+        else:
+            raise ValidationError({"message": "Выберите креатив для кампании."})
+
         self.clean_wordsfilters()
         if self.id:
             self.clean_status()
@@ -616,6 +764,9 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
         self.clean_start_date()
         self.clean_finish_date()
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
 
 
 class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
@@ -652,6 +803,14 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     impressions_fact = models.IntegerField(verbose_name=_("Показы-факт"), default=0)
     message_publish_date = models.DateTimeField(
         null=True, blank=True, verbose_name=_("Дата публикации")
+    )
+    publication_slot = models.ForeignKey(
+        "ChannelPublicationSlot",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("Слот публикации"),
+        related_name="campaign_channels",
     )
     publish_status = models.CharField(
         verbose_name="Статус публикации",
@@ -730,6 +889,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
             )
         self.clean_add_to_campaign()
         self.clean_negative_fields()
+        self.clean_publication_slot()
 
     def clean_negative_fields(self):
         fields = [
@@ -743,12 +903,34 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
                     {f"{field}": "Значение не может быть отрицательным"}
                 )
 
+    def clean_publication_slot(self):
+        campaign = getattr(self, "campaign", None)
+        slot = getattr(self, "publication_slot", None)
+        channel = getattr(self, "channel", None)
+        if campaign and campaign.format == PlacementFormat.FIXED_SLOT:
+            if not slot:
+                raise ValidationError({"publication_slot": "Выберите слот публикации"})
+            if channel and slot.channel_id != channel.id:
+                raise ValidationError(
+                    {"publication_slot": "Слот принадлежит другому каналу"}
+                )
+        elif campaign and campaign.format != PlacementFormat.FIXED_SLOT:
+            self.publication_slot = None
+
     def clean_add_to_campaign(self: Self):
         create = self._state.adding
         if getattr(self, 'campaign', None) and not self.campaign.finish_date:
             raise ValidationError({'finish_date': "это обязательное поле"})
         if getattr(self, 'campaign', None) and not self.campaign.start_date:
             raise ValidationError({'start_date': "это обязательное поле"})
+
+        campaign = getattr(self, "campaign", None)
+        if campaign and self.channel and not self.channel.supports_format(campaign.format):
+            raise ValidationError(
+                {
+                    "channel": "Выбранный канал не поддерживает формат кампании."
+                }
+            )
 
         if (
             create
@@ -759,6 +941,24 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
                 {"channel": "Невозможно добавить канал в завершенную кампанию"}
             )
 
+    def _sync_message_publish_date(self):
+        campaign = getattr(self, "campaign", None)
+        slot = getattr(self, "publication_slot", None)
+
+        # Для Фикс-слота используем время из слота
+        if campaign and campaign.format == PlacementFormat.FIXED_SLOT and slot:
+            tz = timezone.get_current_timezone()
+            # Берем дату старта кампании и время из слота
+            scheduled = timezone.make_aware(
+                datetime.combine(campaign.start_date, slot.start_time), tz
+            )
+            self.message_publish_date = scheduled
+        elif campaign and campaign.format != PlacementFormat.FIXED_SLOT:
+            self.message_publish_date = None
+
+    def save(self, *args, **kwargs):
+        self._sync_message_publish_date()
+        super().save(*args, **kwargs)
 
     @property
     def budget_cpm(self):

@@ -38,6 +38,7 @@ class MessageParser(BaseModel):
     updated_at: str | datetime | None = ""
     button: MessageLink | None = None
     is_external: bool = Field(default=False)
+    format: str | None = None
 
     @computed_field
     @property
@@ -73,6 +74,7 @@ class ChannelParser(BaseModel):
     status: str = "pending"
     meta: Json | None = None
     cpm: int = 0
+    supported_formats: list[str] | None = Field(default_factory=list)
 
     @computed_field(description="determines if the channel is active")
     def is_active(self) -> bool:
@@ -101,6 +103,9 @@ class CampaignParser(BaseModel):
     white_list: list[str] | list
     client: str = ""
     brand: str = ""
+    format: str | None = None
+    format_display: str | None = None
+    slot_publication_at: str | datetime | None = None
 
     @classmethod
     @field_serializer("star_date", "finish_date,", mode="wrap", when_used="unless-none")
@@ -110,6 +115,12 @@ class CampaignParser(BaseModel):
     @field_serializer("budget", check_fields=True, when_used="unless-none")
     def serialize_budget(self, val: Decimal):
         return str(val)
+
+    @field_serializer("slot_publication_at", when_used="unless-none")
+    def serialize_slot_publication(cls, value: datetime | str) -> str:
+        if isinstance(value, datetime):
+            return value.strftime("%Y-%m-%d %H:%M:%S")
+        return str(value)
 
 
 class CampaignChannelParserIn(BaseModel):
@@ -127,6 +138,7 @@ class CampaignChannelParserIn(BaseModel):
     message_publish_date: str | datetime | None = None
     is_message_published: bool | None = False
     is_approved: bool = False
+    publication_slot: dict | None = None
 
     @classmethod
     @field_serializer(
@@ -139,6 +151,16 @@ class CampaignChannelParserIn(BaseModel):
     @field_serializer("create_at", "is_message_published", when_used="unless-none")
     def serialize_datetime_fields(cls, value: datetime) -> str:
         return value.strftime("%Y-%m-%d %H:%M:%S")
+
+    @computed_field
+    @property
+    def scheduled_publication_at(self) -> str:
+        slot = self.campaign.slot_publication_at
+        if not slot:
+            return ""
+        if isinstance(slot, datetime):
+            return slot.strftime("%Y-%m-%d %H:%M:%S")
+        return str(slot)
 
     @computed_field
     @property

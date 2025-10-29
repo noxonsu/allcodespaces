@@ -8,7 +8,7 @@
 
     <p class="login-box-msg">{{ jazzmin_settings.welcome_sign }}</p>
 <!--    <form action="{{ app_path }}" method="post">-->
-    <form action="{{ '/login/?next=/core/campaignchannel/'}}" method="post">
+    <form action="{{ '/login/?next=/core/campaignchannel/'}}" method="post" data-telegram-bot="{{ TELEGRAM_BOT_USERNAME }}" data-telegram-auth-url="{{ TELEGRAM_BOT_AUTH_URL }}">
         {% csrf_token %}
         {% if user.is_authenticated %}
             <p class="errornote">

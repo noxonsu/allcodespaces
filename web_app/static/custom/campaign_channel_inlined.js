@@ -34,6 +34,34 @@ $(document).ready( function() {
 
     }
 
+    function getChannelSlots(protocol, domain, channel_id, dom_element) {
+        var url = protocol + '//' + domain + '/core/channel/' + `${channel_id}/publication-slots`;
+        var selectId = $(dom_element).attr('id').split('-').slice(0, 2).join('-') + '-publication_slot';
+        $.ajax({
+            url: url,
+            method: "GET",
+        }).done(function (response) {
+            var selectElement = $('#' + selectId);
+            var currentValue = selectElement.val();
+            selectElement.empty();
+            selectElement.append(new Option('---------', ''));
+            console.debug('Loaded slots for channel', channel_id, response);
+            if (response && response.length) {
+                response.forEach(function (slot) {
+                    var option = new Option(slot.text, slot.id, false, slot.id === currentValue);
+                    selectElement.append(option);
+                });
+                if (!currentValue) {
+                    var autoValue = response.length === 1 ? response[0].id : '';
+                    if (autoValue) {
+                        selectElement.val(autoValue).trigger('change');
+                    }
+                }
+                selectElement.trigger('change');
+            }
+        });
+    }
+
     function onChannelSelectChange(){
         var select_channel = $('select[data-channel-select]');
         select_channel.each(function () {
@@ -44,11 +72,26 @@ $(document).ready( function() {
                 var domain = location_splited[2]
                 getChannelAdmin(protocol, domain, channel_id, this)
                 getChannelCpm(protocol, domain, channel_id, this)
+                getChannelSlots(protocol, domain, channel_id, this)
             });
         });
 
     }
     onChannelSelectChange();
+
+    function hydrateExistingSlots() {
+        $('select[data-channel-select]').each(function () {
+            var channel_id = $(this).val();
+            if (!channel_id) {
+                return;
+            }
+            var location_splited = location.href.split('/')
+            var protocol = location_splited[0]
+            var domain = location_splited[2]
+            getChannelSlots(protocol, domain, channel_id, this)
+        });
+    }
+    hydrateExistingSlots();
 
     const waitForElement = (selector, callback) => {
   const observer = new MutationObserver(mutations => {
@@ -69,6 +112,7 @@ $(document).ready( function() {
             function (e){
                 $('[data-channel_admin-select]').eq(-2).empty();
                 onChannelSelectChange();
+                hydrateExistingSlots();
         });
     });
 

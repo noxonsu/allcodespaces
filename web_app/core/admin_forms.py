@@ -5,12 +5,36 @@ from django.core.exceptions import ValidationError
 from django.forms import Select
 
 from core.admin_utils import is_empty, is_not_valid_channel_status
-from core.models import Campaign, Channel, ChannelAdmin, Message, CampaignChannel
+from core.models import (
+    Campaign,
+    Channel,
+    ChannelAdmin,
+    Message,
+    CampaignChannel,
+    ChannelPublicationSlot,
+    PlacementFormat,
+    SPONSORSHIP_BODY_LENGTH_LIMIT,
+    default_supported_formats,
+)
 from core.utils import bulk_notify_channeladmin, budget_cpm_from_qs
 from web_app.logger import logger
 
 
 class ChannelForm(forms.ModelForm):
+    supported_formats = forms.MultipleChoiceField(
+        choices=PlacementFormat.choices,
+        required=False,
+        widget=forms.SelectMultiple(attrs={"class": "form-control wide"}),
+        label="Поддерживаемые форматы",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        instance = kwargs.get("instance") or self.instance
+        if instance and instance.pk and instance.supported_formats:
+            self.initial.setdefault("supported_formats", instance.supported_formats)
+        elif "supported_formats" not in self.initial:
+            self.initial["supported_formats"] = default_supported_formats()
     class Media:
         css = {
             "all": [
@@ -29,12 +53,46 @@ class ChannelForm(forms.ModelForm):
             )
         return status
 
+    def clean_supported_formats(self):
+        formats = self.cleaned_data.get("supported_formats") or []
+        if not formats:
+            return default_supported_formats()
+        return formats
+
     class Meta:
         model = Channel
         fields = "__all__"
 
 
 class CampaignAdminForm(forms.ModelForm):
+    format = forms.ChoiceField(
+        choices=PlacementFormat.choices,
+        required=True,
+        initial=PlacementFormat.FIXED_SLOT,
+        label="Формат размещения",
+        widget=forms.Select(attrs={"class": "form-control"}),
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["message"].queryset = Message.objects.all()
+        self.fields["message"].required = True
+
+        # Блокируем поле format только для существующих кампаний (с сохраненным pk в БД)
+        is_existing_campaign = bool(self.instance.pk)
+
+        # Для существующих кампаний блокируем изменение формата
+        if is_existing_campaign:
+            self.fields["format"].disabled = True
+            self.fields["format"].widget.attrs['disabled'] = True
+        else:
+            # Для новых кампаний поле должно быть активным
+            self.fields["format"].disabled = False
+            self.fields["format"].required = True
+            self.fields["format"].initial = PlacementFormat.FIXED_SLOT
+            # Явно убираем disabled атрибут
+            self.fields["format"].widget.attrs.pop('disabled', None)
+
     def clean_client(self):
         is_new = (
             self.instance
@@ -52,6 +110,31 @@ class CampaignAdminForm(forms.ModelForm):
         if budget and budget < 0:
             self.add_error("budget", "Значение не может быть отрицательным")
         return budget
+
+    def clean_format(self):
+        format_value = self.cleaned_data.get("format")
+        if self.instance and self.instance.pk and format_value != self.instance.format:
+            self.add_error(
+                "format",
+                "Нельзя изменять формат существующей кампании.",
+            )
+        return format_value
+
+    def clean(self):
+        cleaned_data = super().clean()
+        campaign_format = cleaned_data.get("format")
+        message = cleaned_data.get("message")
+
+        if not message:
+            self.add_error("message", "Выберите креатив для кампании.")
+            return cleaned_data
+
+        if campaign_format and message and message.format != campaign_format:
+            self.add_error(
+                "message", "Выберите креатив того же формата, что и кампания."
+            )
+
+        return cleaned_data
 
     class Meta:
         model = Campaign
@@ -94,6 +177,32 @@ class MessageModelForm(forms.ModelForm):
         model = Message
         fields = "__all__"
 
+    def clean(self):
+        cleaned_data = super().clean()
+        message_format = cleaned_data.get("format")
+        body = cleaned_data.get("body") or ""
+        button_text = cleaned_data.get("button_str") or ""
+        button_link = cleaned_data.get("button_link")
+
+        if message_format == PlacementFormat.SPONSORSHIP:
+            if len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
+                self.add_error(
+                    "body",
+                    f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов.",
+                )
+            if button_text and not button_link:
+                self.add_error(
+                    "button_link",
+                    "Для формата «Спонсорство» ссылка для кнопки обязательна.",
+                )
+            if button_link and not button_text:
+                self.add_error(
+                    "button_str",
+                    "Для формата «Спонсорство» укажите текст кнопки.",
+                )
+
+        return cleaned_data
+
 
 
 class CampaignChannelInlinedForm(forms.ModelForm):
@@ -113,9 +222,34 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         required=False,
         blank=True
     )
+    publication_slot = forms.ModelChoiceField(
+        queryset=ChannelPublicationSlot.objects.none(),
+        required=False,
+        widget=Select(
+            attrs={"class": "form-group", "data-channel-slot-select": ""}
+        ),
+        blank=True,
+    )
     cpm = forms.IntegerField(required=False, min_value=0)
     plan_cpm = forms.IntegerField(required=False,  min_value=0)
     impressions_plan = forms.IntegerField(required=False, min_value=0)
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        channel_id = None
+        if self.instance and getattr(self.instance, "channel_id", None):
+            channel_id = self.instance.channel_id
+        channel_field = self.add_prefix("channel")
+        if self.data and channel_field in self.data:
+            data_value = self.data.get(channel_field)
+            if data_value:
+                channel_id = data_value
+        if channel_id:
+            self.fields["publication_slot"].queryset = ChannelPublicationSlot.objects.filter(
+                channel_id=channel_id
+            )
+        else:
+            self.fields["publication_slot"].queryset = ChannelPublicationSlot.objects.none()
 
     class Meta:
         model = CampaignChannel
@@ -154,10 +288,69 @@ class CampaignChannelInlinedForm(forms.ModelForm):
 
         channel = self.cleaned_data.get("channel")
         channel_admin = self.cleaned_data.get("channel_admin")
+        publication_slot = self.cleaned_data.get("publication_slot")
         required_fields = ['cpm', 'plan_cpm', 'impressions_plan']
+        if campaign and channel and not channel.supports_format(campaign.format):
+            raise ValidationError(
+                {"channel": "Выберите канал, поддерживающий формат кампании."}
+            )
         if channel and channel_admin:
             for field in required_fields:
                 if self.cleaned_data.get(field) is None:
                     raise ValidationError({field: "обязательное поле"})
+        if campaign and campaign.format == PlacementFormat.FIXED_SLOT:
+            if not publication_slot:
+                raise ValidationError({"publication_slot": "Выберите слот публикации"})
+            if channel and publication_slot.channel_id != channel.id:
+                raise ValidationError(
+                    {"publication_slot": "Слот принадлежит другому каналу"}
+                )
+        else:
+            self.cleaned_data["publication_slot"] = None
         return super().clean()
 
+
+class ChannelPublicationSlotInlineForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Add visual grouping for time slots
+        if 'start_time' in self.fields:
+            self.fields['start_time'].widget.attrs.update({'class': 'time-slot-input'})
+        if 'end_time' in self.fields:
+            self.fields['end_time'].widget.attrs.update({'class': 'time-slot-input'})
+        if 'weekday' in self.fields:
+            self.fields['weekday'].widget.attrs.update({'class': 'weekday-select'})
+
+    class Meta:
+        model = ChannelPublicationSlot
+        fields = "__all__"
+
+
+class ChannelPublicationSlotInlineFormset(forms.BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        slots = []
+        for form in self.forms:
+            if not hasattr(form, "cleaned_data"):
+                continue
+            data = form.cleaned_data
+            # Skip empty forms and forms marked for deletion
+            if not data or data.get("DELETE") or not data.get("channel"):
+                continue
+            weekday = data.get("weekday")
+            start_time = data.get("start_time")
+            end_time = data.get("end_time")
+            # Skip forms with incomplete data
+            if weekday is None or start_time is None or end_time is None:
+                continue
+            # Check for overlapping slots
+            # Slots are considered overlapping if they share any time period
+            # Adjacent slots (e.g., 8:00-9:00 and 9:00-10:00) are NOT overlapping
+            for existing_weekday, existing_start, existing_end in slots:
+                if weekday == existing_weekday:
+                    # Check if slots actually overlap (not just touch at boundaries)
+                    if start_time < existing_end and end_time > existing_start:
+                        raise ValidationError(
+                            "Нельзя создавать пересекающиеся временные слоты для одного дня недели."
+                        )
+            slots.append((weekday, start_time, end_time))

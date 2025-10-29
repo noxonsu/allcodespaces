@@ -5,7 +5,7 @@ from factory.django import DjangoModelFactory
 import factory.random
 from faker import Faker
 
-from core.models import ChannelAdmin, Channel
+from core.models import ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot
 
 faker = Faker()
 
@@ -20,6 +20,7 @@ class MessageFactory(DjangoModelFactory):
     is_external = factory.Faker("boolean")
     button_str = factory.Faker("text")
     button_link = factory.Faker("url")
+    format = PlacementFormat.FIXED_SLOT
 
 
 class CampaignFactory(DjangoModelFactory):
@@ -39,6 +40,8 @@ class CampaignFactory(DjangoModelFactory):
     token_ord = factory.Faker("text")
     client = factory.Faker("name")
     brand = factory.Faker("name")
+    format = PlacementFormat.FIXED_SLOT
+    slot_publication_at = factory.Faker("date_time")
 
 
 class ChannelFactory(DjangoModelFactory):
@@ -62,6 +65,7 @@ class ChannelFactory(DjangoModelFactory):
     err = factory.Faker("pyfloat", min_value=1)
     err_24 = factory.Faker("pyfloat", min_value=1)
     daily_reach = factory.Faker("pyfloat", min_value=1)
+    supported_formats = factory.LazyFunction(default_supported_formats)
 
 
 class GroupFactory(DjangoModelFactory):
@@ -140,3 +144,21 @@ class CampaignChannelFactory(DjangoModelFactory):
     channel_post_id = factory.Faker("random_int", min=1, max=10000)
     clicks = factory.Faker("random_int", min=1, max=10000)
     is_approved = factory.Faker("boolean")
+    publication_slot = None
+
+
+class ChannelPublicationSlotFactory(DjangoModelFactory):
+    class Meta:
+        model = ChannelPublicationSlot
+
+    channel = factory.SubFactory(ChannelFactory)
+    weekday = factory.Iterator(range(7))
+    start_time = factory.Faker("time_object")
+
+    @factory.lazy_attribute
+    def end_time(self):
+        from datetime import datetime, timedelta
+
+        start_dt = datetime.combine(datetime.today(), self.start_time)
+        end_dt = start_dt + timedelta(minutes=30)
+        return end_dt.time()

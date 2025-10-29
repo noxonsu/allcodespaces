@@ -17,7 +17,7 @@ from .admin_forms import (
     CampaignAdminForm,
     ChannelAdminForm,
     ChannelForm,
-    MessageModelForm, CampaignChannelInlinedForm,
+    MessageModelForm, CampaignChannelInlinedForm, ChannelPublicationSlotInlineForm, ChannelPublicationSlotInlineFormset,
 )
 from .admin_utils import (
     CustomDateFieldListFilter,
@@ -33,6 +33,8 @@ from .models import (
     CampaignChannel,
     User,
     ChannelAdmin,
+    ChannelPublicationSlot,
+    PlacementFormat,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -45,6 +47,7 @@ class ChannelAdminInlinedForm(forms.ModelForm):
         widget=Select(
             attrs={"class": "form-control wide", "data-channel_admin-select": ""}
         ),
+        required=False,
     )
     chat_room = forms.CharField(
         required=False,
@@ -84,10 +87,32 @@ class ChannelAdminInlined(admin.TabularInline):
         return False
 
 
+class ChannelPublicationSlotInline(admin.TabularInline):
+    model = ChannelPublicationSlot
+    form = ChannelPublicationSlotInlineForm
+    formset = ChannelPublicationSlotInlineFormset
+    extra = 0
+    verbose_name = "Доступный слот"
+    verbose_name_plural = "Доступные слоты"
+    fields = ["weekday", "start_time", "end_time"]
+    template = "admin/core/channel/publication_slots_inline.html"
+
+    def get_extra(self, request, obj=None, **kwargs):
+        """No extra forms by default since we use visual grid"""
+        return 0
+
+    def get_formset(self, request, obj=None, **kwargs):
+        formset = super().get_formset(request, obj, **kwargs)
+        # Pass hours and days to template context
+        formset.hours = range(0, 24)
+        formset.days = range(7)
+        return formset
+
+
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
     class Media:
-        js = ["core/js/admin_channel_model.js"]
+        js = ["core/js/admin_channel_model.js", "core/js/channel/tab_navigation.js"]
 
     readonly_fields = [
         "country",
@@ -120,13 +145,14 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "category",
         "is_bot_installed_html",
         "status_html",
+        "require_manual_approval",
         "avg_posts_reach",
         "cpm",
         "er",
         "err",
         "err_24",
     ]
-    inlines = [ChannelAdminInlined]
+    inlines = [ChannelAdminInlined, ChannelPublicationSlotInline]
     ordering = ["-created_at"]
     list_filter = [
         ("name",CustomAllValuesFieldListFilter),
@@ -147,6 +173,8 @@ class ChannelModelAdmin(admin.ModelAdmin):
                     "is_bot_installed",
                     "status",
                     "cpm",
+                    "supported_formats",
+                    "require_manual_approval",
                     "btn_link_statistics",
                 ),
             },
@@ -178,10 +206,76 @@ class ChannelModelAdmin(admin.ModelAdmin):
 
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
-        """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
+        """To hide the save and continue btn, add error details, and pass tab context"""
         extra_context = {} if not extra_context else extra_context
         extra_context["show_save_and_continue"] = False
-        return super().changeform_view(request, object_id, extra_context=extra_context)
+        extra_context["hours"] = range(0, 24)
+        extra_context["days"] = range(7)
+
+        response = super().changeform_view(request, object_id, form_url, extra_context=extra_context)
+
+        # If POST and there are errors, show detailed error info
+        if request.method == 'POST' and hasattr(response, 'context_data'):
+            context = response.context_data
+            if context:
+                adminform = context.get('adminform')
+                inline_admin_formsets = context.get('inline_admin_formsets', [])
+
+                # Collect all errors
+                errors = []
+
+                # Main form errors
+                if adminform and hasattr(adminform, 'form') and adminform.form.errors:
+                    for field, error_list in adminform.form.errors.items():
+                        errors.append(f"Поле '{field}': {', '.join(error_list)}")
+
+                # Inline formset errors
+                for inline_formset in inline_admin_formsets:
+                    if hasattr(inline_formset, 'formset'):
+                        formset = inline_formset.formset
+
+                        # Non-form errors
+                        if formset.non_form_errors():
+                            for error in formset.non_form_errors():
+                                errors.append(f"[{inline_formset.opts.verbose_name_plural}] {error}")
+
+                        # Individual form errors
+                        for i, form in enumerate(formset.forms):
+                            if form.errors:
+                                for field, error_list in form.errors.items():
+                                    errors.append(f"[{inline_formset.opts.verbose_name_plural}] Форма #{i+1}, поле '{field}': {', '.join(error_list)}")
+
+                # Display errors as warning messages
+                if errors:
+                    from django.contrib import messages
+                    messages.warning(request, "Найдены ошибки валидации:")
+                    for error in errors[:10]:  # Limit to 10 errors
+                        messages.error(request, error)
+                    if len(errors) > 10:
+                        messages.error(request, f"... и еще {len(errors) - 10} ошибок")
+
+        return response
+
+    def response_change(self, request, obj):
+        """Stay on the same page after save, preserve tab parameter"""
+        from django.http import HttpResponseRedirect
+        from django.urls import reverse
+
+        # Check if this is a save action (not save and continue)
+        if "_save" in request.POST:
+            msg = f'Канал "{obj}" успешно сохранен.'
+            self.message_user(request, msg)
+
+            # Preserve tab parameter if present
+            redirect_url = request.path
+            tab_param = request.GET.get('tab')
+            if tab_param:
+                redirect_url += f'?tab={tab_param}'
+
+            return HttpResponseRedirect(redirect_url)
+
+        # For other actions, use default behavior
+        return super().response_change(request, obj)
 
     def formfield_for_dbfield(self, db_field, **kwargs):
         """Modify formfields for change/add"""
@@ -295,6 +389,12 @@ class ChannelModelAdmin(admin.ModelAdmin):
         path(
             "<uuid:object_id>/channel-cpm-get",
             self.admin_site.admin_view(self.get_channel_cpm_inlined)))
+        urls.append(
+            path(
+                "<uuid:object_id>/publication-slots",
+                self.admin_site.admin_view(self.get_channel_publication_slots),
+            )
+        )
 
         return urls
 
@@ -315,6 +415,19 @@ class ChannelModelAdmin(admin.ModelAdmin):
         if channel:
             data['value'] = channel.cpm or 0
         return JsonResponse(data=data)
+
+    def get_channel_publication_slots(self, request, object_id):
+        slots = ChannelPublicationSlot.objects.filter(channel_id=object_id).order_by(
+            "weekday", "start_time"
+        )
+        data = [
+            {
+                "id": str(slot.id),
+                "text": slot.label,
+            }
+            for slot in slots
+        ]
+        return JsonResponse(data, safe=False)
 
 
 class CampaignChannelInlined(admin.TabularInline):
@@ -339,6 +452,7 @@ class CampaignChannelInlined(admin.TabularInline):
         'channel',
         'channel_invitation_link',
         'channel_admin',
+        'publication_slot',
         'cpm',
         'plan_cpm',
         'cpm_diff',
@@ -357,6 +471,35 @@ class CampaignChannelInlined(admin.TabularInline):
     verbose_name_plural = "Каналы"
     form = CampaignChannelInlinedForm
     template = "admin/core/campaign/campaign_channel_tabular.html"
+
+    def _get_campaign_format(self, request) -> str | None:
+        if not request:
+            return None
+        resolver_match = getattr(request, "resolver_match", None)
+        if resolver_match and getattr(resolver_match, "kwargs", None):
+            object_id = resolver_match.kwargs.get("object_id")
+            if object_id:
+                campaign = Campaign.objects.filter(id=object_id).first()
+                if campaign:
+                    return campaign.format
+        format_code = None
+        if request.POST:
+            format_code = request.POST.get("format")
+        if not format_code and request.GET:
+            format_code = request.GET.get("format")
+        valid_values = {choice[0] for choice in PlacementFormat.choices}
+        if format_code in valid_values:
+            return format_code
+        return None
+
+    def formfield_for_foreignkey(self, db_field, request=None, **kwargs):
+        if db_field.name == "channel":
+            campaign_format = self._get_campaign_format(request)
+            if campaign_format:
+                kwargs["queryset"] = Channel.objects.filter(
+                    supported_formats__contains=[campaign_format]
+                )
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
     @admin.display(description="Обновить статистику")
     def update_statistics(self, instance):
@@ -410,6 +553,7 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
         "campaign_channels_count",
         "campaign_channels_subs_count",
         "channels_avg_posts_reach",
+        "publication_slot_display",
         "sov",
     ]
     readonly_fields = fields
@@ -446,6 +590,11 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
         )["sum"]
         return f"{total_impressions_plan / subs_count:.0%}"
 
+    @admin.display(description="Слот публикации")
+    def publication_slot_display(self, instance: CampaignChannel):
+        slot = getattr(instance, "publication_slot", None)
+        return slot.label if slot else "-"
+
 
 @register(Campaign)
 class CampaignAdmin(admin.ModelAdmin):
@@ -469,6 +618,7 @@ class CampaignAdmin(admin.ModelAdmin):
         "name_str",
         "total_channels",
         "status",
+        "format_display",
         "start_date",
         "finish_date",
         "total_planed_views",
@@ -483,6 +633,7 @@ class CampaignAdmin(admin.ModelAdmin):
         ("brand", CustomAllValuesFieldListFilter),
         ("client", CustomAllValuesFieldListFilter),
         ("status", CustomChoiceFilter),
+        ("format", CustomChoiceFilter),
         ("start_date",CustomDateFieldListFilter),
         ("finish_date",CustomDateFieldListFilter),
     ]
@@ -496,6 +647,7 @@ class CampaignAdmin(admin.ModelAdmin):
                     "client",
                     "brand",
                     "budget",
+                    "format",
                     "start_date",
                     "finish_date",
                     "white_list",
@@ -512,6 +664,15 @@ class CampaignAdmin(admin.ModelAdmin):
     list_display_links = ['name_str']
     form = CampaignAdminForm
     inlines = [CampaignChannelInlined, ReadOnlyCampaignChannelInlined]
+
+    def get_form(self, request, obj=None, **kwargs):
+        """Override to ensure format field is enabled for new campaigns"""
+        form = super().get_form(request, obj, **kwargs)
+        # Для новых кампаний (obj=None) явно разблокируем поле format
+        if obj is None and 'format' in form.base_fields:
+            form.base_fields['format'].disabled = False
+            form.base_fields['format'].required = True
+        return form
 
     @admin.display(description='Каналы')
     def total_channels(self, instance: Campaign):
@@ -537,6 +698,10 @@ class CampaignAdmin(admin.ModelAdmin):
     @admin.display(description='Target')
     def link_type(self, instance: Campaign):
         return mark_safe(f"<a href='{instance.message.button_link}'>{instance.link_type_str}</a>")
+
+    @admin.display(description="Формат", ordering="format")
+    def format_display(self, instance: Campaign) -> str:
+        return instance.get_format_display()
 
     @admin.display(description="Кампания", ordering="name")
     def name_str(self, obj: Campaign) -> str:
@@ -572,7 +737,13 @@ class MessageAdmin(admin.ModelAdmin):
         css = {"all": ["core/css/message/change_form.css"]}
 
     readonly_fields = ["id", "display_image", "display_image_thumbil"]
-    list_display = ["__str__",'title_display' ,"message_type", "display_image_thumbil"]
+    list_display = [
+        "__str__",
+        'title_display',
+        "message_type",
+        "format_display",
+        "display_image_thumbil",
+    ]
     form = MessageModelForm
 
     fields = [
@@ -581,6 +752,7 @@ class MessageAdmin(admin.ModelAdmin):
         "body",
         "image",
         "video",
+        "format",
         "button_str",
         "button_link",
         "is_external",
@@ -609,6 +781,10 @@ class MessageAdmin(admin.ModelAdmin):
                 f"<img src={obj.image.url} alt='image-{obj.title}' style='width:70%;height:70%;'>"
             )
         return "-"
+
+    @admin.display(description="Формат", ordering="format")
+    def format_display(self, obj: Message) -> str:
+        return obj.get_format_display()
 
     @admin.display(description="миниатюра")
     def display_image_thumbil(self, obj):

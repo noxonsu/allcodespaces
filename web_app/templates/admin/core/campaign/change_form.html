@@ -1,0 +1,70 @@
+{% extends "admin/change_form.html" %}
+{% load i18n admin_urls static admin_modify %}
+
+{% block submit_buttons_bottom %}
+    {{ block.super }}
+    <script type="module">
+    document.addEventListener('DOMContentLoaded', function () {
+        const form = document.getElementById('campaign_form') || document.querySelector('form');
+        if (!form) {
+            return;
+        }
+        const sidebar = document.querySelector('#jazzy-actions');
+        if (!sidebar) {
+            return;
+        }
+        const container = sidebar.querySelector('.object-tools') || sidebar;
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'btn btn-sm btn-secondary mt-2';
+        button.textContent = 'Заполнить тестовыми данными';
+
+        button.addEventListener('click', () => {
+            const setValue = (selector, value) => {
+                const el = form.querySelector(selector);
+                if (el) {
+                    el.value = value;
+                    el.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            };
+
+            const today = new Date();
+            const isoDate = (date) => date.toISOString().slice(0, 10);
+
+            setValue('#id_name', 'Тестовая кампания ' + today.toLocaleString());
+            setValue('#id_client', 'Тестовый рекламодатель');
+            setValue('#id_brand', 'Тестовый бренд');
+            setValue('#id_budget', 150000);
+            setValue('#id_format', 'fixed_slot');
+            setValue('#id_start_date', isoDate(today));
+            const finish = new Date(today.getTime() + 3 * 24 * 60 * 60 * 1000);
+            setValue('#id_finish_date', isoDate(finish));
+            setValue('#id_status', 'active');
+
+            const messageSelect = form.querySelector('#id_message');
+            if (messageSelect && messageSelect.options.length > 1) {
+                const firstOption = Array.from(messageSelect.options).find(opt => opt.value);
+                if (firstOption) {
+                    messageSelect.value = firstOption.value;
+                    messageSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+
+            const channelSelect = form.querySelector('[name="campaigns_channel-0-channel"]');
+            if (channelSelect && channelSelect.options.length > 1) {
+                const firstChannel = Array.from(channelSelect.options).find(opt => opt.value);
+                if (firstChannel) {
+                    channelSelect.value = firstChannel.value;
+                    channelSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                }
+            }
+
+            setValue('[name="campaigns_channel-0-cpm"]', 5000);
+            setValue('[name="campaigns_channel-0-plan_cpm"]', 4500);
+            setValue('[name="campaigns_channel-0-impressions_plan"]', 40000);
+        });
+
+        container.appendChild(button);
+    });
+    </script>
+{% endblock %}

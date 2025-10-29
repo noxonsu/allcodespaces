@@ -56,4 +56,52 @@ $(document).ready(function () {
 
     }
     editResultListColsClass();
+
+    var formatField = $('#id_format');
+    var bodyField = $('#id_body');
+    var counterWrapper = $('<div class="msg-body-counter text-muted small mt-1"></div>');
+    var SPONSORSHIP_LIMIT = 160;
+
+    function ensureCounterPresence() {
+        if (!bodyField.length) {
+            return;
+        }
+        if (!bodyField.next('.msg-body-counter').length) {
+            bodyField.after(counterWrapper);
+        }
+    }
+
+    function updateBodyCounter() {
+        if (!bodyField.length) {
+            return;
+        }
+        var textLength = bodyField.val() ? bodyField.val().length : 0;
+        counterWrapper.text(textLength + '/' + SPONSORSHIP_LIMIT);
+        counterWrapper.toggleClass('text-danger', textLength > SPONSORSHIP_LIMIT);
+    }
+
+    function toggleBodyLimit() {
+        if (!formatField.length || !bodyField.length) {
+            return;
+        }
+        var isSponsorship = formatField.val() === 'sponsorship';
+        if (isSponsorship) {
+            ensureCounterPresence();
+            counterWrapper.show();
+            bodyField.attr('maxlength', SPONSORSHIP_LIMIT);
+            updateBodyCounter();
+        } else {
+            counterWrapper.hide();
+            bodyField.removeAttr('maxlength');
+        }
+    }
+
+    if (formatField.length && bodyField.length) {
+        toggleBodyLimit();
+        formatField.on('change', function () {
+            bodyField.trigger('input');
+            toggleBodyLimit();
+        });
+        bodyField.on('input', updateBodyCounter);
+    }
 });

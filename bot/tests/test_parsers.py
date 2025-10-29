@@ -64,6 +64,7 @@ def test_parse_long_message_success(str_text, expected):
             status="confirmed",
             meta=None,
             cpm=123123,
+            supported_formats=["autopilot", "sponsorship"],
         ),
         dict(
             id=uuid4(),
@@ -72,6 +73,7 @@ def test_parse_long_message_success(str_text, expected):
             is_bot_installed=False,
             status="pending",
             cpm=123123,
+            supported_formats=["autopilot"],
         ),
     ),
 )
@@ -83,6 +85,7 @@ def test_validate_channel_incomming_success(data):
     assert parser.tg_id == data["tg_id"]
     assert parser.name == data["name"]
     assert parser.id == data["id"]
+    assert parser.supported_formats == data.get("supported_formats", [])
 
 
 @pytest.mark.parametrize(
@@ -125,12 +128,14 @@ def test_validate_messagelink_incomming_success(data):
             updated_at="2025-1-2",
             button=dict(id=uuid4(), title="fake button", url="https://www.google.com"),
             is_external=True,
+            format="autopilot",
         ),
         dict(
             id=uuid4(),
             as_text="The message is fake",
             button=dict(id=uuid4()),
             is_external=True,
+            format="sponsorship",
         ),
     ),
 )
@@ -145,6 +150,7 @@ def test_validate_message_incoming_success(data):
     assert parser.video == data.get("video", "")
     assert parser.is_external is data["is_external"]
     assert parser.button.id == data["button"]["id"]
+    assert parser.format == data.get("format")
 
 
 @pytest.mark.parametrize(
@@ -170,11 +176,15 @@ def test_validate_message_incoming_success(data):
                     id=uuid4(), title="fake button", url="https://www.google.com"
                 ),
                 is_external=True,
+                format="autopilot",
             ),
             black_list=["block"],
             white_list=["allow"],
             client="client",
             brand="client",
+            format="autopilot",
+            format_display="Автопилот",
+            slot_publication_at="2024-01-02 09:00:00",
         ),
         dict(
             id=uuid4(),
@@ -196,11 +206,15 @@ def test_validate_message_incoming_success(data):
                     id=uuid4(), title="fake button", url="https://www.google.com"
                 ),
                 is_external=True,
+                format="fixed_slot",
             ),
             black_list=[],
             white_list=["allow"],
             client="client2",
             brand="brand 2",
+            format="fixed_slot",
+            format_display="Фикс-слот",
+            slot_publication_at=datetime.datetime.now(),
         ),
         dict(
             id=uuid4(),
@@ -222,11 +236,15 @@ def test_validate_message_incoming_success(data):
                     id=uuid4(), title="fake button", url="https://www.google.com"
                 ),
                 is_external=True,
+                format="sponsorship",
             ),
             black_list=[],
             white_list=[],
             client="client2",
             brand="brand 2",
+            format="sponsorship",
+            format_display="Спонсорство",
+            slot_publication_at=None,
         ),
     ),
 )
@@ -242,6 +260,9 @@ def test_validate_campaign_incomming_success(data):
     assert parser.white_list == data.get("white_list", [])
     assert parser.client == data.get("client", "")
     assert parser.brand == data.get("brand", "")
+    assert parser.format == data.get("format")
+    assert parser.format_display == data.get("format_display")
+    assert parser.slot_publication_at == data.get("slot_publication_at")
 
 
 @pytest.mark.parametrize(
@@ -290,28 +311,33 @@ def test_validate_channeladmin_incoming_success(data):
                     video="path/to/video",
                     created_at="2025-1-1",
                     updated_at="2025-1-2",
-                    button=dict(
-                        id=uuid4(), title="fake button", url="https://www.google.com"
-                    ),
-                    is_external=True,
+                button=dict(
+                    id=uuid4(), title="fake button", url="https://www.google.com"
                 ),
-                black_list=["block"],
-                white_list=["allow"],
-                client="client",
-                brand="client",
+                is_external=True,
+                format="autopilot",
             ),
-            channel=dict(
-                id=uuid4(),
-                name="fake channel2",
-                tg_id="12163561",
-                is_bot_installed=False,
-                status="pending",
-                cpm=123123,
-            ),
-            channel_admin=dict(
-                id=uuid4(),
-                username="username fake",
-                first_name="fake first",
+            black_list=["block"],
+            white_list=["allow"],
+            client="client",
+            brand="client",
+            format="autopilot",
+            format_display="Автопилот",
+            slot_publication_at="2024-01-02 10:00:00",
+        ),
+        channel=dict(
+            id=uuid4(),
+            name="fake channel2",
+            tg_id="12163561",
+            is_bot_installed=False,
+            status="pending",
+            cpm=123123,
+            supported_formats=["autopilot"],
+        ),
+        channel_admin=dict(
+            id=uuid4(),
+            username="username fake",
+            first_name="fake first",
                 last_name="fake last",
                 phone_number="1234567890",
                 tg_id="1234567890",
@@ -335,3 +361,4 @@ def test_validate_campaign_channel_success(data):
     assert parser.impressions_fact == data["impressions_fact"]
     assert parser.cpm == data["cpm"]
     assert parser.path_click_analysis == data["path_click_analysis"]
+    assert parser.scheduled_publication_at == data["campaign"]["slot_publication_at"]

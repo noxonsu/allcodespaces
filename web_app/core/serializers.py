@@ -2,7 +2,17 @@ from functools import cached_property
 
 from django.templatetags.l10n import localize
 from rest_framework import serializers
-from core.models import Channel, Message, CampaignChannel, User, Campaign, ChannelAdmin
+from core.models import (
+    Channel,
+    Message,
+    CampaignChannel,
+    User,
+    Campaign,
+    ChannelAdmin,
+    PlacementFormat,
+    SPONSORSHIP_BODY_LENGTH_LIMIT,
+    SPONSORSHIP_BUTTON_LIMIT,
+)
 from core.utils import validate_channel_avtar_url
 
 
@@ -101,15 +111,65 @@ class MessageSerializer(serializers.ModelSerializer):
             "as_text",
             "image",
             "video",
+            "format",
             "is_external",
             "created_at",
             "updated_at",
         ]
         list_serializer_class = ListMessageSerializer
 
+    def validate(self, attrs):
+        format_value = attrs.get("format")
+        if format_value is None and self.instance:
+            format_value = self.instance.format
+
+        body = attrs.get("body")
+        if body is None and self.instance:
+            body = self.instance.body
+
+        button_str = attrs.get("button_str")
+        if button_str is None and self.instance:
+            button_str = self.instance.button_str
+
+        button_link = attrs.get("button_link")
+        if button_link is None and self.instance:
+            button_link = self.instance.button_link
+
+        if format_value == PlacementFormat.SPONSORSHIP:
+            if body and len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
+                raise serializers.ValidationError(
+                    {
+                        "body": f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов.",
+                    }
+                )
+            if button_str and not button_link:
+                raise serializers.ValidationError(
+                    {
+                        "button_link": "Для формата «Спонсорство» ссылка для кнопки обязательна.",
+                    }
+                )
+            if button_link and not button_str:
+                raise serializers.ValidationError(
+                    {
+                        "button_str": "Для формата «Спонсорство» укажите текст кнопки.",
+                    }
+                )
+            buttons_count = 1 if button_link and button_str else 0
+            if buttons_count > SPONSORSHIP_BUTTON_LIMIT:
+                raise serializers.ValidationError(
+                    {
+                        "button_link": "Для формата «Спонсорство» допустима только одна кнопка.",
+                    }
+                )
+
+        return attrs
+
 
 class CampaignSerializer(serializers.ModelSerializer):
     message = MessageSerializer()
+    format_display = serializers.CharField(
+        source="get_format_display", read_only=True
+    )
 
     class Meta:
         model = Campaign
@@ -126,6 +186,7 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
     channel = ChannelSerializer()
     campaign = CampaignSerializer()
     channel_admin = ChannelAdminSerializer()
+    publication_slot = serializers.SerializerMethodField()
 
     class Meta:
         model = CampaignChannel
@@ -139,6 +200,7 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
             "impressions_fact",
             "is_message_published",
             "message_publish_date",
+            "publication_slot",
             "channel_post_id",
             "cpm",
             "plan_cpm",
@@ -148,6 +210,18 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
             "path_click_analysis",
         ]
         extra_kwargs = {"path_click_analysis": {"read_only": True}, 'plan_cpm': {'required': False}}
+
+    def get_publication_slot(self, obj):
+        slot = getattr(obj, "publication_slot", None)
+        if not slot:
+            return None
+        return {
+            "id": str(slot.id),
+            "weekday": slot.get_weekday_display(),
+            "start_time": slot.start_time.strftime("%H:%M"),
+            "end_time": slot.end_time.strftime("%H:%M"),
+            "label": slot.label,
+        }
 
 
 class CampaignChannelClickSerializer(serializers.Serializer):

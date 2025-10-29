@@ -137,6 +137,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "web_app.context_processors.telewin_settings",
             ],
         },
     },
@@ -289,11 +290,19 @@ SWAGGER_SETTINGS = {
 
 
 # Celery Configuration Options
-CELERY_TIMEZONE = "UTC"
+CELERY_TIMEZONE = "Europe/Moscow"
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 30 * 60
 CELERY_RESULT_BACKEND = "django-db"
 CELERY_CACHE_BACKEND = "default"
+
+# Celery Beat Schedule
+CELERY_BEAT_SCHEDULE = {
+    'check-scheduled-messages-every-minute': {
+        'task': 'core.tasks.check_and_publish_scheduled_messages',
+        'schedule': 60.0,  # Каждую минуту
+    },
+}
 
 LOGIN_WELCOME_MSG = """
 <div class="text-center">

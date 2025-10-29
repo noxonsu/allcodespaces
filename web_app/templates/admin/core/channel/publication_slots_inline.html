@@ -1,0 +1,326 @@
+{% load i18n admin_urls static admin_modify %}
+<div class="js-inline-admin-formset inline-group publication-slots-inline" id="{{ inline_admin_formset.formset.prefix }}-group"
+     data-inline-type="tabular"
+     data-inline-formset="{{ inline_admin_formset.inline_formset_data }}">
+    <div class="tabular inline-related {% if forloop.last %}last-related{% endif %}">
+        {{ inline_admin_formset.formset.management_form }}
+        <fieldset class="module {{ inline_admin_formset.classes }}">
+            <legend>{{ inline_admin_formset.opts.verbose_name_plural|capfirst }}</legend>
+            {{ inline_admin_formset.formset.non_form_errors }}
+
+            <style>
+                .publication-slots-grid {
+                    display: grid;
+                    grid-template-columns: 120px repeat(7, 1fr);
+                    gap: 2px;
+                    margin: 20px 0;
+                    font-size: 12px;
+                }
+                .publication-slots-grid .time-label {
+                    text-align: right;
+                    padding: 8px;
+                    font-weight: bold;
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                }
+                .publication-slots-grid .day-header {
+                    text-align: center;
+                    padding: 8px;
+                    font-weight: bold;
+                    background: #417690;
+                    color: white;
+                    border: 1px solid #336b87;
+                }
+                .publication-slots-grid .slot-cell {
+                    text-align: center;
+                    padding: 4px;
+                    border: 1px solid #dee2e6;
+                    background: #fff;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                .publication-slots-grid .slot-cell.selected {
+                    background: #28a745;
+                    color: white;
+                }
+                .publication-slots-grid .slot-cell:hover {
+                    background: #e9ecef;
+                }
+                .publication-slots-grid .slot-cell.selected:hover {
+                    background: #218838;
+                }
+                .slots-controls {
+                    margin: 15px 0;
+                    padding: 10px;
+                    background: #f8f9fa;
+                    border-radius: 4px;
+                }
+                .slots-controls button {
+                    margin-right: 10px;
+                    padding: 6px 12px;
+                    background: #417690;
+                    color: white;
+                    border: none;
+                    border-radius: 4px;
+                    cursor: pointer;
+                }
+                .slots-controls button:hover {
+                    background: #336b87;
+                }
+                .hidden-formset {
+                    display: none;
+                }
+            </style>
+
+            <div class="slots-controls">
+                <button type="button" id="select-all-slots">Выбрать все</button>
+                <button type="button" id="select-default-slots">Выбрать 8:00-21:00</button>
+                <button type="button" id="clear-all-slots">Очистить все</button>
+            </div>
+
+            <div class="publication-slots-grid" id="publication-slots-grid">
+                <div class="time-label"></div>
+                <div class="day-header">ПН</div>
+                <div class="day-header">ВТ</div>
+                <div class="day-header">СР</div>
+                <div class="day-header">ЧТ</div>
+                <div class="day-header">ПТ</div>
+                <div class="day-header">СБ</div>
+                <div class="day-header">ВС</div>
+
+                {% for hour in hours %}
+                <div class="time-label">{{ hour }}:00</div>
+                {% for day in days %}
+                <div class="slot-cell"
+                     data-weekday="{{ day }}"
+                     data-hour="{{ hour }}"
+                     data-selected="false">
+                    <input type="checkbox"
+                           class="slot-checkbox"
+                           style="display:none;"
+                           data-weekday="{{ day }}"
+                           data-hour="{{ hour }}">
+                </div>
+                {% endfor %}
+                {% endfor %}
+            </div>
+
+            <!-- Hidden original formset for Django -->
+            <div class="hidden-formset">
+                <table>
+                    <tbody>
+                    {% for inline_admin_form in inline_admin_formset %}
+                        <tr class="form-row{% if inline_admin_form.original or inline_admin_form.show_url %} has_original{% endif %}{% if forloop.last and inline_admin_formset.has_add_permission %} empty-form{% endif %}"
+                            id="{{ inline_admin_formset.formset.prefix }}-{% if not forloop.last %}{{ forloop.counter0 }}{% else %}empty{% endif %}"
+                            data-inline-formset-row>
+                            <td class="original">
+                                {% if inline_admin_form.needs_explicit_pk_field %}{{ inline_admin_form.pk_field.field }}{% endif %}
+                                {% if inline_admin_form.fk_field %}{{ inline_admin_form.fk_field.field }}{% endif %}
+                                {% spaceless %}
+                                    {% for fieldset in inline_admin_form %}
+                                        {% for line in fieldset %}
+                                            {% for field in line %}
+                                                {% if field.field.is_hidden %}{{ field.field }}{% endif %}
+                                            {% endfor %}
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% endspaceless %}
+                            </td>
+                            {% for fieldset in inline_admin_form %}
+                                {% for line in fieldset %}
+                                    {% for field in line %}
+                                        {% if not field.field.is_hidden %}
+                                            <td class="field-{{ field.field.name }}">
+                                                {{ field.field }}
+                                            </td>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                            {% endfor %}
+                            {% if inline_admin_formset.formset.can_delete and inline_admin_formset.has_delete_permission %}
+                                <td class="delete">{% if inline_admin_form.original %}{{ inline_admin_form.deletion_field.field }}{% endif %}</td>
+                            {% endif %}
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <script>
+            (function() {
+                const grid = document.getElementById('publication-slots-grid');
+                const prefix = '{{ inline_admin_formset.formset.prefix }}';
+                const totalFormsInput = document.getElementById('id_' + prefix + '-TOTAL_FORMS');
+                const hiddenFormset = document.querySelector('.hidden-formset tbody');
+                const emptyForm = document.querySelector('.empty-form');
+
+                // Initialize from existing data
+                function initializeGrid() {
+                    const rows = document.querySelectorAll('[data-inline-formset-row]:not(.empty-form)');
+                    rows.forEach(row => {
+                        const weekdayField = row.querySelector('[name$="-weekday"]');
+                        const startTimeField = row.querySelector('[name$="-start_time"]');
+                        const deleteField = row.querySelector('[name$="-DELETE"]');
+
+                        if (weekdayField && startTimeField && (!deleteField || !deleteField.checked)) {
+                            const weekday = weekdayField.value;
+                            const startTime = startTimeField.value;
+                            if (startTime) {
+                                const hour = parseInt(startTime.split(':')[0]);
+                                const cell = grid.querySelector(`.slot-cell[data-weekday="${weekday}"][data-hour="${hour}"]`);
+                                if (cell) {
+                                    cell.classList.add('selected');
+                                    cell.dataset.selected = 'true';
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Toggle slot selection
+                grid.addEventListener('click', function(e) {
+                    const cell = e.target.closest('.slot-cell');
+                    if (!cell) return;
+
+                    const isSelected = cell.dataset.selected === 'true';
+                    cell.dataset.selected = (!isSelected).toString();
+                    cell.classList.toggle('selected');
+
+                    syncToFormset();
+                });
+
+                // Select all slots
+                document.getElementById('select-all-slots').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    grid.querySelectorAll('.slot-cell').forEach(cell => {
+                        cell.classList.add('selected');
+                        cell.dataset.selected = 'true';
+                    });
+                    syncToFormset();
+                });
+
+                // Select default slots (8:00-21:00)
+                document.getElementById('select-default-slots').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    grid.querySelectorAll('.slot-cell').forEach(cell => {
+                        const hour = parseInt(cell.dataset.hour);
+                        if (hour >= 8 && hour < 21) {
+                            cell.classList.add('selected');
+                            cell.dataset.selected = 'true';
+                        } else {
+                            cell.classList.remove('selected');
+                            cell.dataset.selected = 'false';
+                        }
+                    });
+                    syncToFormset();
+                });
+
+                // Clear all slots
+                document.getElementById('clear-all-slots').addEventListener('click', function(e) {
+                    e.preventDefault();
+                    grid.querySelectorAll('.slot-cell').forEach(cell => {
+                        cell.classList.remove('selected');
+                        cell.dataset.selected = 'false';
+                    });
+                    syncToFormset();
+                });
+
+                // Sync grid state to Django formset
+                function syncToFormset() {
+                    // Get all selected cells grouped by weekday and hour
+                    const selectedSlots = new Map();
+                    grid.querySelectorAll('.slot-cell[data-selected="true"]').forEach(cell => {
+                        const weekday = cell.dataset.weekday;
+                        const hour = parseInt(cell.dataset.hour);
+                        const key = `${weekday}-${hour}`;
+                        selectedSlots.set(key, { weekday, hour });
+                    });
+
+                    // Get existing form rows
+                    const existingRows = document.querySelectorAll('[data-inline-formset-row]:not(.empty-form)');
+                    const existingFormsByKey = new Map();
+
+                    existingRows.forEach((row, idx) => {
+                        const weekdayField = row.querySelector('[name$="-weekday"]');
+                        const startTimeField = row.querySelector('[name$="-start_time"]');
+                        if (weekdayField && startTimeField && startTimeField.value) {
+                            const weekday = weekdayField.value;
+                            const hour = parseInt(startTimeField.value.split(':')[0]);
+                            const key = `${weekday}-${hour}`;
+                            existingFormsByKey.set(key, { row, idx });
+                        }
+                    });
+
+                    // Mark forms for deletion or keep them
+                    existingRows.forEach(row => {
+                        const weekdayField = row.querySelector('[name$="-weekday"]');
+                        const startTimeField = row.querySelector('[name$="-start_time"]');
+                        const deleteField = row.querySelector('[name$="-DELETE"]');
+
+                        if (weekdayField && startTimeField && startTimeField.value) {
+                            const weekday = weekdayField.value;
+                            const hour = parseInt(startTimeField.value.split(':')[0]);
+                            const key = `${weekday}-${hour}`;
+
+                            if (selectedSlots.has(key)) {
+                                // Keep this form
+                                if (deleteField) deleteField.checked = false;
+                                selectedSlots.delete(key); // Remove from map, already have form
+                            } else {
+                                // Mark for deletion
+                                if (deleteField) deleteField.checked = true;
+                            }
+                        }
+                    });
+
+                    // Create new forms for remaining selected slots
+                    let currentTotal = existingRows.length;
+
+                    // Get channel ID from the form
+                    const channelIdField = document.querySelector('input[name="id"]');
+                    const channelId = channelIdField ? channelIdField.value : null;
+
+                    selectedSlots.forEach(({ weekday, hour }) => {
+                        if (!emptyForm) return;
+
+                        const newForm = emptyForm.cloneNode(true);
+                        newForm.classList.remove('empty-form');
+                        newForm.id = prefix + '-' + currentTotal;
+
+                        // Update form fields
+                        const formHtml = newForm.innerHTML;
+                        const updatedHtml = formHtml.replace(/__prefix__/g, currentTotal);
+                        newForm.innerHTML = updatedHtml;
+
+                        // Set values
+                        const weekdayField = newForm.querySelector('[name$="-weekday"]');
+                        const startTimeField = newForm.querySelector('[name$="-start_time"]');
+                        const endTimeField = newForm.querySelector('[name$="-end_time"]');
+                        const channelField = newForm.querySelector('[name$="-channel"]');
+
+                        if (weekdayField) weekdayField.value = weekday;
+                        if (startTimeField) startTimeField.value = hour.toString().padStart(2, '0') + ':00';
+                        if (endTimeField) endTimeField.value = (hour + 1).toString().padStart(2, '0') + ':00';
+                        if (channelField && channelId) channelField.value = channelId;
+
+                        hiddenFormset.appendChild(newForm);
+                        currentTotal++;
+                    });
+
+                    // Update total forms count
+                    totalFormsInput.value = currentTotal;
+                }
+
+                // Initialize on load
+                initializeGrid();
+
+                // Auto-select default slots (8:00-21:00) on new channel if no slots exist
+                const hasExistingSlots = document.querySelectorAll('[data-inline-formset-row]:not(.empty-form)').length > 0;
+                if (!hasExistingSlots) {
+                    document.getElementById('select-default-slots').click();
+                }
+            })();
+            </script>
+        </fieldset>
+    </div>
+</div>

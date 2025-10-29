@@ -10,10 +10,13 @@ from .factories import (
     ChannelAdminFactory,
     MessageFactory,
     CampaignFactory,
-    ChannelFactory, UserFactory,
+    ChannelFactory,
+    UserFactory,
+    CampaignChannelFactory,
+    ChannelPublicationSlotFactory,
 )
 from ..admin_utils import is_not_valid_channel_status
-from ..models import Campaign, Channel, ChannelAdmin
+from ..models import Campaign, Channel, ChannelAdmin, PlacementFormat, ChannelPublicationSlot
 from faker import Faker
 
 from ..utils import update_broken_channel_avatar
@@ -92,6 +95,58 @@ class TestUnitTest(TransactionTestCase):
             campaign.clean()
             campaign.save()
 
+    def test_message_sponsorship_body_limit(self):
+        message = MessageFactory(format=PlacementFormat.SPONSORSHIP, body="a" * 200)
+        with self.assertRaises(ValidationError):
+            message.clean()
+
+    def test_campaign_requires_matching_message_format(self):
+        sponsorship_message = MessageFactory(format=PlacementFormat.SPONSORSHIP)
+        campaign = Campaign(
+            budget=faker.random_int(),
+            start_date=timezone.now().date(),
+            finish_date=timezone.now().date(),
+            message=sponsorship_message,
+            format=PlacementFormat.FIXED_SLOT,
+        )
+        with self.assertRaises(ValidationError):
+            campaign.clean()
+
+    def test_campaign_format_is_immutable(self):
+        campaign = CampaignFactory()
+        campaign.message.format = PlacementFormat.SPONSORSHIP
+        campaign.message.save()
+        campaign.format = PlacementFormat.SPONSORSHIP
+        with self.assertRaises(ValidationError):
+            campaign.clean()
+
+    def test_campaign_fixed_slot_requires_schedule(self):
+        message = MessageFactory(format=PlacementFormat.FIXED_SLOT)
+        campaign = Campaign(
+            budget=faker.random_int(),
+            start_date=timezone.now().date(),
+            finish_date=timezone.now().date(),
+            message=message,
+            format=PlacementFormat.FIXED_SLOT,
+        )
+        with self.assertRaises(ValidationError):
+            campaign.clean()
+
+    def test_campaign_channel_validates_channel_format(self):
+        campaign = CampaignFactory(format=PlacementFormat.AUTOPILOT)
+        incompatible_channel = ChannelFactory(
+            supported_formats=[PlacementFormat.SPONSORSHIP],
+            status=Channel.ChannelStatus.CONFIRMED,
+        )
+        channel_admin = ChannelAdminFactory()
+        campaign_channel = CampaignChannelFactory(
+            campaign=campaign,
+            channel=incompatible_channel,
+            channel_admin=channel_admin,
+        )
+        with self.assertRaises(ValidationError):
+            campaign_channel.clean()
+
 
 class ChannelTestCase(TransactionTestCase):
     def setUp(self):
@@ -133,6 +188,30 @@ class ChannelTestCase(TransactionTestCase):
         channel = Channel.objects.create(name='channel for testing')
         self.assertIsNotNone(channel.avatar_url, 'must be a value in the avatar_url by default')
         self.assertEqual(channel.avatar_url, '/static/custom/default.jpg')
+
+    def test_channel_publication_slot_overlap_validation(self):
+        channel = ChannelFactory()
+        ChannelPublicationSlotFactory(
+            channel=channel,
+            weekday=0,
+            start_time=timezone.datetime(2025, 1, 1, 10, 0).time(),
+            end_time=timezone.datetime(2025, 1, 1, 11, 0).time(),
+        )
+        slot = ChannelPublicationSlotFactory.build(
+            channel=channel,
+            weekday=0,
+            start_time=timezone.datetime(2025, 1, 1, 10, 30).time(),
+            end_time=timezone.datetime(2025, 1, 1, 11, 30).time(),
+        )
+        with self.assertRaises(ValidationError):
+            slot.full_clean()
+
+    def test_channel_publication_slot_overlap_validation(self):
+        channel = ChannelFactory()
+        ChannelPublicationSlotFactory(channel=channel, weekday=0, start_time=timezone.datetime(2025, 1, 1, 10, 0).time(), end_time=timezone.datetime(2025, 1, 1, 11, 0).time())
+        slot = ChannelPublicationSlotFactory.build(channel=channel, weekday=0, start_time=timezone.datetime(2025, 1, 1, 10, 30).time(), end_time=timezone.datetime(2025, 1, 1, 11, 30).time())
+        with self.assertRaises(ValidationError):
+            slot.full_clean()
 
 
 class UtilsTestCase(TransactionTestCase):
@@ -192,6 +271,36 @@ class CampaignTestCase(TransactionTestCase):
         self.assertIsNotNone(campaign.client)
         self.assertIsNotNone(campaign.created_at)
 
+    def test_campaign_channel_requires_slot_for_fixed(self):
+        message = MessageFactory(format=PlacementFormat.FIXED_SLOT)
+        campaign = CampaignFactory(message=message, format=PlacementFormat.FIXED_SLOT)
+        campaign.slot_publication_at = timezone.now() + timezone.timedelta(days=1)
+        campaign.save()
+        channel = ChannelFactory()
+        channel_admin = ChannelAdminFactory()
+        channel_admin.channels.add(channel)
+
+        slot = ChannelPublicationSlotFactory(
+            channel=channel,
+            weekday=campaign.slot_publication_at.weekday(),
+            start_time=campaign.slot_publication_at.time().replace(second=0, microsecond=0),
+            end_time=(campaign.slot_publication_at + timezone.timedelta(hours=1)).time().replace(second=0, microsecond=0),
+        )
+
+        campaign_channel = CampaignChannel(
+            campaign=campaign,
+            channel=channel,
+            channel_admin=channel_admin,
+        )
+
+        with self.assertRaises(ValidationError):
+            campaign_channel.clean()
+
+        campaign_channel.publication_slot = slot
+        campaign_channel.clean()
+        campaign_channel.save()
+        self.assertIsNotNone(campaign_channel.message_publish_date)
+
 class ChannelAdminTestCase(TransactionTestCase):
 
     @tag('unittest_owner')
@@ -208,4 +317,3 @@ class ChannelAdminTestCase(TransactionTestCase):
         owner = ChannelAdminFactory(role=ChannelAdmin.Role.OWNER, channels={'size': 3})
         channels = ChannelAdmin.objects.channels_by_status(owner.id, Channel.ChannelStatus.PENDING)
         self.assertEqual(channels.count(), 3)
-
