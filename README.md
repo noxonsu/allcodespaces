@@ -49,4 +49,6 @@
 
 ## Auto-Testing Setup
 
-This project now has automated testing for every commit.
+- GitHub Actions workflow `.github/workflows/telewin-ci.yml` runs on every push/PR.
+- The matrix job installs dependencies from `web_app/pyproject.toml` and `bot/pyproject.toml` using Python 3.13.
+- `pytest` executes for both the Django backend and Telegram bot, and Docker images from `web_app/dockerb` and `bot/docker` are built afterwards to ensure the stack still compiles.
