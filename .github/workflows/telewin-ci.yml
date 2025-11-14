@@ -1,0 +1,85 @@
+name: TeleWin CI
+
+on:
+  push:
+    branches:
+      - '**'
+  pull_request:
+    branches:
+      - '**'
+
+permissions:
+  contents: read
+
+env:
+  PIP_DISABLE_PIP_VERSION_CHECK: '1'
+  POETRY_VIRTUALENVS_CREATE: 'true'
+  POETRY_VIRTUALENVS_IN_PROJECT: 'true'
+
+jobs:
+  tests:
+    name: ${{ matrix.name }} tests
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Django backend
+            workdir: web_app
+            install: |
+              python3 -m pip install --upgrade pip
+              python3 - <<'PY' > requirements-ci.txt
+import tomllib
+from pathlib import Path
+
+data = tomllib.loads(Path('pyproject.toml').read_text())
+deps = data.get('project', {}).get('dependencies', [])
+dev = data.get('dependency-groups', {}).get('dev', [])
+
+with Path('requirements-ci.txt').open('w', encoding='utf-8') as req_file:
+    for requirement in [*deps, *dev]:
+        req_file.write(f"{requirement}\n")
+PY
+              python3 -m pip install -r requirements-ci.txt
+            test: |
+              python3 -m pytest -vv
+            pythonpath: web_app
+          - name: Telegram bot
+            workdir: bot
+            install: |
+              python3 -m pip install --upgrade pip
+              python3 -m pip install poetry
+              poetry install --with dev --no-interaction
+            test: |
+              poetry run pytest -vv
+            pythonpath: bot
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        working-directory: ${{ matrix.workdir }}
+        run: ${{ matrix.install }}
+
+      - name: Run pytest
+        working-directory: ${{ matrix.workdir }}
+        env:
+          PYTHONPATH: ${{ github.workspace }}/${{ matrix.pythonpath }}
+        run: ${{ matrix.test }}
+
+  build-images:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    needs: tests
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build backend image
+        run: docker build -t telewin-backend:ci -f web_app/dockerb/Dockerfile web_app
+
+      - name: Build bot image
+        run: docker build -t telewin-bot:ci -f bot/docker/Dockerfile bot

@@ -29,6 +29,8 @@
 
 ## Dev
 запустить приложение для разработки довольно просто
+- основной дев‑домен: https://telewin.wpmix.net (стейджовая копия фронтенда/админки)
+- тестовый Telegram-бот для авторизации и проверки сценариев — @nashbudjetbot (см. `web_app/.env`)
 - в корневой папке проекта где находится файл Makefile
     - запустить в терминале ```make up-b ```  для запуска проекта и создать containers 
     - запустить в терминале ``` make up ``` для запуска проекта
@@ -44,3 +46,9 @@
     - запустить в терминале ``` make up-b-stag ``` для запуска проекта и создать containers
 
 планировалось добавить CI/CD.
+
+## Auto-Testing Setup
+
+- GitHub Actions workflow `.github/workflows/telewin-ci.yml` runs on every push/PR.
+- The matrix job installs dependencies from `web_app/pyproject.toml` and `bot/pyproject.toml` using Python 3.13.
+- `pytest` executes for both the Django backend and Telegram bot, and Docker images from `web_app/dockerb` and `bot/docker` are built afterwards to ensure the stack still compiles.
