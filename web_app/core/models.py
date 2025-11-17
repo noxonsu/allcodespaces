@@ -7,8 +7,11 @@ from django_prometheus.models import ExportModelOperationsMixin
 
 from .utils import RolePermissions
 from decimal import Decimal
-from datetime import datetime
-from typing import Self
+from datetime import datetime, timedelta
+try:
+    from typing import Self  # type: ignore
+except ImportError:
+    from typing_extensions import Self
 
 from django.contrib import admin
 from django.contrib.auth.models import AbstractUser
@@ -294,6 +297,39 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
                         "button_link": "Для формата «Спонсорство» допустима только одна кнопка."
                     }
                 )
+
+
+class MessagePreviewToken(BaseModel):
+    token = models.CharField(max_length=255, unique=True, verbose_name="Токен предпросмотра")
+    message = models.ForeignKey(
+        Message,
+        on_delete=models.CASCADE,
+        related_name="preview_tokens",
+        verbose_name="Креатив",
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="message_preview_tokens",
+        verbose_name="Создан",
+    )
+    expires_at = models.DateTimeField(verbose_name="Истекает")
+    used_at = models.DateTimeField(null=True, blank=True, verbose_name="Использован")
+
+    class Meta:
+        verbose_name = "Токен предпросмотра"
+        verbose_name_plural = "Токены предпросмотра"
+        ordering = ["-created_at"]
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_used(self) -> bool:
+        return self.used_at is not None
 
 
 class Channel(ExportModelOperationsMixin("channel"), BaseModel):

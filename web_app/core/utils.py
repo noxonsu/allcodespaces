@@ -1,8 +1,26 @@
 from decimal import Decimal
 from functools import cached_property
 from string import Template
-from typing import Sequence
-from warnings import deprecated
+from typing import Sequence, Set, Dict
+try:
+    from warnings import deprecated
+except ImportError:
+    def deprecated(func=None, *, message="deprecated"):
+        """Fallback decorator for Python versions without warnings.deprecated."""
+        def decorator(fn, msg):
+            def wrapper(*args, **kwargs):
+                import warnings
+                warnings.warn(msg, DeprecationWarning, stacklevel=2)
+                return fn(*args, **kwargs)
+            return wrapper
+
+        # If func is callable -> direct decoration
+        if callable(func):
+            return decorator(func, message)
+        # If func is used as message
+        if isinstance(func, str):
+            return lambda real_fn: decorator(real_fn, func)
+        return lambda real_fn: decorator(real_fn, message)
 
 import requests
 from django.apps import apps
@@ -64,7 +82,7 @@ class RolePermissions:
             self._permissions = permissions_list
 
 
-def bulk_notify_channeladmin(list_data: list, *, roles: set[str]) -> None:
+def bulk_notify_channeladmin(list_data: list, *, roles: Set[str]) -> None:
     """Send notification to channeladmins that they were added in channel"""
     from core.tasks import task_notify_channeladmin_was_added_channel
     for row in list_data:
@@ -80,7 +98,7 @@ def bulk_notify_channeladmin(list_data: list, *, roles: set[str]) -> None:
 class BotNotifier:
     """Service object to send communicate with the bot hooks/endpoints"""
 
-    routes: dict[str, str] = {
+    routes: Dict[str, str] = {
         'channeladmin-added': app_settings.DOMAIN_URI + "/telegram/channeladmin-added"
     }
 

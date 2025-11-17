@@ -1,3 +1,7 @@
+import secrets
+from datetime import timedelta
+
+import requests
 from django.contrib.auth import login
 from django.contrib.auth.views import LoginView
 from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
@@ -6,13 +10,14 @@ from django.views.generic import TemplateView
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
+from django.utils import timezone
 
 from core.filterset_classes import CampaignChannelFilterSet
-from core.models import Channel, Message, CampaignChannel, ChannelAdmin
+from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken
 from core.serializers import (
     ChannelSerializer,
     MessageSerializer,
@@ -20,8 +25,11 @@ from core.serializers import (
     TGLoginSerializer,
     CampaignChannelClickSerializer,
     ChannelAdminSerializer,
+    MessagePreviewTokenSerializer,
+    MessagePreviewResolveSerializer,
 )
 from core.utils import get_template_side_data
+from web_app.app_settings import app_settings
 
 
 class ChannelViewSet(ModelViewSet):
@@ -87,6 +95,13 @@ class MessageViewSet(ModelViewSet):
     serializer_class = MessageSerializer
     permission_classes = [AllowAny]
 
+    def get_permissions(self):
+        if getattr(self, "action", None) in {"preview"}:
+            permission_classes = [IsAuthenticated]
+        else:
+            permission_classes = self.permission_classes
+        return [permission() for permission in permission_classes]
+
     @action(
         detail=False,
         methods=["PUT", "PATCH"],
@@ -103,6 +118,76 @@ class MessageViewSet(ModelViewSet):
         messages.is_valid(raise_exception=True)
         messages.save()
         return Response(data=messages.data, status=status.HTTP_200_OK)
+
+    @action(
+        detail=True,
+        methods=["POST"],
+        url_path="preview",
+        permission_classes=[IsAuthenticated],
+    )
+    def preview(self, request, *args, **kwargs):
+        message = self.get_object()
+        user = request.user
+        if not user.has_perm("core.view_message"):
+            return Response({"detail": "Недостаточно прав"}, status=status.HTTP_403_FORBIDDEN)
+
+        expires_at = timezone.now() + timedelta(minutes=30)
+        preview_token = MessagePreviewToken.objects.create(
+            token=secrets.token_urlsafe(32),
+            message=message,
+            created_by=user,
+            expires_at=expires_at,
+        )
+
+        bot_response_status = None
+        try:
+            response = requests.post(
+                f"{app_settings.DOMAIN_URI}/telegram/preview-token",
+                json={"token": preview_token.token, "message_id": str(message.id)},
+                timeout=15,
+            )
+            bot_response_status = response.status_code
+        except Exception:
+            bot_response_status = None
+
+        data = MessagePreviewTokenSerializer(instance=preview_token).data
+        data["bot_response_status"] = bot_response_status
+        return Response(data=data, status=status.HTTP_201_CREATED)
+
+    @action(
+        detail=False,
+        methods=["POST"],
+        url_path="preview/resolve",
+        permission_classes=[AllowAny],
+        authentication_classes=[],
+    )
+    def resolve(self, request, *args, **kwargs):
+        serializer = MessagePreviewResolveSerializer(
+            data=request.data, context=self.get_serializer_context()
+        )
+        serializer.is_valid(raise_exception=True)
+        token_value = serializer.validated_data["token"]
+
+        token_instance = MessagePreviewToken.objects.filter(
+            token=token_value
+        ).select_related("message").first()
+        if not token_instance:
+            return Response({"detail": "Токен не найден"}, status=status.HTTP_404_NOT_FOUND)
+        if token_instance.is_used:
+            return Response({"detail": "Токен уже использован"}, status=status.HTTP_410_GONE)
+        if token_instance.is_expired:
+            return Response({"detail": "Срок действия токена истёк"}, status=status.HTTP_410_GONE)
+
+        token_instance.used_at = timezone.now()
+        token_instance.save(update_fields=["used_at", "updated_at"])
+        message_data = MessageSerializer(
+            instance=token_instance.message,
+            context=self.get_serializer_context(),
+        ).data
+        return Response(
+            data={"message": message_data, "token": token_instance.token},
+            status=status.HTTP_200_OK,
+        )
 
 
 class CampaignChannelViewSet(ModelViewSet):

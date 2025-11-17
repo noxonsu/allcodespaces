@@ -37,6 +37,7 @@
     - запустить в терминале ``` make up ``` для запуска проекта
 - при первом запуске (или после обновлений статики) убедитесь, что выполнен `python3 manage.py collectstatic --no-input` — в docker-compose это теперь делается автоматически перед стартом приложения и складывает файлы в `web_app/staticfiles` (раздается через общий volume `static`)
 - кампании и креативы поддерживают форматы «Спонсорство», «Фикс-слот» и «Автопилот»; для фикс-слота указывайте дату и время публикации
+- предпросмотр креативов: в админке на форме креатива появилась кнопка «Отправить предпросмотр», она создаёт deeplink `/start` на бота через API `/api/message/<id>/preview/`; бот забирает данные по токену через `/api/message/preview/resolve/` (токен одноразовый)
 
 ## Как писать инструкции для ручного тестера
 - Тестер не технарь: используйте простые шаги без команд и без терминала.
@@ -56,6 +57,12 @@
 
 ## Auto-Testing Setup
 
-- GitHub Actions workflow `.github/workflows/telewin-ci.yml` runs on every push/PR.
-- The matrix job installs dependencies from `web_app/pyproject.toml` and `bot/pyproject.toml` using Python 3.13.
-- `pytest` executes for both the Django backend and Telegram bot, and Docker images from `web_app/dockerb` and `bot/docker` are built afterwards to ensure the stack still compiles.
+This project now has automated testing for every commit.
+
+## Contributing (важно)
+- Всегда начинай с прочтения README (этого файла) в корне проекта.
+- Для команд используем `python3` и запускаем процессы через pm2 (даже для python), логи — всегда с `timeout`.
+- Для отправки сообщений/файлов в Telegram: `python3 /root/space2/hababru/telegram_sender.py "напиши @username сообщение"`; изображения: `python3 /root/space2/hababru/telegram_sender.py "отправь @username /path/to/image.png подпись"`.
+- Puppeteer запускать в headless, viewport 1280x800, args `--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage`.
+- Если нужно читать историю телеги: `python3 /root/space2/hababru/telegram_channel_reader.py read @username 5` (и другие команды из AGENTS.md).
+- Отчёт и инструкции для тестера публикуем напрямую в issue после коммита/пуша (для этой задачи — в https://github.com/marsiandeployer/TELEWIN/issues/51), подписываемся как codex.

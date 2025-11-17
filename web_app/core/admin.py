@@ -1,5 +1,9 @@
 from decimal import Decimal
-from typing import Self
+try:
+    from typing import Self  # type: ignore
+except ImportError:
+    from typing_extensions import Self
+from typing import Optional
 
 from django import forms
 from django.contrib import admin
@@ -35,6 +39,7 @@ from .models import (
     ChannelAdmin,
     ChannelPublicationSlot,
     PlacementFormat,
+    MessagePreviewToken,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -495,7 +500,7 @@ class CampaignChannelInlined(admin.TabularInline):
     form = CampaignChannelInlinedForm
     template = "admin/core/campaign/campaign_channel_tabular.html"
 
-    def _get_campaign_format(self, request) -> str | None:
+    def _get_campaign_format(self, request) -> Optional[str]:
         if not request:
             return None
         resolver_match = getattr(request, "resolver_match", None)
@@ -829,6 +834,20 @@ class MessageAdmin(admin.ModelAdmin):
         response = super().get_actions(request)
         self._remove_changelist_delete_obj(response)
         return response
+
+
+@register(MessagePreviewToken)
+class MessagePreviewTokenAdmin(admin.ModelAdmin):
+    list_display = ["token", "message", "created_by", "expires_at", "used_at"]
+    readonly_fields = list_display
+    search_fields = ["token", "message__name", "message__title"]
+    list_filter = ["used_at"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 
 @register(CampaignChannel)

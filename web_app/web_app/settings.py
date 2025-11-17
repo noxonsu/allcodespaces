@@ -145,9 +145,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "web_app.wsgi.application"
 
+default_engine = (
+    "django.db.backends.sqlite3"
+    if app_settings.DB_ENGINE == "sqlite3"
+    else "django_prometheus.db.backends." + app_settings.DB_ENGINE
+)
+
 DATABASES = {
     "default": {
-        "ENGINE": "django_prometheus.db.backends." + app_settings.DB_ENGINE,
+        "ENGINE": default_engine,
         "NAME": app_settings.DB_NAME,
         "USER": app_settings.DB_USERNAME,
         "PASSWORD": app_settings.DB_PASS,

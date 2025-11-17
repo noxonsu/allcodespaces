@@ -2,6 +2,7 @@ from functools import cached_property
 
 from django.templatetags.l10n import localize
 from rest_framework import serializers
+from web_app.app_settings import app_settings
 from core.models import (
     Channel,
     Message,
@@ -9,6 +10,7 @@ from core.models import (
     User,
     Campaign,
     ChannelAdmin,
+    MessagePreviewToken,
     PlacementFormat,
     SPONSORSHIP_BODY_LENGTH_LIMIT,
     SPONSORSHIP_BUTTON_LIMIT,
@@ -165,6 +167,21 @@ class MessageSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+
+class MessagePreviewTokenSerializer(serializers.ModelSerializer):
+    deep_link = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MessagePreviewToken
+        fields = ["token", "expires_at", "deep_link"]
+
+    def get_deep_link(self, obj: MessagePreviewToken) -> str:
+        return f"https://t.me/{app_settings.TELEGRAM_BOT_USERNAME}?start={obj.token}"
+
+
+class MessagePreviewResolveSerializer(serializers.Serializer):
+    token = serializers.CharField()
 
 
 class CampaignSerializer(serializers.ModelSerializer):

@@ -104,4 +104,79 @@ $(document).ready(function () {
         });
         bodyField.on('input', updateBodyCounter);
     }
+
+    function getCookie(name) {
+        var cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            var cookies = document.cookie.split(';');
+            for (var i = 0; i < cookies.length; i++) {
+                var cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    function renderPreviewResult(wrapper, data, isError) {
+        var deepLink = data && data.deep_link ? data.deep_link : null;
+        var expiresAt = data && data.expires_at ? data.expires_at : null;
+        var botStatus = data && Object.prototype.hasOwnProperty.call(data, 'bot_response_status') ? data.bot_response_status : null;
+        var classes = isError ? 'alert alert-danger mt-3' : 'alert alert-success mt-3';
+        var content = '';
+        if (isError) {
+            content = '<strong>Не удалось создать предпросмотр.</strong> ' + (data && data.detail ? data.detail : 'Попробуйте ещё раз.');
+        } else {
+            content = '<div><strong>Ссылка для предпросмотра</strong></div>';
+            if (deepLink) {
+                content += '<div><a href="' + deepLink + '" target="_blank" rel="noopener">' + deepLink + '</a></div>';
+            }
+            if (expiresAt) {
+                content += '<div class="text-muted small">Действует до: ' + expiresAt + '</div>';
+            }
+            if (botStatus !== null) {
+                content += '<div class="text-muted small">Бот ответил статусом: ' + botStatus + '</div>';
+            }
+        }
+        wrapper.html('<div class="' + classes + '">' + content + '</div>');
+    }
+
+    var messageIdMatch = window.location.pathname.match(/\\/core\\/message\\/([^/]+)\\/change\\//);
+    var messageId = messageIdMatch ? messageIdMatch[1] : null;
+    var submitRow = $('.submit-row');
+
+    if (messageId && submitRow.length) {
+        var previewWrapper = $('<div class="preview-link-wrapper"></div>');
+        var previewBtn = $('<button type="button" class="btn btn-outline-primary preview-link-btn">Отправить предпросмотр</button>');
+        var previewResult = $('<div class="preview-link-result"></div>');
+
+        previewBtn.on('click', function () {
+            previewBtn.prop('disabled', true).text('Отправляем...');
+            renderPreviewResult(previewResult, {detail: 'Создаём ссылку...'}, false);
+            fetch('/api/message/' + messageId + '/preview/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({})
+            }).then(function (response) {
+                return response.json().then(function (data) {
+                    return {ok: response.ok, data: data};
+                });
+            }).then(function (result) {
+                renderPreviewResult(previewResult, result.data, !result.ok);
+            }).catch(function () {
+                renderPreviewResult(previewResult, {detail: 'Сервер недоступен'}, true);
+            }).finally(function () {
+                previewBtn.prop('disabled', false).text('Отправить предпросмотр');
+            });
+        });
+
+        previewWrapper.append(previewBtn);
+        previewWrapper.append(previewResult);
+        submitRow.prepend(previewWrapper);
+    }
 });

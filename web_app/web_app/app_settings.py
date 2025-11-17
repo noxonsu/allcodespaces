@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import List
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,7 +18,7 @@ class AppSettings(BaseSettings):
     # APP_MODE: str = 'dev' # prod, dev
     SECRET_KEY: str = "super-secret"
     DEBUG: bool = False
-    ALLOWED_HOSTS: list[str] = ["localhost", "127.0.0.1", "app.telewin.online"]
+    ALLOWED_HOSTS: List[str] = ["localhost", "127.0.0.1", "app.telewin.online", "telewin.wpmix.net"]
     DOMAIN_URI: str = "https://app.telewin.online"
     TELEGRAM_BOT_USERNAME: str = "telewin_0001_bot"
     DJANGO_SETTINGS_MODULE: str = "web_app.settings"
