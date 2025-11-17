@@ -56,6 +56,25 @@ async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
     chat = await context.bot.get_chat(chat_id)
     if chat.photo:
         photo_file = (await context.bot.getFile(chat.photo.big_file_id)).file_path
+
+    # CHANGE: Получаем список администраторов канала
+    # WHY: Нужно определить владельца канала для привязки к ChannelAdmin
+    # REF: issue #55
+    admins_list = []
+    try:
+        admins = await context.bot.get_chat_administrators(chat_id)
+        for admin in admins:
+            admins_list.append({
+                "user_id": admin.user.id,
+                "username": admin.user.username,
+                "first_name": admin.user.first_name,
+                "last_name": admin.user.last_name,
+                "status": admin.status,  # creator, administrator
+            })
+        logger.info(f"Found {len(admins_list)} admins for channel {chat_name}")
+    except Exception as e:
+        logger.error(f"Failed to get channel admins: {e}")
+
     data = dict(
         name=chat_name,
         tg_id=chat_id,
@@ -64,6 +83,7 @@ async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
         avatar=photo_file,
         invitation_link=chat.invite_link,
         publish_status="pending",
+        admins=admins_list,  # CHANGE: Добавляем список админов
     )
 
     logger.info(f"BOT ADDED TO CHANNEL: {data=}")

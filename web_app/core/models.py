@@ -68,6 +68,44 @@ class User(ExportModelOperationsMixin("user"), AbstractUser):
         ordering = ["-date_joined"]
 
 
+class UserLoginToken(BaseModel):
+    """Временный токен для входа под пользователем"""
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="login_tokens",
+        verbose_name="Пользователь"
+    )
+    token = models.CharField(max_length=255, unique=True, verbose_name="Токен")
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_login_tokens",
+        verbose_name="Создан администратором"
+    )
+    expires_at = models.DateTimeField(verbose_name="Истекает")
+    used_at = models.DateTimeField(null=True, blank=True, verbose_name="Использован")
+
+    class Meta:
+        verbose_name = "Токен входа"
+        verbose_name_plural = "Токены входа"
+        ordering = ["-created_at"]
+
+    @property
+    def is_expired(self) -> bool:
+        return timezone.now() >= self.expires_at
+
+    @property
+    def is_used(self) -> bool:
+        return self.used_at is not None
+
+    @property
+    def is_valid(self) -> bool:
+        return not self.is_expired and not self.is_used
+
+
 class ChannelAdmin(ExportModelOperationsMixin("channeladmin"), BaseModel):
     class CooperationFormChoices(models.TextChoices):
         LEGAL = "legal", "ФЛ (без статуса СЗ)"

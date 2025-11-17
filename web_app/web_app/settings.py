@@ -83,6 +83,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django_prometheus.middleware.PrometheusBeforeMiddleware",
+    "core.middlewares.DatabaseMigrationCheckMiddleware",  # Должен быть первым для перехвата ошибок БД
     "django.middleware.security.SecurityMiddleware",
     # "core.middlewares.IPMiddleware",
     # "core.middlewares.PathRestrictMiddleware",

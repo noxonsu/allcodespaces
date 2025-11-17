@@ -22,6 +22,10 @@ class ChannelSerializer(serializers.ModelSerializer):
     avatar = serializers.URLField(
         source="avatar_url", required=False, allow_blank=True, allow_null=True, default='/static/custom/default.jpg'
     )
+    # CHANGE: Добавляем поле admins для приёма списка администраторов
+    # WHY: Нужно привязать канал к владельцу (ChannelAdmin)
+    # REF: issue #55
+    admins = serializers.ListField(write_only=True, required=False, allow_empty=True)
 
     class Meta:
         model = Channel
@@ -33,6 +37,12 @@ class ChannelSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         from core.external_clients import TGStatClient
+        import requests
+        from web_app.app_settings import app_settings
+        from web_app.logger import logger
+
+        # CHANGE: Извлекаем список админов из validated_data
+        admins_list = validated_data.pop("admins", [])
 
         channel: Channel = Channel.objects.filter(tg_id=validated_data["tg_id"]).first()
         if channel:
@@ -44,6 +54,45 @@ class ChannelSerializer(serializers.ModelSerializer):
             channel.save()
         else:
             channel = super().create(validated_data)
+
+        # CHANGE: Привязываем канал к владельцу (creator) из списка админов
+        # WHY: Без привязки канал не отображается в ЛК владельца
+        # REF: issue #55
+        if admins_list:
+            # Ищем creator (владельца канала)
+            creator = next((a for a in admins_list if a.get("status") == "creator"), None)
+            # Если creator не найден, берём первого админа
+            if not creator and admins_list:
+                creator = admins_list[0]
+
+            if creator and creator.get("user_id"):
+                channel_admin = ChannelAdmin.objects.filter(
+                    tg_id=str(creator["user_id"])
+                ).first()
+
+                if channel_admin and channel not in channel_admin.channels.all():
+                    channel_admin.channels.add(channel)
+                    logger.info(f"Linked channel {channel.name} to ChannelAdmin {channel_admin.username}")
+
+                    # CHANGE: Отправляем уведомление админу о добавлении канала
+                    # WHY: Пользователь должен получить подтверждение что канал добавлен
+                    # REF: issue #55
+                    try:
+                        notification_text = (
+                            f"✅ Канал <b>{channel.name}</b> успешно добавлен!\n\n"
+                            f"Статус: Ожидает модерации\n"
+                            f"Вы можете управлять каналом в личном кабинете: {app_settings.DOMAIN_URI}"
+                        )
+                        requests.post(
+                            f"{app_settings.DOMAIN_URI}/telegram/channeladmin-added",
+                            json={"tg_id": channel_admin.tg_id, "msg": notification_text},
+                            timeout=10
+                        )
+                        logger.info(f"Sent notification to {channel_admin.username} about channel {channel.name}")
+                    except Exception as e:
+                        logger.error(f"Failed to send notification: {e}")
+                else:
+                    logger.warning(f"ChannelAdmin not found for tg_id={creator.get('user_id')}")
 
         service = TGStatClient()
         service.update_channel_info(channel=channel)

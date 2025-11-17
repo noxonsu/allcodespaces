@@ -17,7 +17,7 @@ from rest_framework.viewsets import ModelViewSet
 from django.utils import timezone
 
 from core.filterset_classes import CampaignChannelFilterSet
-from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken
+from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken
 from core.serializers import (
     ChannelSerializer,
     MessageSerializer,
@@ -335,3 +335,54 @@ def index_view(request):
         url = '/core/campaignchannel/'
 
     return HttpResponseRedirect(url)
+
+
+class LoginAsUserView(APIView):
+    """
+    CHANGE: Добавлен view для авторизации по токену
+    WHY: Позволить суперадминам входить под другими пользователями через временный токен
+    REF: User request
+    """
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def get(self, request):
+        token_value = request.GET.get('token')
+
+        if not token_value:
+            return Response(
+                {"detail": "Токен не предоставлен"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        token_instance = UserLoginToken.objects.filter(
+            token=token_value
+        ).select_related("user").first()
+
+        if not token_instance:
+            return Response(
+                {"detail": "Токен не найден"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if token_instance.is_used:
+            return Response(
+                {"detail": "Токен уже использован"},
+                status=status.HTTP_410_GONE
+            )
+
+        if token_instance.is_expired:
+            return Response(
+                {"detail": "Срок действия токена истёк"},
+                status=status.HTTP_410_GONE
+            )
+
+        # Отмечаем токен как использованный
+        token_instance.used_at = timezone.now()
+        token_instance.save(update_fields=["used_at", "updated_at"])
+
+        # Авторизуем пользователя
+        login(request, token_instance.user)
+
+        # Редирект на главную или профиль
+        return HttpResponseRedirect(redirect_to=user_get_redirect_url(token_instance.user))

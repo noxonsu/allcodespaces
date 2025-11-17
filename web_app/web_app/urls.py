@@ -5,7 +5,7 @@ from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 
-from core.views import CustomLoginView, index_view
+from core.views import CustomLoginView, index_view, LoginAsUserView
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -22,6 +22,7 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('', index_view),
     path('login/', CustomLoginView.as_view()),
+    path('login-as-user/', LoginAsUserView.as_view(), name='login-as-user'),
     path("api/", include("core.urls")),
     path("api/login/jwt/", view=obtain_auth_token),
     path(

@@ -40,6 +40,7 @@ from .models import (
     ChannelPublicationSlot,
     PlacementFormat,
     MessagePreviewToken,
+    UserLoginToken,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -1049,17 +1050,94 @@ class CampaignChannelAdmin(admin.ModelAdmin):
 
 @register(User)
 class UserAdmin(UserAdmin):
-    actions = [
-        'login_as'
-    ]
+    """
+    CHANGE: Добавлена колонка login_as_link и метод генерации токенов
+    WHY: Позволить суперадминам входить под другими пользователями через временный токен
+    REF: User request
+    """
+    actions = []
     list_display = (
-        'username', 'email', 'first_name', 'last_name', 'is_superuser', 'is_staff'
+        'username', 'email', 'first_name', 'last_name', 'is_superuser', 'is_staff', 'login_as_link'
     )
 
-    def login_as(self, request, instance):
-        logout(request)
-        login(request, instance.first())
-        return HttpResponseRedirect(redirect_to='/')
+    @admin.display(description='Войти под юзером')
+    def login_as_link(self, obj):
+        """
+        CHANGE: Показывает confirm с ссылкой вместо прямого перехода
+        WHY: Пользователь хочет сам копировать ссылку и входить отдельно
+        REF: User request
+        """
+        if not obj or obj.is_superuser:
+            return "-"
+
+        # Генерируем уникальный токен
+        import secrets
+        from datetime import timedelta
+        from django.utils import timezone
+
+        token_value = secrets.token_urlsafe(32)
+        expires_at = timezone.now() + timedelta(hours=24)
+
+        # Создаем токен
+        token_instance = UserLoginToken.objects.create(
+            user=obj,
+            token=token_value,
+            expires_at=expires_at,
+            created_by=None  # request.user не доступен в list_display
+        )
+
+        # Генерируем полную ссылку
+        login_url = f"https://telewin.wpmix.net/login-as-user/?token={token_value}"
+
+        # JavaScript для показа confirm со ссылкой
+        js_code = f"""
+        onclick="event.preventDefault();
+        var url = '{login_url}';
+        if (confirm('Ссылка для входа под пользователем {obj.username}:\\n\\n' + url + '\\n\\nСкопируйте ссылку и откройте в другом браузере.\\n\\nОткрыть сейчас?')) {{
+            navigator.clipboard.writeText(url).then(function() {{
+                alert('Ссылка скопирована в буфер обмена!');
+                window.open(url, '_blank');
+            }}).catch(function() {{
+                window.open(url, '_blank');
+            }});
+        }} else {{
+            navigator.clipboard.writeText(url).then(function() {{
+                alert('Ссылка скопирована в буфер обмена!');
+            }});
+        }}
+        return false;"
+        """
+
+        return mark_safe(
+            f'<button {js_code} class="btn btn-info" style="cursor: pointer;">Войти под {obj.username}</button>'
+        )
+
+
+@register(UserLoginToken)
+class UserLoginTokenAdmin(admin.ModelAdmin):
+    """
+    CHANGE: Добавлена админка для просмотра токенов авторизации
+    WHY: Позволить суперадминам отслеживать созданные и использованные токены
+    REF: User request
+    """
+    list_display = ["token_short", "user", "created_by", "expires_at", "used_at", "is_valid_display"]
+    readonly_fields = list_display
+    search_fields = ["token", "user__username"]
+    list_filter = ["used_at", "expires_at"]
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Токен")
+    def token_short(self, obj):
+        return f"{obj.token[:20]}..." if obj.token else "-"
+
+    @admin.display(description="Валиден", boolean=True)
+    def is_valid_display(self, obj):
+        return obj.is_valid
 
 
 @register(ChannelAdmin)
