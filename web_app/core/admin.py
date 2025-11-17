@@ -144,6 +144,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "members_count",
         "category",
         "is_bot_installed_html",
+        "is_deleted",
         "status_html",
         "require_manual_approval",
         "avg_posts_reach",
@@ -171,6 +172,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
                     "name",
                     "id",
                     "is_bot_installed",
+                    "is_deleted",
                     "status",
                     "cpm",
                     "supported_formats",
@@ -339,7 +341,20 @@ class ChannelModelAdmin(admin.ModelAdmin):
         )
 
     def has_view_permission(self, request, obj=None):
+        if obj and obj.is_deleted and not request.user.is_superuser:
+            return False
         return True
+
+    def has_change_permission(self, request, obj=None):
+        if obj and obj.is_deleted and not request.user.is_superuser:
+            return False
+        return super().has_change_permission(request, obj)
+
+    def get_readonly_fields(self, request, obj=None):
+        readonly_fields = super().get_readonly_fields(request, obj)
+        if request.user.is_superuser:
+            return readonly_fields
+        return [*readonly_fields, "is_deleted"]
 
     def _remove_changelist_delete_obj(self, actions_dict):
         if "delete_selected" in actions_dict:
@@ -354,9 +369,17 @@ class ChannelModelAdmin(admin.ModelAdmin):
         qs = super().get_queryset(request)
         user = request.user
         channel_admin = getattr(user, "profile", None)
+        if not request.user.is_superuser:
+            qs = qs.filter(is_deleted=False)
         if channel_admin and channel_admin.role == ChannelAdmin.Role.OWNER:
             return qs.filter(admins__id=channel_admin.id)
         return qs
+
+    def get_list_filter(self, request):
+        filters = super().get_list_filter(request)
+        if request.user.is_superuser:
+            return [*filters, ("is_deleted", CustomBooleanFilter)]
+        return filters
 
     def has_add_permission(self, request):
         return False
@@ -497,7 +520,8 @@ class CampaignChannelInlined(admin.TabularInline):
             campaign_format = self._get_campaign_format(request)
             if campaign_format:
                 kwargs["queryset"] = Channel.objects.filter(
-                    supported_formats__contains=[campaign_format]
+                    supported_formats__contains=[campaign_format],
+                    is_deleted=False,
                 )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
@@ -562,12 +586,12 @@ class ReadOnlyCampaignChannelInlined(admin.TabularInline):
     @admin.display(description="Количество каналов")
     def campaign_channels_count(self: Self, instance: CampaignChannel):
         campaign: Campaign = instance.campaign
-        return campaign.channels.count()
+        return campaign.active_channels.count()
 
     @admin.display(description="Ёмкость каналов")
     def campaign_channels_subs_count(self: Self, instance: CampaignChannel):
         # has no effect to do refactor, values are hardcoded in template getting from object campaign
-        return Channel.objects.filter(channel_campaigns=instance.id).aggregate(
+        return Channel.objects.filter(channel_campaigns=instance.id, is_deleted=False).aggregate(
             Sum("members_count")
         )["members_count__sum"]
 

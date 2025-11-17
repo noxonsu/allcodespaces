@@ -65,6 +65,7 @@ class ChannelFactory(DjangoModelFactory):
     err = factory.Faker("pyfloat", min_value=1)
     err_24 = factory.Faker("pyfloat", min_value=1)
     daily_reach = factory.Faker("pyfloat", min_value=1)
+    is_deleted = False
     supported_formats = factory.LazyFunction(default_supported_formats)
 
 

@@ -26,6 +26,7 @@ class ChannelSerializer(serializers.ModelSerializer):
         fields = "__all__"
         extra_kwargs = {
             "meta": {"write_only": True},
+            "is_deleted": {"read_only": True},
         }
 
     def create(self, validated_data):
@@ -37,6 +38,7 @@ class ChannelSerializer(serializers.ModelSerializer):
             channel.status = validated_data.get("status", Channel.ChannelStatus.PENDING)
             channel.avatar_url = validated_data.get("avatar_url")
             channel.invitation_link = validated_data.get("invitation_link")
+            channel.is_deleted = False
             channel.save()
         else:
             channel = super().create(validated_data)

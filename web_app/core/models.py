@@ -364,6 +364,11 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
     language = models.CharField(
         blank=True, verbose_name=_("Язык"), default="", null=True
     )
+    is_deleted = models.BooleanField(
+        default=False,
+        verbose_name="Мягко удалён",
+        help_text="Канал скрыт из списков и расчётов выплат",
+    )
     cpm = models.PositiveIntegerField("CPM", default=0)
     supported_formats = ArrayField(
         base_field=models.CharField(
@@ -385,7 +390,7 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
 
     @property
     def is_active(self) -> bool:
-        return self.status == self.ChannelStatus.CONFIRMED
+        return self.status == self.ChannelStatus.CONFIRMED and not self.is_deleted
 
     @is_active.setter
     def is_active(self, val: bool):
@@ -539,12 +544,12 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     # admin methods
     @property
     def total_clicks(self):
-        return self.campaigns_channel.aggregate(Sum("clicks", default=0))["clicks__sum"]
+        return self.active_campaign_channels.aggregate(Sum("clicks", default=0))["clicks__sum"]
 
     @property
     def total_impressions_fact(self):
         return (
-            self.campaigns_channel.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
+            self.active_campaign_channels.filter(publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED).aggregate(Sum("impressions_fact", default=0))["impressions_fact__sum"]
         )
 
     @cached_property
@@ -560,14 +565,22 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         return val
 
     @property
+    def active_campaign_channels(self):
+        return self.campaigns_channel.filter(channel__is_deleted=False)
+
+    @property
+    def active_channels(self):
+        return self.channels.filter(is_deleted=False)
+
+    @property
     def total_channels_count(self):
-        return self.channels.distinct().count()
+        return self.active_channels.distinct().count()
 
     @property
     def campaign_channels_count(self):
         """is_approved = true"""
         return (
-            self.channels.filter(
+            self.active_channels.filter(
                 channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
             )
             .distinct()
@@ -577,7 +590,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @property
     def total_channels_subs_count(self: Self):
         return (
-            self.channels.distinct().aggregate(Sum("members_count"))[
+            self.active_channels.distinct().aggregate(Sum("members_count"))[
                 "members_count__sum"
             ]
             or 0
@@ -587,7 +600,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     def my_channels_subs_count(self: Self):
         """is_approved true"""
         return (
-            self.channels.filter(
+            self.active_channels.filter(
                 channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
             )
             .distinct()
@@ -598,14 +611,14 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @property
     def total_channels_avg_posts_reach(self: Self):
         return (
-            self.channels.aggregate(Sum("avg_posts_reach"))["avg_posts_reach__sum"] or 0
+            self.active_channels.aggregate(Sum("avg_posts_reach"))["avg_posts_reach__sum"] or 0
         )
 
     @property
     def my_channels_avg_posts_reach(self: Self):
         """is_approved true"""
         return (
-            self.channels.filter(
+            self.active_channels.filter(
                 channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
             )
             .distinct()
@@ -616,7 +629,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @property
     def total_channels_sov(self):
         """отношение планируемого количества показов к ёмкости каналов"""
-        members_count, impressions_plan = self.channels.aggregate(
+        members_count, impressions_plan = self.active_channels.aggregate(
             Sum("members_count"), Sum("channel_campaigns__impressions_plan")
         ).values()
         return (
@@ -629,7 +642,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     def my_channels_sov(self):
         """is_approved = true"""
         members_count = (
-            self.channels.filter(
+            self.active_channels.filter(
                 channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
             )
             .distinct()
@@ -637,7 +650,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         )
         """is_approved = true"""
         impressions_plan = (
-            self.channels.filter(
+            self.active_channels.filter(
                 channel_campaigns__publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
             )
             .distinct()
@@ -665,27 +678,27 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @admin.display(description="сред. СРМ (руб.) (среднее арифметическое значение)")
     def avg_cpm(self: Self):
         return (
-            f"{self.campaigns_channel.aggregate(Avg('cpm'))['cpm__avg']:.2f}"
-            if self.campaigns_channel.exists()
+            f"{self.active_campaign_channels.aggregate(Avg('cpm'))['cpm__avg']:.2f}"
+            if self.active_campaign_channels.exists()
             else "-"
         )
 
     @admin.display(description="ПП")
     def total_planed_views(self):
         return (
-            self.campaigns_channel.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']
-            if self.campaigns_channel.exists()
+            self.active_campaign_channels.filter(publish_status__in=[CampaignChannel.PublishStatusChoices.PUBLISHED, CampaignChannel.PublishStatusChoices.CONFIRMED]).aggregate(Sum('impressions_plan', default=0))['impressions_plan__sum']
+            if self.active_campaign_channels.exists()
             else "-"
         )
 
     def clean_budget(self: Self) -> None:
         if not self.campaigns_channel.filter(
-            channel__isnull=False
+            channel__isnull=False, channel__is_deleted=False
         ).campaign_channels_total_budgets():
             return
         if (
             self.campaigns_channel.filter(
-                channel__isnull=False
+                channel__isnull=False, channel__is_deleted=False
             ).campaign_channels_total_budgets()
             > self.budget
         ):
@@ -881,6 +894,8 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     def clean(self: Self):
         if not getattr(self, "channel", None):
             raise ValidationError({"channel": "Add Channel"})
+        if self.channel and self.channel.is_deleted:
+            raise ValidationError({"channel": "Канал помечен как удалён."})
         if self.id and not self.channel.is_active:
             raise ValidationError({"channel": "Channel not active"})
         if self.id and not getattr(self, "channel_admin", None):

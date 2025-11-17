@@ -71,6 +71,7 @@ class ChannelParser(BaseModel):
     name: str = ""
     tg_id: str | None = ""
     is_bot_installed: bool = False
+    is_deleted: bool = False
     status: str = "pending"
     meta: Json | None = None
     cpm: int = 0

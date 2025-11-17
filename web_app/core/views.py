@@ -31,6 +31,12 @@ class ChannelViewSet(ModelViewSet):
     filter_backends = (DjangoFilterBackend,)
     filterset_fields = ["tg_id"]
 
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if not getattr(self.request, "user", None) or not self.request.user.is_superuser:
+            return qs.filter(is_deleted=False)
+        return qs
+
     def get_object(self):
         if self.kwargs.get("id"):
             return get_object_or_404(self.get_queryset(), id=self.kwargs["id"])
@@ -100,7 +106,9 @@ class MessageViewSet(ModelViewSet):
 
 
 class CampaignChannelViewSet(ModelViewSet):
-    queryset = CampaignChannel.objects.all()
+    queryset = CampaignChannel.objects.select_related("channel").filter(
+        channel__is_deleted=False
+    )
     serializer_class = CampaignChannelSerializer
     authentication_classes = []
     permission_classes = [AllowAny]

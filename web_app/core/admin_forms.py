@@ -143,7 +143,7 @@ class CampaignAdminForm(forms.ModelForm):
 
 class ChannelAdminForm(forms.ModelForm):
     channels = forms.ModelMultipleChoiceField(
-        queryset=Channel.objects.all(),
+        queryset=Channel.objects.filter(is_deleted=False),
         widget=forms.SelectMultiple(attrs={"class": "form-control wide"}),
         required=False,
     )
@@ -207,7 +207,7 @@ class MessageModelForm(forms.ModelForm):
 
 class CampaignChannelInlinedForm(forms.ModelForm):
     channel = forms.ModelChoiceField(
-        queryset=Channel.objects.all(),
+        queryset=Channel.objects.filter(is_deleted=False),
         widget=Select(
             attrs={"class": "form-group", "data-channel-select": ""},
         ),
@@ -276,7 +276,11 @@ class CampaignChannelInlinedForm(forms.ModelForm):
                 )
         elif instance and budget:
             total_budget = budget_cpm_from_qs(
-                CampaignChannel.objects.filter(campaign=campaign, channel__isnull=False)
+                CampaignChannel.objects.filter(
+                    campaign=campaign,
+                    channel__isnull=False,
+                    channel__is_deleted=False,
+                )
             )
             total_budget+=current_total_budget
             if total_budget > budget:
@@ -290,6 +294,8 @@ class CampaignChannelInlinedForm(forms.ModelForm):
         channel_admin = self.cleaned_data.get("channel_admin")
         publication_slot = self.cleaned_data.get("publication_slot")
         required_fields = ['cpm', 'plan_cpm', 'impressions_plan']
+        if channel and channel.is_deleted:
+            raise ValidationError({"channel": "Канал помечен как удалён."})
         if campaign and channel and not channel.supports_format(campaign.format):
             raise ValidationError(
                 {"channel": "Выберите канал, поддерживающий формат кампании."}

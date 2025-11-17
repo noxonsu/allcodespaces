@@ -22,10 +22,10 @@ class CampaignQS(QuerySet):
 
 class CampaignChannelQs(QuerySet):
     def active(self):
-        return self.filter(campaign__status="active")
+        return self.filter(campaign__status="active", channel__is_deleted=False)
 
     def paused(self):
-        return self.filter(campaign__status="paused")
+        return self.filter(campaign__status="paused", channel__is_deleted=False)
 
     @property
     def campaigns_subqs(self):
@@ -33,6 +33,7 @@ class CampaignChannelQs(QuerySet):
 
         campaigns_channels_qs = self.filter(
             campaign_id=OuterRef("pk"),
+            channel__is_deleted=False,
         )
         return Campaign.objects.filter(
             id=Subquery(campaigns_channels_qs.values("campaign_id")[:1])
@@ -68,7 +69,7 @@ class CampaignChannelQs(QuerySet):
         )
 
     def campaign_channels_total_budgets(self):
-        return self.aggregate(
+        return self.filter(channel__is_deleted=False).aggregate(
             total_budgets=Sum("impressions_plan") / Decimal(1000) * Sum("cpm")
         )["total_budgets"]
 

@@ -1,4 +1,4 @@
-from unittest import skipIf
+from unittest import skipIf, mock
 from django.test import  tag
 import django.utils.timezone as timezone
 import pytest
@@ -16,7 +16,8 @@ from .factories import (
     ChannelPublicationSlotFactory,
 )
 from ..admin_utils import is_not_valid_channel_status
-from ..models import Campaign, Channel, ChannelAdmin, PlacementFormat, ChannelPublicationSlot
+from ..models import Campaign, Channel, ChannelAdmin, CampaignChannel, PlacementFormat, ChannelPublicationSlot
+from ..serializers import ChannelSerializer
 from faker import Faker
 
 from ..utils import update_broken_channel_avatar
@@ -212,6 +213,54 @@ class ChannelTestCase(TransactionTestCase):
         slot = ChannelPublicationSlotFactory.build(channel=channel, weekday=0, start_time=timezone.datetime(2025, 1, 1, 10, 30).time(), end_time=timezone.datetime(2025, 1, 1, 11, 30).time())
         with self.assertRaises(ValidationError):
             slot.full_clean()
+
+    @mock.patch("core.serializers.TGStatClient")
+    def test_channel_readding_resets_soft_delete_flag(self, tgstat_client):
+        channel = ChannelFactory(is_deleted=True, is_bot_installed=False)
+        serializer = ChannelSerializer(
+            data={"tg_id": channel.tg_id, "name": channel.name},
+            context={"request": None},
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        serializer.save()
+
+        channel.refresh_from_db()
+        self.assertFalse(channel.is_deleted)
+        self.assertTrue(channel.is_bot_installed)
+        tgstat_client.return_value.update_channel_info.assert_called_once_with(
+            channel=channel
+        )
+        tgstat_client.return_value.update_channel_stat.assert_called_once_with(
+            channel=channel
+        )
+
+    def test_campaign_totals_ignore_deleted_channels(self):
+        campaign = CampaignFactory()
+        active_channel = ChannelFactory(is_deleted=False)
+        deleted_channel = ChannelFactory(is_deleted=True)
+
+        CampaignChannelFactory(
+            campaign=campaign,
+            channel=active_channel,
+            publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED,
+            impressions_plan=1000,
+            impressions_fact=500,
+            clicks=7,
+        )
+        CampaignChannelFactory(
+            campaign=campaign,
+            channel=deleted_channel,
+            publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED,
+            impressions_plan=2000,
+            impressions_fact=1500,
+            clicks=9,
+        )
+
+        self.assertEqual(campaign.total_channels_count, 1)
+        self.assertEqual(campaign.total_impressions_fact, 500)
+        self.assertEqual(campaign.total_clicks, 7)
+        self.assertEqual(campaign.total_planed_views(), 1000)
 
 
 class UtilsTestCase(TransactionTestCase):

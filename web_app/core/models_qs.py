@@ -40,4 +40,6 @@ class ChannelAdminManager(Manager):
 
     def channels_by_status(self, _id, status) -> QuerySet['Channel']:
         from core.models import Channel
-        return self.get(id=_id).channels.filter(status=Channel.ChannelStatus(status))
+        return self.get(id=_id).channels.filter(
+            status=Channel.ChannelStatus(status), is_deleted=False
+        )

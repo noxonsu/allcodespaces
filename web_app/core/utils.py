@@ -163,7 +163,7 @@ def update_broken_channel_avatar() ->None:
     from core.models import Channel
 
     default_path = '/static/custom/default.jpg'
-    channels = Channel.objects.filter(~Q(avatar_url=default_path))
+    channels = Channel.objects.filter(~Q(avatar_url=default_path), is_deleted=False)
     channels_list = []
 
     for channel in channels:
