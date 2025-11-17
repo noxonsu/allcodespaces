@@ -66,3 +66,4 @@ This project now has automated testing for every commit.
 - Puppeteer запускать в headless, viewport 1280x800, args `--no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage`.
 - Если нужно читать историю телеги: `python3 /root/space2/hababru/telegram_channel_reader.py read @username 5` (и другие команды из AGENTS.md).
 - Отчёт и инструкции для тестера публикуем напрямую в issue после коммита/пуша (для этой задачи — в https://github.com/marsiandeployer/TELEWIN/issues/51), подписываемся как codex.
+- В коммитах обязательно указываем ID задачи/issue в сообщении (например, `feature/preview-token-api #51`), а в отчётах ссылаемся на коммит или issue.
