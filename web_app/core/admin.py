@@ -42,6 +42,7 @@ from .models import (
     MessagePreviewToken,
     UserLoginToken,
     LegalEntity,
+    ChannelTransaction,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -1289,6 +1290,82 @@ class LegalEntityAdmin(admin.ModelAdmin):
     @admin.display(description="Название", ordering="short_name")
     def short_name_or_name(self, obj):
         return obj.short_name or obj.name
+
+
+@register(ChannelTransaction)
+class ChannelTransactionAdmin(admin.ModelAdmin):
+    """
+    CHANGE: Added admin interface for ChannelTransaction
+    WHY: Required by ТЗ 1.1.1 - admin CRUD for financial operations
+    QUOTE(ТЗ): "admin/CRUD, сериализаторы для операций"
+    REF: issue #21
+    """
+    list_display = [
+        "id",
+        "channel",
+        "transaction_type",
+        "amount",
+        "currency",
+        "status",
+        "source_type",
+        "created_at",
+        "completed_at",
+    ]
+    list_filter = [
+        "transaction_type",
+        "status",
+        "currency",
+        "source_type",
+        "created_at",
+    ]
+    search_fields = [
+        "channel__name",
+        "description",
+        "source_id",
+    ]
+    readonly_fields = ["id", "created_at", "updated_at"]
+    ordering = ["-created_at"]
+
+    fieldsets = (
+        (
+            "Основная информация",
+            {
+                "fields": (
+                    "channel",
+                    "transaction_type",
+                    "amount",
+                    "currency",
+                    "status",
+                    "description",
+                ),
+            },
+        ),
+        (
+            "Источник операции",
+            {
+                "fields": (
+                    "source_type",
+                    "source_id",
+                ),
+            },
+        ),
+        (
+            "Дополнительно",
+            {
+                "fields": (
+                    "metadata",
+                    "completed_at",
+                ),
+            },
+        ),
+        (
+            "Системная информация",
+            {
+                "classes": ["collapse"],
+                "fields": ("id", "created_at", "updated_at"),
+            },
+        ),
+    )
 
 
 @register(UserLoginToken)

@@ -15,6 +15,7 @@ from core.models import (
     SPONSORSHIP_BODY_LENGTH_LIMIT,
     SPONSORSHIP_BUTTON_LIMIT,
     LegalEntity,
+    ChannelTransaction,
 )
 from core.utils import validate_channel_avtar_url
 
@@ -260,6 +261,7 @@ class MessageSerializer(serializers.ModelSerializer):
     image = serializers.FileField(use_url=False, required=False)
     video = serializers.FileField(use_url=False, required=False)
     button = MessageLinkSerializer(read_only=True, source="*")  # to embedd
+    body = serializers.CharField()
 
     class Meta:
         model = Message
@@ -324,6 +326,13 @@ class MessageSerializer(serializers.ModelSerializer):
                 )
 
         return attrs
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        body_value = getattr(instance, "body", "")
+        if body_value:
+            data["body_html"] = body_value
+        return data
 
 
 class MessagePreviewTokenSerializer(serializers.ModelSerializer):
@@ -646,3 +655,47 @@ class ExporterSerializer(serializers.ModelSerializer):
                         owner_fields[key] = res[key]
                 return owner_fields
         return res
+
+
+class ChannelTransactionSerializer(serializers.ModelSerializer):
+    """
+    CHANGE: Added serializer for ChannelTransaction
+    WHY: Required by ТЗ 1.1.1 - API serializers for financial operations
+    QUOTE(ТЗ): "admin/CRUD, сериализаторы для операций"
+    REF: issue #21
+    """
+    channel_name = serializers.CharField(source="channel.name", read_only=True)
+    transaction_type_display = serializers.CharField(
+        source="get_transaction_type_display", read_only=True
+    )
+    status_display = serializers.CharField(
+        source="get_status_display", read_only=True
+    )
+
+    class Meta:
+        model = ChannelTransaction
+        fields = [
+            "id",
+            "channel",
+            "channel_name",
+            "transaction_type",
+            "transaction_type_display",
+            "amount",
+            "currency",
+            "status",
+            "status_display",
+            "source_type",
+            "source_id",
+            "description",
+            "metadata",
+            "created_at",
+            "updated_at",
+            "completed_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        """Validate transaction data using model's clean method"""
+        instance = ChannelTransaction(**attrs)
+        instance.clean()
+        return attrs

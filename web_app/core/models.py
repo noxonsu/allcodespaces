@@ -26,6 +26,7 @@ from core.base_models import BaseModel
 from core.db_proxies import CampaignQS, CampaignChannelQs
 from core.models_qs import ChannelAdminManager
 from core.models_validators import campaign_budget_validator
+from core.utils import sanitize_message_body
 from django.core.exceptions import ValidationError
 from django.utils import timezone
 
@@ -322,6 +323,7 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
 
     def clean(self):
         super().clean()
+        self.body = sanitize_message_body(self.body or "")
         if self.format == PlacementFormat.SPONSORSHIP:
             body = self.body or ""
             if len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
@@ -329,6 +331,14 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
                     {
                         "body": f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов."
                     }
+                )
+            if self.button_str and not self.button_link:
+                raise ValidationError(
+                    {"button_link": "Для формата «Спонсорство» ссылка для кнопки обязательна."}
+                )
+            if self.button_link and not self.button_str:
+                raise ValidationError(
+                    {"button_str": "Для формата «Спонсорство» укажите текст кнопки."}
                 )
             if self.button_count > SPONSORSHIP_BUTTON_LIMIT:
                 raise ValidationError(
@@ -1396,3 +1406,123 @@ class LegalEntity(ExportModelOperationsMixin("legalentity"), BaseModel):
                 raise ValidationError(
                     {"bank_account": "Расчётный счёт должен содержать только цифры"}
                 )
+
+
+class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseModel):
+    """
+    CHANGE: Added ChannelTransaction model for financial operations
+    WHY: Required by ТЗ 1.1.1 - store financial operations (income, deductions, payouts)
+    QUOTE(ТЗ): "хранить финансовые операции (начисления за публикации, удержания, выплаты)"
+    REF: issue #21
+    """
+
+    class TransactionType(models.TextChoices):
+        INCOME = "income", "Начисление"
+        DEDUCTION = "deduction", "Удержание"
+        PAYOUT = "payout", "Выплата"
+        REFUND = "refund", "Возврат"
+
+    class TransactionStatus(models.TextChoices):
+        PENDING = "pending", "Ожидает"
+        COMPLETED = "completed", "Завершено"
+        FROZEN = "frozen", "Заморожено"
+        CANCELLED = "cancelled", "Отменено"
+
+    channel = models.ForeignKey(
+        "Channel",
+        on_delete=models.PROTECT,
+        related_name="transactions",
+        verbose_name="Канал",
+        help_text="Канал, к которому относится операция"
+    )
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TransactionType.choices,
+        verbose_name="Тип операции",
+        help_text="Тип финансовой операции"
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Сумма",
+        help_text="Сумма операции (положительная для начислений, отрицательная для списаний)"
+    )
+    currency = models.CharField(
+        max_length=3,
+        default="RUB",
+        verbose_name="Валюта",
+        help_text="Код валюты (ISO 4217)"
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=TransactionStatus.choices,
+        default=TransactionStatus.PENDING,
+        verbose_name="Статус",
+        help_text="Статус операции"
+    )
+
+    # Источник операции
+    source_type = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Тип источника",
+        help_text="Тип источника операции (например: publication, manual, commission)"
+    )
+    source_id = models.UUIDField(
+        null=True,
+        blank=True,
+        verbose_name="ID источника",
+        help_text="UUID связанного объекта (публикация, кампания, и т.д.)"
+    )
+
+    # Дополнительная информация
+    description = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Описание",
+        help_text="Описание операции"
+    )
+    metadata = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Метаданные",
+        help_text="Дополнительные данные в формате JSON"
+    )
+
+    # Даты
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Дата завершения",
+        help_text="Дата и время завершения операции"
+    )
+
+    class Meta:
+        verbose_name = "Финансовая операция"
+        verbose_name_plural = "Финансовые операции"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["channel", "-created_at"]),
+            models.Index(fields=["channel", "status"]),
+            models.Index(fields=["transaction_type", "status"]),
+        ]
+
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} {self.amount} {self.currency} - {self.channel.name}"
+
+    def clean(self):
+        super().clean()
+
+        # Проверка знака суммы в зависимости от типа операции
+        if self.amount is not None:
+            if self.transaction_type in [self.TransactionType.INCOME, self.TransactionType.REFUND]:
+                if self.amount < 0:
+                    raise ValidationError(
+                        {"amount": f"Сумма для типа '{self.get_transaction_type_display()}' должна быть положительной"}
+                    )
+            elif self.transaction_type in [self.TransactionType.DEDUCTION, self.TransactionType.PAYOUT]:
+                if self.amount > 0:
+                    raise ValidationError(
+                        {"amount": f"Сумма для типа '{self.get_transaction_type_display()}' должна быть отрицательной"}
+                    )

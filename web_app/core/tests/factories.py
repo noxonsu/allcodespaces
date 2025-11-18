@@ -5,7 +5,7 @@ from factory.django import DjangoModelFactory
 import factory.random
 from faker import Faker
 
-from core.models import Campaign, ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot
+from core.models import Campaign, ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot, ChannelTransaction
 
 faker = Faker()
 
@@ -145,6 +145,7 @@ class CampaignChannelFactory(DjangoModelFactory):
     channel_post_id = factory.Faker("random_int", min=1, max=10000)
     clicks = factory.Faker("random_int", min=1, max=10000)
     is_approved = factory.Faker("boolean")
+    approval_notified_at = None
     publication_slot = None
 
 
@@ -163,3 +164,37 @@ class ChannelPublicationSlotFactory(DjangoModelFactory):
         start_dt = datetime.combine(datetime.today(), self.start_time)
         end_dt = start_dt + timedelta(minutes=30)
         return end_dt.time()
+
+
+class ChannelTransactionFactory(DjangoModelFactory):
+    """
+    CHANGE: Added factory for ChannelTransaction
+    WHY: Required by ТЗ 1.1.1 - tests for financial operations
+    REF: issue #21
+    """
+    class Meta:
+        model = ChannelTransaction
+
+    channel = factory.SubFactory(ChannelFactory)
+    transaction_type = factory.Iterator(
+        [choice[0] for choice in ChannelTransaction.TransactionType.choices]
+    )
+    amount = factory.Faker("pydecimal", left_digits=5, right_digits=2, positive=True)
+    currency = "RUB"
+    status = ChannelTransaction.TransactionStatus.PENDING
+    source_type = "manual"
+    description = factory.Faker("sentence")
+
+    @factory.lazy_attribute
+    def amount(self):
+        from decimal import Decimal
+        import random
+        # Для начислений и возвратов - положительная сумма
+        if self.transaction_type in [
+            ChannelTransaction.TransactionType.INCOME,
+            ChannelTransaction.TransactionType.REFUND
+        ]:
+            return Decimal(str(random.uniform(100, 10000))).quantize(Decimal("0.01"))
+        # Для удержаний и выплат - отрицательная сумма
+        else:
+            return -Decimal(str(random.uniform(100, 10000))).quantize(Decimal("0.01"))
