@@ -178,7 +178,7 @@ class CampaignChannelParserIn(BaseModel):
     def analysis_link(self) -> str:
         primary = self.campaign.message.primary_button if self.has_message else None
         if not self.has_message_button:
-            return "https//app.telewin.online"
+            return bot_settings.SCHEMA_DOMAIN
         elif bot_settings.DEV or self.message_is_external:
             return primary.url if primary else ""
 
