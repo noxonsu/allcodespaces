@@ -178,3 +178,47 @@ def invalidate_channel_balance_cache(sender, instance, **kwargs):
     if instance.channel:
         BalanceService.invalidate_cache(instance.channel)
         logger.debug(f"Invalidated balance cache for channel {instance.channel.name}")
+
+
+@receiver(pre_save, sender=Channel)
+def track_channel_is_deleted_change(sender, instance: Channel, **kwargs):
+    """Track is_deleted changes for webhook notifications"""
+    if instance.pk:
+        try:
+            old_instance = Channel.objects.get(pk=instance.pk)
+            instance._old_is_deleted = old_instance.is_deleted
+        except Channel.DoesNotExist:
+            instance._old_is_deleted = None
+    else:
+        instance._old_is_deleted = None
+
+
+@receiver(post_save, sender=Channel)
+def notify_microservice_on_channel_change(sender, instance: Channel, created: bool, **kwargs):
+    """
+    CHANGE: Added webhook notification to parser microservice on channel changes
+    WHY: Required by ТЗ 4.1.1 - notify microservice about channel add/delete/restore
+    QUOTE(ТЗ): "при изменении статуса канала отправлять событие микросервису парсинга"
+    REF: issue #45
+    """
+    from core.webhook_client import parser_client, ChannelEventType
+
+    # Skip if creating default publication slots (raw=True during bulk_create)
+    if kwargs.get('raw', False):
+        return
+
+    try:
+        if created:
+            # New channel added
+            parser_client.send_channel_event(instance, ChannelEventType.CHANNEL_ADDED)
+        else:
+            # Check if is_deleted changed
+            old_is_deleted = getattr(instance, '_old_is_deleted', None)
+            if old_is_deleted is not None and old_is_deleted != instance.is_deleted:
+                if instance.is_deleted:
+                    parser_client.send_channel_event(instance, ChannelEventType.CHANNEL_DELETED)
+                else:
+                    parser_client.send_channel_event(instance, ChannelEventType.CHANNEL_RESTORED)
+    except Exception as e:
+        # Log error but don't fail the transaction
+        logger.error(f"Failed to notify microservice about channel {instance.name}: {e}", exc_info=True)

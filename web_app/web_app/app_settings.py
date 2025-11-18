@@ -23,5 +23,13 @@ class AppSettings(BaseSettings):
     TELEGRAM_BOT_USERNAME: str = "telewin_0001_bot"
     DJANGO_SETTINGS_MODULE: str = "web_app.settings"
 
+    # CHANGE: Added microservice integration settings
+    # WHY: Required by ТЗ 4.1.1 - webhook notifications for channel add/delete
+    # QUOTE(ТЗ): "при изменении статуса канала отправлять событие микросервису парсинга"
+    # REF: issue #45
+    PARSER_MICROSERVICE_URL: str = ""
+    PARSER_MICROSERVICE_API_KEY: str = ""
+    PARSER_MICROSERVICE_ENABLED: bool = False
+
 
 app_settings = AppSettings()
