@@ -364,7 +364,7 @@ JAZZMIN_SETTINGS = {
         "core": [
             {
                 "name": "Пользователи",
-                "url": "/core/user",
+                "url": "/admin/core/user/",
                 "icon": "fas fa-user-alt",
                 'permissions': ["auth.add_user"],
             },
