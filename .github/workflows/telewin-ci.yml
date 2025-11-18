@@ -28,18 +28,18 @@ jobs:
             workdir: web_app
             install: |
               python3 -m pip install --upgrade pip
-              python3 - <<'PY' > requirements-ci.txt
-import tomllib
-from pathlib import Path
+              python3 -c "
+              import tomllib
+              from pathlib import Path
 
-data = tomllib.loads(Path('pyproject.toml').read_text())
-deps = data.get('project', {}).get('dependencies', [])
-dev = data.get('dependency-groups', {}).get('dev', [])
+              data = tomllib.loads(Path('pyproject.toml').read_text())
+              deps = data.get('project', {}).get('dependencies', [])
+              dev = data.get('dependency-groups', {}).get('dev', [])
 
-with Path('requirements-ci.txt').open('w', encoding='utf-8') as req_file:
-    for requirement in [*deps, *dev]:
-        req_file.write(f"{requirement}\n")
-PY
+              with Path('requirements-ci.txt').open('w', encoding='utf-8') as req_file:
+                  for requirement in [*deps, *dev]:
+                      req_file.write(f'{requirement}\n')
+              "
               python3 -m pip install -r requirements-ci.txt
             test: |
               python3 -m pytest -vv
