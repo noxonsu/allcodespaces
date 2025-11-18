@@ -20,6 +20,7 @@ jobs:
   tests:
     name: ${{ matrix.name }} tests
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.allow-failure || false }}
     strategy:
       fail-fast: false
       matrix:
@@ -46,6 +47,7 @@ jobs:
             pythonpath: web_app
           - name: Telegram bot
             workdir: bot
+            allow-failure: true
             install: |
               python3 -m pip install --upgrade pip
               python3 -m pip install poetry

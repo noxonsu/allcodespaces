@@ -37,6 +37,7 @@ dependencies = [
 dev = [
     "factory-boy>=3.3.3",
     "pytest>=8.4.2",
+    "pytest-django>=4.9.0",
     "ruff>=0.13.0",
 ]
 
