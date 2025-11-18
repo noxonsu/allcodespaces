@@ -33,5 +33,5 @@ urlpatterns = [
     path("docs.<format>/", schema_view.without_ui(cache_timeout=0), name="schema-json"),
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
     path("", include("django_prometheus.urls")),
-    path("", admin.site.urls),
+    path("admin/", admin.site.urls),
 ]

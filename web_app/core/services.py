@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 CHANGE: Refactored BalanceService to Event Sourcing approach
 WHY: Simplify balance calculation, eliminate race conditions
@@ -17,6 +19,7 @@ from django.db.models import Sum, Q
 from django.core.cache import cache
 
 from core.models import Channel, ChannelTransaction
+from core.models import LegalEntity
 
 
 @dataclass
@@ -187,3 +190,19 @@ class BalanceService:
             )
 
         return result
+
+    @classmethod
+    def get_legal_entity_balance(cls, legal_entity: LegalEntity) -> ChannelBalance:
+        """Aggregate balance for all non-deleted channels of a legal entity"""
+        channels = list(legal_entity.channels.filter(is_deleted=False))
+        balances = cls.get_balance_for_channels(channels)
+
+        total_balance = Decimal("0")
+        total_frozen = Decimal("0")
+        for channel in channels:
+            cb = balances.get(str(channel.id), ChannelBalance(Decimal("0"), Decimal("0"), Decimal("0")))
+            total_balance += cb.balance
+            total_frozen += cb.frozen
+
+        total_available = max(total_balance - total_frozen, Decimal("0"))
+        return ChannelBalance(balance=total_balance, frozen=total_frozen, available=total_available)

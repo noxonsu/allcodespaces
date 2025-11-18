@@ -121,6 +121,37 @@ class ChannelPublicationSlotInline(admin.TabularInline):
         return formset
 
 
+class ChannelTransactionInline(admin.TabularInline):
+    """
+    CHANGE: Added inline for transactions in Channel admin
+    WHY: QA bug fix - show transaction details in channel card
+    QUOTE(QA): "В карточке канала не видно операций"
+    REF: issue #21 (QA report from TamaraV16)
+    """
+    model = ChannelTransaction
+    fields = [
+        "transaction_type",
+        "amount",
+        "currency",
+        "description",
+        "created_at",
+    ]
+    readonly_fields = ["transaction_type", "amount", "currency", "description", "created_at"]
+    extra = 0
+    can_delete = False
+    verbose_name = "Финансовая операция"
+    verbose_name_plural = "История операций"
+    ordering = ["-created_at"]
+
+    def has_add_permission(self, request, obj=None):
+        # Transactions should be added through separate admin, not inline
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        # Append-only ledger - no editing
+        return False
+
+
 @register(Channel)
 class ChannelModelAdmin(admin.ModelAdmin):
     class Media:
@@ -172,7 +203,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "err",
         "err_24",
     ]
-    inlines = [ChannelAdminInlined, ChannelPublicationSlotInline]
+    inlines = [ChannelAdminInlined, ChannelPublicationSlotInline, ChannelTransactionInline]
     ordering = ["-created_at"]
     list_filter = [
         ("name",CustomAllValuesFieldListFilter),
@@ -1543,7 +1574,7 @@ class ChannelTransactionAdmin(admin.ModelAdmin):
         "transaction_type",
         "currency",
         "source_type",
-        "created_at",
+        ("created_at", CustomDateFieldListFilter),
     ]
     search_fields = [
         "channel__name",
@@ -1552,6 +1583,15 @@ class ChannelTransactionAdmin(admin.ModelAdmin):
     ]
     readonly_fields = ["id", "created_at", "updated_at"]
     ordering = ["-created_at"]
+
+    def has_delete_permission(self, request, obj=None):
+        # Append-only ledger: удаление транзакций запрещено
+        return False
+
+    def get_actions(self, request):
+        actions = super().get_actions(request)
+        actions.pop("delete_selected", None)
+        return actions
 
     fieldsets = (
         (

@@ -1,9 +1,14 @@
 from celery import app
+from decimal import Decimal
 
 from core.utils import BotNotifier
 from web_app.logger import log_func, logger
 from core.external_clients import TGStatClient
-from core.models import CampaignChannel
+from core.models import CampaignChannel, LegalEntity, Payout
+from core.services import BalanceService
+
+
+MIN_PAYOUT_AMOUNT = Decimal("100.00")
 
 
 @app.shared_task(bind=True)
@@ -93,3 +98,51 @@ def check_and_publish_scheduled_messages(*args, **kwargs):
 
     logger.info(f"[Task] Published {published}/{count} messages")
     return {"checked": count, "published": published}
+
+
+@app.shared_task(bind=True)
+@log_func
+def create_payouts_for_legal_entities(*args, **kwargs):
+    """
+    Автоматическое создание выплат по юрлицам.
+
+    - Берём все юрлица с доступным балансом >= MIN_PAYOUT_AMOUNT.
+    - Создаём payout в статусе draft (или pending, если передано через kwargs).
+    - Идемпотентность: не создаём payout, если уже есть draft/pending на это юрлицо с той же суммой.
+    - Логируем результаты.
+    """
+
+    min_amount = Decimal(str(kwargs.get("min_amount", MIN_PAYOUT_AMOUNT)))
+    target_status = kwargs.get("status", Payout.Status.DRAFT)
+
+    created = 0
+    skipped = 0
+
+    for legal_entity in LegalEntity.objects.all():
+        totals = BalanceService.get_legal_entity_balance(legal_entity)
+        if totals.available < min_amount:
+            skipped += 1
+            continue
+
+        existing = Payout.objects.filter(
+            legal_entity=legal_entity,
+            status__in=[Payout.Status.DRAFT, Payout.Status.PENDING],
+            amount=totals.available,
+        ).exists()
+
+        if existing:
+            skipped += 1
+            continue
+
+        payout = Payout.objects.create(
+            legal_entity=legal_entity,
+            amount=totals.available,
+            currency="RUB",
+            status=target_status,
+            description="Авто-начисление по доступному балансу",
+        )
+        created += 1
+        logger.info(f"[PayoutTask] created payout {payout.id} for {legal_entity} amount={payout.amount}")
+
+    logger.info(f"[PayoutTask] done created={created} skipped={skipped} min_amount={min_amount}")
+    return {"created": created, "skipped": skipped, "min_amount": str(min_amount)}

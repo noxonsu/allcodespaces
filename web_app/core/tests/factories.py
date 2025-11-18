@@ -118,6 +118,25 @@ class ChannelAdminFactory(DjangoModelFactory):
     role = factory.fuzzy.FuzzyChoice(ChannelAdmin.Role.choices, getter=lambda x: x[0])
     is_bot_installed = factory.Faker("boolean")
     # user = factory.RelatedFactory( # the user is created by django signals!!!
+
+
+class LegalEntityFactory(DjangoModelFactory):
+    class Meta:
+        model = "core.LegalEntity"
+
+    name = faker.company()
+    short_name = faker.company_suffix()
+    inn = faker.numerify(text="##########")
+    kpp = faker.numerify(text="#########")
+    ogrn = faker.numerify(text="#############")
+    legal_address = faker.address()
+    bank_name = faker.company()
+    bank_bik = faker.numerify(text="#########")
+    bank_correspondent_account = faker.numerify(text="##################")
+    bank_account = faker.numerify(text="####################")
+    contact_person = faker.name()
+    contact_phone = faker.phone_number()
+    contact_email = faker.email()
     #     'core.tests.factories.UserFactory',
     #     groups=factory.SelfAttribute('..profile.role')
     # )

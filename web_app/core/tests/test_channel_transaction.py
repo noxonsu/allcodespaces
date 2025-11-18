@@ -6,9 +6,12 @@ REF: issue #22 (refactoring)
 """
 import pytest
 from decimal import Decimal
-from django.test import TestCase
+from django.contrib.admin.sites import AdminSite
+from django.contrib.auth import get_user_model
+from django.test import RequestFactory, TestCase
 from django.core.exceptions import ValidationError
 
+from core.admin import ChannelTransactionAdmin
 from core.models import ChannelTransaction, Channel
 from core.tests.factories import ChannelTransactionFactory, ChannelFactory
 
@@ -205,7 +208,7 @@ class TestChannelTransaction(TestCase):
             currency="RUB",
         )
 
-        expected = f"Начисление 1000.00 RUB - {self.channel.name}"
+        expected = f"Начисление +1000.00 RUB - {self.channel.name}"
         self.assertEqual(str(transaction), expected)
 
     def test_factory_creates_valid_transactions(self):
@@ -245,3 +248,21 @@ class TestChannelTransaction(TestCase):
             total=Sum('amount')
         )['total']
         self.assertEqual(total, Decimal("0.00"))
+
+
+class TestChannelTransactionAdmin(TestCase):
+    def setUp(self):
+        self.factory = RequestFactory()
+        self.user = get_user_model().objects.create_superuser(
+            username="admin",
+            email="admin@example.com",
+            password="password",
+        )
+        self.model_admin = ChannelTransactionAdmin(ChannelTransaction, AdminSite())
+
+    def test_delete_is_disabled(self):
+        request = self.factory.get("/")
+        request.user = self.user
+
+        self.assertFalse(self.model_admin.has_delete_permission(request))
+        self.assertNotIn("delete_selected", self.model_admin.get_actions(request))

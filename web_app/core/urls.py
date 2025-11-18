@@ -6,6 +6,8 @@ from .views import (
     CampaignChannelViewSet,
     TGLoginView,
     ChannelAdminViewSet,
+    LegalEntityViewSet,
+    PayoutViewSet,
     AboutView,
 )
 
@@ -15,12 +17,16 @@ channel_router = DefaultRouter()
 message_router = DefaultRouter()
 campaign_channel = DefaultRouter()
 channel_admin = DefaultRouter()
+legal_entity_router = DefaultRouter()
+payout_router = DefaultRouter()
 
 
 channel_router.register("", ChannelViewSet)
 message_router.register("", MessageViewSet)
 campaign_channel.register("", CampaignChannelViewSet)
 channel_admin.register("", ChannelAdminViewSet)
+legal_entity_router.register("", LegalEntityViewSet)
+payout_router.register("", PayoutViewSet)
 
 
 api_urls = [
@@ -28,6 +34,8 @@ api_urls = [
     path("message/", include(message_router.urls)),
     path("campaign-channel/", include(campaign_channel.urls)),
     path("channel-admin/", include(channel_admin.urls)),
+    path("legal-entity/", include(legal_entity_router.urls)),
+    path("payout/", include(payout_router.urls)),
 ]
 
 urlpatterns = [

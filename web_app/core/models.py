@@ -16,6 +16,7 @@ except ImportError:
 from django.contrib import admin
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from web_app.logger import logger
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField, Sum, Avg, F, Q
 from django.utils.translation import gettext_lazy as _
@@ -355,6 +356,9 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
         self.body = sanitize_message_body(self.body or "")
         self._validate_buttons()
 
+        if self.format == PlacementFormat.FIXED_SLOT and self.button_count == 0:
+            raise ValidationError({"buttons": "Добавьте хотя бы одну кнопку для формата «Фикс-слот»."})
+
         if self.format == PlacementFormat.SPONSORSHIP:
             body = self.body or ""
             if len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
@@ -658,6 +662,21 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     def __str__(self):
         return self.name
+
+    def clean(self):
+        super().clean()
+
+        if self.pk:
+            original = Campaign.objects.filter(pk=self.pk).only("format").first()
+            if original and original.format != self.format:
+                raise ValidationError({"format": "Нельзя изменять формат существующей кампании"})
+
+        if self.format == PlacementFormat.FIXED_SLOT and not self.slot_publication_at:
+            raise ValidationError({"slot_publication_at": "Для формата 'Фикс-слот' заполните дату и время публикации"})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     @property
     def is_draft(self) -> bool:
@@ -1531,15 +1550,48 @@ class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseM
         sign = "+" if self.amount >= 0 else ""
         return f"{self.get_transaction_type_display()} {sign}{self.amount} {self.currency} - {self.channel.name}"
 
+    def clean(self):
+        """
+        CHANGE: Added validation for amount sign based on transaction type
+        WHY: Bug fix - negative amounts were accepted for INCOME type
+        QUOTE(QA): "Принимает отрицательные суммы для 'Начисления'"
+        REF: issue #21 (QA report from TamaraV16)
+        """
+        super().clean()
+
+        # Положительные типы операций
+        positive_types = [
+            self.TransactionType.INCOME,
+            self.TransactionType.REFUND,
+            self.TransactionType.UNFREEZE,
+        ]
+        # Отрицательные типы операций
+        negative_types = [
+            self.TransactionType.FREEZE,
+            self.TransactionType.PAYOUT,
+            self.TransactionType.COMMISSION,
+        ]
+
+        if self.transaction_type in positive_types and self.amount < 0:
+            raise ValidationError({
+                "amount": f"Сумма для типа '{self.get_transaction_type_display()}' должна быть положительной"
+            })
+
+        if self.transaction_type in negative_types and self.amount > 0:
+            raise ValidationError({
+                "amount": f"Сумма для типа '{self.get_transaction_type_display()}' должна быть отрицательной"
+            })
+
     def save(self, *args, **kwargs):
         """
         Enforce append-only: prevent updates after creation
         """
-        if self.pk is not None:
+        if not self._state.adding:
             raise ValidationError(
                 "Транзакции нельзя изменять (append-only ledger). "
                 "Создайте компенсирующую транзакцию для исправления."
             )
+        self.full_clean()  # Ensure validation runs
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
@@ -1550,3 +1602,118 @@ class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseM
             "Транзакции нельзя удалять (append-only ledger). "
             "Создайте компенсирующую транзакцию для отмены."
         )
+
+
+class Payout(BaseModel):
+    class Status(models.TextChoices):
+        DRAFT = "draft", "Черновик"
+        PENDING = "pending", "В обработке"
+        PAID = "paid", "Выплачено"
+        CANCELED = "canceled", "Отменено"
+
+    legal_entity = models.ForeignKey(
+        "LegalEntity",
+        on_delete=models.PROTECT,
+        related_name="payouts",
+        verbose_name="Юрлицо",
+    )
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма")
+    currency = models.CharField(max_length=3, default="RUB", verbose_name="Валюта")
+    period_start = models.DateField(null=True, blank=True, verbose_name="Период с")
+    period_end = models.DateField(null=True, blank=True, verbose_name="Период по")
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.DRAFT,
+        verbose_name="Статус",
+    )
+    description = models.TextField(blank=True, default="", verbose_name="Комментарий")
+
+    class Meta:
+        verbose_name = "Выплата"
+        verbose_name_plural = "Выплаты"
+        ordering = ["-created_at"]
+
+    def clean(self):
+        errors = {}
+        if self.amount is not None and self.amount <= 0:
+            errors["amount"] = "Сумма должна быть положительной"
+
+        if self.period_start and self.period_end and self.period_end < self.period_start:
+            errors["period_end"] = "Дата окончания должна быть не раньше даты начала"
+
+        if self._state.adding:
+            from core.services import BalanceService
+
+            totals = BalanceService.get_legal_entity_balance(self.legal_entity)
+            if totals.available < self.amount:
+                errors["amount"] = "Сумма выплаты превышает доступный баланс юрлица"
+
+        if errors:
+            raise ValidationError(errors)
+
+    def save(self, *args, **kwargs):
+        previous_status = None
+        if not self._state.adding and self.pk:
+            previous_status = Payout.objects.filter(pk=self.pk).values_list("status", flat=True).first()
+
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+        if self.status == Payout.Status.PAID and previous_status != Payout.Status.PAID:
+            self._ensure_payout_transactions()
+
+        if previous_status != self.status:
+            self._notify_status_change(previous_status)
+
+    def _ensure_payout_transactions(self):
+        existing = ChannelTransaction.objects.filter(
+            source_type="payout",
+            source_id=self.id,
+        )
+        if existing.exists():
+            return
+
+        from core.services import BalanceService
+
+        amount_left = self.amount
+        channels = list(self.legal_entity.channels.filter(is_deleted=False))
+        balances = BalanceService.get_balance_for_channels(channels)
+
+        for channel in channels:
+            if amount_left <= 0:
+                break
+            cb = balances.get(str(channel.id))
+            available = cb.available if cb else Decimal("0")
+            if available <= 0:
+                continue
+
+            portion = min(available, amount_left)
+            ChannelTransaction.objects.create(
+                channel=channel,
+                transaction_type=ChannelTransaction.TransactionType.PAYOUT,
+                amount=-portion,
+                currency=self.currency,
+                source_type="payout",
+                source_id=self.id,
+                description=f"Payout {self.id} for legal entity {self.legal_entity_id}",
+            )
+            amount_left -= portion
+
+        if amount_left > 0:
+            logger.warning(
+                "Payout %s could not deduct full amount (lacked %s). Check channel balances.",
+                self.id,
+                amount_left,
+            )
+
+    def _notify_status_change(self, previous_status: str | None):
+        try:
+            message = f"Payout {self.id} for {self.legal_entity} status changed: {previous_status} -> {self.status}, amount {self.amount}"
+            logger.info(message)
+            # Hook for future email/TG notifications
+        except Exception as exc:
+            logger.error("Failed to notify payout status change %s: %s", self.id, exc)
+
+    def __str__(self):
+        return f"{self.legal_entity} — {self.amount} {self.currency} ({self.get_status_display()})"

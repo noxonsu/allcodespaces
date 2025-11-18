@@ -1,4 +1,5 @@
 from functools import cached_property
+from decimal import Decimal
 
 from django.templatetags.l10n import localize
 from rest_framework import serializers
@@ -16,8 +17,10 @@ from core.models import (
     SPONSORSHIP_BUTTON_LIMIT,
     LegalEntity,
     ChannelTransaction,
+    Payout,
 )
 from core.utils import validate_channel_avtar_url
+from core.services import BalanceService, ChannelBalance
 
 
 class LegalEntitySerializer(serializers.ModelSerializer):
@@ -64,6 +67,90 @@ class LegalEntitySerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError("ИНН должен содержать только цифры")
         return value
 
+
+class ChannelBalanceSerializer(serializers.ModelSerializer):
+    balance = serializers.SerializerMethodField()
+    frozen = serializers.SerializerMethodField()
+    available = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Channel
+        fields = [
+            "id",
+            "name",
+            "tg_id",
+            "status",
+            "members_count",
+            "balance",
+            "frozen",
+            "available",
+        ]
+
+    def _get_balance(self, obj: Channel) -> ChannelBalance:
+        balances = self.context.get("balances")
+        if balances is not None:
+            cached = balances.get(str(obj.id))
+            if cached:
+                return cached
+        return BalanceService.calculate_balance(obj)
+
+    def get_balance(self, obj: Channel):
+        return self._get_balance(obj).balance
+
+    def get_frozen(self, obj: Channel):
+        return self._get_balance(obj).frozen
+
+    def get_available(self, obj: Channel):
+        return self._get_balance(obj).available
+
+
+class LegalEntityDetailSerializer(LegalEntitySerializer):
+    total_balance = serializers.SerializerMethodField()
+    total_frozen = serializers.SerializerMethodField()
+    total_available = serializers.SerializerMethodField()
+    channels_count = serializers.SerializerMethodField()
+
+    class Meta(LegalEntitySerializer.Meta):
+        fields = LegalEntitySerializer.Meta.fields + [
+            "total_balance",
+            "total_frozen",
+            "total_available",
+            "channels_count",
+        ]
+
+    def _calc_totals(self, obj: LegalEntity) -> ChannelBalance:
+        cache_attr = "_totals_cache"
+        cached = getattr(obj, cache_attr, None)
+        if cached:
+            return cached
+
+        channels = list(obj.channels.filter(is_deleted=False))
+        balances = BalanceService.get_balance_for_channels(channels)
+
+        total_balance = Decimal("0")
+        total_frozen = Decimal("0")
+        for channel in channels:
+            cb = balances.get(str(channel.id), ChannelBalance(Decimal("0"), Decimal("0"), Decimal("0")))
+            total_balance += cb.balance
+            total_frozen += cb.frozen
+        total_available = max(total_balance - total_frozen, Decimal("0"))
+
+        totals = ChannelBalance(balance=total_balance, frozen=total_frozen, available=total_available)
+        setattr(obj, cache_attr, totals)
+        return totals
+
+    def get_total_balance(self, obj: LegalEntity):
+        return self._calc_totals(obj).balance
+
+    def get_total_frozen(self, obj: LegalEntity):
+        return self._calc_totals(obj).frozen
+
+    def get_total_available(self, obj: LegalEntity):
+        return self._calc_totals(obj).available
+
+    def get_channels_count(self, obj: LegalEntity):
+        return obj.channels.filter(is_deleted=False).count()
+
     def validate_kpp(self, value):
         """Валидация КПП"""
         if value:
@@ -97,6 +184,35 @@ class LegalEntitySerializer(serializers.ModelSerializer):
         return value
 
 
+class PayoutSerializer(serializers.ModelSerializer):
+    legal_entity_detail = LegalEntitySerializer(source="legal_entity", read_only=True)
+
+    class Meta:
+        model = Payout
+        fields = "__all__"
+        read_only_fields = ["id", "created_at", "updated_at", "legal_entity_detail"]
+
+    def validate_amount(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Сумма должна быть положительной")
+        return value
+
+    def validate(self, attrs):
+        period_start = attrs.get("period_start")
+        period_end = attrs.get("period_end")
+        if period_start and period_end and period_end < period_start:
+            raise serializers.ValidationError({"period_end": "Дата окончания должна быть не раньше даты начала"})
+
+        legal_entity = attrs.get("legal_entity") or getattr(self.instance, "legal_entity", None)
+        amount = attrs.get("amount")
+        if legal_entity and amount is not None:
+            totals = BalanceService.get_legal_entity_balance(legal_entity)
+            if totals.available < amount:
+                raise serializers.ValidationError({"amount": "Сумма выплаты превышает доступный баланс юрлица"})
+
+        return attrs
+
+
 class ChannelSerializer(serializers.ModelSerializer):
     avatar = serializers.URLField(
         source="avatar_url", required=False, allow_blank=True, allow_null=True, default='/static/custom/default.jpg'
@@ -111,6 +227,13 @@ class ChannelSerializer(serializers.ModelSerializer):
     # REF: issue #25
     legal_entity_detail = LegalEntitySerializer(source="legal_entity", read_only=True)
 
+    # CHANGE: Возвращаем рассчитанные значения баланса канала
+    # WHY: ТЗ 1.1.3 — показать баланс/заморозку/доступно в API
+    # REF: issue #23
+    balance = serializers.SerializerMethodField()
+    frozen = serializers.SerializerMethodField()
+    available = serializers.SerializerMethodField()
+
     class Meta:
         model = Channel
         fields = "__all__"
@@ -119,6 +242,29 @@ class ChannelSerializer(serializers.ModelSerializer):
             "is_deleted": {"read_only": True},
             "legal_entity": {"required": False},
         }
+        read_only_fields = ["balance", "frozen", "available"]
+
+    # region Balance helpers
+    def _get_balance(self, obj: Channel) -> ChannelBalance:
+        """Fetch balance once per object using BalanceService cache"""
+        balance_attr = "_balance_cache"
+        cached = getattr(obj, balance_attr, None)
+        if cached:
+            return cached
+
+        balance = BalanceService.calculate_balance(obj)
+        setattr(obj, balance_attr, balance)
+        return balance
+
+    def get_balance(self, obj: Channel):
+        return self._get_balance(obj).balance
+
+    def get_frozen(self, obj: Channel):
+        return self._get_balance(obj).frozen
+
+    def get_available(self, obj: Channel):
+        return self._get_balance(obj).available
+    # endregion
 
     def create(self, validated_data):
         from core.external_clients import TGStatClient

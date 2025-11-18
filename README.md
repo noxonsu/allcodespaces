@@ -136,3 +136,25 @@ gh issue edit 55 --add-label "work in progress"
 # Отправили на QA (лейбл WIP остаётся)
 gh issue edit 55 --add-label "QA"
 ```
+
+### Определение приоритета задач
+
+**Порядок приоритизации:**
+
+1. **Наивысший приоритет:** Issue с лейблом `work in progress` БЕЗ лейбла `QA`
+   - Ищем комментарий от QA с отчетом о тестировании
+   - Это обычно самая важная задача, требующая исправлений после проверки
+
+2. **Обычный приоритет:** Issues в порядке возрастания номеров (начиная с самого маленького)
+   - **Пропускать** issues с лейблами:
+     - `on hold` - отложенные задачи
+     - `ready for review` - ожидают ревью, не требуют работы
+
+**Пример поиска приоритетных задач:**
+```bash
+# Найти issues с работой после QA (высокий приоритет)
+gh issue list --label "work in progress" --json number,labels,title
+
+# Найти все активные issues (без on hold и ready for review)
+gh issue list --json number,labels,title --jq '.[] | select((.labels | map(.name) | contains(["on hold", "ready for review"]) | not))'
+```
