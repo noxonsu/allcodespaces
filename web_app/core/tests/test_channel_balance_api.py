@@ -54,3 +54,11 @@ class ChannelBalanceAPITests(TestCase):
         self.assertEqual(self._decimal(second_response.data["balance"]), Decimal("50.00"))
         self.assertEqual(self._decimal(second_response.data["frozen"]), Decimal("20.00"))
         self.assertEqual(self._decimal(second_response.data["available"]), Decimal("30.00"))
+
+    def test_core_prefixed_channel_endpoint_is_available(self):
+        url = f"/core/channel/{self.channel.tg_id}/"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn("balance", response.data)
+        self.assertIn("frozen", response.data)
+        self.assertIn("available", response.data)

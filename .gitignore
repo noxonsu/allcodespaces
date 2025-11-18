@@ -24,3 +24,7 @@ static
 # LOG FILES
 *.log
 media
+
+# Test screenshots and reports
+screenshots/
+package-lock.json

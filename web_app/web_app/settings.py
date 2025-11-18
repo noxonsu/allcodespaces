@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     "drf_yasg",
     "rest_framework",
     "rest_framework.authtoken",
+    "django_filters",
     "django_celery_beat",
     "django_celery_results",
     "core",
