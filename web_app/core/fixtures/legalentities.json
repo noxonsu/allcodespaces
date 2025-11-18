@@ -1,0 +1,71 @@
+[
+  {
+    "model": "core.legalentity",
+    "pk": "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
+    "fields": {
+      "created_at": "2025-01-15T10:00:00Z",
+      "updated_at": "2025-01-15T10:00:00Z",
+      "name": "Общество с ограниченной ответственностью «Технологии будущего»",
+      "short_name": "ООО «Технологии будущего»",
+      "inn": "7743013902",
+      "kpp": "774301001",
+      "ogrn": "1037739010891",
+      "legal_address": "119021, г. Москва, ул. Льва Толстого, д. 16",
+      "bank_name": "ПАО Сбербанк",
+      "bank_bik": "044525225",
+      "bank_correspondent_account": "30101810400000000225",
+      "bank_account": "40702810938000012345",
+      "contact_person": "Иванов Иван Иванович",
+      "contact_phone": "+7 (495) 123-45-67",
+      "contact_email": "info@techfuture.ru",
+      "status": "active",
+      "notes": "Основное юридическое лицо для рекламных кампаний"
+    }
+  },
+  {
+    "model": "core.legalentity",
+    "pk": "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e",
+    "fields": {
+      "created_at": "2025-01-16T12:00:00Z",
+      "updated_at": "2025-01-16T12:00:00Z",
+      "name": "Индивидуальный предприниматель Петров Петр Петрович",
+      "short_name": "ИП Петров П.П.",
+      "inn": "773301234567",
+      "kpp": "",
+      "ogrn": "304770001234567",
+      "legal_address": "125009, г. Москва, ул. Тверская, д. 1, кв. 10",
+      "bank_name": "ПАО «Альфа-Банк»",
+      "bank_bik": "044525593",
+      "bank_correspondent_account": "30101810200000000593",
+      "bank_account": "40802810400000098765",
+      "contact_person": "Петров Петр Петрович",
+      "contact_phone": "+7 (916) 234-56-78",
+      "contact_email": "petrov@example.com",
+      "status": "active",
+      "notes": ""
+    }
+  },
+  {
+    "model": "core.legalentity",
+    "pk": "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f",
+    "fields": {
+      "created_at": "2025-01-17T14:00:00Z",
+      "updated_at": "2025-01-17T14:00:00Z",
+      "name": "Общество с ограниченной ответственностью «Медиа Групп»",
+      "short_name": "ООО «Медиа Групп»",
+      "inn": "7707123456",
+      "kpp": "770701001",
+      "ogrn": "1027700123456",
+      "legal_address": "101000, г. Москва, Покровка, д. 47",
+      "bank_name": "АО «Тинькофф Банк»",
+      "bank_bik": "044525974",
+      "bank_correspondent_account": "30101810145250000974",
+      "bank_account": "40702810510000054321",
+      "contact_person": "Сидорова Мария Александровна",
+      "contact_phone": "+7 (499) 456-78-90",
+      "contact_email": "contact@mediagroup.ru",
+      "status": "pending",
+      "notes": "Новое юр. лицо на модерации"
+    }
+  }
+]

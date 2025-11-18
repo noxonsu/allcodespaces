@@ -14,6 +14,7 @@ from core.models import (
     PlacementFormat,
     SPONSORSHIP_BODY_LENGTH_LIMIT,
     SPONSORSHIP_BUTTON_LIMIT,
+    LegalEntity,
 )
 from core.utils import validate_channel_avtar_url
 
@@ -306,6 +307,22 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {"path_click_analysis": {"read_only": True}, 'plan_cpm': {'required': False}}
 
+    def validate(self, attrs):
+        campaign = None
+        if self.instance and getattr(self.instance, "campaign", None):
+            campaign = self.instance.campaign
+        elif "campaign" in attrs:
+            campaign = attrs.get("campaign")
+
+        if campaign and campaign.status == Campaign.Statuses.DRAFT:
+            raise serializers.ValidationError(
+                {
+                    "campaign": "Кампания в статусе «Черновик»: операции с каналами недоступны."
+                }
+            )
+
+        return super().validate(attrs)
+
     def get_publication_slot(self, obj):
         slot = getattr(obj, "publication_slot", None)
         if not slot:
@@ -546,3 +563,80 @@ class ExporterSerializer(serializers.ModelSerializer):
                         owner_fields[key] = res[key]
                 return owner_fields
         return res
+
+
+class LegalEntitySerializer(serializers.ModelSerializer):
+    """
+    CHANGE: Add LegalEntity serializer for API
+    WHY: Required by ТЗ 1.2 - API support for legal entities
+    QUOTE(ТЗ): "API-сериализаторы и базовые валидации"
+    REF: issue #24
+    """
+
+    class Meta:
+        model = LegalEntity
+        fields = [
+            "id",
+            "name",
+            "short_name",
+            "inn",
+            "kpp",
+            "ogrn",
+            "legal_address",
+            "bank_name",
+            "bank_bik",
+            "bank_correspondent_account",
+            "bank_account",
+            "contact_person",
+            "contact_phone",
+            "contact_email",
+            "status",
+            "notes",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["id", "created_at", "updated_at"]
+
+    def validate_inn(self, value):
+        """Валидация ИНН"""
+        if value:
+            cleaned = value.strip()
+            if len(cleaned) not in (10, 12):
+                raise serializers.ValidationError(
+                    "ИНН должен содержать 10 цифр для юрлиц или 12 для ИП"
+                )
+            if not cleaned.isdigit():
+                raise serializers.ValidationError("ИНН должен содержать только цифры")
+        return value
+
+    def validate_kpp(self, value):
+        """Валидация КПП"""
+        if value:
+            cleaned = value.strip()
+            if len(cleaned) != 9:
+                raise serializers.ValidationError("КПП должен содержать 9 символов")
+        return value
+
+    def validate_bank_bik(self, value):
+        """Валидация БИК"""
+        if value:
+            cleaned = value.strip()
+            if len(cleaned) != 9:
+                raise serializers.ValidationError("БИК должен содержать 9 цифр")
+            if not cleaned.isdigit():
+                raise serializers.ValidationError("БИК должен содержать только цифры")
+        return value
+
+    def validate_bank_account(self, value):
+        """Валидация расчётного счёта"""
+        if value:
+            cleaned = value.strip()
+            if len(cleaned) != 20:
+                raise serializers.ValidationError(
+                    "Расчётный счёт должен содержать 20 цифр"
+                )
+            if not cleaned.isdigit():
+                raise serializers.ValidationError(
+                    "Расчётный счёт должен содержать только цифры"
+                )
+        return value

@@ -6,7 +6,7 @@ except ImportError:
 from typing import Optional
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
@@ -41,6 +41,7 @@ from .models import (
     PlacementFormat,
     MessagePreviewToken,
     UserLoginToken,
+    LegalEntity,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -562,6 +563,28 @@ class CampaignChannelInlined(admin.TabularInline):
     def has_change_permission(self, request, obj=None):
         return False
 
+    def has_add_permission(self, request, obj):
+        if obj and obj.is_draft:
+            return False
+        if request and request.POST.get("status") == Campaign.Statuses.DRAFT:
+            return False
+        return super().has_add_permission(request, obj)
+
+    def has_delete_permission(self, request, obj=None):
+        if obj and obj.is_draft:
+            return False
+        return super().has_delete_permission(request, obj)
+
+    def get_extra(self, request, obj=None, **kwargs):
+        if obj and obj.is_draft:
+            return 0
+        return super().get_extra(request, obj=obj, **kwargs)
+
+    def get_max_num(self, request, obj=None, **kwargs):
+        if obj and obj.is_draft:
+            return 0
+        return super().get_max_num(request, obj=obj, **kwargs)
+
 
 class ReadOnlyCampaignChannelInlined(admin.TabularInline):
     def has_add_permission(self, request, obj):
@@ -757,6 +780,14 @@ class CampaignAdmin(admin.ModelAdmin):
         extra_context = {} if not extra_context else extra_context
         extra_context["show_save_and_continue"] = False
         extra_context["show_save_and_add_another"] = False
+        obj = self.get_object(request, object_id) if object_id else None
+        if obj and obj.is_draft:
+            messages.warning(
+                request,
+                "Кампания в статусе «Черновик»: действия с каналами недоступны."
+                " Переведите кампанию в активный статус, чтобы планировать публикации.",
+            )
+            extra_context["is_draft"] = True
         return super().changeform_view(request, object_id, extra_context=extra_context)
 
 
@@ -1161,6 +1192,89 @@ class UserAdmin(UserAdmin):
         return mark_safe(
             f'<button {js_code} class="btn btn-info" style="cursor: pointer;">Войти под {obj.username}</button>'
         )
+
+
+@register(LegalEntity)
+class LegalEntityAdmin(admin.ModelAdmin):
+    """
+    CHANGE: Django Admin configuration for LegalEntity
+    WHY: Required by ТЗ 1.2 - legal entities management interface
+    QUOTE(ТЗ): "Сущность «Юридическое лицо» — Новый раздел в админке (список и редактирование)"
+    REF: issue #24
+    """
+    list_display = [
+        "short_name_or_name",
+        "inn",
+        "kpp",
+        "status",
+        "contact_person",
+        "contact_phone",
+        "created_at",
+    ]
+    list_filter = [
+        ("status", CustomChoiceFilter),
+        ("created_at", CustomDateFieldListFilter),
+    ]
+    search_fields = ["name", "short_name", "inn", "kpp", "contact_person"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+
+    fieldsets = (
+        (
+            "Основная информация",
+            {
+                "classes": ["wide"],
+                "fields": (
+                    "name",
+                    "short_name",
+                    "status",
+                    "notes",
+                ),
+            },
+        ),
+        (
+            "Реквизиты",
+            {
+                "fields": (
+                    "inn",
+                    "kpp",
+                    "ogrn",
+                    "legal_address",
+                ),
+            },
+        ),
+        (
+            "Банковские реквизиты",
+            {
+                "fields": (
+                    "bank_name",
+                    "bank_bik",
+                    "bank_correspondent_account",
+                    "bank_account",
+                ),
+            },
+        ),
+        (
+            "Контактная информация",
+            {
+                "fields": (
+                    "contact_person",
+                    "contact_phone",
+                    "contact_email",
+                ),
+            },
+        ),
+        (
+            "Системная информация",
+            {
+                "classes": ["collapse"],
+                "fields": ("id", "created_at", "updated_at"),
+            },
+        ),
+    )
+
+    @admin.display(description="Название", ordering="short_name")
+    def short_name_or_name(self, obj):
+        return obj.short_name or obj.name
 
 
 @register(UserLoginToken)

@@ -614,6 +614,10 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         return self.name
 
     @property
+    def is_draft(self) -> bool:
+        return self.status == self.Statuses.DRAFT
+
+    @property
     def is_fixed_slot(self) -> bool:
         return self.format == PlacementFormat.FIXED_SLOT
 
@@ -1014,6 +1018,13 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         )
 
     def clean(self: Self):
+        campaign = getattr(self, "campaign", None)
+        if campaign and campaign.is_draft:
+            raise ValidationError(
+                {
+                    "campaign": "Нельзя редактировать каналы для кампании в статусе «Черновик»."
+                }
+            )
         if not getattr(self, "channel", None):
             raise ValidationError({"channel": "Add Channel"})
         if self.channel and self.channel.is_deleted:
@@ -1159,3 +1170,166 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     @classmethod
     def cls_alter_campaign_activity(cls):
         return cls.objects.update_campaign_activity()
+
+
+class LegalEntity(ExportModelOperationsMixin("legalentity"), BaseModel):
+    """
+    CHANGE: Add LegalEntity model for managing legal entities
+    WHY: Required by ТЗ 1.2 - legal entities management for channels
+    QUOTE(ТЗ): "Сущность «Юридическое лицо» — Новый раздел в админке (список и редактирование)"
+    REF: issue #24
+    """
+    class Status(models.TextChoices):
+        ACTIVE = "active", "Активно"
+        PENDING = "pending", "На модерации"
+        SUSPENDED = "suspended", "Приостановлено"
+        REJECTED = "rejected", "Отклонено"
+
+    # Основная информация
+    name = models.CharField(
+        max_length=500,
+        verbose_name="Название юридического лица",
+        help_text="Полное наименование организации"
+    )
+    short_name = models.CharField(
+        max_length=250,
+        blank=True,
+        default="",
+        verbose_name="Сокращённое название"
+    )
+
+    # Реквизиты
+    inn = models.CharField(
+        max_length=12,
+        unique=True,
+        verbose_name="ИНН",
+        help_text="10 цифр для юрлиц, 12 для ИП"
+    )
+    kpp = models.CharField(
+        max_length=9,
+        blank=True,
+        default="",
+        verbose_name="КПП",
+        help_text="Код причины постановки на учёт"
+    )
+    ogrn = models.CharField(
+        max_length=15,
+        blank=True,
+        default="",
+        verbose_name="ОГРН/ОГРНИП",
+        help_text="Основной государственный регистрационный номер"
+    )
+
+    # Юридический адрес
+    legal_address = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Юридический адрес"
+    )
+
+    # Банковские реквизиты
+    bank_name = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name="Название банка"
+    )
+    bank_bik = models.CharField(
+        max_length=9,
+        blank=True,
+        default="",
+        verbose_name="БИК банка",
+        help_text="Банковский идентификационный код"
+    )
+    bank_correspondent_account = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        verbose_name="Корреспондентский счёт"
+    )
+    bank_account = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        verbose_name="Расчётный счёт"
+    )
+
+    # Контактная информация
+    contact_person = models.CharField(
+        max_length=250,
+        blank=True,
+        default="",
+        verbose_name="Контактное лицо"
+    )
+    contact_phone = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Контактный телефон"
+    )
+    contact_email = models.EmailField(
+        blank=True,
+        default="",
+        verbose_name="Контактный email"
+    )
+
+    # Статус и комментарии
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Статус"
+    )
+    notes = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Примечания",
+        help_text="Внутренние заметки"
+    )
+
+    class Meta:
+        verbose_name = "Юридическое лицо"
+        verbose_name_plural = "Юридические лица"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return self.short_name or self.name
+
+    @property
+    def is_active(self) -> bool:
+        return self.status == self.Status.ACTIVE
+
+    def clean(self):
+        super().clean()
+        # Валидация ИНН
+        if self.inn:
+            inn_len = len(self.inn.strip())
+            if inn_len not in (10, 12):
+                raise ValidationError(
+                    {"inn": "ИНН должен содержать 10 цифр для юрлиц или 12 для ИП"}
+                )
+            if not self.inn.isdigit():
+                raise ValidationError({"inn": "ИНН должен содержать только цифры"})
+
+        # Валидация КПП
+        if self.kpp:
+            if len(self.kpp.strip()) != 9:
+                raise ValidationError({"kpp": "КПП должен содержать 9 символов"})
+
+        # Валидация БИК
+        if self.bank_bik:
+            if len(self.bank_bik.strip()) != 9:
+                raise ValidationError({"bank_bik": "БИК должен содержать 9 цифр"})
+            if not self.bank_bik.isdigit():
+                raise ValidationError({"bank_bik": "БИК должен содержать только цифры"})
+
+        # Валидация расчётного счёта
+        if self.bank_account:
+            if len(self.bank_account.strip()) != 20:
+                raise ValidationError(
+                    {"bank_account": "Расчётный счёт должен содержать 20 цифр"}
+                )
+            if not self.bank_account.isdigit():
+                raise ValidationError(
+                    {"bank_account": "Расчётный счёт должен содержать только цифры"}
+                )
