@@ -378,7 +378,7 @@ JAZZMIN_SETTINGS = {
         "auth": [
             {
                 "name": "Группы",
-                "url": "/auth/group/",
+                "url": "/admin/auth/group/",
                 "icon": "fa-solid fa-user-group",
                 'permissions': ["auth.add_user"],
             },
@@ -386,20 +386,20 @@ JAZZMIN_SETTINGS = {
         "django_celery_beat": [
             {
                 "name": "Crontab",
-                "url": "/django_celery_beat/crontabschedule/",
+                "url": "/admin/django_celery_beat/crontabschedule/",
                 "icon": "fa-solid fa-clock",
                 'permissions': ["auth.add_user"],
             },
             {
                 "name": "Интервалы",
-                "url": "/django_celery_beat/intervalschedule/",
+                "url": "/admin/django_celery_beat/intervalschedule/",
                 "icon": "fa-solid fa-repeat",
                 'permissions': ["auth.add_user"],
             },
 
             {
                 "name": "Периодические задачи",
-                "url": "/django_celery_beat/periodictask/",
+                "url": "/admin/django_celery_beat/periodictask/",
                 "icon": "fa-solid fa-list-check",
                 'permissions': ["auth.add_user"],
             },
