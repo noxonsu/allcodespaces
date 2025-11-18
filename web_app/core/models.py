@@ -252,15 +252,7 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
         max_length=250, verbose_name=_("название"), null=True, blank=True
     )
     # button = models.ForeignKey('MessageLink', verbose_name='кнопка',on_delete=models.CASCADE, related_name='messages', null=True, blank=True)
-    button_str = models.CharField(
-        max_length=250,
-        default="Click Me!",
-        blank=True,
-        verbose_name=_("Текст на кнопке"),
-    )
-    button_link = models.URLField(
-        null=True, blank=True, verbose_name=_("Посадочная страница")
-    )
+    buttons = JSONField(default=list, blank=True, verbose_name="Кнопки")
     is_external = models.BooleanField(
         default=False, verbose_name="Ссылка на канал телеграм?"
     )
@@ -319,11 +311,50 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
 
     @property
     def button_count(self) -> int:
-        return 1 if self.button_link and self.button_str else 0
+        return len(self.buttons or [])
+
+    @property
+    def primary_button(self):
+        return (self.buttons or [None])[0] if self.buttons else None
+
+    @property
+    def button_link(self) -> str:
+        btn = self.primary_button
+        return btn.get("url") if btn else ""
+
+    @property
+    def button_str(self) -> str:
+        btn = self.primary_button
+        return btn.get("text") if btn else ""
+
+    @property
+    def has_buttons(self) -> bool:
+        return bool(self.buttons)
+
+    def _validate_buttons(self):
+        buttons = self.buttons or []
+        if not isinstance(buttons, list):
+            raise ValidationError({"buttons": "Кнопки должны быть списком."})
+        if any(not isinstance(btn, dict) for btn in buttons):
+            raise ValidationError({"buttons": "Каждая кнопка должна быть объектом."})
+        if len(buttons) > 8:
+            raise ValidationError({"buttons": "Максимум 8 кнопок для фикс-слота."})
+        for idx, btn in enumerate(buttons):
+            text = btn.get("text")
+            url = btn.get("url")
+            if not text or not url:
+                raise ValidationError({"buttons": f"Кнопка #{idx+1}: текст и ссылка обязательны."})
+        # normalize order
+        self.buttons = [
+            {"text": btn.get("text"), "url": btn.get("url")}
+            for btn in buttons
+        ]
 
     def clean(self):
         super().clean()
         self.body = sanitize_message_body(self.body or "")
+        self._validate_buttons()
+
         if self.format == PlacementFormat.SPONSORSHIP:
             body = self.body or ""
             if len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
@@ -332,20 +363,15 @@ class Message(ExportModelOperationsMixin("message"), BaseModel):
                         "body": f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов."
                     }
                 )
-            if self.button_str and not self.button_link:
-                raise ValidationError(
-                    {"button_link": "Для формата «Спонсорство» ссылка для кнопки обязательна."}
-                )
-            if self.button_link and not self.button_str:
-                raise ValidationError(
-                    {"button_str": "Для формата «Спонсорство» укажите текст кнопки."}
-                )
             if self.button_count > SPONSORSHIP_BUTTON_LIMIT:
                 raise ValidationError(
                     {
-                        "button_link": "Для формата «Спонсорство» допустима только одна кнопка."
+                        "buttons": "Для формата «Спонсорство» допустима только одна кнопка."
                     }
                 )
+        elif self.format == PlacementFormat.FIXED_SLOT:
+            if self.button_count == 0:
+                raise ValidationError({"buttons": "Добавьте хотя бы одну кнопку для формата «Фикс-слот»."})
 
 
 class MessagePreviewToken(BaseModel):
@@ -1026,6 +1052,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
     clicks = models.PositiveIntegerField(
         default=0, help_text="clicks by users on the campaign", verbose_name="Клики"
     )
+    button_clicks = JSONField(default=dict, blank=True, verbose_name="Клики по кнопкам")
     channel_admin = models.ForeignKey(
         "ChannelAdmin",
         verbose_name="Админ",
@@ -1410,23 +1437,30 @@ class LegalEntity(ExportModelOperationsMixin("legalentity"), BaseModel):
 
 class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseModel):
     """
-    CHANGE: Added ChannelTransaction model for financial operations
-    WHY: Required by ТЗ 1.1.1 - store financial operations (income, deductions, payouts)
-    QUOTE(ТЗ): "хранить финансовые операции (начисления за публикации, удержания, выплаты)"
-    REF: issue #21
+    CHANGE: Refactored to Event Sourcing (append-only ledger)
+    WHY: Eliminate race conditions, simplify balance calculation, provide audit trail
+    QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+    REF: issue #22 (refactoring comment)
+
+    Event Sourcing принципы:
+    - Только INSERT (никогда не UPDATE/DELETE)
+    - Баланс = просто SUM всех amount
+    - Заморозка/разморозка = отдельные транзакции
+    - Отмена = новая компенсирующая транзакция
+    - Полный audit trail из коробки
     """
 
     class TransactionType(models.TextChoices):
-        INCOME = "income", "Начисление"
-        DEDUCTION = "deduction", "Удержание"
-        PAYOUT = "payout", "Выплата"
-        REFUND = "refund", "Возврат"
+        # Положительные (увеличивают баланс)
+        INCOME = "income", "Начисление"  # За публикацию
+        REFUND = "refund", "Возврат"  # Возврат средств
+        UNFREEZE = "unfreeze", "Разморозка"  # Разморозка средств
 
-    class TransactionStatus(models.TextChoices):
-        PENDING = "pending", "Ожидает"
-        COMPLETED = "completed", "Завершено"
-        FROZEN = "frozen", "Заморожено"
-        CANCELLED = "cancelled", "Отменено"
+        # Отрицательные (уменьшают баланс)
+        FREEZE = "freeze", "Заморозка"  # Заморозка средств
+        PAYOUT = "payout", "Выплата"  # Выплата паблишеру
+        COMMISSION = "commission", "Комиссия"  # Комиссия платформы
+        ADJUSTMENT = "adjustment", "Корректировка"  # Ручная корректировка
 
     channel = models.ForeignKey(
         "Channel",
@@ -1445,7 +1479,7 @@ class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseM
         max_digits=10,
         decimal_places=2,
         verbose_name="Сумма",
-        help_text="Сумма операции (положительная для начислений, отрицательная для списаний)"
+        help_text="Сумма операции (знак определяет направление: + увеличение, - уменьшение баланса)"
     )
     currency = models.CharField(
         max_length=3,
@@ -1453,27 +1487,20 @@ class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseM
         verbose_name="Валюта",
         help_text="Код валюты (ISO 4217)"
     )
-    status = models.CharField(
-        max_length=20,
-        choices=TransactionStatus.choices,
-        default=TransactionStatus.PENDING,
-        verbose_name="Статус",
-        help_text="Статус операции"
-    )
 
-    # Источник операции
+    # Источник операции (для связи с бизнес-сущностями)
     source_type = models.CharField(
         max_length=50,
         blank=True,
         default="",
         verbose_name="Тип источника",
-        help_text="Тип источника операции (например: publication, manual, commission)"
+        help_text="Тип источника: campaign_channel, manual, system"
     )
     source_id = models.UUIDField(
         null=True,
         blank=True,
         verbose_name="ID источника",
-        help_text="UUID связанного объекта (публикация, кампания, и т.д.)"
+        help_text="UUID связанного объекта (CampaignChannel, etc.)"
     )
 
     # Дополнительная информация
@@ -1481,21 +1508,13 @@ class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseM
         blank=True,
         default="",
         verbose_name="Описание",
-        help_text="Описание операции"
+        help_text="Описание операции для audit trail"
     )
     metadata = JSONField(
         default=dict,
         blank=True,
         verbose_name="Метаданные",
-        help_text="Дополнительные данные в формате JSON"
-    )
-
-    # Даты
-    completed_at = models.DateTimeField(
-        null=True,
-        blank=True,
-        verbose_name="Дата завершения",
-        help_text="Дата и время завершения операции"
+        help_text="Доп. данные (impressions, cpm, и т.д.)"
     )
 
     class Meta:
@@ -1504,25 +1523,30 @@ class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseM
         ordering = ["-created_at"]
         indexes = [
             models.Index(fields=["channel", "-created_at"]),
-            models.Index(fields=["channel", "status"]),
-            models.Index(fields=["transaction_type", "status"]),
+            models.Index(fields=["channel", "transaction_type"]),
+            models.Index(fields=["source_type", "source_id"]),
         ]
 
     def __str__(self):
-        return f"{self.get_transaction_type_display()} {self.amount} {self.currency} - {self.channel.name}"
+        sign = "+" if self.amount >= 0 else ""
+        return f"{self.get_transaction_type_display()} {sign}{self.amount} {self.currency} - {self.channel.name}"
 
-    def clean(self):
-        super().clean()
+    def save(self, *args, **kwargs):
+        """
+        Enforce append-only: prevent updates after creation
+        """
+        if self.pk is not None:
+            raise ValidationError(
+                "Транзакции нельзя изменять (append-only ledger). "
+                "Создайте компенсирующую транзакцию для исправления."
+            )
+        super().save(*args, **kwargs)
 
-        # Проверка знака суммы в зависимости от типа операции
-        if self.amount is not None:
-            if self.transaction_type in [self.TransactionType.INCOME, self.TransactionType.REFUND]:
-                if self.amount < 0:
-                    raise ValidationError(
-                        {"amount": f"Сумма для типа '{self.get_transaction_type_display()}' должна быть положительной"}
-                    )
-            elif self.transaction_type in [self.TransactionType.DEDUCTION, self.TransactionType.PAYOUT]:
-                if self.amount > 0:
-                    raise ValidationError(
-                        {"amount": f"Сумма для типа '{self.get_transaction_type_display()}' должна быть отрицательной"}
-                    )
+    def delete(self, *args, **kwargs):
+        """
+        Prevent deletion: append-only ledger
+        """
+        raise ValidationError(
+            "Транзакции нельзя удалять (append-only ledger). "
+            "Создайте компенсирующую транзакцию для отмены."
+        )

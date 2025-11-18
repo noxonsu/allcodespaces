@@ -1,8 +1,14 @@
 """
-CHANGE: Created BalanceService for calculating channel balances
-WHY: Required by ТЗ 1.1.2 - service to aggregate operations and calculate balance/frozen/available amounts
-QUOTE(ТЗ): "агрегирует операции и выдаёт три ключевых значения (баланс, заморожено, доступно)"
-REF: issue #22
+CHANGE: Refactored BalanceService to Event Sourcing approach
+WHY: Simplify balance calculation, eliminate race conditions
+QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+REF: issue #22 (refactoring)
+
+Event Sourcing подход:
+- Баланс = просто SUM(amount) всех транзакций
+- Заморожено = SUM(amount) где type='freeze'
+- Нет статусов - только типы операций
+- Нет race conditions - только INSERT
 """
 from dataclasses import dataclass
 from decimal import Decimal
@@ -18,9 +24,9 @@ class ChannelBalance:
     """
     Data class representing channel balance information
 
-    balance: Total balance (sum of all completed transactions)
-    frozen: Amount frozen (sum of pending and frozen transactions)
-    available: Available for withdrawal (balance - frozen)
+    balance: Total balance (sum of ALL transactions)
+    frozen: Frozen amount (sum of 'freeze' transactions not yet unfrozen)
+    available: Available for withdrawal (balance - frozen, but can't be negative)
     """
     balance: Decimal
     frozen: Decimal
@@ -35,12 +41,14 @@ class ChannelBalance:
 
 class BalanceService:
     """
-    Service for calculating channel balance, frozen amounts, and available funds
+    Service for calculating channel balance using Event Sourcing
 
-    This service aggregates ChannelTransaction records to provide:
-    - Total balance (completed transactions)
-    - Frozen amount (pending/frozen transactions)
-    - Available for withdrawal (balance - frozen)
+    Event Sourcing принципы:
+    - Balance = SUM(amount) всех транзакций
+    - Frozen = ABS(SUM(amount WHERE type='freeze'))
+    - Available = balance - frozen (но >= 0)
+
+    Нет race conditions - транзакции append-only
     """
 
     CACHE_TTL = 300  # 5 minutes cache
@@ -57,7 +65,7 @@ class BalanceService:
         use_cache: bool = True
     ) -> ChannelBalance:
         """
-        Calculate balance for a channel
+        Calculate balance for a channel (Event Sourcing approach)
 
         Args:
             channel: Channel instance
@@ -81,31 +89,24 @@ class BalanceService:
             if cached:
                 return ChannelBalance(**cached)
 
-        # Calculate balance from completed transactions
+        # Event Sourcing: Balance = просто SUM всех транзакций
         balance_result = ChannelTransaction.objects.filter(
-            channel=channel,
-            status=ChannelTransaction.TransactionStatus.COMPLETED
+            channel=channel
         ).aggregate(total=Sum('amount'))
 
         balance = balance_result['total'] or Decimal('0')
 
-        # Calculate frozen amount from pending and frozen transactions
+        # Frozen = ABS(SUM транзакций type='freeze')
+        # Freeze транзакции имеют отрицательную сумму, поэтому берём abs
         frozen_result = ChannelTransaction.objects.filter(
             channel=channel,
-            status__in=[
-                ChannelTransaction.TransactionStatus.PENDING,
-                ChannelTransaction.TransactionStatus.FROZEN
-            ]
+            transaction_type=ChannelTransaction.TransactionType.FREEZE
         ).aggregate(total=Sum('amount'))
 
         frozen = abs(frozen_result['total'] or Decimal('0'))
 
-        # Calculate available (balance minus frozen)
-        available = balance - frozen
-
-        # Ensure available is not negative
-        if available < 0:
-            available = Decimal('0')
+        # Available = balance - frozen (но не может быть отрицательным)
+        available = max(balance - frozen, Decimal('0'))
 
         result = ChannelBalance(
             balance=balance,
@@ -137,7 +138,7 @@ class BalanceService:
     @classmethod
     def get_balance_for_channels(cls, channels: list[Channel]) -> dict[str, ChannelBalance]:
         """
-        Get balances for multiple channels (optimized for bulk operations)
+        Get balances for multiple channels (Event Sourcing bulk calculation)
 
         Args:
             channels: List of Channel instances
@@ -145,8 +146,6 @@ class BalanceService:
         Returns:
             Dictionary mapping channel_id to ChannelBalance
         """
-        from django.db.models import Case, When, Value, CharField
-
         # Exclude soft-deleted channels
         active_channels = [c for c in channels if not getattr(c, 'is_deleted', False)]
         channel_ids = [str(c.id) for c in active_channels]
@@ -154,23 +153,19 @@ class BalanceService:
         if not channel_ids:
             return {}
 
-        # Pre-aggregate completed transactions
+        # Event Sourcing: Balance = SUM всех транзакций (без фильтра по статусу)
         balance_data = ChannelTransaction.objects.filter(
-            channel_id__in=channel_ids,
-            status=ChannelTransaction.TransactionStatus.COMPLETED
+            channel_id__in=channel_ids
         ).values('channel_id').annotate(
             total=Sum('amount')
         )
 
         balances = {str(item['channel_id']): item['total'] or Decimal('0') for item in balance_data}
 
-        # Pre-aggregate frozen transactions
+        # Frozen = ABS(SUM транзакций type='freeze')
         frozen_data = ChannelTransaction.objects.filter(
             channel_id__in=channel_ids,
-            status__in=[
-                ChannelTransaction.TransactionStatus.PENDING,
-                ChannelTransaction.TransactionStatus.FROZEN
-            ]
+            transaction_type=ChannelTransaction.TransactionType.FREEZE
         ).values('channel_id').annotate(
             total=Sum('amount')
         )

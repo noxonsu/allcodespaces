@@ -226,8 +226,18 @@ class CampaignChannelViewSet(ModelViewSet):
         serializer.is_valid(raise_exception=False)
         if serializer.instance:
             serializer.save()
+            # redirect to requested button or first
+            buttons = instance.campaign.message.buttons or []
+            button_index = serializer.validated_data.get("button_index")
+            target_btn = None
+            if button_index is not None and 0 <= button_index < len(buttons):
+                target_btn = buttons[button_index]
+            elif buttons:
+                target_btn = buttons[0]
+
+            target_url = target_btn.get("url") if target_btn else instance.campaign.message.button_link
             return HttpResponsePermanentRedirect(
-                redirect_to=instance.campaign.message.button_link
+                redirect_to=target_url
             )
 
 

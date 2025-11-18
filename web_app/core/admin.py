@@ -829,8 +829,7 @@ class MessageAdmin(admin.ModelAdmin):
         "image",
         "video",
         "format",
-        "button_str",
-        "button_link",
+        "buttons_json",
         "is_external",
         "ad_individual",
         "ad_inn",
@@ -1295,10 +1294,10 @@ class LegalEntityAdmin(admin.ModelAdmin):
 @register(ChannelTransaction)
 class ChannelTransactionAdmin(admin.ModelAdmin):
     """
-    CHANGE: Added admin interface for ChannelTransaction
-    WHY: Required by ТЗ 1.1.1 - admin CRUD for financial operations
-    QUOTE(ТЗ): "admin/CRUD, сериализаторы для операций"
-    REF: issue #21
+    CHANGE: Refactored for Event Sourcing - removed status and completed_at fields
+    WHY: Event Sourcing approach - transactions are append-only, no statuses
+    QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+    REF: issue #22 (refactoring)
     """
     list_display = [
         "id",
@@ -1306,14 +1305,11 @@ class ChannelTransactionAdmin(admin.ModelAdmin):
         "transaction_type",
         "amount",
         "currency",
-        "status",
         "source_type",
         "created_at",
-        "completed_at",
     ]
     list_filter = [
         "transaction_type",
-        "status",
         "currency",
         "source_type",
         "created_at",
@@ -1335,7 +1331,6 @@ class ChannelTransactionAdmin(admin.ModelAdmin):
                     "transaction_type",
                     "amount",
                     "currency",
-                    "status",
                     "description",
                 ),
             },
@@ -1354,7 +1349,6 @@ class ChannelTransactionAdmin(admin.ModelAdmin):
             {
                 "fields": (
                     "metadata",
-                    "completed_at",
                 ),
             },
         ),

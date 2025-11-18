@@ -1,8 +1,8 @@
 """
-CHANGE: Tests for ChannelTransaction model
-WHY: Required by ТЗ 1.1.1 - tests for financial operations model
-QUOTE(ТЗ): "тесты покрывают модель и сериализацию"
-REF: issue #21
+CHANGE: Refactored tests for Event Sourcing approach
+WHY: ChannelTransaction model refactored to append-only ledger without statuses
+QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+REF: issue #22 (refactoring)
 """
 import pytest
 from decimal import Decimal
@@ -17,7 +17,7 @@ pytestmark = [pytest.mark.django_db]
 
 
 class TestChannelTransaction(TestCase):
-    """Tests for ChannelTransaction model"""
+    """Tests for ChannelTransaction model (Event Sourcing approach)"""
 
     def setUp(self):
         """Set up test data"""
@@ -29,7 +29,6 @@ class TestChannelTransaction(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal("1000.00"),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
         transaction.full_clean()
 
@@ -43,83 +42,48 @@ class TestChannelTransaction(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.PAYOUT,
             amount=Decimal("-500.00"),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
         transaction.full_clean()
 
         self.assertEqual(transaction.amount, Decimal("-500.00"))
         self.assertEqual(transaction.transaction_type, ChannelTransaction.TransactionType.PAYOUT)
 
-    def test_income_negative_amount_validation(self):
-        """Test that income cannot have negative amount"""
-        transaction = ChannelTransaction(
+    def test_create_freeze_transaction(self):
+        """Test creating freeze transaction with negative amount"""
+        transaction = ChannelTransaction.objects.create(
             channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            transaction_type=ChannelTransaction.TransactionType.FREEZE,
             amount=Decimal("-100.00"),
         )
+        transaction.full_clean()
 
-        with self.assertRaises(ValidationError) as context:
-            transaction.full_clean()
+        self.assertEqual(transaction.amount, Decimal("-100.00"))
+        self.assertEqual(transaction.transaction_type, ChannelTransaction.TransactionType.FREEZE)
 
-        self.assertIn("amount", context.exception.message_dict)
-
-    def test_payout_positive_amount_validation(self):
-        """Test that payout cannot have positive amount"""
-        transaction = ChannelTransaction(
+    def test_create_unfreeze_transaction(self):
+        """Test creating unfreeze transaction with positive amount"""
+        transaction = ChannelTransaction.objects.create(
             channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.PAYOUT,
+            transaction_type=ChannelTransaction.TransactionType.UNFREEZE,
             amount=Decimal("100.00"),
         )
+        transaction.full_clean()
 
-        with self.assertRaises(ValidationError) as context:
-            transaction.full_clean()
-
-        self.assertIn("amount", context.exception.message_dict)
-
-    def test_deduction_positive_amount_validation(self):
-        """Test that deduction cannot have positive amount"""
-        transaction = ChannelTransaction(
-            channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.DEDUCTION,
-            amount=Decimal("100.00"),
-        )
-
-        with self.assertRaises(ValidationError) as context:
-            transaction.full_clean()
-
-        self.assertIn("amount", context.exception.message_dict)
-
-    def test_refund_negative_amount_validation(self):
-        """Test that refund cannot have negative amount"""
-        transaction = ChannelTransaction(
-            channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.REFUND,
-            amount=Decimal("-100.00"),
-        )
-
-        with self.assertRaises(ValidationError) as context:
-            transaction.full_clean()
-
-        self.assertIn("amount", context.exception.message_dict)
-
-    def test_transaction_status_choices(self):
-        """Test all transaction status choices"""
-        for status_value, _ in ChannelTransaction.TransactionStatus.choices:
-            transaction = ChannelTransaction.objects.create(
-                channel=self.channel,
-                transaction_type=ChannelTransaction.TransactionType.INCOME,
-                amount=Decimal("100.00"),
-                status=status_value,
-            )
-            self.assertEqual(transaction.status, status_value)
+        self.assertEqual(transaction.amount, Decimal("100.00"))
+        self.assertEqual(transaction.transaction_type, ChannelTransaction.TransactionType.UNFREEZE)
 
     def test_transaction_type_choices(self):
         """Test all transaction type choices"""
         type_amounts = {
+            # Положительные операции
             ChannelTransaction.TransactionType.INCOME: Decimal("100.00"),
-            ChannelTransaction.TransactionType.DEDUCTION: Decimal("-100.00"),
-            ChannelTransaction.TransactionType.PAYOUT: Decimal("-100.00"),
             ChannelTransaction.TransactionType.REFUND: Decimal("100.00"),
+            ChannelTransaction.TransactionType.UNFREEZE: Decimal("100.00"),
+            # Отрицательные операции
+            ChannelTransaction.TransactionType.FREEZE: Decimal("-100.00"),
+            ChannelTransaction.TransactionType.PAYOUT: Decimal("-100.00"),
+            ChannelTransaction.TransactionType.COMMISSION: Decimal("-100.00"),
+            ChannelTransaction.TransactionType.ADJUSTMENT: Decimal("-100.00"),
         }
 
         for type_value, amount in type_amounts.items():
@@ -129,6 +93,35 @@ class TestChannelTransaction(TestCase):
                 amount=amount,
             )
             self.assertEqual(transaction.transaction_type, type_value)
+
+    def test_append_only_no_updates(self):
+        """Test that transactions cannot be updated (append-only)"""
+        transaction = ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            amount=Decimal("100.00"),
+        )
+
+        # Try to update - should raise ValidationError
+        transaction.amount = Decimal("200.00")
+        with self.assertRaises(ValidationError) as context:
+            transaction.save()
+
+        self.assertIn("append-only", str(context.exception))
+
+    def test_append_only_no_deletes(self):
+        """Test that transactions cannot be deleted (append-only)"""
+        transaction = ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            amount=Decimal("100.00"),
+        )
+
+        # Try to delete - should raise ValidationError
+        with self.assertRaises(ValidationError) as context:
+            transaction.delete()
+
+        self.assertIn("append-only", str(context.exception))
 
     def test_transaction_with_metadata(self):
         """Test transaction with JSON metadata"""
@@ -189,7 +182,7 @@ class TestChannelTransaction(TestCase):
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal("100.00"),
         )
-        # Manually set older timestamp
+        # Manually set older timestamp (only allowed for testing via update)
         ChannelTransaction.objects.filter(pk=old_transaction.pk).update(
             created_at=timezone.now() - timedelta(days=1)
         )
@@ -223,3 +216,32 @@ class TestChannelTransaction(TestCase):
         self.assertIsNotNone(transaction.id)
         self.assertIsNotNone(transaction.channel)
         self.assertIn(transaction.transaction_type, [choice[0] for choice in ChannelTransaction.TransactionType.choices])
+
+    def test_compensating_transaction_pattern(self):
+        """Test compensating transaction pattern for corrections"""
+        # Original income
+        original = ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            amount=Decimal("1000.00"),
+            description="Original income",
+        )
+
+        # If we need to "cancel" it, create compensating adjustment
+        compensation = ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.ADJUSTMENT,
+            amount=Decimal("-1000.00"),
+            description=f"Compensation for transaction {original.id}",
+            metadata={"compensates": str(original.id)},
+        )
+
+        # Both transactions exist in ledger
+        self.assertEqual(ChannelTransaction.objects.count(), 2)
+
+        # Net effect is zero
+        from django.db.models import Sum
+        total = ChannelTransaction.objects.filter(channel=self.channel).aggregate(
+            total=Sum('amount')
+        )['total']
+        self.assertEqual(total, Decimal("0.00"))

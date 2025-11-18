@@ -78,6 +78,17 @@ class CampaignAdminForm(forms.ModelForm):
         self.fields["message"].queryset = Message.objects.all()
         self.fields["message"].required = True
 
+        format_code = None
+        if self.instance and self.instance.pk:
+            format_code = self.instance.format
+        elif self.data.get("format"):
+            format_code = self.data.get("format")
+        elif self.initial.get("format"):
+            format_code = self.initial.get("format")
+
+        if format_code:
+            self.fields["message"].queryset = Message.objects.filter(format=format_code)
+
         # Блокируем поле format только для существующих кампаний (с сохраненным pk в БД)
         is_existing_campaign = bool(self.instance.pk)
 
@@ -167,22 +178,48 @@ class ChannelAdminForm(forms.ModelForm):
 
 
 class MessageModelForm(forms.ModelForm):
-    button_link = forms.URLField(
-        required=True,
-        label="Посадочная страница",
-        widget=forms.URLInput(attrs={"class": "vTextField vAutocomplete"}),
+    buttons_json = forms.CharField(
+        required=False,
+        label="Кнопки",
+        widget=forms.Textarea(attrs={"rows": 4, "class": "vLargeTextField"}),
+        help_text="Каждая строка: текст | https://example.com. До 8 кнопок.",
     )
 
     class Meta:
         model = Message
-        fields = "__all__"
+        exclude = ["buttons"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        buttons = getattr(self.instance, "buttons", []) or []
+        if buttons:
+            self.initial.setdefault(
+                "buttons_json",
+                "\n".join(f"{btn.get('text','')} | {btn.get('url','')}" for btn in buttons),
+            )
+
+    def clean_buttons_json(self):
+        value = self.cleaned_data.get("buttons_json", "") or ""
+        buttons: list[dict] = []
+        for line in value.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            if "|" not in line:
+                raise ValidationError("Формат строки: 'Текст | https://url'")
+            text, url = map(str.strip, line.split("|", 1))
+            if not text or not url:
+                raise ValidationError("Укажите текст и URL для кнопки")
+            buttons.append({"text": text, "url": url})
+        if len(buttons) > 8:
+            raise ValidationError("Максимум 8 кнопок")
+        return buttons
 
     def clean(self):
         cleaned_data = super().clean()
         message_format = cleaned_data.get("format")
         body = cleaned_data.get("body") or ""
-        button_text = cleaned_data.get("button_str") or ""
-        button_link = cleaned_data.get("button_link")
+        buttons = cleaned_data.get("buttons_json", []) or []
 
         if message_format == PlacementFormat.SPONSORSHIP:
             if len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
@@ -190,18 +227,21 @@ class MessageModelForm(forms.ModelForm):
                     "body",
                     f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов.",
                 )
-            if button_text and not button_link:
-                self.add_error(
-                    "button_link",
-                    "Для формата «Спонсорство» ссылка для кнопки обязательна.",
-                )
-            if button_link and not button_text:
-                self.add_error(
-                    "button_str",
-                    "Для формата «Спонсорство» укажите текст кнопки.",
-                )
+            if len(buttons) > SPONSORSHIP_BUTTON_LIMIT:
+                self.add_error("buttons_json", "Для формата «Спонсорство» допустима только одна кнопка.")
 
+        if message_format == PlacementFormat.FIXED_SLOT and not buttons:
+            self.add_error("buttons_json", "Для формата «Фикс-слот» добавьте хотя бы одну кнопку.")
+
+        cleaned_data["buttons"] = buttons
         return cleaned_data
+
+    def save(self, commit=True):
+        instance: Message = super().save(commit=False)
+        instance.buttons = self.cleaned_data.get("buttons", [])
+        if commit:
+            instance.save()
+        return instance
 
 
 
@@ -258,10 +298,13 @@ class CampaignChannelInlinedForm(forms.ModelForm):
     def clean(self):
         from core.utils import budget_cpm
         instance: CampaignChannel = self.instance
-        campaign: Campaign = self.cleaned_data.get("campaign")
+        campaign: Campaign = self.cleaned_data.get("campaign") or getattr(instance, "campaign", None)
         cpm: Decimal = self.cleaned_data.get("cpm", 0)
         impressions_plan: Decimal = self.cleaned_data.get("impressions_plan", 0)
-        budget: Decimal = campaign.budget
+        budget: Decimal = campaign.budget if campaign else None
+
+        if campaign and campaign.is_draft:
+            raise ValidationError("Нельзя изменять каналы у кампании в статусе «Черновик».")
 
         if not budget:
             raise ValidationError("бюджет обязательное поле")

@@ -2,6 +2,7 @@ from decimal import Decimal
 from functools import cached_property
 from string import Template
 from typing import Sequence, Set, Dict
+import re
 try:
     from warnings import deprecated
 except ImportError:
@@ -26,9 +27,51 @@ import requests
 from django.apps import apps
 from django.db.models import Q
 from django.db.transaction import atomic
+from django.utils.html import escape
 
 from web_app.app_settings import app_settings
 from web_app.logger import logger
+
+
+ALLOWED_MESSAGE_TAGS = {"b", "strong", "i", "em", "a"}
+ALLOWED_MESSAGE_ATTRS = {"a": {"href"}}
+
+
+def sanitize_message_body(body: str) -> str:
+    """Allow only safe formatting tags for Telegram HTML, strip the rest.
+
+    Falls back to a simple regex-based strip if bleach is unavailable.
+    """
+    if not body:
+        return ""
+
+    try:  # prefer bleach if installed
+        import bleach
+
+        return bleach.clean(
+            body,
+            tags=list(ALLOWED_MESSAGE_TAGS),
+            attributes={"a": ["href"]},
+            strip=True,
+        )
+    except Exception:
+        # naive fallback: remove any tag that is not allowed
+        def _strip_disallowed(match):
+            tag = match.group(1).lower()
+            if tag in ALLOWED_MESSAGE_TAGS:
+                # keep allowed tag; ensure href safe
+                text = match.group(0)
+                if tag == "a":
+                    # keep only href attribute value
+                    href_match = re.search(r'href\s*=\s*"([^"]+)"', text, re.IGNORECASE)
+                    if href_match:
+                        href_val = escape(href_match.group(1))
+                        return f'<a href="{href_val}">'
+                return f"<{tag}>"
+            return ""
+
+        cleaned = re.sub(r"</?([^\s>/]+)(?:[^>]*)>", _strip_disallowed, body)
+        return escape(cleaned)
 
 
 def get_property_attr(col, model, attr_name):

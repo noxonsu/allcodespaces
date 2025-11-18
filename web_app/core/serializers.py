@@ -232,35 +232,18 @@ class ListMessageSerializer(serializers.ListSerializer):
         return instance
 
 
-class MessageLinkSerializer(serializers.ModelSerializer):
-    title = serializers.SerializerMethodField()
-    url = serializers.SerializerMethodField()
-    as_html = serializers.SerializerMethodField()
-
-    def get_title(self, obj):
-        return obj.button_str or ""
-
-    def get_url(self, obj):
-        return obj.button_link or ""
-
-    def get_as_html(self, obj: Message):
-        return f"<a href='{obj.button_link}'>{obj.button_str} </a>"
-
-    class Meta:
-        model = Message
-        fields = [
-            "id",
-            "title",
-            "url",
-            "as_html",
-        ]
+class MessageLinkSerializer(serializers.Serializer):
+    id = serializers.UUIDField(required=False)
+    title = serializers.CharField()
+    url = serializers.URLField()
 
 
 class MessageSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField()
     image = serializers.FileField(use_url=False, required=False)
     video = serializers.FileField(use_url=False, required=False)
-    button = MessageLinkSerializer(read_only=True, source="*")  # to embedd
+    buttons = serializers.ListField(child=serializers.DictField(), required=False)
+    button = serializers.SerializerMethodField()
     body = serializers.CharField()
 
     class Meta:
@@ -270,6 +253,7 @@ class MessageSerializer(serializers.ModelSerializer):
             "name",
             "title",
             "body",
+            "buttons",
             "button",
             "as_text",
             "image",
@@ -290,13 +274,20 @@ class MessageSerializer(serializers.ModelSerializer):
         if body is None and self.instance:
             body = self.instance.body
 
-        button_str = attrs.get("button_str")
-        if button_str is None and self.instance:
-            button_str = self.instance.button_str
+        buttons = attrs.get("buttons")
+        if buttons is None and self.instance:
+            buttons = getattr(self.instance, "buttons", [])
 
-        button_link = attrs.get("button_link")
-        if button_link is None and self.instance:
-            button_link = self.instance.button_link
+        if buttons is not None:
+            if not isinstance(buttons, list):
+                raise serializers.ValidationError({"buttons": "Кнопки должны быть списком."})
+            if any(not isinstance(btn, dict) for btn in buttons):
+                raise serializers.ValidationError({"buttons": "Каждая кнопка должна быть объектом."})
+            if len(buttons) > 8:
+                raise serializers.ValidationError({"buttons": "Максимум 8 кнопок."})
+            for idx, btn in enumerate(buttons):
+                if not btn.get("text") or not btn.get("url"):
+                    raise serializers.ValidationError({"buttons": f"Кнопка #{idx+1}: текст и ссылка обязательны."})
 
         if format_value == PlacementFormat.SPONSORSHIP:
             if body and len(body) > SPONSORSHIP_BODY_LENGTH_LIMIT:
@@ -305,24 +296,14 @@ class MessageSerializer(serializers.ModelSerializer):
                         "body": f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов.",
                     }
                 )
-            if button_str and not button_link:
+            if buttons and len(buttons) > SPONSORSHIP_BUTTON_LIMIT:
                 raise serializers.ValidationError(
-                    {
-                        "button_link": "Для формата «Спонсорство» ссылка для кнопки обязательна.",
-                    }
+                    {"buttons": "Для формата «Спонсорство» допустима только одна кнопка."}
                 )
-            if button_link and not button_str:
+        if format_value == PlacementFormat.FIXED_SLOT and buttons is not None:
+            if len(buttons) == 0:
                 raise serializers.ValidationError(
-                    {
-                        "button_str": "Для формата «Спонсорство» укажите текст кнопки.",
-                    }
-                )
-            buttons_count = 1 if button_link and button_str else 0
-            if buttons_count > SPONSORSHIP_BUTTON_LIMIT:
-                raise serializers.ValidationError(
-                    {
-                        "button_link": "Для формата «Спонсорство» допустима только одна кнопка.",
-                    }
+                    {"buttons": "Для формата «Фикс-слот» добавьте хотя бы одну кнопку."}
                 )
 
         return attrs
@@ -333,6 +314,12 @@ class MessageSerializer(serializers.ModelSerializer):
         if body_value:
             data["body_html"] = body_value
         return data
+
+    def get_button(self, instance: Message):
+        btn = instance.primary_button
+        if not btn:
+            return None
+        return {"title": btn.get("text"), "url": btn.get("url")}
 
 
 class MessagePreviewTokenSerializer(serializers.ModelSerializer):
@@ -430,9 +417,16 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
 
 class CampaignChannelClickSerializer(serializers.Serializer):
     target = serializers.URLField(required=False, allow_blank=True, allow_null=True)
+    button_index = serializers.IntegerField(required=False, allow_null=True)
 
     def update(self, instance, validated_data):
         instance.clicks += 1
+        button_index = validated_data.get("button_index")
+        if button_index is not None:
+            clicks = instance.button_clicks or {}
+            key = str(button_index)
+            clicks[key] = clicks.get(key, 0) + 1
+            instance.button_clicks = clicks
         instance.save()
         return instance
 
@@ -659,17 +653,14 @@ class ExporterSerializer(serializers.ModelSerializer):
 
 class ChannelTransactionSerializer(serializers.ModelSerializer):
     """
-    CHANGE: Added serializer for ChannelTransaction
-    WHY: Required by ТЗ 1.1.1 - API serializers for financial operations
-    QUOTE(ТЗ): "admin/CRUD, сериализаторы для операций"
-    REF: issue #21
+    CHANGE: Refactored for Event Sourcing - removed status and completed_at fields
+    WHY: Event Sourcing approach - transactions are append-only, no statuses
+    QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+    REF: issue #22 (refactoring)
     """
     channel_name = serializers.CharField(source="channel.name", read_only=True)
     transaction_type_display = serializers.CharField(
         source="get_transaction_type_display", read_only=True
-    )
-    status_display = serializers.CharField(
-        source="get_status_display", read_only=True
     )
 
     class Meta:
@@ -682,15 +673,12 @@ class ChannelTransactionSerializer(serializers.ModelSerializer):
             "transaction_type_display",
             "amount",
             "currency",
-            "status",
-            "status_display",
             "source_type",
             "source_id",
             "description",
             "metadata",
             "created_at",
             "updated_at",
-            "completed_at",
         ]
         read_only_fields = ["id", "created_at", "updated_at"]
 

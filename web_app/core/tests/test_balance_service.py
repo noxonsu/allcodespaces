@@ -1,8 +1,8 @@
 """
-CHANGE: Tests for BalanceService
-WHY: Required by ТЗ 1.1.2 - tests for balance calculation service
-QUOTE(ТЗ): "покрыть модуль юнит-тестами с граничными случаями"
-REF: issue #22
+CHANGE: Refactored tests for Event Sourcing approach
+WHY: BalanceService refactored to Event Sourcing - removed status-based logic
+QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+REF: issue #22 (refactoring)
 """
 import pytest
 from decimal import Decimal
@@ -18,7 +18,7 @@ pytestmark = [pytest.mark.django_db]
 
 
 class TestBalanceService(TestCase):
-    """Tests for BalanceService"""
+    """Tests for BalanceService (Event Sourcing approach)"""
 
     def setUp(self):
         """Set up test data"""
@@ -39,12 +39,11 @@ class TestBalanceService(TestCase):
         self.assertEqual(balance.available, Decimal('0'))
 
     def test_balance_with_single_income(self):
-        """Test balance with single completed income transaction"""
+        """Test balance with single income transaction"""
         ChannelTransaction.objects.create(
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         balance = BalanceService.calculate_balance(self.channel, use_cache=False)
@@ -59,13 +58,11 @@ class TestBalanceService(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
         ChannelTransaction.objects.create(
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.PAYOUT,
             amount=Decimal('-500.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         balance = BalanceService.calculate_balance(self.channel, use_cache=False)
@@ -74,69 +71,101 @@ class TestBalanceService(TestCase):
         self.assertEqual(balance.frozen, Decimal('0'))
         self.assertEqual(balance.available, Decimal('500.00'))
 
-    def test_frozen_amount_with_pending_transactions(self):
-        """Test frozen amount includes pending transactions"""
-        # Completed income
+    def test_freeze_and_unfreeze(self):
+        """Test freeze and unfreeze operations (Event Sourcing)"""
+        # Income
         ChannelTransaction.objects.create(
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
-        # Pending payout (should be frozen)
+        # Freeze part of it
         ChannelTransaction.objects.create(
             channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.PAYOUT,
+            transaction_type=ChannelTransaction.TransactionType.FREEZE,
             amount=Decimal('-300.00'),
-            status=ChannelTransaction.TransactionStatus.PENDING,
         )
 
         balance = BalanceService.calculate_balance(self.channel, use_cache=False)
 
-        self.assertEqual(balance.balance, Decimal('1000.00'))
-        self.assertEqual(balance.frozen, Decimal('300.00'))  # abs(-300)
-        self.assertEqual(balance.available, Decimal('700.00'))
+        # Balance = 1000 - 300 = 700
+        self.assertEqual(balance.balance, Decimal('700.00'))
+        # Frozen = ABS(-300) = 300
+        self.assertEqual(balance.frozen, Decimal('300.00'))
+        # Available = 700 - 300 = 400
+        self.assertEqual(balance.available, Decimal('400.00'))
 
-    def test_frozen_status_transactions(self):
-        """Test that frozen status transactions are included in frozen amount"""
+        # Now unfreeze
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.UNFREEZE,
+            amount=Decimal('300.00'),
+        )
+
+        balance2 = BalanceService.calculate_balance(self.channel, use_cache=False)
+
+        # Balance = 1000 - 300 + 300 = 1000
+        self.assertEqual(balance2.balance, Decimal('1000.00'))
+        # Frozen только freeze транзакции = 300
+        self.assertEqual(balance2.frozen, Decimal('300.00'))
+        # Available = 1000 - 300 = 700
+        self.assertEqual(balance2.available, Decimal('700.00'))
+
+    def test_commission_deduction(self):
+        """Test commission deduction"""
         ChannelTransaction.objects.create(
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.COMMISSION,
+            amount=Decimal('-50.00'),
+        )
+
+        balance = BalanceService.calculate_balance(self.channel, use_cache=False)
+
+        self.assertEqual(balance.balance, Decimal('950.00'))
+        self.assertEqual(balance.frozen, Decimal('0'))
+        self.assertEqual(balance.available, Decimal('950.00'))
+
+    def test_adjustment_transaction(self):
+        """Test adjustment (compensating) transactions"""
+        # Original income
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            amount=Decimal('1000.00'),
+        )
+        # Adjustment (correction)
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.ADJUSTMENT,
+            amount=Decimal('-200.00'),
+        )
+
+        balance = BalanceService.calculate_balance(self.channel, use_cache=False)
+
+        self.assertEqual(balance.balance, Decimal('800.00'))
+
+    def test_refund_transaction(self):
+        """Test refund increases balance"""
         ChannelTransaction.objects.create(
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.PAYOUT,
-            amount=Decimal('-200.00'),
-            status=ChannelTransaction.TransactionStatus.FROZEN,
-        )
-
-        balance = BalanceService.calculate_balance(self.channel, use_cache=False)
-
-        self.assertEqual(balance.balance, Decimal('1000.00'))
-        self.assertEqual(balance.frozen, Decimal('200.00'))
-        self.assertEqual(balance.available, Decimal('800.00'))
-
-    def test_cancelled_transactions_not_counted(self):
-        """Test that cancelled transactions are not counted"""
-        ChannelTransaction.objects.create(
-            channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.INCOME,
-            amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
+            amount=Decimal('-500.00'),
         )
         ChannelTransaction.objects.create(
             channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            transaction_type=ChannelTransaction.TransactionType.REFUND,
             amount=Decimal('500.00'),
-            status=ChannelTransaction.TransactionStatus.CANCELLED,
         )
 
         balance = BalanceService.calculate_balance(self.channel, use_cache=False)
 
-        # Only completed transaction counted
-        self.assertEqual(balance.balance, Decimal('1000.00'))
+        # Net zero
+        self.assertEqual(balance.balance, Decimal('0.00'))
 
     def test_available_never_negative(self):
         """Test that available amount is never negative (edge case)"""
@@ -144,21 +173,21 @@ class TestBalanceService(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('100.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
-        # Huge pending payout
+        # Huge freeze
         ChannelTransaction.objects.create(
             channel=self.channel,
-            transaction_type=ChannelTransaction.TransactionType.PAYOUT,
+            transaction_type=ChannelTransaction.TransactionType.FREEZE,
             amount=Decimal('-500.00'),
-            status=ChannelTransaction.TransactionStatus.PENDING,
         )
 
         balance = BalanceService.calculate_balance(self.channel, use_cache=False)
 
-        self.assertEqual(balance.balance, Decimal('100.00'))
+        # Balance = 100 - 500 = -400
+        self.assertEqual(balance.balance, Decimal('-400.00'))
+        # Frozen = ABS(-500) = 500
         self.assertEqual(balance.frozen, Decimal('500.00'))
-        # Available should be 0, not negative
+        # Available = max(-400 - 500, 0) = 0
         self.assertEqual(balance.available, Decimal('0'))
 
     def test_soft_deleted_channel_returns_zero(self):
@@ -170,7 +199,6 @@ class TestBalanceService(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         balance = BalanceService.calculate_balance(self.channel, use_cache=False)
@@ -180,24 +208,20 @@ class TestBalanceService(TestCase):
         self.assertEqual(balance.available, Decimal('0'))
 
     def test_cache_is_used(self):
-        """Test that cache is used on subsequent calls (when no transactions added)"""
+        """Test that cache is used on subsequent calls"""
         ChannelTransaction.objects.create(
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         # First call - should calculate and cache
         balance1 = BalanceService.calculate_balance(self.channel, use_cache=True)
         self.assertEqual(balance1.balance, Decimal('1000.00'))
 
-        # Second call without adding transactions - should use cache
+        # Second call - should use cache
         balance2 = BalanceService.calculate_balance(self.channel, use_cache=True)
         self.assertEqual(balance2.balance, Decimal('1000.00'))
-
-        # Note: When a new transaction is created, the signal automatically invalidates
-        # the cache, so the next call will recalculate. This is tested in test_cache_invalidation.
 
     def test_cache_invalidation(self):
         """Test that cache is invalidated correctly"""
@@ -205,7 +229,6 @@ class TestBalanceService(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         # Cache the result
@@ -220,7 +243,6 @@ class TestBalanceService(TestCase):
             channel=self.channel,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('500.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         # Should recalculate because cache was invalidated
@@ -236,13 +258,11 @@ class TestBalanceService(TestCase):
             channel=channel1,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
         ChannelTransaction.objects.create(
             channel=channel2,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('2000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         balances = BalanceService.get_balance_for_channels([channel1, channel2])
@@ -260,13 +280,11 @@ class TestBalanceService(TestCase):
             channel=channel1,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('1000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
         ChannelTransaction.objects.create(
             channel=channel2,
             transaction_type=ChannelTransaction.TransactionType.INCOME,
             amount=Decimal('2000.00'),
-            status=ChannelTransaction.TransactionStatus.COMPLETED,
         )
 
         balances = BalanceService.get_balance_for_channels([channel1, channel2])
@@ -299,3 +317,51 @@ class TestBalanceService(TestCase):
         self.assertEqual(balance.balance, Decimal('0'))
         self.assertEqual(balance.frozen, Decimal('0'))
         self.assertEqual(balance.available, Decimal('0'))
+
+    def test_complex_transaction_sequence(self):
+        """Test complex sequence of transactions (Event Sourcing advantage)"""
+        # Income
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.INCOME,
+            amount=Decimal('1000.00'),
+        )
+        # Freeze part
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.FREEZE,
+            amount=Decimal('-200.00'),
+        )
+        # Commission
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.COMMISSION,
+            amount=Decimal('-50.00'),
+        )
+        # Payout
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.PAYOUT,
+            amount=Decimal('-300.00'),
+        )
+        # Unfreeze
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.UNFREEZE,
+            amount=Decimal('200.00'),
+        )
+        # Refund
+        ChannelTransaction.objects.create(
+            channel=self.channel,
+            transaction_type=ChannelTransaction.TransactionType.REFUND,
+            amount=Decimal('100.00'),
+        )
+
+        balance = BalanceService.calculate_balance(self.channel, use_cache=False)
+
+        # Balance = 1000 - 200 - 50 - 300 + 200 + 100 = 750
+        self.assertEqual(balance.balance, Decimal('750.00'))
+        # Frozen = только freeze транзакции = ABS(-200) = 200
+        self.assertEqual(balance.frozen, Decimal('200.00'))
+        # Available = 750 - 200 = 550
+        self.assertEqual(balance.available, Decimal('550.00'))

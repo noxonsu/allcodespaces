@@ -53,8 +53,7 @@ class BotPlacementTestCase(TestCase):
         self.message = Message.objects.create(
             name="Test Ad",
             body="Test advertising message",
-            button_str="Click here",
-            button_link="https://example.com",
+            buttons=[{"text": "Click here", "url": "https://example.com"}],
             format=PlacementFormat.FIXED_SLOT,
         )
 
@@ -238,8 +237,7 @@ class BotPlacementTestCase(TestCase):
         autopilot_message = Message.objects.create(
             name="Autopilot Ad",
             body="Autopilot message",
-            button_str="Click",
-            button_link="https://example.com",
+            buttons=[{"text": "Click", "url": "https://example.com"}],
             format=PlacementFormat.AUTOPILOT,
         )
 

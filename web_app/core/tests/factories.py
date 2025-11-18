@@ -18,8 +18,11 @@ class MessageFactory(DjangoModelFactory):
     body = factory.Faker("text")
     title = factory.Faker("text")
     is_external = factory.Faker("boolean")
-    button_str = factory.Faker("text")
-    button_link = factory.Faker("url")
+    buttons = factory.List(
+        [
+            factory.Dict({"text": "Подробнее", "url": "https://example.com"}),
+        ]
+    )
     format = PlacementFormat.FIXED_SLOT
 
 
@@ -168,9 +171,10 @@ class ChannelPublicationSlotFactory(DjangoModelFactory):
 
 class ChannelTransactionFactory(DjangoModelFactory):
     """
-    CHANGE: Added factory for ChannelTransaction
-    WHY: Required by ТЗ 1.1.1 - tests for financial operations
-    REF: issue #21
+    CHANGE: Refactored for Event Sourcing - removed status field
+    WHY: Event Sourcing approach - transactions are append-only, no statuses
+    QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
+    REF: issue #22 (refactoring)
     """
     class Meta:
         model = ChannelTransaction
@@ -181,7 +185,6 @@ class ChannelTransactionFactory(DjangoModelFactory):
     )
     amount = factory.Faker("pydecimal", left_digits=5, right_digits=2, positive=True)
     currency = "RUB"
-    status = ChannelTransaction.TransactionStatus.PENDING
     source_type = "manual"
     description = factory.Faker("sentence")
 
@@ -189,12 +192,13 @@ class ChannelTransactionFactory(DjangoModelFactory):
     def amount(self):
         from decimal import Decimal
         import random
-        # Для начислений и возвратов - положительная сумма
+        # Положительные операции (INCOME, REFUND, UNFREEZE)
         if self.transaction_type in [
             ChannelTransaction.TransactionType.INCOME,
-            ChannelTransaction.TransactionType.REFUND
+            ChannelTransaction.TransactionType.REFUND,
+            ChannelTransaction.TransactionType.UNFREEZE,
         ]:
             return Decimal(str(random.uniform(100, 10000))).quantize(Decimal("0.01"))
-        # Для удержаний и выплат - отрицательная сумма
+        # Отрицательные операции (FREEZE, PAYOUT, COMMISSION, ADJUSTMENT)
         else:
             return -Decimal(str(random.uniform(100, 10000))).quantize(Decimal("0.01"))

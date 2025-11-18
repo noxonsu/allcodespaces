@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 class MessageLink(BaseModel):
-    id: str | UUID
+    id: str | UUID | None = None
     title: str = ""
     url: str = ""
 
@@ -37,6 +37,7 @@ class MessageParser(BaseModel):
     created_at: str | datetime | None = ""
     updated_at: str | datetime | None = ""
     button: MessageLink | None = None
+    buttons: list[MessageLink] | None = None
     is_external: bool = Field(default=False)
     format: str | None = None
 
@@ -47,8 +48,17 @@ class MessageParser(BaseModel):
 
     @computed_field
     @property
+    def primary_button(self) -> MessageLink | None:
+        if self.button:
+            return self.button
+        if self.buttons:
+            return self.buttons[0]
+        return None
+
+    @computed_field
+    @property
     def has_button(self) -> bool:
-        return self.button != "" and self.button is not None
+        return bool(self.primary_button and (self.primary_button.url or self.primary_button.title))
 
     @computed_field
     @property
@@ -166,10 +176,11 @@ class CampaignChannelParserIn(BaseModel):
     @computed_field
     @property
     def analysis_link(self) -> str:
+        primary = self.campaign.message.primary_button if self.has_message else None
         if not self.has_message_button:
             return "https//app.telewin.online"
         elif bot_settings.DEV or self.message_is_external:
-            return self.message.button.url
+            return primary.url if primary else ""
 
         return bot_settings.SCHEMA_DOMAIN + self.path_click_analysis
 
@@ -186,7 +197,7 @@ class CampaignChannelParserIn(BaseModel):
     @computed_field
     @property
     def has_message_button(self) -> bool:
-        return self.has_message and self.campaign.message.has_button
+        return self.has_message and self.campaign.message.has_buttons
 
     @computed_field
     @property

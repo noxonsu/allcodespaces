@@ -9,25 +9,24 @@ async def _publish_messages_logic(bot, campaign_channel, kwargs, posts_data):
     post = None
 
     def _parse_campaign_button(campaign_channel: CampaignChannelParserIn):
-        # Проверяем что есть и title, и URL
-        button = campaign_channel.campaign.message.button
-        if not button or not button.title or not button.url:
+        buttons = campaign_channel.campaign.message.buttons or []
+        if not buttons:
+            primary = campaign_channel.campaign.message.primary_button
+            if primary:
+                buttons = [primary]
+
+        keyboard_rows = []
+        for btn in buttons:
+            url = btn.url if hasattr(btn, "url") else btn.get("url")
+            title = btn.title if hasattr(btn, "title") else btn.get("text")
+            if not url or not title:
+                continue
+            keyboard_rows.append([InlineKeyboardButton(title, url=url)])
+
+        if not keyboard_rows:
             return None
 
-        # Используем button.url если есть, иначе analysis_link
-        url = button.url if button.url else campaign_channel.analysis_link
-        if not url:
-            return None
-
-        keyboard = [
-            [
-                InlineKeyboardButton(
-                    button.title,
-                    url=url,
-                ),
-            ]
-        ]
-        return InlineKeyboardMarkup(keyboard)
+        return InlineKeyboardMarkup(keyboard_rows)
 
     if campaign_channel.has_message_button:
         reply_markup = _parse_campaign_button(campaign_channel)

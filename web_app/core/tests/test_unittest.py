@@ -17,10 +17,11 @@ from .factories import (
 )
 from ..admin_utils import is_not_valid_channel_status
 from ..models import Campaign, Channel, ChannelAdmin, CampaignChannel, PlacementFormat, ChannelPublicationSlot
-from ..serializers import ChannelSerializer
+from ..serializers import ChannelSerializer, MessageSerializer
 from faker import Faker
 
 from ..utils import update_broken_channel_avatar
+from ..utils import sanitize_message_body
 
 faker = Faker()
 
@@ -97,9 +98,56 @@ class TestUnitTest(TransactionTestCase):
             campaign.save()
 
     def test_message_sponsorship_body_limit(self):
-        message = MessageFactory(format=PlacementFormat.SPONSORSHIP, body="a" * 200)
+        message = MessageFactory(format=PlacementFormat.SPONSORSHIP, body="a" * 200, buttons=[{"text": "btn", "url": "https://ex.com"}])
         with self.assertRaises(ValidationError):
             message.clean()
+
+    def test_message_sponsorship_requires_button_link(self):
+        message = MessageFactory.build(
+            format=PlacementFormat.SPONSORSHIP,
+            body="ok",
+            buttons=[{"text": "Кнопка", "url": ""}],
+        )
+        with self.assertRaises(ValidationError):
+            message.full_clean()
+
+    def test_message_sponsorship_requires_button_text(self):
+        message = MessageFactory.build(
+            format=PlacementFormat.SPONSORSHIP,
+            body="ok",
+            buttons=[{"text": "", "url": "https://example.com"}],
+        )
+        with self.assertRaises(ValidationError):
+            message.full_clean()
+
+    def test_message_fixed_slot_requires_buttons(self):
+        message = MessageFactory.build(
+            format=PlacementFormat.FIXED_SLOT,
+            body="ok",
+            buttons=[],
+        )
+        with self.assertRaises(ValidationError):
+            message.full_clean()
+
+    def test_message_sanitize_allows_basic_tags(self):
+        raw = "<b>bold</b> <i>italic</i> <a href=\"https://example.com\">link</a>"
+        cleaned = sanitize_message_body(raw)
+        self.assertIn("<b>bold</b>", cleaned)
+        self.assertIn("<i>italic</i>", cleaned)
+        self.assertIn("<a href=\"https://example.com\">", cleaned)
+
+    def test_message_sanitize_strips_script(self):
+        raw = "Hello<script>alert(1)</script>world"
+        cleaned = sanitize_message_body(raw)
+        self.assertNotIn("script", cleaned)
+        self.assertIn("Hello", cleaned)
+        self.assertIn("world", cleaned)
+
+    def test_message_buttons_serialized(self):
+        message = MessageFactory(buttons=[{"text": "One", "url": "https://one"}, {"text": "Two", "url": "https://two"}])
+        data = MessageSerializer(instance=message).data
+        self.assertEqual(len(data.get("buttons", [])), 2)
+        self.assertEqual(data.get("button", {}).get("url"), "https://one")
 
     def test_campaign_requires_matching_message_format(self):
         sponsorship_message = MessageFactory(format=PlacementFormat.SPONSORSHIP)
@@ -120,6 +168,16 @@ class TestUnitTest(TransactionTestCase):
         campaign.format = PlacementFormat.SPONSORSHIP
         with self.assertRaises(ValidationError):
             campaign.clean()
+
+    def test_campaign_admin_form_filters_message_by_format(self):
+        msg_fixed = MessageFactory(format=PlacementFormat.FIXED_SLOT)
+        msg_auto = MessageFactory(format=PlacementFormat.AUTOPILOT)
+        campaign = CampaignFactory(format=PlacementFormat.AUTOPILOT)
+
+        form = CampaignAdminForm(instance=campaign)
+        qs = form.fields["message"].queryset
+        self.assertIn(msg_auto, qs)
+        self.assertNotIn(msg_fixed, qs)
 
     def test_campaign_fixed_slot_requires_schedule(self):
         message = MessageFactory(format=PlacementFormat.FIXED_SLOT)

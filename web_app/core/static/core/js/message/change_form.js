@@ -59,15 +59,22 @@ $(document).ready(function () {
 
     var formatField = $('#id_format');
     var bodyField = $('#id_body');
+    var buttonsField = $('#id_buttons_json');
     var counterWrapper = $('<div class="msg-body-counter text-muted small mt-1"></div>');
+    var buttonHelp = $('<div class="msg-button-help text-muted small mt-1"></div>');
+    var formatHelp = $('<div class="msg-format-help text-muted small mt-1">Поддерживаются теги <b>, <i>, ссылки &lt;a href&gt;.</div>');
     var SPONSORSHIP_LIMIT = 160;
 
-    function ensureCounterPresence() {
-        if (!bodyField.length) {
-            return;
-        }
-        if (!bodyField.next('.msg-body-counter').length) {
+    function ensureBodyHelp() {
+        if (bodyField.length && !bodyField.next('.msg-body-counter').length) {
             bodyField.after(counterWrapper);
+            bodyField.after(formatHelp);
+        }
+    }
+
+    function ensureButtonHelp() {
+        if (buttonsField.length && !buttonsField.next('.msg-button-help').length) {
+            buttonsField.after(buttonHelp);
         }
     }
 
@@ -76,31 +83,35 @@ $(document).ready(function () {
             return;
         }
         var textLength = bodyField.val() ? bodyField.val().length : 0;
-        counterWrapper.text(textLength + '/' + SPONSORSHIP_LIMIT);
+        counterWrapper.text('Для «Спонсорство»: ' + textLength + '/' + SPONSORSHIP_LIMIT + ' символов');
         counterWrapper.toggleClass('text-danger', textLength > SPONSORSHIP_LIMIT);
     }
 
-    function toggleBodyLimit() {
-        if (!formatField.length || !bodyField.length) {
+    function toggleFormatRequirements() {
+        if (!formatField.length) {
             return;
         }
         var isSponsorship = formatField.val() === 'sponsorship';
         if (isSponsorship) {
-            ensureCounterPresence();
+            ensureBodyHelp();
+            ensureButtonHelp();
             counterWrapper.show();
+            buttonHelp.text('Для «Спонсорство» максимум одна кнопка (строка: Текст | URL).');
             bodyField.attr('maxlength', SPONSORSHIP_LIMIT);
             updateBodyCounter();
         } else {
             counterWrapper.hide();
+            ensureButtonHelp();
+            buttonHelp.text('Можно до 8 кнопок. Формат каждой строки: Текст | URL');
             bodyField.removeAttr('maxlength');
         }
     }
 
     if (formatField.length && bodyField.length) {
-        toggleBodyLimit();
+        toggleFormatRequirements();
         formatField.on('change', function () {
             bodyField.trigger('input');
-            toggleBodyLimit();
+            toggleFormatRequirements();
         });
         bodyField.on('input', updateBodyCounter);
     }
