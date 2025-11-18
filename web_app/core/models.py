@@ -536,8 +536,15 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     """Campaign of channel/s"""
 
     class Statuses(models.TextChoices):
+        DRAFT = "draft", "Черновик"
         ACTIVE = "active", "Активна"
         PAUSED = "paused", "На паузе"
+
+    STATUS_TRANSITIONS: dict[str, set[str]] = {
+        Statuses.DRAFT: {Statuses.DRAFT, Statuses.PAUSED, Statuses.ACTIVE},
+        Statuses.ACTIVE: {Statuses.ACTIVE, Statuses.PAUSED},
+        Statuses.PAUSED: {Statuses.PAUSED, Statuses.ACTIVE},
+    }
 
     name = models.CharField(max_length=250, verbose_name=_("Название"))
     format = models.CharField(
@@ -550,7 +557,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         choices=Statuses.choices,
         max_length=6,
         verbose_name=_("Статус"),
-        default=Statuses.PAUSED,
+        default=Statuses.DRAFT,
     )
     budget = models.DecimalField(
         verbose_name=_("Бюджет (руб.)"),
@@ -785,6 +792,24 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
             )
 
     def clean_status(self: Self) -> None:
+        previous_status = (
+            Campaign.objects.filter(pk=self.pk)
+            .values_list("status", flat=True)
+            .first()
+            if self.pk
+            else None
+        )
+        if previous_status and self.status not in self.STATUS_TRANSITIONS.get(
+            previous_status, set()
+        ):
+            raise ValidationError(
+                {
+                    "status": (
+                        "Нельзя сменить статус кампании с"
+                        f" «{self.Statuses(previous_status).label}» на «{self.get_status_display()}»."
+                    )
+                }
+            )
         if self.status == self.Statuses.ACTIVE:
             try:
                 self.clean_budget()
@@ -854,6 +879,29 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
+
+    def has_publications(self) -> bool:
+        """
+        CHANGE: Check if campaign has any published posts
+        WHY: Prevent deletion of campaigns that already have publications
+        REF: issue #42
+        """
+        return self.campaigns_channel.filter(
+            publish_status=CampaignChannel.PublishStatusChoices.PUBLISHED
+        ).exists()
+
+    def delete(self, *args, **kwargs):
+        """
+        CHANGE: Override delete to prevent deletion of campaigns with publications
+        WHY: Protect published campaigns from accidental deletion
+        REF: issue #42
+        """
+        if self.has_publications():
+            raise ValidationError(
+                "Невозможно удалить кампанию с опубликованными постами. "
+                "Сначала необходимо удалить все публикации."
+            )
+        super().delete(*args, **kwargs)
 
 
 class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):

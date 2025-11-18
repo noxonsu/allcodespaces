@@ -5,7 +5,7 @@ from factory.django import DjangoModelFactory
 import factory.random
 from faker import Faker
 
-from core.models import ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot
+from core.models import Campaign, ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot
 
 faker = Faker()
 
@@ -29,7 +29,7 @@ class CampaignFactory(DjangoModelFactory):
         django_get_or_create = ("name",)
 
     name = factory.Faker("name")
-    status = factory.random.random.choice(["active", "paused"])
+    status = Campaign.Statuses.DRAFT
     budget = factory.Faker("random_int", min=1, max=10000)
     message = factory.SubFactory(MessageFactory)
     start_date = faker.date_between(start_date="now", end_date="now")

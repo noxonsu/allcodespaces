@@ -58,7 +58,8 @@ class CampaignChannelFilterSet(FilterSet):
 
             if (
                 getattr(campaign_channel, "campaign", None)
-                and campaign_channel.campaign.status == Campaign.Statuses.PAUSED
+                and campaign_channel.campaign.status
+                in {Campaign.Statuses.PAUSED, Campaign.Statuses.DRAFT}
             ):
                 continue
 

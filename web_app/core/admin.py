@@ -836,6 +836,56 @@ class MessageAdmin(admin.ModelAdmin):
         self._remove_changelist_delete_obj(response)
         return response
 
+    def delete_model(self, request, obj):
+        """
+        CHANGE: Override delete_model to prevent deletion of campaigns with publications
+        WHY: Protect published campaigns from accidental deletion
+        REF: issue #42
+        """
+        from django.contrib import messages
+
+        if obj.has_publications():
+            messages.error(
+                request,
+                f"Невозможно удалить кампанию '{obj.name}': имеются опубликованные посты. "
+                "Сначала необходимо удалить все публикации."
+            )
+            return
+
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        """
+        CHANGE: Override delete_queryset to prevent deletion of campaigns with publications
+        WHY: Protect published campaigns from accidental bulk deletion
+        REF: issue #42
+        """
+        from django.contrib import messages
+
+        campaigns_with_publications = []
+        campaigns_to_delete = []
+
+        for campaign in queryset:
+            if campaign.has_publications():
+                campaigns_with_publications.append(campaign.name)
+            else:
+                campaigns_to_delete.append(campaign)
+
+        if campaigns_with_publications:
+            messages.error(
+                request,
+                f"Невозможно удалить кампании с публикациями: {', '.join(campaigns_with_publications)}. "
+                "Сначала необходимо удалить все публикации."
+            )
+
+        if campaigns_to_delete:
+            for campaign in campaigns_to_delete:
+                campaign.delete()
+            messages.success(
+                request,
+                f"Успешно удалено кампаний: {len(campaigns_to_delete)}"
+            )
+
 
 @register(MessagePreviewToken)
 class MessagePreviewTokenAdmin(admin.ModelAdmin):
