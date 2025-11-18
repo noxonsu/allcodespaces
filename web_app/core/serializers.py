@@ -58,41 +58,53 @@ class ChannelSerializer(serializers.ModelSerializer):
         # CHANGE: Привязываем канал к владельцу (creator) из списка админов
         # WHY: Без привязки канал не отображается в ЛК владельца
         # REF: issue #55
+        logger.info(f"Processing channel admins. Received {len(admins_list)} admins")
         if admins_list:
             # Ищем creator (владельца канала)
             creator = next((a for a in admins_list if a.get("status") == "creator"), None)
+            logger.info(f"Found creator: {creator}")
             # Если creator не найден, берём первого админа
             if not creator and admins_list:
                 creator = admins_list[0]
+                logger.info(f"No creator found, using first admin: {creator}")
 
             if creator and creator.get("user_id"):
+                logger.info(f"Looking for ChannelAdmin with tg_id={creator.get('user_id')}")
                 channel_admin = ChannelAdmin.objects.filter(
                     tg_id=str(creator["user_id"])
                 ).first()
 
-                if channel_admin and channel not in channel_admin.channels.all():
-                    channel_admin.channels.add(channel)
-                    logger.info(f"Linked channel {channel.name} to ChannelAdmin {channel_admin.username}")
+                if channel_admin:
+                    logger.info(f"Found ChannelAdmin: {channel_admin.username} (id={channel_admin.id})")
+                    if channel not in channel_admin.channels.all():
+                        channel_admin.channels.add(channel)
+                        logger.info(f"✅ Linked channel {channel.name} (id={channel.id}) to ChannelAdmin {channel_admin.username} (tg_id={channel_admin.tg_id})")
 
-                    # CHANGE: Отправляем уведомление админу о добавлении канала
-                    # WHY: Пользователь должен получить подтверждение что канал добавлен
-                    # REF: issue #55
-                    try:
-                        notification_text = (
-                            f"✅ Канал <b>{channel.name}</b> успешно добавлен!\n\n"
-                            f"Статус: Ожидает модерации\n"
-                            f"Вы можете управлять каналом в личном кабинете: {app_settings.DOMAIN_URI}"
-                        )
-                        requests.post(
-                            f"{app_settings.DOMAIN_URI}/telegram/channeladmin-added",
-                            json={"tg_id": channel_admin.tg_id, "msg": notification_text},
-                            timeout=10
-                        )
-                        logger.info(f"Sent notification to {channel_admin.username} about channel {channel.name}")
-                    except Exception as e:
-                        logger.error(f"Failed to send notification: {e}")
+                        # CHANGE: Отправляем уведомление админу о добавлении канала
+                        # WHY: Пользователь должен получить подтверждение что канал добавлен
+                        # REF: issue #55
+                        try:
+                            notification_text = (
+                                f"✅ Канал <b>{channel.name}</b> успешно добавлен!\n\n"
+                                f"Статус: Ожидает модерации\n"
+                                f"Вы можете управлять каналом в личном кабинете: {app_settings.DOMAIN_URI}"
+                            )
+                            requests.post(
+                                f"{app_settings.DOMAIN_URI}/telegram/channeladmin-added",
+                                json={"tg_id": channel_admin.tg_id, "msg": notification_text},
+                                timeout=10
+                            )
+                            logger.info(f"Sent notification to {channel_admin.username} about channel {channel.name}")
+                        except Exception as e:
+                            logger.error(f"Failed to send notification: {e}")
+                    else:
+                        logger.info(f"Channel {channel.name} already linked to ChannelAdmin {channel_admin.username}")
                 else:
-                    logger.warning(f"ChannelAdmin not found for tg_id={creator.get('user_id')}")
+                    logger.warning(f"❌ ChannelAdmin NOT FOUND for tg_id={creator.get('user_id')}. User must run /start first!")
+            else:
+                logger.warning(f"No valid creator found in admins_list")
+        else:
+            logger.warning(f"No admins_list provided for channel {channel.name}")
 
         service = TGStatClient()
         service.update_channel_info(channel=channel)

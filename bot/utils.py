@@ -71,7 +71,7 @@ async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 "last_name": admin.user.last_name,
                 "status": admin.status,  # creator, administrator
             })
-        logger.info(f"Found {len(admins_list)} admins for channel {chat_name}")
+        logger.info(f"Found {len(admins_list)} admins for channel {chat_name}: {admins_list}")
     except Exception as e:
         logger.error(f"Failed to get channel admins: {e}")
 
@@ -86,9 +86,13 @@ async def channel_handle_add(update: Update, context: ContextTypes.DEFAULT_TYPE)
         admins=admins_list,  # CHANGE: Добавляем список админов
     )
 
-    logger.info(f"BOT ADDED TO CHANNEL: {data=}")
+    logger.info(f"BOT ADDED TO CHANNEL: {chat_name} (tg_id={chat_id})")
+    logger.info(f"Sending channel data to backend: {data}")
     service = MainService()
-    service.added_to_channel(data)
+    response = service.added_to_channel(data)
+    logger.info(f"Backend response status: {response.status_code}")
+    if response.status_code >= 400:
+        logger.error(f"Backend error response: {response.text}")
 
 
 async def channel_bot_status_handle(update, context):
