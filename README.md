@@ -68,5 +68,35 @@ This project now has automated testing for every commit.
 ## Contributing (важно)
 - Всегда начинай с прочтения README (этого файла) в корне проекта.
 - Работаем через docker-compose (см. `web_app/docker-compose.yml`); локальные команды прогоняем внутри контейнеров (`docker compose … exec web-app …`). Логи с `timeout`.
-- Отчёт и инструкции для тестера публикуем напрямую в issue после коммита/пуша (для этой задачи — в https://github.com/marsiandeployer/TELEWIN/issues/51), подписываемся как codex.
+- Отчёт и инструкции для тестера публикуем напрямую в issue после коммита/пуша, подписываемся как claude.
 - В коммитах обязательно указываем ID задачи/issue в сообщении (например, `feature/preview-token-api #51`), а в отчётах ссылаемся на коммит или issue.
+
+### Работа с GitHub Issues и лейблами
+
+**Лейблы для управления процессом:**
+
+- `work in progress` - ставим когда начинаем работу над issue
+- `QA` - ставим когда работа завершена и требуется проверка тестером
+
+**Процесс работы с issue:**
+
+1. **Начало работы:**
+   ```bash
+   gh issue edit <номер> --add-label "work in progress"
+   ```
+
+2. **Завершение работы (готово к тестированию):**
+   ```bash
+   gh issue edit <номер> --remove-label "work in progress" --add-label "QA"
+   ```
+
+3. **После успешного тестирования** - тестер закрывает issue или снимает лейбл QA
+
+**Пример:**
+```bash
+# Начинаем работу над issue #55
+gh issue edit 55 --add-label "work in progress"
+
+# Завершили работу, отправили на QA
+gh issue edit 55 --remove-label "work in progress" --add-label "QA"
+```
