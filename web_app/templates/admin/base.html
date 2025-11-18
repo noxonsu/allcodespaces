@@ -156,7 +156,25 @@
                         <i class="far fa-user" aria-hidden="true"></i>
                     </a>
                     <div class="dropdown-menu dropdown-menu-lg dropdown-menu-left" id="jazzy-usermenu">
-                        <span class="dropdown-header">{% if request.user.profile and request.user.profile.username %}@{{ request.user.profile.username }}{% elif request.user.username %}{{ request.user.username }}{% else %}{% trans 'Account' %}{% endif %}</span>
+                        <span class="dropdown-header">
+                            {% comment %}
+                            CHANGE: Улучшена логика отображения имени пользователя
+                            WHY: Отображалось "Аккаунт" вместо ника Telegram
+                            REF: issue #54
+                            Приоритет: username из profile -> first_name/last_name -> username из User -> tg_id
+                            {% endcomment %}
+                            {% if request.user.profile.username %}
+                                @{{ request.user.profile.username }}
+                            {% elif request.user.profile.first_name or request.user.profile.last_name %}
+                                {{ request.user.profile.first_name }} {{ request.user.profile.last_name }}
+                            {% elif request.user.username %}
+                                {{ request.user.username }}
+                            {% elif request.user.profile.tg_id %}
+                                ID: {{ request.user.profile.tg_id }}
+                            {% else %}
+                                {% trans 'Account' %}
+                            {% endif %}
+                        </span>
                         <div class="dropdown-divider"></div>
                         <a href="{% url 'admin:password_change' %}" class="dropdown-item">
                             <i class="fas fa-key mr-2"></i> {% trans 'Change password' %}
