@@ -69,6 +69,9 @@ jobs:
         working-directory: ${{ matrix.workdir }}
         env:
           PYTHONPATH: ${{ github.workspace }}/${{ matrix.pythonpath }}
+          DJANGO_SETTINGS_MODULE: web_app.settings
+          BOT_TOKEN: fake-token-for-ci
+          SCHEMA_DOMAIN: https://example.com
         run: ${{ matrix.test }}
 
   smoke-tests:
@@ -83,7 +86,7 @@ jobs:
           node-version: '20'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Run user smoke tests
         run: npm run test:user
