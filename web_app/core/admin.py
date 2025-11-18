@@ -147,6 +147,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
     list_display = [
         "avatar_image",
         "name_str",
+        "legal_entity_display",
         "invitation_link_display",
         "members_count",
         "category",
@@ -166,6 +167,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("name",CustomAllValuesFieldListFilter),
         ("status", CustomChoiceFilter),
         ("is_bot_installed", CustomBooleanFilter),
+        ("legal_entity", CustomRelatedFilterListFilter),
     ]
     list_display_links = ['name_str']
     empty_value_display = "-"
@@ -181,6 +183,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
                     "is_bot_installed",
                     "is_deleted",
                     "status",
+                    "legal_entity",
                     "cpm",
                     "supported_formats",
                     "require_manual_approval",
@@ -337,6 +340,17 @@ class ChannelModelAdmin(admin.ModelAdmin):
             tooltip_attrs, instance=instance
         )
         return mark_safe(htm_str)
+
+    @admin.display(description="Юрлицо", ordering="legal_entity__short_name")
+    def legal_entity_display(self, instance: Channel):
+        """
+        CHANGE: Display legal entity for channel in admin list
+        WHY: Required by ТЗ 1.2.2 - show legal entity binding
+        REF: issue #25
+        """
+        if instance.legal_entity:
+            return instance.legal_entity.short_name or instance.legal_entity.name
+        return "-"
 
     @admin.display(description="")
     def refresh_statistics(self, obj: Channel):

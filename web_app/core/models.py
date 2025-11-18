@@ -20,6 +20,7 @@ from django.contrib.postgres.fields import ArrayField
 from django.db.models import JSONField, Sum, Avg, F, Q
 from django.utils.translation import gettext_lazy as _
 from rest_framework.request import Request
+from web_app.logger import logger
 
 from core.base_models import BaseModel
 from core.db_proxies import CampaignQS, CampaignChannelQs
@@ -458,6 +459,15 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         verbose_name="Требует ручного подтверждения",
         help_text="Если включено, владелец канала должен вручную подтверждать каждую публикацию"
     )
+    legal_entity = models.ForeignKey(
+        "LegalEntity",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="channels",
+        verbose_name="Юридическое лицо",
+        help_text="Юридическое лицо, к которому привязан канал"
+    )
 
     def __str__(self):
         return self.name
@@ -803,6 +813,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
             if self.pk
             else None
         )
+        self._previous_status = previous_status
         if previous_status and self.status not in self.STATUS_TRANSITIONS.get(
             previous_status, set()
         ):
@@ -882,7 +893,50 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         self.clean_finish_date()
 
     def save(self, *args, **kwargs):
+        previous_status = getattr(self, "_previous_status", None)
         super().save(*args, **kwargs)
+        if (
+            previous_status == Campaign.Statuses.DRAFT
+            and self.status != Campaign.Statuses.DRAFT
+        ):
+            self._notify_pending_channels_on_exit_from_draft(previous_status)
+
+    def _notify_pending_channels_on_exit_from_draft(self, previous_status: str | None):
+        pending_qs = self.campaigns_channel.select_related("channel", "channel_admin").filter(
+            publish_status__in=[
+                CampaignChannel.PublishStatusChoices.PLANNED,
+                CampaignChannel.PublishStatusChoices.REJECTED,
+            ],
+            channel__require_manual_approval=True,
+            channel__is_deleted=False,
+            channel_admin__isnull=False,
+            channel_admin__is_bot_installed=True,
+            approval_notified_at__isnull=True,
+        )
+
+        for channel in pending_qs:
+            try:
+                CampaignChannel.send_approval_request(channel)
+                channel.approval_notified_at = timezone.now()
+                channel.save(update_fields=["approval_notified_at"])
+                logger.info(
+                    "[Campaign] Sent approval request after draft exit",
+                    extra={
+                        "campaign_id": str(self.id),
+                        "campaign_status": self.status,
+                        "previous_status": previous_status,
+                        "campaign_channel_id": str(channel.id),
+                        "channel_id": str(channel.channel_id),
+                    },
+                )
+            except Exception as exc:  # pragma: no cover - defensive logging
+                logger.error(
+                    f"[Campaign] Failed to notify channel admin after draft exit: {exc}",
+                    extra={
+                        "campaign_id": str(self.id),
+                        "campaign_channel_id": str(channel.id),
+                    },
+                )
 
     def has_publications(self) -> bool:
         """
@@ -958,6 +1012,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         default=PublishStatusChoices.PLANNED,
     )
     channel_post_id = models.TextField(null=True, blank=True)
+    approval_notified_at = models.DateTimeField(null=True, blank=True, verbose_name="Уведомление об ожидании")
     clicks = models.PositiveIntegerField(
         default=0, help_text="clicks by users on the campaign", verbose_name="Клики"
     )
@@ -1038,6 +1093,14 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         self.clean_add_to_campaign()
         self.clean_negative_fields()
         self.clean_publication_slot()
+
+    @classmethod
+    def send_approval_request(cls, instance: "CampaignChannel") -> None:
+        if not instance.channel or not instance.channel.require_manual_approval:
+            return
+        from core.signals import send_message_to_channel_admin
+
+        send_message_to_channel_admin(instance)
 
     def clean_negative_fields(self):
         fields = [
