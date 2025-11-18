@@ -74,6 +74,14 @@ jobs:
           DJANGO_SETTINGS_MODULE: web_app.settings
           BOT_TOKEN: fake-token-for-ci
           SCHEMA_DOMAIN: https://example.com
+          DB_ENGINE: sqlite3
+          DB_NAME: :memory:
+          DB_USERNAME: ""
+          DB_PASS: ""
+          DB_HOST: ""
+          DB_PORT: ""
+          SECRET_KEY: fake-secret-key-for-ci-tests
+          DEBUG: "False"
         run: ${{ matrix.test }}
 
   smoke-tests:
