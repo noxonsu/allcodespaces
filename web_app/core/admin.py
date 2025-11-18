@@ -1,3 +1,4 @@
+import csv
 from decimal import Decimal
 try:
     from typing import Self  # type: ignore
@@ -12,11 +13,12 @@ from django.contrib.auth.admin import UserAdmin
 from django.core.exceptions import ValidationError
 from django.db.models import Sum, QuerySet, Q
 from django.forms import Select
-from django.http import JsonResponse, FileResponse, HttpResponseRedirect
+from django.http import JsonResponse, FileResponse, HttpResponseRedirect, HttpResponse
 from django.urls import path
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
+from core.services import BalanceService, ChannelBalance
 from .admin_forms import (
     CampaignAdminForm,
     ChannelAdminForm,
@@ -43,10 +45,12 @@ from .models import (
     UserLoginToken,
     LegalEntity,
     ChannelTransaction,
+    Payout,
 )
 from django.contrib.admin import register, ModelAdmin
 
 from .utils import budget_cpm_from_qs,  bulk_notify_channeladmin
+from .services import BalanceService, ChannelBalance
 
 
 class ChannelAdminInlinedForm(forms.ModelForm):
@@ -144,6 +148,9 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "invitation_link",
         "refresh_statistics",
         "btn_link_statistics",
+        "balance_amount",
+        "frozen_amount",
+        "available_amount",
     ]
     list_display = [
         "avatar_image",
@@ -156,6 +163,9 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "is_deleted",
         "status_html",
         "require_manual_approval",
+        "balance_amount",
+        "frozen_amount",
+        "available_amount",
         "avg_posts_reach",
         "cpm",
         "er",
@@ -190,6 +200,16 @@ class ChannelModelAdmin(admin.ModelAdmin):
                     "require_manual_approval",
                     "btn_link_statistics",
                 ),
+            },
+        ),
+        (
+            "Финансы",
+            {
+                "fields": (
+                    "balance_amount",
+                    "frozen_amount",
+                    "available_amount",
+                )
             },
         ),
         (
@@ -320,11 +340,36 @@ class ChannelModelAdmin(admin.ModelAdmin):
     @admin.display(description="Статистика по кампаниям")
     def btn_link_statistics(self, instance: Channel):
         btn_htmlstr = (
-            f'<a class="btn btn-info" href="/core/campaignchannel/?channel__id__exact={instance.id}">Перейти &#128202;</a>'
+            f'<a class="btn btn-info" href="/admin/core/campaignchannel/?channel__id__exact={instance.id}">Перейти &#128202;</a>'
             if instance
             else "&#10060;"
         )
         return mark_safe(btn_htmlstr)
+
+    @staticmethod
+    def _format_money(value: Decimal) -> str:
+        return f"{value.quantize(Decimal('0.01'))} ₽"
+
+    def _get_balance(self, instance: Channel) -> ChannelBalance:
+        cached = getattr(instance, "_balance_cache", None)
+        if cached:
+            return cached
+
+        balance = BalanceService.calculate_balance(instance)
+        setattr(instance, "_balance_cache", balance)
+        return balance
+
+    @admin.display(description="Баланс, ₽")
+    def balance_amount(self, instance: Channel) -> str:
+        return self._format_money(self._get_balance(instance).balance)
+
+    @admin.display(description="Заморожено, ₽")
+    def frozen_amount(self, instance: Channel) -> str:
+        return self._format_money(self._get_balance(instance).frozen)
+
+    @admin.display(description="Доступно, ₽")
+    def available_amount(self, instance: Channel) -> str:
+        return self._format_money(self._get_balance(instance).available)
 
     @admin.display(description="Бот", ordering='is_bot_installed', boolean=True)
     def is_bot_installed_html(self, instance: Channel):
@@ -787,7 +832,7 @@ class CampaignAdmin(admin.ModelAdmin):
         if not obj.pk:
             return "-"
         return mark_safe(
-            f'<a class="btn btn-info" href="/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
+            f'<a class="btn btn-info" href="/admin/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
         )
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
@@ -1208,6 +1253,70 @@ class UserAdmin(UserAdmin):
         )
 
 
+class LegalEntityChannelInline(admin.TabularInline):
+    model = Channel
+    fields = [
+        "name",
+        "status",
+        "members_count",
+        "balance_amount",
+        "frozen_amount",
+        "available_amount",
+    ]
+    readonly_fields = fields
+    extra = 0
+    can_delete = False
+    verbose_name = "Канал"
+    verbose_name_plural = "Каналы"
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.select_related("legal_entity")
+
+    @staticmethod
+    def _format_money(value: Decimal) -> str:
+        return f"{value.quantize(Decimal('0.01'))} ₽"
+
+    def _get_balance(self, instance: Channel) -> ChannelBalance:
+        cached = getattr(instance, "_balance_cache", None)
+        if cached:
+            return cached
+
+        balance = BalanceService.calculate_balance(instance)
+        setattr(instance, "_balance_cache", balance)
+        return balance
+
+    def balance_amount(self, instance: Channel) -> str:
+        return self._format_money(self._get_balance(instance).balance)
+
+    def frozen_amount(self, instance: Channel) -> str:
+        return self._format_money(self._get_balance(instance).frozen)
+
+    def available_amount(self, instance: Channel) -> str:
+        return self._format_money(self._get_balance(instance).available)
+
+
+class PayoutInline(admin.TabularInline):
+    model = Payout
+    fields = [
+        "amount",
+        "currency",
+        "status",
+        "period_start",
+        "period_end",
+        "created_at",
+    ]
+    readonly_fields = ["created_at"]
+    extra = 0
+    verbose_name = "Выплата"
+    verbose_name_plural = "Выплаты"
+
+    def get_readonly_fields(self, request, obj=None):
+        ro = list(super().get_readonly_fields(request, obj))
+        if obj and getattr(obj, "status", None) and obj.status != Payout.Status.DRAFT:
+            ro.extend(["amount", "currency", "period_start", "period_end"])
+        return ro
+
 @register(LegalEntity)
 class LegalEntityAdmin(admin.ModelAdmin):
     """
@@ -1221,6 +1330,9 @@ class LegalEntityAdmin(admin.ModelAdmin):
         "inn",
         "kpp",
         "status",
+        "channels_count",
+        "total_balance_amount",
+        "total_available_amount",
         "contact_person",
         "contact_phone",
         "created_at",
@@ -1230,7 +1342,16 @@ class LegalEntityAdmin(admin.ModelAdmin):
         ("created_at", CustomDateFieldListFilter),
     ]
     search_fields = ["name", "short_name", "inn", "kpp", "contact_person"]
-    readonly_fields = ["id", "created_at", "updated_at"]
+    readonly_fields = [
+        "id",
+        "created_at",
+        "updated_at",
+        "total_balance_amount",
+        "total_frozen_amount",
+        "total_available_amount",
+        "export_channels_link",
+        "channels_filter_link",
+    ]
 
     fieldsets = (
         (
@@ -1281,14 +1402,124 @@ class LegalEntityAdmin(admin.ModelAdmin):
             "Системная информация",
             {
                 "classes": ["collapse"],
-                "fields": ("id", "created_at", "updated_at"),
+                "fields": (
+                    "id",
+                    "created_at",
+                    "updated_at",
+                    "channels_filter_link",
+                    "export_channels_link",
+                ),
+            },
+        ),
+        (
+            "Финансы (агрегировано по каналам)",
+            {
+                "fields": (
+                    "total_balance_amount",
+                    "total_frozen_amount",
+                    "total_available_amount",
+                )
             },
         ),
     )
 
+    inlines = [LegalEntityChannelInline, PayoutInline]
+
     @admin.display(description="Название", ordering="short_name")
     def short_name_or_name(self, obj):
         return obj.short_name or obj.name
+
+    @admin.display(description="Каналов")
+    def channels_count(self, obj: LegalEntity):
+        return obj.channels.filter(is_deleted=False).count()
+
+    def _calc_balances(self, obj: LegalEntity) -> ChannelBalance:
+        cache_attr = "_totals_cache"
+        cached = getattr(obj, cache_attr, None)
+        if cached:
+            return cached
+
+        channels = list(obj.channels.filter(is_deleted=False))
+        balances = BalanceService.get_balance_for_channels(channels)
+
+        total_balance = Decimal("0")
+        total_frozen = Decimal("0")
+        for channel in channels:
+            cb = balances.get(str(channel.id), ChannelBalance(Decimal("0"), Decimal("0"), Decimal("0")))
+            total_balance += cb.balance
+            total_frozen += cb.frozen
+        total_available = max(total_balance - total_frozen, Decimal("0"))
+
+        totals = ChannelBalance(balance=total_balance, frozen=total_frozen, available=total_available)
+        setattr(obj, cache_attr, totals)
+        return totals
+
+    @staticmethod
+    def _format_money(value: Decimal) -> str:
+        return f"{value.quantize(Decimal('0.01'))} ₽"
+
+    @admin.display(description="Баланс суммой")
+    def total_balance_amount(self, obj: LegalEntity) -> str:
+        totals = self._calc_balances(obj)
+        return self._format_money(totals.balance)
+
+    @admin.display(description="Заморожено суммой")
+    def total_frozen_amount(self, obj: LegalEntity) -> str:
+        totals = self._calc_balances(obj)
+        return self._format_money(totals.frozen)
+
+    @admin.display(description="Доступно суммой")
+    def total_available_amount(self, obj: LegalEntity) -> str:
+        totals = self._calc_balances(obj)
+        return self._format_money(totals.available)
+
+    @admin.display(description="Фильтр по каналам")
+    def channels_filter_link(self, obj: LegalEntity):
+        url = f"/core/channel/?legal_entity__id__exact={obj.id}"
+        return mark_safe(f'<a class="btn btn-info" href="{url}">Список каналов</a>')
+
+    @admin.display(description="Экспорт каналов")
+    def export_channels_link(self, obj: LegalEntity):
+        url = f"./{obj.id}/export-channels/"
+        return mark_safe(f'<a class="btn btn-success" href="{url}">Экспорт в CSV</a>')
+
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<uuid:object_id>/export-channels/",
+                self.admin_site.admin_view(self.export_channels_view),
+                name="core_legalentity_export_channels",
+            ),
+        ]
+        return custom_urls + urls
+
+    def export_channels_view(self, request, object_id):
+        obj = self.get_object(request, object_id)
+        if not obj:
+            return HttpResponse(status=404)
+
+        channels = list(obj.channels.filter(is_deleted=False))
+        balances = BalanceService.get_balance_for_channels(channels)
+
+        response = HttpResponse(content_type="text/csv")
+        filename = f"legal_entity_{obj.id}_channels.csv"
+        response["Content-Disposition"] = f'attachment; filename="{filename}"'
+
+        writer = csv.writer(response)
+        writer.writerow(["Channel ID", "Name", "TG ID", "Balance", "Frozen", "Available"])
+        for channel in channels:
+            cb = balances.get(str(channel.id), ChannelBalance(Decimal("0"), Decimal("0"), Decimal("0")))
+            writer.writerow([
+                channel.id,
+                channel.name,
+                channel.tg_id,
+                cb.balance,
+                cb.frozen,
+                cb.available,
+            ])
+
+        return response
 
 
 @register(ChannelTransaction)
@@ -1361,6 +1592,92 @@ class ChannelTransactionAdmin(admin.ModelAdmin):
         ),
     )
 
+
+@register(Payout)
+class PayoutAdmin(admin.ModelAdmin):
+    list_display = [
+        "id",
+        "legal_entity",
+        "amount",
+        "currency",
+        "period_start",
+        "period_end",
+        "status",
+        "created_at",
+    ]
+    list_filter = ["status", "currency", "created_at"]
+    search_fields = ["legal_entity__name", "legal_entity__short_name", "description"]
+    readonly_fields = ["id", "created_at", "updated_at"]
+    actions = ["mark_as_paid", "mark_as_pending", "mark_as_canceled"]
+
+    fieldsets = (
+        (
+            "Основное",
+            {
+                "fields": (
+                    "legal_entity",
+                    "amount",
+                    "currency",
+                    "status",
+                    "description",
+                )
+            },
+        ),
+        (
+            "Период",
+            {
+                "fields": (
+                    "period_start",
+                    "period_end",
+                )
+            },
+        ),
+        (
+            "Системные",
+            {
+                "classes": ["collapse"],
+                "fields": (
+                    "id",
+                    "created_at",
+                    "updated_at",
+                )
+            },
+        ),
+    )
+
+    def get_readonly_fields(self, request, obj=None):
+        ro = list(super().get_readonly_fields(request, obj))
+        if obj and obj.status != Payout.Status.DRAFT:
+            ro.extend(["legal_entity", "amount", "currency", "period_start", "period_end"])
+        return ro
+
+    def save_model(self, request, obj, form, change):
+        obj.full_clean()
+        super().save_model(request, obj, form, change)
+
+    @admin.action(description="Отметить как Выплачено")
+    def mark_as_paid(self, request, queryset):
+        for payout in queryset:
+            previous = payout.status
+            payout.status = Payout.Status.PAID
+            payout.save()
+            logger.info("Payout %s status %s->paid by %s", payout.id, previous, request.user)
+
+    @admin.action(description="Отметить как В обработке")
+    def mark_as_pending(self, request, queryset):
+        for payout in queryset:
+            previous = payout.status
+            payout.status = Payout.Status.PENDING
+            payout.save()
+            logger.info("Payout %s status %s->pending by %s", payout.id, previous, request.user)
+
+    @admin.action(description="Отменить выплату")
+    def mark_as_canceled(self, request, queryset):
+        for payout in queryset:
+            previous = payout.status
+            payout.status = Payout.Status.CANCELED
+            payout.save()
+            logger.info("Payout %s status %s->canceled by %s", payout.id, previous, request.user)
 
 @register(UserLoginToken)
 class UserLoginTokenAdmin(admin.ModelAdmin):

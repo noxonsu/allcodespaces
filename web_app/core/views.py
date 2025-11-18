@@ -7,6 +7,7 @@ from django.contrib.auth.views import LoginView
 from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
 from django.views.generic import TemplateView
+from django.db.models import Q
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
@@ -17,7 +18,7 @@ from rest_framework.viewsets import ModelViewSet
 from django.utils import timezone
 
 from core.filterset_classes import CampaignChannelFilterSet
-from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken
+from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken, LegalEntity, Payout
 from core.serializers import (
     ChannelSerializer,
     MessageSerializer,
@@ -27,7 +28,12 @@ from core.serializers import (
     ChannelAdminSerializer,
     MessagePreviewTokenSerializer,
     MessagePreviewResolveSerializer,
+    LegalEntitySerializer,
+    LegalEntityDetailSerializer,
+    ChannelBalanceSerializer,
+    PayoutSerializer,
 )
+from core.services import BalanceService
 from core.utils import get_template_side_data
 from web_app.app_settings import app_settings
 
@@ -320,18 +326,65 @@ class AboutView(TemplateView):
         return context
 
 
+class LegalEntityViewSet(ModelViewSet):
+    queryset = LegalEntity.objects.all()
+    serializer_class = LegalEntitySerializer
+    permission_classes = [AllowAny]
+    filter_backends = (DjangoFilterBackend,)
+
+    def get_serializer_class(self):
+        if getattr(self, "action", None) == "retrieve":
+            return LegalEntityDetailSerializer
+        return super().get_serializer_class()
+
+    @action(detail=True, methods=["GET"], url_path="channels")
+    def channels(self, request, *args, **kwargs):
+        legal_entity = self.get_object()
+        qs = legal_entity.channels.filter(is_deleted=False)
+
+        search = request.query_params.get("search")
+        if search:
+            qs = qs.filter(Q(name__icontains=search) | Q(username__icontains=search))
+
+        ordering = request.query_params.get("ordering") or "name"
+        allowed_ordering = {"name", "-name", "members_count", "-members_count", "created_at", "-created_at"}
+        if ordering in allowed_ordering:
+            qs = qs.order_by(ordering)
+
+        page = self.paginate_queryset(qs)
+        target_qs = page if page is not None else qs
+        balances = BalanceService.get_balance_for_channels(list(target_qs))
+
+        serializer = ChannelBalanceSerializer(
+            target_qs,
+            many=True,
+            context={"balances": balances},
+        )
+
+        if page is not None:
+            return self.get_paginated_response(serializer.data)
+        return Response({"count": len(serializer.data), "results": serializer.data})
+
+
+class PayoutViewSet(ModelViewSet):
+    queryset = Payout.objects.select_related("legal_entity")
+    serializer_class = PayoutSerializer
+    permission_classes = [AllowAny]
+    filter_backends = (DjangoFilterBackend,)
+    filterset_fields = ["legal_entity", "status", "currency"]
+
 
 def user_get_redirect_url(user):
-    next_page = '/core/campaignchannel/'
+    next_page = '/admin/core/campaignchannel/'
     if user.is_owner:
-        next_page = '/core/channel/'
+        next_page = '/admin/core/channel/'
     return next_page
 
 
 class CustomLoginView(LoginView):
     """Custom redirect user based on his role"""
     template_name = "admin/login.html"
-    next_page = '/core/campaignchannel/'
+    next_page = '/admin/core/campaignchannel/'
 
     def get_success_url(self):
         return user_get_redirect_url(self.request.user) or self.get_default_redirect_url()
@@ -342,7 +395,7 @@ def index_view(request):
     if request.user.is_authenticated:
         url = user_get_redirect_url(request.user)
     else:
-        url = '/core/campaignchannel/'
+        url = '/admin/'
 
     return HttpResponseRedirect(url)
 
