@@ -1,11 +1,11 @@
 import requests
-from django.db.models.signals import pre_save, post_save
+from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver, Signal
 from rest_framework.renderers import JSONRenderer
 from datetime import time
 
 from web_app.app_settings import app_settings
-from core.models import CampaignChannel, ChannelAdmin, Channel, ChannelPublicationSlot
+from core.models import CampaignChannel, ChannelAdmin, Channel, ChannelPublicationSlot, ChannelTransaction
 from web_app.logger import logger
 from .models_qs import change_channeladmin_group
 from .serializers import CampaignChannelSerializer
@@ -53,7 +53,15 @@ def send_message_to_channel_admin(instance: CampaignChannel) -> None:
             and instance.channel_admin.channels.filter(id=instance.channel.id).exists()
             and not instance.is_approved
         ):
-            data = JSONRenderer().render(CampaignChannelSerializer(instance).data)
+            payload = CampaignChannelSerializer(instance).data
+            payload["campaign_format"] = instance.campaign.format
+            payload["campaign_format_display"] = instance.campaign.get_format_display()
+            payload["scheduled_at"] = (
+                instance.message_publish_date.isoformat()
+                if instance.message_publish_date
+                else None
+            )
+            data = JSONRenderer().render(payload)
             response = requests.post(
                 f"{app_settings.DOMAIN_URI}/telegram/public-campaign-channel",
                 data=data,
@@ -154,3 +162,19 @@ def create_default_publication_slots(
 
         ChannelPublicationSlot.objects.bulk_create(slots_to_create, ignore_conflicts=True)
         logger.info(f"Created {len(slots_to_create)} default publication slots for channel {instance.name}")
+
+
+@receiver(post_save, sender=ChannelTransaction)
+@receiver(post_delete, sender=ChannelTransaction)
+def invalidate_channel_balance_cache(sender, instance, **kwargs):
+    """
+    CHANGE: Added signal to invalidate balance cache when transactions change
+    WHY: Required by ТЗ 1.1.2 - ensure balance cache is updated when operations change
+    QUOTE(ТЗ): "обеспечить кэширование/обновление при изменении операций"
+    REF: issue #22
+    """
+    from core.services import BalanceService
+
+    if instance.channel:
+        BalanceService.invalidate_cache(instance.channel)
+        logger.debug(f"Invalidated balance cache for channel {instance.channel.name}")
