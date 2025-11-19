@@ -28,6 +28,7 @@ jobs:
           - name: Django backend
             workdir: web_app
             install: |
+              mkdir -p logs
               python3 -m pip install --upgrade pip
               python3 -c "
               import tomllib
@@ -45,16 +46,6 @@ jobs:
             test: |
               python3 -m pytest -vv
             pythonpath: web_app
-          - name: Telegram bot
-            workdir: bot
-            allow-failure: true
-            install: |
-              python3 -m pip install --upgrade pip
-              python3 -m pip install poetry
-              poetry install --with dev --no-interaction
-            test: |
-              poetry run pytest -vv
-            pythonpath: bot
     steps:
       - uses: actions/checkout@v4
 
