@@ -28,16 +28,15 @@ jobs:
 
       - name: Run Django tests inside container
         run: |
-          docker compose -f web_app/docker-compose.yml up -d web-db redis
-          timeout 120 docker compose -f web_app/docker-compose.yml run --rm \
+          timeout 300 docker compose -f web_app/docker-compose.yml run --rm \
             --entrypoint "" \
-            -e DB_ENGINE=postgresql \
-            -e DB_HOST=web-db \
-            -e DB_PORT=5432 \
-            -e DB_NAME=telewin_app_db \
-            -e DB_USERNAME=telewin_user_client \
-            -e DB_PASS=telewin_user_client_password \
-            web-app python3 manage.py test
+            -e DB_ENGINE=sqlite3 \
+            -e DB_HOST= \
+            -e DB_PORT= \
+            -e DB_NAME=/app/test_db.sqlite3 \
+            -e DB_USERNAME= \
+            -e DB_PASS= \
+            web-app bash -lc "pip install --upgrade pip && pip install .[dev] && python3 manage.py test"
 
       - name: Cleanup docker compose
         if: always()
