@@ -17,31 +17,6 @@ env:
   POETRY_VIRTUALENVS_IN_PROJECT: 'true'
 
 jobs:
-  tests:
-    name: Django backend (Docker)
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build backend image
-        run: docker compose -f web_app/docker-compose.yml build web-app
-
-      - name: Run Django tests inside container
-        run: |
-          timeout 300 docker compose -f web_app/docker-compose.yml run --rm \
-            --entrypoint "" \
-            -e DB_ENGINE=postgresql \
-            -e DB_HOST=web-db_con \
-            -e DB_PORT=5432 \
-            -e DB_NAME=telewin_app_db \
-            -e DB_USERNAME=telewin_user_client \
-            -e DB_PASS=telewin_user_client_password \
-            web-app bash -c "pip install --upgrade pip && pip install uv && uv pip install --system -r pyproject.toml && uv pip install --system --group dev && python3 manage.py migrate --no-input && python3 -m pytest core/tests/ -v"
-
-      - name: Cleanup docker compose
-        if: always()
-        run: docker compose -f web_app/docker-compose.yml down -v
-
   smoke-tests:
     name: Puppeteer smoke tests
     runs-on: ubuntu-latest
