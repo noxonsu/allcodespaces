@@ -5,14 +5,17 @@ CHANGE: Added tests for media plan selection
 WHY: Issue #48 requires campaign selection for media plan generation
 REF: #48
 """
-from django.test import TestCase
+import os
+import shutil
+import tempfile
+
+from django.test import RequestFactory, TestCase, override_settings
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.fallback import FallbackStorage
-from django.test import RequestFactory
 from rest_framework.test import APIClient
 
 from core.admin import CampaignAdmin
-from core.models import Campaign
+from core.models import Campaign, MediaPlanGeneration
 from core.tests.factories import CampaignFactory, UserFactory, MessageFactory
 
 
@@ -86,6 +89,13 @@ class MediaPlanAPITests(TestCase):
         self.user = UserFactory(is_staff=True, is_superuser=True)
         self.client.force_authenticate(user=self.user)
         self.url = "/api/campaign/generate-media-plan/"
+        self._media_root = tempfile.mkdtemp(prefix="media_plan_api_")
+        self._override = override_settings(MEDIA_ROOT=self._media_root)
+        self._override.enable()
+
+    def tearDown(self):
+        self._override.disable()
+        shutil.rmtree(self._media_root, ignore_errors=True)
 
     def test_generate_media_plan_endpoint_exists(self):
         """Endpoint should be accessible."""
@@ -110,8 +120,11 @@ class MediaPlanAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertEqual(data['status'], 'success')
-        self.assertEqual(data['campaign_count'], 2)
-        self.assertEqual(len(data['campaign_ids']), 2)
+        self.assertTrue(data.get('download_url'))
+        self.assertEqual(len(data['history']), 1)
+        record = MediaPlanGeneration.objects.get()
+        self.assertEqual(record.status, MediaPlanGeneration.Status.SUCCESS)
+        self.assertTrue(os.path.exists(record.file.path))
 
     def test_generate_media_plan_without_campaign_ids(self):
         """Endpoint should return error when campaign_ids missing."""
@@ -119,8 +132,7 @@ class MediaPlanAPITests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         data = response.json()
-        self.assertEqual(data['status'], 'error')
-        self.assertIn('ID кампаний', data['message'])
+        self.assertIn('campaign_ids', data)
 
     def test_generate_media_plan_with_empty_list(self):
         """Endpoint should return error when campaign_ids is empty."""
@@ -132,7 +144,7 @@ class MediaPlanAPITests(TestCase):
 
         self.assertEqual(response.status_code, 400)
         data = response.json()
-        self.assertEqual(data['status'], 'error')
+        self.assertIn('campaign_ids', data)
 
     def test_generate_media_plan_with_nonexistent_campaigns(self):
         """Endpoint should return error when campaigns not found."""
@@ -161,10 +173,10 @@ class MediaPlanAPITests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        # Should only include active campaign
-        self.assertEqual(data['campaign_count'], 1)
-        self.assertIn(str(active_campaign.id), [str(id) for id in data['campaign_ids']])
-        self.assertNotIn(str(archived_campaign.id), [str(id) for id in data['campaign_ids']])
+        campaigns_list = [item['id'] for item in data['history'][0]['campaigns']]
+        self.assertIn(str(active_campaign.id), campaigns_list)
+        self.assertNotIn(str(archived_campaign.id), campaigns_list)
+        self.assertIn(str(archived_campaign.id), data.get('missing_campaign_ids', []))
 
     def test_generate_media_plan_requires_authentication(self):
         """Endpoint should require authentication."""
@@ -212,9 +224,10 @@ class MediaPlanSelectionIntegrationTests(TestCase):
         # Verify response
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        self.assertEqual(data['campaign_count'], 3)
-        self.assertIn('note', data)  # Should mention issue #49
-        self.assertIn('#49', data['note'])
+        self.assertIn('generation_id', data)
+        self.assertTrue(data.get('download_url'))
+        self.assertEqual(len(data['history'][0]['campaigns']), 3)
+        self.assertEqual(data['totals']['campaigns'], 3)
 
     def test_mixed_campaigns_selection(self):
         """Test selection with mix of active and archived campaigns."""
@@ -237,5 +250,5 @@ class MediaPlanSelectionIntegrationTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         data = response.json()
-        # Should only include active campaigns
-        self.assertEqual(data['campaign_count'], 2)
+        self.assertEqual(len(data['history'][0]['campaigns']), 2)
+        self.assertIn(str(archived[0].id), data.get('missing_campaign_ids', []))

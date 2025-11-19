@@ -18,62 +18,22 @@ env:
 
 jobs:
   tests:
-    name: ${{ matrix.name }} tests
+    name: Django backend (Docker)
     runs-on: ubuntu-latest
-    continue-on-error: ${{ matrix.allow-failure || false }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: Django backend
-            workdir: web_app
-            install: |
-              mkdir -p logs
-              python3 -m pip install --upgrade pip
-              python3 -c "
-              import tomllib
-              from pathlib import Path
-
-              data = tomllib.loads(Path('pyproject.toml').read_text())
-              deps = data.get('project', {}).get('dependencies', [])
-              dev = data.get('dependency-groups', {}).get('dev', [])
-
-              with Path('requirements-ci.txt').open('w', encoding='utf-8') as req_file:
-                  for requirement in [*deps, *dev]:
-                      req_file.write(f'{requirement}\n')
-              "
-              python3 -m pip install -r requirements-ci.txt
-            test: |
-              python3 -m pytest -vv
-            pythonpath: web_app
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
+      - name: Build backend image
+        run: docker compose -f web_app/docker-compose.yml build web-app
 
-      - name: Install dependencies
-        working-directory: ${{ matrix.workdir }}
-        run: ${{ matrix.install }}
+      - name: Run Django tests inside container
+        run: |
+          docker compose -f web_app/docker-compose.yml up -d web-db redis
+          docker compose -f web_app/docker-compose.yml run --rm web-app python3 manage.py test
 
-      - name: Run pytest
-        working-directory: ${{ matrix.workdir }}
-        env:
-          PYTHONPATH: ${{ github.workspace }}/${{ matrix.pythonpath }}
-          DJANGO_SETTINGS_MODULE: web_app.settings
-          BOT_TOKEN: fake-token-for-ci
-          SCHEMA_DOMAIN: https://example.com
-          DB_ENGINE: sqlite3
-          DB_NAME: ':memory:'
-          DB_USERNAME: ''
-          DB_PASS: ''
-          DB_HOST: ''
-          DB_PORT: ''
-          SECRET_KEY: fake-secret-key-for-ci-tests
-          DEBUG: 'False'
-        run: ${{ matrix.test }}
+      - name: Cleanup docker compose
+        if: always()
+        run: docker compose -f web_app/docker-compose.yml down -v
 
   smoke-tests:
     name: Puppeteer smoke tests

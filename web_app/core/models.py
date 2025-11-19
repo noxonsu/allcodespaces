@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from web_app.logger import logger
-from django.contrib.postgres.fields import ArrayField
+
 from django.db.models import JSONField, Sum, Avg, F, Q
 from django.utils.translation import gettext_lazy as _
 from rest_framework.request import Request
@@ -485,14 +485,10 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         help_text="Канал скрыт из списков и расчётов выплат",
     )
     cpm = models.PositiveIntegerField("CPM", default=0)
-    supported_formats = ArrayField(
-        base_field=models.CharField(
-            max_length=32,
-            choices=PlacementFormat.choices,
-        ),
-        blank=True,
+    supported_formats = models.JSONField(
         default=default_supported_formats,
         verbose_name="Поддерживаемые форматы",
+        blank=True,
     )
     auto_approve_publications = models.BooleanField(
         default=False,
@@ -679,15 +675,13 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         related_name="campaigns",
         verbose_name=_("message"),
     )
-    white_list = ArrayField(
-        base_field=models.CharField(max_length=250),
+    white_list = models.JSONField(
         blank=True,
         default=list,
         verbose_name="разрешённые слова",
         help_text="разделитель , (если пусто то не будет фильтровать)",
     )
-    black_list = ArrayField(
-        base_field=models.CharField(max_length=250),
+    black_list = models.JSONField(
         blank=True,
         default=list,
         verbose_name="запрещённые слова",
@@ -744,6 +738,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
     @property
     def total_clicks(self):
         return self.active_campaign_channels.aggregate(Sum("clicks", default=0))["clicks__sum"]
+
 
     @property
     def total_impressions_fact(self):
@@ -1960,6 +1955,89 @@ class PublicationRequest(ExportModelOperationsMixin("publication_request"), Base
 
     def __str__(self):
         return f"{self.channel.name} — {self.get_format_display()} — {self.get_status_display()}"
+
+
+class MediaPlanGeneration(ExportModelOperationsMixin("mediaplangeneration"), BaseModel):
+    """
+    CHANGE: Track each media-plan export attempt with metadata
+    WHY: Issues #49-50 require history, logging and error reporting
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "В обработке"
+        SUCCESS = "success", "Готов"
+        ERROR = "error", "Ошибка"
+
+    requested_by = models.ForeignKey(
+        "User",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="media_plan_generations",
+        verbose_name="Кем запрошен",
+    )
+    campaigns = models.ManyToManyField(
+        "Campaign",
+        related_name="media_plan_generations",
+        verbose_name="Кампании",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Статус",
+    )
+    file = models.FileField(
+        upload_to="media_plans/",
+        null=True,
+        blank=True,
+        verbose_name="Файл",
+    )
+    error_message = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Сообщение об ошибке",
+    )
+    completed_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Дата завершения",
+    )
+    rows_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Количество строк",
+    )
+    metadata = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Метаданные",
+        help_text="Краткая сводка по кампаниям/стоимости",
+    )
+
+    class Meta:
+        verbose_name = "Генерация медиаплана"
+        verbose_name_plural = "Генерации медиапланов"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Медиаплан от {self.created_at:%d.%m.%Y %H:%M}"
+
+    def mark_success(self, rows_count: int, metadata: dict | None = None) -> None:
+        self.status = self.Status.SUCCESS
+        self.rows_count = rows_count
+        self.completed_at = timezone.now()
+        self.error_message = ""
+        if metadata is not None:
+            self.metadata = metadata
+
+    def mark_error(self, error: str) -> None:
+        self.status = self.Status.ERROR
+        self.completed_at = timezone.now()
+        self.error_message = error
+
+    @property
+    def campaign_names(self) -> list[str]:
+        return list(self.campaigns.values_list("name", flat=True))
 
 
 class AccountType(models.TextChoices):

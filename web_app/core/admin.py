@@ -1,4 +1,5 @@
 import csv
+import json
 from decimal import Decimal
 try:
     from typing import Self  # type: ignore
@@ -48,6 +49,7 @@ from .models import (
     ChannelTransaction,
     Payout,
     PublicationRequest,
+    MediaPlanGeneration,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -829,6 +831,10 @@ class CampaignAdmin(admin.ModelAdmin):
     def total_channels(self, instance: Campaign):
         return instance.total_channels_count
 
+    @admin.display(description='ПП')
+    def total_planed_views(self, instance: Campaign):
+        return instance.total_planed_views()
+
     @admin.display(description='ПФ')
     def total_planed_fact(self,  instance: Campaign):
         return instance.total_impressions_fact
@@ -872,6 +878,10 @@ class CampaignAdmin(admin.ModelAdmin):
         return mark_safe(
             f'<a class="btn btn-info" href="/admin/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
         )
+
+    @admin.display(description="сред. СРМ (руб.)")
+    def avg_cpm(self, obj: Campaign):
+        return obj.avg_cpm()
 
     def _remove_changelist_delete_obj(self, actions_dict):
         del actions_dict["delete_selected"]
@@ -1938,6 +1948,68 @@ class PublicationRequestAdmin(admin.ModelAdmin):
     def has_add_permission(self, request):
         """Запрещаем создание через админку"""
         return False
+
+
+@admin.register(MediaPlanGeneration)
+class MediaPlanGenerationAdmin(admin.ModelAdmin):
+    """
+    CHANGE: Added read-only admin for media plan generation history
+    WHY: Issue #50 requires auditing who downloaded media plans and when
+    """
+
+    list_display = [
+        "created_at",
+        "requested_by",
+        "status",
+        "rows_count",
+        "campaigns_display",
+        "file_link",
+    ]
+    list_filter = ["status", "created_at"]
+    search_fields = ["requested_by__username", "campaigns__name"]
+    ordering = ["-created_at"]
+    readonly_fields = [
+        "requested_by",
+        "status",
+        "rows_count",
+        "file",
+        "file_link",
+        "error_message",
+        "metadata_pretty",
+        "campaigns_display",
+        "created_at",
+        "completed_at",
+    ]
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    @admin.display(description="Кампании")
+    def campaigns_display(self, obj: MediaPlanGeneration):
+        names = obj.campaign_names
+        if not names:
+            return "—"
+        if len(names) > 3:
+            return ", ".join(names[:3]) + f" … (+{len(names) - 3})"
+        return ", ".join(names)
+
+    @admin.display(description="Ссылка на файл")
+    def file_link(self, obj: MediaPlanGeneration):
+        if obj.file:
+            return format_html("<a href='{}' target='_blank'>Скачать</a>", obj.file.url)
+        return "—"
+
+    @admin.display(description="Метаданные")
+    def metadata_pretty(self, obj: MediaPlanGeneration):
+        if not obj.metadata:
+            return "—"
+        data = json.dumps(obj.metadata, ensure_ascii=False, indent=2)
+        return format_html("<pre style='white-space: pre-wrap;'>{}</pre>", data)
 
     def has_delete_permission(self, request, obj=None):
         """Запрещаем удаление логов"""

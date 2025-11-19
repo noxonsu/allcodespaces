@@ -118,6 +118,12 @@
 
 планировалось добавить CI/CD.
 
+## Генерация медиапланов
+- Endpoint `POST /api/campaign/generate-media-plan/` принимает `campaign_ids` (UUID) и возвращает ссылку на Excel-файл + историю последних запросов. Авторизация — staff пользователь.
+- Excel формируется по шаблону `web_app/core/media_plan/template.py` через `MediaPlanGenerator` (openpyxl). Файлы складываются в `MEDIA_ROOT/media_plans/`.
+- Все генерации логируются в модели `MediaPlanGeneration`; посмотреть их можно в админке («Генерации медиапланов») вместе с ошибками и метаданными (ID кампаний, агрегаты).
+- API сразу отдаёт `history` по текущему пользователю и `missing_campaign_ids`, если часть кампаний архивирована/не найдена.
+
 ## Auto-Testing Setup
 
 Проект оснащен автоматизированными smoke-тестами на Puppeteer для проверки доступности основных экранов.

@@ -5,7 +5,7 @@ from factory.django import DjangoModelFactory
 import factory.random
 from faker import Faker
 
-from core.models import Campaign, ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot, ChannelTransaction
+from core.models import Campaign, ChannelAdmin, Channel, PlacementFormat, default_supported_formats, ChannelPublicationSlot, ChannelTransaction, MediaPlanGeneration
 
 faker = Faker()
 
@@ -223,3 +223,19 @@ class ChannelTransactionFactory(DjangoModelFactory):
         # Отрицательные операции (FREEZE, PAYOUT, COMMISSION, ADJUSTMENT)
         else:
             return -Decimal(str(random.uniform(100, 10000))).quantize(Decimal("0.01"))
+
+
+class MediaPlanGenerationFactory(DjangoModelFactory):
+    class Meta:
+        model = MediaPlanGeneration
+
+    requested_by = factory.SubFactory(UserFactory)
+    status = MediaPlanGeneration.Status.PENDING
+
+    @factory.post_generation
+    def campaigns(self, created, extracted, **kwargs):
+        if not created:
+            return
+        campaigns = extracted or [CampaignFactory()]
+        for campaign in campaigns:
+            self.campaigns.add(campaign)

@@ -4,10 +4,12 @@ from datetime import timedelta
 import requests
 from django.contrib.auth import login
 from django.contrib.auth.views import LoginView
+from django.core.files.base import ContentFile
+from django.db.models import Q
 from django.http import HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.views.generic import TemplateView
-from django.db.models import Q
 from django_filters.rest_framework.backends import DjangoFilterBackend
 from rest_framework import status
 from rest_framework.decorators import action
@@ -15,10 +17,21 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
-from django.utils import timezone
 
 from core.filterset_classes import CampaignChannelFilterSet
-from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken, LegalEntity, Payout, Campaign
+from core.media_plan import MediaPlanGenerator, MediaPlanGenerationError
+from core.models import (
+    Channel,
+    Message,
+    CampaignChannel,
+    ChannelAdmin,
+    MessagePreviewToken,
+    UserLoginToken,
+    LegalEntity,
+    Payout,
+    Campaign,
+    MediaPlanGeneration,
+)
 from web_app.logger import logger
 from core.metrics import (
     publication_requests_total,
@@ -45,6 +58,9 @@ from core.serializers import (
     LegalEntityDetailSerializer,
     ChannelBalanceSerializer,
     PayoutSerializer,
+    CampaignSerializer,
+    MediaPlanGenerationRequestSerializer,
+    MediaPlanGenerationHistorySerializer,
 )
 from core.ledger_service import DoubleEntryLedgerService as BalanceService
 from core.utils import get_template_side_data
@@ -680,12 +696,29 @@ class CampaignViewSet(ModelViewSet):
     """
     queryset = Campaign.objects.filter(is_archived=False)
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post']
+    http_method_names = ["get", "post"]
+    serializer_class = CampaignSerializer
+    history_limit = 5
 
     def get_serializer_class(self):
-        # Will be implemented in issue #49
-        from rest_framework import serializers
-        return serializers.Serializer
+        if getattr(self, "action", None) == "generate_media_plan":
+            return MediaPlanGenerationRequestSerializer
+        return super().get_serializer_class()
+
+    def _build_history(self, request):
+        history_qs = (
+            MediaPlanGeneration.objects.filter(
+                requested_by=request.user if request.user.is_authenticated else None
+            )
+            .prefetch_related("campaigns")
+            .order_by("-created_at")[: self.history_limit]
+        )
+        serializer = MediaPlanGenerationHistorySerializer(
+            history_qs,
+            many=True,
+            context={"request": request},
+        )
+        return serializer.data
 
     @action(detail=False, methods=["POST"], url_path="generate-media-plan")
     def generate_media_plan(self, request, *args, **kwargs):
@@ -696,32 +729,80 @@ class CampaignViewSet(ModelViewSet):
         WHY: Issue #48 requires API endpoint to receive selected campaigns
         REF: #48
         """
-        campaign_ids = request.data.get('campaign_ids', [])
-
-        if not campaign_ids:
-            return Response(
-                {"status": "error", "message": "Не указаны ID кампаний"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        campaign_ids = serializer.validated_data["campaign_ids"]
 
         campaigns = Campaign.objects.filter(id__in=campaign_ids, is_archived=False)
-
         if not campaigns.exists():
             return Response(
                 {"status": "error", "message": "Кампании не найдены"},
-                status=status.HTTP_404_NOT_FOUND
+                status=status.HTTP_404_NOT_FOUND,
             )
 
-        # Store campaign IDs for media plan generation (issue #49)
-        logger.info(f"Media plan requested for {campaigns.count()} campaigns: {campaign_ids}")
+        found_ids = {str(campaign_id) for campaign_id in campaigns.values_list("id", flat=True)}
+        requested_ids = {str(campaign_id) for campaign_id in campaign_ids}
+        missing = requested_ids - found_ids
 
-        return Response(
-            {
-                "status": "success",
-                "message": f"Выбрано кампаний: {campaigns.count()}",
-                "campaign_count": campaigns.count(),
-                "campaign_ids": list(campaigns.values_list('id', flat=True)),
-                "note": "Генерация медиаплана будет реализована в issue #49"
-            },
-            status=status.HTTP_200_OK
+        generation = MediaPlanGeneration.objects.create(
+            requested_by=request.user if request.user.is_authenticated else None,
         )
+        generation.campaigns.set(campaigns)
+
+        generator = MediaPlanGenerator()
+        try:
+            result = generator.generate(campaigns)
+        except MediaPlanGenerationError as exc:
+            generation.mark_error(str(exc))
+            generation.save(update_fields=["status", "completed_at", "error_message", "updated_at"])
+            logger.warning("Media plan generation failed: %s", exc)
+            return Response(
+                {"status": "error", "message": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as exc:  # noqa: BLE001
+            generation.mark_error("Внутренняя ошибка генерации")
+            generation.error_message = str(exc)
+            generation.save(update_fields=["status", "completed_at", "error_message", "updated_at"])
+            logger.exception("Unexpected error while generating media plan")
+            return Response(
+                {
+                    "status": "error",
+                    "message": "Не удалось сформировать медиаплан. Попробуйте позже.",
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        storage_name = f"media_plans/{generation.id}_{result.filename}"
+        generation.file.save(storage_name, ContentFile(result.content), save=False)
+        metadata = {
+            "campaign_ids": list(found_ids),
+            "campaign_names": list(campaigns.values_list("name", flat=True)),
+            "totals": result.totals,
+        }
+        if missing:
+            metadata["missing_campaign_ids"] = list(missing)
+        generation.mark_success(len(result.rows), metadata=metadata)
+        generation.save()
+
+        history = self._build_history(request)
+        download_url = history[0]["download_url"] if history else None
+
+        logger.info(
+            "Media plan generated for %s campaigns. record=%s",
+            campaigns.count(),
+            generation.id,
+        )
+
+        response_payload = {
+            "status": "success",
+            "message": f"Сформирован медиаплан для {campaigns.count()} кампаний",
+            "generation_id": str(generation.id),
+            "download_url": download_url,
+            "totals": result.totals,
+            "history": history,
+        }
+        if missing:
+            response_payload["missing_campaign_ids"] = list(missing)
+
+        return Response(response_payload, status=status.HTTP_200_OK)

@@ -19,6 +19,7 @@ from core.models import (
     ChannelTransaction,
     Payout,
     ChannelPublicationSlot,
+    MediaPlanGeneration,
 )
 from core.utils import validate_channel_avtar_url
 from core.ledger_service import DoubleEntryLedgerService as BalanceService, ChannelBalance
@@ -506,6 +507,56 @@ class MessagePreviewTokenSerializer(serializers.ModelSerializer):
 
 class MessagePreviewResolveSerializer(serializers.Serializer):
     token = serializers.CharField()
+
+
+class MediaPlanGenerationRequestSerializer(serializers.Serializer):
+    """Serializer used by /campaign/generate-media-plan/ endpoint."""
+
+    campaign_ids = serializers.ListField(
+        child=serializers.UUIDField(),
+        allow_empty=False,
+        help_text="Список идентификаторов кампаний",
+    )
+
+
+class MediaPlanGenerationHistorySerializer(serializers.ModelSerializer):
+    """History item returned in API response."""
+
+    campaigns = serializers.SerializerMethodField()
+    download_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MediaPlanGeneration
+        fields = [
+            "id",
+            "status",
+            "rows_count",
+            "created_at",
+            "completed_at",
+            "download_url",
+            "campaigns",
+            "metadata",
+            "error_message",
+        ]
+        read_only_fields = fields
+
+    def get_campaigns(self, obj: MediaPlanGeneration):
+        return [
+            {
+                "id": str(campaign.id),
+                "name": campaign.name,
+            }
+            for campaign in obj.campaigns.all()
+        ]
+
+    def get_download_url(self, obj: MediaPlanGeneration):
+        if not obj.file:
+            return None
+        request = self.context.get("request")
+        url = obj.file.url
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class CampaignSerializer(serializers.ModelSerializer):
