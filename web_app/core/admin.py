@@ -16,6 +16,7 @@ from django.forms import Select
 from django.http import JsonResponse, FileResponse, HttpResponseRedirect, HttpResponse
 from django.urls import path, reverse
 from django.utils.safestring import mark_safe
+from django.utils.html import format_html
 
 from web_app.logger import logger
 from core.services import BalanceService, ChannelBalance
@@ -1023,6 +1024,34 @@ class CampaignAdmin(admin.ModelAdmin):
             )
 
 
+class MessagePreviewTokenInline(admin.TabularInline):
+    """
+    Inline для отображения истории предпросмотров креатива.
+
+    CHANGE: Added inline for preview tokens history in Message admin
+    WHY: Issue #53 requires preview history to be visible in message admin
+    REF: #53
+    """
+    model = MessagePreviewToken
+    extra = 0
+    can_delete = False
+    readonly_fields = ["token", "created_by", "created_at", "expires_at", "used_at", "status_display"]
+    fields = ["created_by", "created_at", "expires_at", "used_at", "status_display"]
+
+    def status_display(self, obj):
+        """Display token status with color."""
+        if obj.used_at:
+            return format_html('<span style="color: green;">✓ Использован</span>')
+        elif obj.is_expired:
+            return format_html('<span style="color: red;">✗ Истёк</span>')
+        else:
+            return format_html('<span style="color: blue;">⏳ Активен</span>')
+    status_display.short_description = "Статус"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
 @register(Message)
 class MessageAdmin(admin.ModelAdmin):
     class Media:
@@ -1038,6 +1067,7 @@ class MessageAdmin(admin.ModelAdmin):
         "display_image_thumbil",
     ]
     form = MessageModelForm
+    inlines = [MessagePreviewTokenInline]  # CHANGE: Added preview history inline
 
     fields = [
         "name",
