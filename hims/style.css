@@ -1,0 +1,11 @@
+/*
+ Theme Name: Him Partners Theme
+ Author: Grok 3
+ Version: 1.0
+ Description: A custom WordPress theme for Hims website
+ Text Domain: hims
+*/
+
+.him-in-stock__list-item {
+    height: 100%;
+}

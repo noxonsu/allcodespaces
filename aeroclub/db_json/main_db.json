@@ -1,0 +1,74 @@
+{
+  "users": [
+    {
+      "id": "de7686e1-7d02-4432-ae6d-e95a3d897a42",
+      "login": "your_admin_login",
+      "hashed_password": "$2b$12$MHD5X902Js2AsmKQS/Z39uSKxe/PZ5ox2ofey0Eq4/nt3vxC7vYR6"
+    },
+    {
+      "id": "e255a08f-685a-43b3-8a7b-00cdf05493af",
+      "login": "megalogin",
+      "hashed_password": "$2b$12$9E0Y73SJorccon89C0T2TefmQFJcWbFiXRopPZM0VzI1jiu2jYCxK"
+    }
+  ],
+  "locations": [
+    {
+      "id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+      "numeric_id": 1001,
+      "address": "\u043c\u043e\u0441\u043a\u0432\u0430",
+      "qr_code_link": "https://t.me/aeroclubappbot/?start=1001"
+    },
+    {
+      "id": "ea129689-efe6-42cd-b2c1-4246f5a590f1",
+      "numeric_id": 1002,
+      "address": "\u043f\u0438\u0442\u0435\u0440",
+      "qr_code_link": "https://t.me/aeroclubappbot/?start=1002"
+    },
+    {
+      "id": "6f608ee0-6a54-4e3f-bc80-f9f19e4d6895",
+      "numeric_id": 1003,
+      "address": "\u0438\u043c\u0441",
+      "qr_code_link": "https://t.me/aeroclubappbot/?start=1003"
+    }
+  ],
+  "menu_items": [
+    {
+      "id": "482d8dba-f894-4720-95e5-835af11d7f26",
+      "name": "\u043b\u043e\u0433\u043e\u0442\u0438\u043f",
+      "image_filename": "b57d0b94-2587-46ac-b7e3-32b27213aa34_swap logo.png",
+      "price": 3333.0
+    },
+    {
+      "id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd",
+      "name": "\u043a\u043e\u0444\u0435 \u0447\u0435\u0440\u043d\u044b\u0439",
+      "image_filename": "67788e3d-5324-4f57-9a74-b20472a878ba_2cd96672e2f5e16292666ec7a36d0b579a9dd662.png",
+      "price": 2322.0
+    },
+    {
+      "id": "49fd90e5-7dae-4d1d-9d0d-a2e2c5450305",
+      "name": "\u043a\u043e\u0444\u0435 \u0441 \u043c\u043e\u043b\u043e\u043a\u043e\u043c",
+      "image_filename": "1bf72a06-e846-4720-9a40-d4169c7d4cec_New Project.png",
+      "price": 22.0
+    },
+    {
+      "id": "561abefd-0eba-4798-9718-86e297422910",
+      "name": "\u0445\u0440\u044e",
+      "image_filename": "823ee9bc-cbf0-4821-9889-18515cc60415_translated_photo_2024-06-10_09-07-24 (4).jpg",
+      "price": 222.0
+    }
+  ],
+  "location_menu_associations": [
+    {
+      "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+      "menu_item_id": "d10613c3-5ae6-4f3a-b8d4-83b25d4e37fd"
+    },
+    {
+      "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+      "menu_item_id": "49fd90e5-7dae-4d1d-9d0d-a2e2c5450305"
+    },
+    {
+      "location_id": "66b3a590-040a-4131-83fe-0e0eb1ce0340",
+      "menu_item_id": "561abefd-0eba-4798-9718-86e297422910"
+    }
+  ]
+}

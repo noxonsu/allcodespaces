@@ -1,0 +1,243 @@
+.client-app-page {
+  font-family: 'Tilda Sans', sans-serif;
+  padding: 10px; /* Уменьшаем отступ от границ экрана */
+  background-color: #fff; /* Assuming a white background for the page */
+  color: #181A1B; /* Default text color from Figma (textDark) */
+}
+
+.client-app-page h1 {
+  text-align: center;
+  font-size: 24px; /* Adjust as needed */
+  margin-bottom: 20px;
+  color: #181A1B; /* textDark */
+}
+
+.product-list-container {
+  max-width: 400px; /* Approx width for two 174px cards + gap */
+  margin: 0 auto; /* Center the container */
+  padding: 0 10px; /* Добавляем горизонтальный отступ для контейнера */
+}
+
+.product-list {
+  display: flex; /* Используем flexbox */
+  flex-wrap: wrap; /* Разрешаем перенос элементов на новую строку */
+  justify-content: center; /* Центрируем карточки */
+  gap: 10px; /* Отступ между карточками */
+  padding: 0; /* Убираем горизонтальный отступ, он будет у product-list-container */
+}
+
+.product-card {
+  width: calc(50% - 15px); /* Две колонки с учетом отступа */
+  max-width: 174px; /* Figma */
+  height: 232px; /* Figma */
+  border-radius: 16px; /* Figma */
+  background-color: #f7f7f7; /* Figma: rgb(0.97, 0.97, 0.97) */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* To respect border-radius for children */
+  padding-bottom: 20px; /* Увеличиваем отступ снизу для кнопок */
+}
+
+.product-card:hover {
+  transform: translateY(-5px);
+}
+
+.product-image-container {
+  width: 174px; /* Figma */
+  height: 174px; /* Figma */
+  position: relative; /* For absolute positioning of overlay and name */
+  border-radius: 16px 16px 0 0; /* Match top corners of card */
+  overflow: hidden; /* Ensure image respects border radius */
+  margin-bottom: 8px; /* Add space between image and controls */
+}
+
+.product-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Figma: scaleMode: "FILL" */
+}
+
+.product-image-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #e0e0e0;
+  color: #757575;
+  font-size: 14px;
+  text-align: center;
+  border-radius: 16px 16px 0 0; /* Match top corners of card */
+}
+
+.image-gradient-overlay { /* Renamed from .product-image-container .image-gradient-overlay for clarity */
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 70%; /* Adjust height of gradient as needed */
+  border-radius: 0 0 16px 16px; /* Match bottom corners of image container */
+  background: linear-gradient(
+    to bottom,
+    rgba(27, 22, 21, 0) 0%, /* Figma: r: 0.1058, g: 0.0823, b: 0.0823, a: 0 */
+    rgba(27, 22, 21, 0.7) 100% /* Figma: r: 0.1058, g: 0.0823, b: 0.0823, a: 1 (opacity 0.7 on gradient) */
+  );
+  pointer-events: none; /* Allows clicks to pass through to image if needed */
+}
+
+.product-name {
+  position: absolute;
+  bottom: 12px; /* Figma: y:142, image_height:174 => 174-142-20(text_height_approx) is not 12. Let's use Figma's y directly relative to image container bottom. 174 - 142 = 32 from top of text to bottom of image. Text height 20. So 32-20 = 12px from bottom of text to bottom of image. */
+  left: 0; /* Figma: x:12, but text is centered */
+  width: 100%; /* Figma: width:146, but text is centered */
+  text-align: center; /* Figma */
+  font-size: 17px; /* Figma */
+  font-family: 'Tilda Sans', sans-serif; /* Figma */
+  color: #fff; /* Figma */
+  padding: 0 12px; /* To prevent text touching edges if name is long */
+  box-sizing: border-box;
+  pointer-events: none; /* To allow clicks on image if needed */
+}
+
+.product-controls {
+  display: flex;
+  justify-content: space-between; /* Distribute items */
+  align-items: center;
+  padding: 0 12px; /* Removed top/bottom padding, now handled by margin on image and card flex layout */
+  min-height: 36px; /* Figma */
+  box-sizing: border-box;
+  flex-shrink: 0; /* Prevent controls from shrinking */
+  gap: 8px; /* Добавляем отступ между элементами управления */
+  margin-top: auto; /* Отталкиваем controls вниз */
+}
+
+.product-controls button {
+  width: 36px; /* Figma */
+  height: 36px; /* Figma */
+  border-radius: 8px; /* Figma */
+  background-color: #fff; /* Figma */
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  font-size: 20px; /* For +/- symbols */
+  color: #181A1B; /* textDark for symbols */
+  flex-shrink: 0; /* Предотвращаем сжатие */
+  flex-basis: 36px; /* Устанавливаем базовый размер */
+}
+
+.product-controls button:disabled {
+  background-color: #fff; /* Figma: Frame 82 (minus button) opacity 0.4 on white */
+  opacity: 0.4; /* Figma */
+  cursor: not-allowed;
+}
+
+.product-controls input[type="text"] {
+  width: 62px; /* Figma */
+  height: 36px; /* Figma */
+  border-radius: 8px; /* Figma */
+  border: 1px solid rgba(27, 22, 21, 0.12); /* Figma: textDark with 12% opacity */
+  background-color: #fff; /* Ensure input background is white */
+  text-align: center; /* Figma */
+  font-size: 17px; /* Figma */
+  font-family: 'Tilda Sans', sans-serif; /* Figma */
+  color: #181A1B; /* Figma: textDark */
+  -moz-appearance: textfield; /* Firefox */
+  appearance: textfield;
+  padding: 0; /* Remove browser default padding */
+  flex-grow: 1; /* Позволяет инпуту занимать доступное пространство */
+}
+
+.product-controls input[type="text"]::-webkit-inner-spin-button,
+.product-controls input[type="text"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.client-app-footer {
+  margin-top: 30px;
+  text-align: center;
+}
+
+.order-button {
+  background-color: #FF5248; /* accentRed */
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  font-size: 18px;
+  font-family: 'Tilda Sans', sans-serif;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.order-button:hover {
+  background-color: #e0443b; /* Darker shade of accentRed */
+}
+
+/* Placeholder styling for icons if not using SVG components directly */
+.product-controls button .icon-minus::before {
+  content: '-';
+}
+.product-controls button .icon-add::before {
+  content: '+';
+}
+
+.client-app-menu-items {
+  display: flex; /* Располагает карточки в ряд */
+  overflow-x: auto; /* Добавляет горизонтальную прокрутку при необходимости */
+  padding-bottom: 10px; /* Небольшой отступ снизу, чтобы скроллбар не перекрывал контент */
+  /* Возможно, потребуется добавить другие стили для выравнивания или отступов между карточками */
+}
+
+.menu-item-card {
+  flex-shrink: 0; /* Предотвращает сжатие карточек, если они имеют фиксированную ширину */
+  /* Убедитесь, что у карточек задана ширина, например: */
+  /* width: 150px; */ /* или min-width */
+  /* margin-right: 10px; */ /* Для отступа между карточками */
+}
+
+@media (max-width: 480px) { /* Для очень маленьких мобильных устройств */
+  .product-list {
+    padding: 0; /* Убираем горизонтальный отступ, он будет у product-list-container */
+    gap: 15px; /* Увеличиваем отступ между карточками */
+  }
+
+  .product-list-container {
+    max-width: 100%; /* Контейнер занимает всю ширину */
+  }
+
+  .product-card {
+    width: calc(50% - 7.5px); /* Две колонки с меньшим отступом */
+    max-width: unset; /* Снимаем ограничение max-width */
+    height: auto; /* Высота подстраивается под контент */
+    box-sizing: border-box; /* Учитываем padding и border в ширине */
+  }
+
+  .product-image-container {
+    height: 150px; /* Немного уменьшаем высоту изображения */
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) { /* Для планшетов и больших мобильных */
+  .product-list {
+    padding: 0 10px;
+    gap: 10px;
+  }
+
+  .product-card {
+    width: calc(50% - 15px);
+    max-width: 174px; /* Сохраняем исходный max-width */
+    height: auto;
+    box-sizing: border-box;
+  }
+
+  .product-image-container {
+    height: 174px; /* Сохраняем исходную высоту изображения */
+  }
+}

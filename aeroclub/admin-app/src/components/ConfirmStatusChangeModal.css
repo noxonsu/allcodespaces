@@ -1,0 +1,99 @@
+/* Styles for the modal overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.3); /* black with 0.3 opacity */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensure it's on top of other content */
+}
+
+/* Styles for the modal content */
+.confirm-status-change-modal-content {
+  background-color: var(--black-haze); /* From Figma */
+  border-radius: 16px; /* From Figma */
+  display: flex;
+  flex-direction: column;
+  gap: 32px; /* From Figma */
+  justify-content: center;
+  padding: 32px; /* From Figma */
+  width: 570px; /* From Figma */
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1); /* Optional: add some shadow */
+  text-align: center; /* Center content */
+}
+
+.confirm-status-change-modal-content .modal-icon {
+  /* Styles for the icon container */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 60px; /* From Figma */
+  width: 60px; /* From Figma */
+  margin: 0 auto; /* Center the icon */
+}
+
+.confirm-status-change-modal-content .frame-39 { /* This is the inner container for title and buttons */
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* From Figma */
+  align-items: center;
+  width: 100%;
+}
+
+.confirm-status-change-modal-content .modal-title {
+  color: var(--black); /* From Figma */
+  font-family: "Tilda Sans-ExtraBold", Helvetica; /* From Figma */
+  font-size: 34px; /* From Figma */
+  font-weight: 800;
+  line-height: 37.4px; /* From Figma */
+  text-align: center;
+  margin-top: -1.00px; /* From Figma */
+  align-self: stretch;
+}
+
+.confirm-status-change-modal-content .modal-actions {
+  display: flex;
+  gap: 12px; /* From Figma */
+  justify-content: center;
+  width: 100%; /* Ensure buttons take full width if needed */
+}
+
+.confirm-status-change-modal-content .modal-button {
+  align-items: center;
+  border-radius: 10px; /* From Figma */
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  height: 54px; /* From Figma */
+  justify-content: center;
+  padding: 16px 28px; /* From Figma */
+  position: relative;
+  cursor: pointer;
+  font-family: "Tilda Sans-Bold", Helvetica; /* From Figma */
+  font-size: 18px; /* From Figma */
+  font-weight: 700;
+  line-height: normal;
+  margin-top: -1.00px; /* From Figma */
+  text-align: left;
+  width: fit-content;
+  border: none; /* Remove default button border */
+  transition: opacity 0.3s ease;
+}
+
+.confirm-status-change-modal-content .modal-button.confirm {
+  background-color: var(--red); /* From Figma */
+  color: var(--white); /* From Figma */
+}
+
+.confirm-status-change-modal-content .modal-button.cancel {
+  background-color: var(--gray); /* From Figma */
+  color: var(--white); /* From Figma */
+}
+
+.confirm-status-change-modal-content .modal-button:hover {
+  opacity: 0.8;
+}

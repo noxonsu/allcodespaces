@@ -1,0 +1,69 @@
+.login-error-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000; /* Increased z-index */
+}
+
+.login-error-modal-content {
+  width: 376px; /* From Figma Frame 133 */
+  border-radius: 16px; /* From Figma Frame 133 */
+  padding: 32px; /* From Figma Frame 39 x, y */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  font-family: 'Tilda Sans', sans-serif;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.login-error-modal-icon-container {
+  margin-top: 32px; /* (64px y of icon) - 32px padding */
+  margin-bottom: 32px; /* (156px y of Frame 39) - (64px y of icon + 60px height of icon) */
+}
+
+.login-error-modal-title {
+  font-size: 34px; /* From Figma */
+  font-weight: 800; /* Extra Bold */
+  margin: 0 0 16px 0; /* (53px y of Frame 38) - (37px height of title) */
+}
+
+.login-error-modal-text-container {
+  margin-bottom: 24px; /* Spacing before button */
+}
+
+.login-error-modal-text {
+  font-size: 18px; /* From Figma */
+  line-height: 1.4; /* (44px height for 2 lines) */
+  margin: 0 0 6px 0; /* (50px y of secondary text) - (44px height of primary text) */
+}
+
+.login-error-modal-text-secondary {
+  font-size: 18px; /* From Figma */
+  line-height: 1.2; /* (22px height for 1 line) */
+  margin: 0;
+}
+
+.login-error-modal-button {
+  background-color: #545B5E; /* textLightGray from other modals, as no button in design */
+  color: #fff;
+  border: none;
+  padding: 12px 24px;
+  font-size: 17px;
+  font-family: 'Tilda Sans', sans-serif;
+  font-weight: bold;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  margin-top: 16px; /* Spacing from text */
+}
+
+.login-error-modal-button:hover {
+  background-color: #3E4547; /* Darker shade */
+}

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Webhook Test Sender</title>
+</head>
+<body>
+    <h1>Test Webhook Sender</h1>
+    <form action="https://paysaasbot.ru/chatgptbot_connector/amo2json_webhook.php?apikey=555566667773" method="POST" enctype="application/x-www-form-urlencoded">
+        <!-- Account Data -->
+        <input type="text" name="account[subdomain]" value="paysaas">
+        <input type="text" name="account[id]" value="32040890">
+        <input type="text" name="account[_links][self]" value="https://paysaas.amocrm.ru">
+
+        <!-- Leads Update Data -->
+        <input type="text" name="leads[update][0][id]" value="14331623">
+        <input type="text" name="leads[update][0][name]" value="11.06.2025 14:01 Заявка от (Katrin__valery) ">
+        <input type="text" name="leads[update][0][status_id]" value="74304782">
+        <input type="text" name="leads[update][0][old_status_id]" value="71325738">
+        <input type="text" name="leads[update][0][price]" value="569">
+        <input type="text" name="leads[update][0][responsible_user_id]" value="11744710">
+        <input type="text" name="leads[update][0][last_modified]" value="1749646152">
+        <input type="text" name="leads[update][0][modified_user_id]" value="11236086">
+        <input type="text" name="leads[update][0][created_user_id]" value="0">
+        <input type="text" name="leads[update][0][date_create]" value="1749633915">
+        <input type="text" name="leads[update][0][pipeline_id]" value="8824470">
+        <input type="text" name="leads[update][0][account_id]" value="32040890">
+        <input type="text" name="leads[update][0][created_at]" value="1749633915">
+        <input type="text" name="leads[update][0][updated_at]" value="1749646152">
+
+        <!-- Tags -->
+        <input type="text" name="leads[update][0][tags][0][id]" value="31861">
+        <input type="text" name="leads[update][0][tags][0][name]" value="WZ (79951431516)">
+
+        <!-- Custom Fields -->
+        <input type="text" name="leads[update][0][custom_fields][0][id]" value="741079">
+        <input type="text" name="leads[update][0][custom_fields][0][name]" value="Номер сделки">
+        <input type="text" name="leads[update][0][custom_fields][0][values][0][value]" value="14331623">
+
+        <input type="text" name="leads[update][0][custom_fields][1][id]" value="636765">
+        <input type="text" name="leads[update][0][custom_fields][1][name]" value="Сумма запроса">
+        <input type="text" name="leads[update][0][custom_fields][1][values][0][value]" value="23">
+
+        <input type="text" name="leads[update][0][custom_fields][2][id]" value="636815">
+        <input type="text" name="leads[update][0][custom_fields][2][name]" value="Валюта запроса">
+        <input type="text" name="leads[update][0][custom_fields][2][values][0][value]" value="EUR">
+        <input type="text" name="leads[update][0][custom_fields][2][values][0][enum]" value="456993">
+
+        <input type="text" name="leads[update][0][custom_fields][3][id]" value="636865">
+        <input type="text" name="leads[update][0][custom_fields][3][name]" value="Валюта получения">
+        <input type="text" name="leads[update][0][custom_fields][3][values][0][value]" value="RUB">
+        <input type="text" name="leads[update][0][custom_fields][3][values][0][enum]" value="457019">
+
+        <input type="text" name="leads[update][0][custom_fields][4][id]" value="636973">
+        <input type="text" name="leads[update][0][custom_fields][4][name]" value="Комиссия %">
+        <input type="text" name="leads[update][0][custom_fields][4][values][0][value]" value="20">
+
+        <input type="text" name="leads[update][0][custom_fields][5][id]" value="636977">
+        <input type="text" name="leads[update][0][custom_fields][5][name]" value="Курс">
+        <input type="text" name="leads[update][0][custom_fields][5][values][0][value]" value="99">
+
+        <input type="text" name="leads[update][0][custom_fields][6][id]" value="636979">
+        <input type="text" name="leads[update][0][custom_fields][6][name]" value="Сумма сделки">
+        <input type="text" name="leads[update][0][custom_fields][6][values][0][value]" value="2996">
+
+        <input type="text" name="leads[update][0][custom_fields][7][id]" value="637043">
+        <input type="text" name="leads[update][0][custom_fields][7][name]" value="Счет прихода">
+        <input type="text" name="leads[update][0][custom_fields][7][values][0][value]" value="ИП Черников">
+        <input type="text" name="leads[update][0][custom_fields][7][values][0][enum]" value="457109">
+
+        <input type="text" name="leads[update][0][custom_fields][8][id]" value="730469">
+        <input type="text" name="leads[update][0][custom_fields][8][name]" value="Сервис для оплаты">
+        <input type="text" name="leads[update][0][custom_fields][8][values][0][value]" value="Джпт">
+
+        <input type="text" name="leads[update][0][custom_fields][9][id]" value="737893">
+        <input type="text" name="leads[update][0][custom_fields][9][name]" value="Дата платежа (к нам)">
+        <input type="text" name="leads[update][0][custom_fields][9][values][0]" value="1749589200">
+
+        <input type="text" name="leads[update][0][custom_fields][10][id]" value="747811">
+        <input type="text" name="leads[update][0][custom_fields][10][name]" value="Страховка">
+        <input type="text" name="leads[update][0][custom_fields][10][values][0][value]" value="1">
+
+        <input type="text" name="leads[update][0][custom_fields][11][id]" value="747813">
+        <input type="text" name="leads[update][0][custom_fields][11][name]" value="Размер страховки">
+        <input type="text" name="leads[update][0][custom_fields][11][values][0][value]" value="150">
+
+        <input type="text" name="leads[update][0][custom_fields][12][id]" value="637051">
+        <input type="text" name="leads[update][0][custom_fields][12][name]" value="Оператор 1 линия">
+        <input type="text" name="leads[update][0][custom_fields][12][values][0][value]" value="Семенова Екатерина">
+        <input type="text" name="leads[update][0][custom_fields][12][values][0][enum]" value="510625">
+
+        <input type="text" name="leads[update][0][custom_fields][13][id]" value="721463">
+        <input type="text" name="leads[update][0][custom_fields][13][name]" value="Срок оплаты">
+        <input type="text" name="leads[update][0][custom_fields][13][values][0][value]" value="3">
+        
+        <input type="text" name="leads[update][0][custom_fields][14][id]" value="752625">
+        <input type="text" name="leads[update][0][custom_fields][14][name]" value="Ссылка ChatGPT">
+        <input type="text" name="leads[update][0][custom_fields][14][values][0][value]" value="https://pay.openai.com/c/pay/cs_live_a1QQ6ORi61wZq9CKq3nyDSwTgjMWFTb1QVbBmKuTi7pty8iW7bElNGdLUy#fidpamZkaWAnPyd3cCcpJ3ZwZ3Zmd2x1cWxqa1BrbHRwYGtgdnZAa2RnaWBhJz9jZGl2YCknZHVsTmB8Jz8ndW5aaWxzYFowNFVvNjIyTnZpTVdhZ2RVYlFPXG9RbX9NNmMwYXE0SzRzTjJJUHU1dG01fEtWZHdtY18za2NnQjJDQ2ltPU5JfVNuc2FIUkswajNIZjFTYWQzS01kVmtkUzU1RjdWZ2k9X3YnKSdjd2poVmB3c2B3Jz9xd3BgKSdpZHxqcHFRfHVgJz8ndmxrYmlgWmxxYGgnKSdga2RnaWBVaWRmYG1qaWFgd3YnP3F3cGB4JSUl">
+
+        <input type="text" name="leads[update][0][custom_fields][15][id]" value="724492">
+        <input type="text" name="leads[update][0][custom_fields][15][name]" value="Этап">
+        <input type="text" name="leads[update][0][custom_fields][15][values][0][value]" value="Оплачивает Админ">
+        <input type="text" name="leads[update][0][custom_fields][15][values][0][enum]" value="538888">
+
+        <input type="text" name="leads[update][0][custom_fields][16][id]" value="733915">
+        <input type="text" name="leads[update][0][custom_fields][16][name]" value="Ссылка на сделку">
+        <input type="text" name="leads[update][0][custom_fields][16][values][0][value]" value="https://paysaas.amocrm.ru/leads/detail/14331623">
+
+        <input type="text" name="leads[update][0][custom_fields][17][id]" value="745719">
+        <input type="text" name="leads[update][0][custom_fields][17][name]" value="ДАТА И ВРЕМЯ ПОСЛЕДНЕГО СООБЩЕНИЯ">
+        <input type="text" name="leads[update][0][custom_fields][17][values][0]" value="1749639660">
+
+        <input type="text" name="leads[update][0][custom_fields][18][id]" value="751389">
+        <input type="text" name="leads[update][0][custom_fields][18][name]" value="Дата перехода в этап">
+        <input type="text" name="leads[update][0][custom_fields][18][values][0]" value="1749639660">
+
+        <button type="submit">Send Test Webhook</button>
+    </form>
+</body>
+</html>

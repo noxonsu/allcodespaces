@@ -1,0 +1,486 @@
+@import url("https://cdnjs.cloudflare.com/ajax/libs/meyer-reset/2.0/reset.min.css");
+
+@font-face {
+  font-family: "Tilda Sans-Bold";
+  font-style: normal;
+  font-weight: 700;
+  src: url('https://anima-uploads.s3.amazonaws.com/projects/651eb8c5858e172d9d585c34/fonts/tildasans-bold.ttf') format("truetype");
+}
+
+@font-face {
+  font-family: "Tilda Sans-Medium";
+  font-style: normal;
+  font-weight: 500;
+  src: url('https://anima-uploads.s3.amazonaws.com/projects/651eb8c5858e172d9d585c34/fonts/tildasans-medium.ttf') format("truetype");
+}
+
+.screen textarea:focus,
+.screen input:focus {
+  outline: none;
+}
+
+.screen * {
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+}
+
+.screen div {
+  -webkit-text-size-adjust: none;
+}
+
+.component-wrapper a {
+  display: contents;
+  pointer-events: auto;
+  text-decoration: none;
+}
+
+.component-wrapper * {
+  -webkit-font-smoothing: antialiased;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.component-wrapper a *,
+.component-wrapper input,
+.component-wrapper video,
+.component-wrapper iframe {
+  pointer-events: auto;
+}
+
+.component-wrapper.not-ready,
+.component-wrapper.not-ready * {
+  visibility: hidden !important;
+}
+
+.screen a {
+  display: contents;
+  text-decoration: none;
+}
+
+.full-width-a {
+  width: 100%;
+}
+
+.full-height-a {
+  height: 100%;
+}
+
+.container-center-vertical {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  height: 100%;
+  pointer-events: none;
+}
+
+.container-center-vertical > * {
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.container-center-horizontal {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  pointer-events: none;
+  width: 100%;
+}
+
+.container-center-horizontal > * {
+  flex-shrink: 0;
+  pointer-events: auto;
+}
+
+.auto-animated div {
+  --z-index: -1;
+  opacity: 0;
+  position: absolute;
+}
+
+.auto-animated input {
+  --z-index: -1;
+  opacity: 0;
+  position: absolute;
+}
+
+.auto-animated .container-center-vertical,
+.auto-animated .container-center-horizontal {
+  opacity: 1;
+}
+
+.overlay-base {
+  display: none;
+  height: 100%;
+  opacity: 0;
+  position: fixed;
+  top: 0;
+  width: 100%;
+}
+
+.overlay-base.animate-appear {
+  align-items: center;
+  animation: reveal 0.3s ease-in-out 1 normal forwards;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  opacity: 0;
+}
+
+.overlay-base.animate-disappear {
+  animation: reveal 0.3s ease-in-out 1 reverse forwards;
+  display: block;
+  opacity: 1;
+  pointer-events: none;
+}
+
+.overlay-base.animate-disappear * {
+  pointer-events: none;
+}
+
+@keyframes reveal {
+  from { opacity: 0 }
+ to { opacity: 1 }
+}
+
+.animate-nodelay {
+  animation-delay: 0s;
+}
+
+.align-self-flex-start {
+  align-self: flex-start;
+}
+
+.align-self-flex-end {
+  align-self: flex-end;
+}
+
+.align-self-flex-center {
+  align-self: flex-center;
+}
+
+.valign-text-middle {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.valign-text-bottom {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+input:focus {
+  outline: none;
+}
+
+.listeners-active,
+.listeners-active * {
+  pointer-events: auto;
+}
+
+.hidden,
+.hidden * {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.smart-layers-pointers,
+.smart-layers-pointers * {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.listeners-active-click,
+.listeners-active-click * {
+  cursor: pointer;
+}
+
+* {
+  box-sizing: border-box;
+}
+:root { 
+  --black: #181a1b;
+  --black-2: #000000;
+  --black-haze: #f7f7f7;
+  --gray: #545b5e;
+  --red: #ff5248;
+  --scarpa-flow: #545b5e1f;
+  --unactive: #181a1b4c;
+  --white: #ffffff;
+  --yellow-sea: #fab005;
+ 
+  --font-size-l: 20px;
+  --font-size-m: 18px;
+  --font-size-xl: 40px;
+ 
+  --font-family-tilda_sans-bold: "Tilda Sans-Bold", Helvetica;
+  --font-family-tilda_sans-extrabold: "Tilda Sans-ExtraBold", Helvetica;
+  --font-family-tilda_sans-medium: "Tilda Sans-Medium", Helvetica;
+  --font-family-tilda_sans-semibold: "Tilda Sans-Semibold", Helvetica;
+}
+.tildasans-medium-scarpa-flow-18px {
+  color: var(--gray);
+  font-family: var(--font-family-tilda_sans-medium);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 500;
+}
+
+.tildasans-bold-white-18px {
+  color: var(--white);
+  font-family: var(--font-family-tilda_sans-bold);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 700;
+}
+
+.tildasans-bold-eerie-black-18px {
+  color: var(--black);
+  font-family: var(--font-family-tilda_sans-bold);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 700;
+}
+
+/* Styles specific to the orders tab, adapted from order-1 screen */
+/* It's better to scope these styles if possible, e.g. by wrapping content in a .orders-tab-container */
+
+.orders-tab-container { /* Added a wrapper class for better scoping */
+  background-color: var(--white);
+  /* height: 1080px; /* This might be too restrictive, let content define height */
+  /* overflow: hidden; /* May hide content if it overflows, consider removing or using auto */
+  /* overflow-x: hidden; */
+  position: relative;
+  width: 100%; /* Make it responsive within its parent */
+  padding-top: 24px; /* Approximating top: 48px and left:348px from original, assuming sidebar takes space */
+}
+
+.orders-tab-container .frame-153-hCCJHX { /* Renamed to be more generic or remove if not needed */
+  align-items: flex-start;
+  display: flex; /* Added display flex */
+  flex-direction: column;
+  gap: 24px;
+  /* left: 348px; /* These absolute positions are problematic for components */
+  /* position: absolute; */
+  /* top: 48px; */
+  width: 100%; /* Was 1540px, make it responsive */
+}
+
+.orders-tab-container .title-mUl0Lc {
+  align-self: stretch;
+  color: var(--black);
+  font-family: var(--font-family-tilda_sans-extrabold);
+  font-size: var(--font-size-xl);
+  font-style: normal;
+  font-weight: 800;
+  line-height: 44.0px;
+  margin-top: -1.00px;
+}
+
+.orders-tab-container .frame-141-mUl0Lc {
+  align-items: flex-start;
+  align-self: stretch;
+  background-color: transparent;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  position: relative;
+  width: 100%;
+}
+
+.orders-tab-container .frame-139-Mvawx2 {
+  align-items: center;
+  align-self: stretch;
+  background-color: transparent;
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  border-color: var(--scarpa-flow);
+  border-left-style: none;
+  border-right-style: none;
+  border-top-style: none;
+  display: grid; /* Изменено на grid */
+  grid-template-columns: 1.5fr 2.5fr 1fr 2fr; /* Соответствует AdminPage.css */
+  gap: 16px; /* Соответствует AdminPage.css */
+  padding: 12px 16px; /* Соответствует AdminPage.css */
+  position: relative;
+  width: 100%;
+}
+
+.orders-tab-container .frame-160-e9KnCy {
+  align-items: center;
+  background-color: transparent;
+  display: flex;
+  gap: 6px;
+  position: relative;
+}
+
+.orders-tab-container .title-JxeMua {
+  color: var(--unactive);
+  font-family: var(--font-family-tilda_sans-medium);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+  margin-top: -1.00px;
+  width: fit-content;
+}
+
+.orders-tab-container .frame-161-e9KnCy {
+  align-items: center;
+  background-color: transparent;
+  display: flex;
+  gap: 6px;
+  position: relative;
+  
+}
+
+.orders-tab-container .title-rIZb6T {
+  color: var(--unactive);
+  font-family: var(--font-family-tilda_sans-medium);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 500;
+  line-height: normal;
+  margin-top: -1.00px;
+  width: fit-content;
+}
+
+.orders-tab-container .frame-142-Mvawx2 {
+  align-items: flex-start;
+  align-self: stretch;
+  background-color: transparent;
+  display: flex; /* Изменено на flex */
+  flex-direction: column; /* Добавлено для вертикального расположения строк */
+  gap: 0; /* Убираем gap, так как строки будут иметь свои границы */
+  position: relative;
+  width: 100%;
+}
+
+.orders-tab-container .frame-140-QJHgXe { /* Общий класс для строки заказа */
+  align-items: center;
+  align-self: stretch;
+  background-color: transparent;
+  border-bottom-style: solid;
+  border-bottom-width: 1px;
+  border-color: var(--scarpa-flow);
+  border-left-style: none;
+  border-right-style: none;
+  border-top-style: none;
+  padding: 12px 16px; /* Соответствует AdminPage.css */
+  display: grid; /* Добавлено display: grid */
+  grid-template-columns: 1.5fr 2.5fr 1fr 2fr; /* Соответствует AdminPage.css */
+  gap: 16px; /* Соответствует AdminPage.css */
+}
+/* Generic class for order row text elements */
+.orders-tab-container .order-row-text-date {
+  line-height: normal;
+  text-align: left; /* Выравнивание по левому краю */
+}
+.orders-tab-container .order-row-text-location {
+  flex: 1;
+  line-height: normal;
+  padding-left: 12px; /* Add some spacing if .frame-138 is removed or changed */
+  padding-right: 12px;
+  text-align: left; /* Выравнивание по левому краю */
+}
+.orders-tab-container .order-row-text-status {
+  text-align: left; /* Выравнивание по левому краю */
+}
+
+
+.orders-tab-container .btn-admin {
+  align-items: center;
+  border-radius: 10px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  gap: 12px;
+  height: 54px;
+  justify-content: center;
+  padding: 16px 28px;
+  position: relative;
+  cursor: pointer; /* Added for better UX */
+}
+
+.orders-tab-container .btn-admin-show-order { /* Specific class for "Показать заказ" */
+  background-color: var(--gray);
+}
+.orders-tab-container .btn-admin-show-order .title { /* Target title within this button */
+  color: var(--white); /* Ensure text is white */
+  font-family: var(--font-family-tilda_sans-bold);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  margin-top: -1.00px;
+  width: fit-content;
+}
+
+
+.orders-tab-container .btn-admin-change-status { /* Specific class for "Сменить статус" */
+  background-color: var(--black-haze);
+}
+.orders-tab-container .btn-admin-change-status .title { /* Target title within this button */
+  color: var(--black); /* Ensure text is black */
+  font-family: var(--font-family-tilda_sans-bold);
+  font-size: var(--font-size-m);
+  font-style: normal;
+  font-weight: 700;
+  line-height: normal;
+  margin-top: -1.00px;
+  width: fit-content;
+}
+
+
+.orders-tab-container .ellipse-1 {
+  background-color: var(--yellow-sea);
+  border-radius: 7px;
+  height: 14px;
+  position: relative;
+  width: 14px;
+}
+
+.orders-tab-container .frame-138 { /* This is the container for the two buttons */
+  align-items: center;
+  background-color: transparent;
+  display: inline-flex; /* Changed to inline-flex to allow multiple button groups if needed */
+  flex: 0 0 auto;
+  gap: 12px; /* Gap between the two buttons */
+  position: relative;
+}
+
+/* Removed .frame-153 as it's too generic and conflicts with .frame-153-hCCJHX */
+
+.orders-tab-container .icon-chevron-down {
+  background-color: transparent;
+  height: 20px;
+  position: relative;
+  width: 20px;
+  /* Ensure src is handled by React component if it's dynamic or an actual img tag */
+}
+
+/* Removed .input related styles as they are for sidebar, not for orders list directly */
+/* Removed .title as it's too generic. Specific title classes are used. */
+
+/* Styles for the "Нет заказов" message */
+.orders-tab-container .no-orders-message {
+  text-align: center;
+  color: var(--gray); /* Using a color from the palette */
+  padding: 20px;
+  font-family: var(--font-family-tilda_sans-medium);
+  font-size: var(--font-size-m);
+}
+
+/* Ensure the main layout of the admin page is handled by AdminPage.tsx and its CSS */
+/* These styles should only apply to the content of the OrdersTab */
+
+/* Removing sidebar specific styles as they belong to AdminSidebar.tsx or AdminPage.tsx */
+/* .frame-137-hCCJHX, .rectangle-18-XYv1xt, .frame-136-XYv1xt, .frame-135-XYv1xt, .frame-134-XYv1xt */
+
+/* Generic title class from the original HTML, if needed for other elements */
+.title {
+  background-color: transparent;
+  letter-spacing: 0.00px;
+  position: relative;
+  text-align: left;
+}

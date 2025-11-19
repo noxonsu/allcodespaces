@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="ru"> <!-- Changed lang to ru -->
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Подтверждение Оплаты</title> <!-- Translated title -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Added sticky footer styles */
+        html, body {
+            height: 100%;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+        .content-wrapper {
+            flex: 1 0 auto; /* Allow content to grow and prevent shrinking */
+        }
+        footer {
+            flex-shrink: 0; /* Prevent footer from shrinking */
+        }
+    </style>
+</head>
+<body>
+     <!-- Replaced navbar with the one from index.html -->
+     <nav class="navbar navbar-expand-lg navbar-dark bg-primary mb-4">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="index.html">МаркетУслуг</a> <!-- Updated brand -->
+             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                 <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="index.html">Главная</a> <!-- Translated link -->
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="orders.html">Мои Заказы</a> <!-- Translated link -->
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="content-wrapper"> <!-- Added wrapper -->
+        <div class="container">
+            <h1 class="mb-4">Подтвердите ваш заказ</h1> <!-- Translated heading -->
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    Детали Заказа <!-- Translated text -->
+                </div>
+                <!-- Order Summary - JS needed to populate this from URL params or local storage -->
+                <div class="card-body" id="orderSummary">
+                    <p><strong>Услуга:</strong> <span id="summaryService">Название услуги</span></p> <!-- Translated text -->
+                    <p><strong>Ссылка:</strong> <span id="summaryLink">Ссылка</span></p> <!-- Translated text -->
+                    <p><strong>Количество:</strong> <span id="summaryQuantity">Количество</span></p> <!-- Translated text -->
+                    <hr>
+                    <p><strong>Итоговая стоимость:</strong> <span id="summaryCost">Стоимость</span> руб.</p> <!-- Translated text -->
+                </div>
+            </div>
+
+            <div class="alert alert-info">
+                Пожалуйста, проверьте детали вашего заказа выше. Нажмите "Оплатить", чтобы перейти к безопасному платежному шлюзу. <!-- Translated text -->
+            </div>
+
+            <!-- Payment Button - JS needed to trigger API call -->
+            <button class="btn btn-success btn-lg" id="payButton">Оплатить</button> <!-- Translated text -->
+            <a href="order.html" class="btn btn-secondary btn-lg ms-2">Назад</a> <!-- Translated text -->
+
+        </div>
+    </div> <!-- End wrapper -->
+
+    <!-- Added footer from index.html -->
+    <footer class="py-3 mt-auto bg-dark text-white">
+        <div class="container text-center">
+            <p class="mb-1">© 2024 МаркетУслуг. Все права защищены.</p>
+            <p class="mb-0">
+                <a href="#" class="text-white">Условия использования</a> |
+                <a href="#" class="text-white">Политика конфиденциальности</a>
+            </p>
+        </div>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Add JS for:
+        // - Reading order details (serviceId, link, quantity) from URL parameters or local/session storage
+        // - Fetching service details (like price) if needed, using serviceId
+        // - Calculating total cost
+        // - Populating the #orderSummary section
+        // - Handling #payButton click:
+        //   - Prepare order data (serviceId, link, quantity)
+        //   - Call the backend API endpoint to create the order
+        //   - On successful API response containing a payment URL:
+        //     - Redirect the user to the payment gateway URL
+        //   - On API error:
+        //     - Show an error message to the user
+
+        // Example: Get data from URL (assuming passed like payment.html?serviceId=X&link=Y&quantity=Z)
+        const urlParams = new URLSearchParams(window.location.search);
+        const serviceId = urlParams.get('serviceId');
+        const link = urlParams.get('link');
+        const quantity = urlParams.get('quantity');
+
+        if (serviceId && link && quantity) {
+            // Fetch service price based on serviceId... (placeholder)
+            const pricePerUnit = 100; // Replace with actual fetched price
+            const totalCost = pricePerUnit * parseInt(quantity);
+
+            // Populate summary (fetch real service name)
+            document.getElementById('summaryService').textContent = `ID Услуги: ${serviceId}`; // Placeholder text updated
+            document.getElementById('summaryLink').textContent = decodeURIComponent(link);
+            document.getElementById('summaryQuantity').textContent = quantity;
+            document.getElementById('summaryCost').textContent = totalCost;
+
+             // Add event listener to pay button
+            document.getElementById('payButton').addEventListener('click', () => {
+                console.log("Инициирование оплаты..."); // Translated log
+                // Prepare data for API
+                const orderData = {
+                    serviceId: serviceId,
+                    link: decodeURIComponent(link),
+                    quantity: parseInt(quantity)
+                };
+                console.log("Данные заказа:", orderData); // Translated log
+
+                // Placeholder for API call
+                // fetch('/api/create-order', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify(orderData)
+                // })
+                // .then(response => response.json())
+                // .then(data => {
+                //     if(data.paymentUrl) {
+                //         window.location.href = data.paymentUrl; // Redirect to payment gateway
+                //     } else {
+                //         alert('Error creating order. Please try again.');
+                //         console.error('API Error:', data);
+                //     }
+                // })
+                // .catch(error => {
+                //     alert('Network error. Please try again.');
+                //     console.error('Fetch Error:', error);
+                // });
+
+                // Simulate redirect for now
+                 alert("Симуляция вызова API. Перенаправление на платежный шлюз (затем на страницу заказов)..."); // Translated alert
+                 setTimeout(() => { window.location.href = 'orders.html'; }, 1500); // Simulate redirect after payment
+            });
+
+        } else {
+            // Handle error: Missing order details
+            document.getElementById('orderSummary').innerHTML = '<p class="text-danger">Ошибка: Детали заказа отсутствуют.</p>'; // Translated error
+            document.getElementById('payButton').disabled = true;
+            console.error("Отсутствуют детали заказа в URL"); // Translated error log
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "name": "payment-parser-service",
+  "version": "1.0.0",
+  "description": "Puppeteer service for parsing payment URLs",
+  "main": "payment-parser.js",
+  "scripts": {
+    "start": "node payment-parser.js",
+    "dev": "nodemon payment-parser.js"
+  },
+  "dependencies": {
+    "puppeteer": "^13.7.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}

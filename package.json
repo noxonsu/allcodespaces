@@ -1,18 +1,36 @@
 {
-  "name": "telewin-tests",
-  "version": "1.0.0",
-  "description": "Automated tests for TeleWin project",
-  "scripts": {
-    "test": "node tests/admin-smoke-test.js",
-    "test:admin": "node tests/admin-smoke-test.js",
-    "test:user": "node tests/user-smoke-test.js",
-    "test:all": "node tests/admin-smoke-test.js && node tests/user-smoke-test.js"
-  },
   "dependencies": {
-    "puppeteer": "^24.15.0"
+    "axios": "^0.21.4",
+    "cheerio": "1.0.0-rc.10",
+    "dotenv": "^8.6.0",
+    "express": "^4.18.2",
+    "fs": "^0.0.1-security",
+    "googleapis": "^148.0.0",
+    "input": "^1.0.1",
+    "node-fetch": "^2.6.7",
+    "node-telegram-bot-api": "^0.50.0",
+    "openai": "^4.95.1",
+    "path": "^0.12.7",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "react-router-dom": "^7.5.3",
+    "rss-parser": "^3.12.0",
+    "telegram": "^2.26.22",
+    "xlsx": "^0.18.5"
   },
-  "devDependencies": {},
-  "keywords": ["puppeteer", "testing", "automation"],
-  "author": "TeleWin Team",
-  "license": "MIT"
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.4.1",
+    "dotenv-vault": "^1.26.2",
+    "vite": "^6.3.5"
+  },
+  "name": "allcodespaces",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
 }

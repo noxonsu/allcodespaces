@@ -1,0 +1,66 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent backdrop */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000; /* Ensure it's on top */
+}
+
+.modal-content {
+  width: 570px; /* From Figma */
+  /* height: 308px; /* From Figma - will be auto based on content mostly */
+  padding: 32px; /* From Figma (outer frame to content area) */
+  border-radius: 16px; /* From Figma */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background-color: var(--black-haze); /* Добавлен фон из Figma */
+}
+
+.modal-icon {
+  margin-bottom: 32px; /* From Figma (icon to Frame 39 y: 124 - (32+60) = 32) */
+}
+
+.modal-title {
+  font-size: 34px; /* From Figma */
+  font-weight: 800; /* Extra Bold */
+  margin-bottom: 8px; /* From Figma (Title to Title y: 45 - 37 = 8) */
+}
+
+.modal-item-name {
+  font-size: 24px; /* From Figma */
+  font-weight: 500; /* Medium */
+  margin-bottom: 24px; /* From Figma (Frame 165 to Frame 163 y: 98 - 74 = 24) */
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px; /* From Figma (btn-admin to btn-admin x: 133 - 121 = 12) */
+  width: auto; /* Adjust as needed, Figma shows buttons centered */
+}
+
+.modal-button {
+  min-width: 121px; /* From Figma */
+  height: 54px; /* From Figma */
+  padding: 0 28px; /* Horizontal padding from Figma (Title x: 28) */
+  border: none;
+  border-radius: 10px; /* From Figma */
+  font-size: 18px; /* From Figma */
+  font-weight: bold; /* From Figma */
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.modal-button:hover {
+  opacity: 0.9;
+}

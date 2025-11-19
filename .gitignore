@@ -1,29 +1,96 @@
-*.pyc
-*.DS_Store
-*.egg*
-/dist/
-/.idea
-/docs/_build/
-/node_modules/
-build/
-env
-env__
-/staticfiles/
-web_app/staticfiles/
+# Dependencies
+node_modules/
+vendor/
+bower_components/
 
-#src
-#*.sqlite*
-
+# Environment files
 .env
-yarn.lock
+.env.*
+!.env.example
+boxforcam
+# IDE and editor files
+.idea/
+.vscode/
+*.sublime-*
+*.swp
+.DS_Store
+Thumbs.db
 
-static
-.venv
-*/.venv
-
-# LOG FILES
+# Build outputs
+dist/
+build/
+out/
 *.log
-media
+ads/
+# Package files
+*.zip
+*.tar.gz
+*.rar
+electrumx/
+# Cache and temporary files
+.cache/
+.tmp/
+temp/
+*.temp
+*.tmp
 
-# Test screenshots and reports
-screenshots/
+# System files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# SFTP configuration
+sftp.json
+.vscode/sftp.json
+
+# WordPress specific
+wp-config.php
+wp-content/uploads/
+wp-content/cache/
+wp-content/backup*
+wp-content/upgrade/
+wp-content/uploads/
+wp-content/plugins/hello.php
+themes/*
+plugins/*
+
+# Project specific
+nastya/*
+*/chat_histories/*
+*/user_data/*
+lastrestarttime.txt
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+result.json
+result2.json
+processed_projects.json
+tts/output_audio/*
+tts/text_chunks/*
+from.txt
+whisper_streaming_input.py
+.env*
+.flaskenv*
+!.env.project
+!.env.vault
+mycity2_key.json
+mempool/*
+mempool
+
+onout.org/
+btc-rpc-explorer/
+wa/*
+package-lock.json
+
+venv/*
+venv
+columns_*
+figma_data*
+figma_data_exports*
+__pycache__/
+debug_page.html

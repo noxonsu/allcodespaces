@@ -1,0 +1,182 @@
+/* .modal-overlay is assumed to be globally available or defined elsewhere */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent black overlay */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000; /* Ensure it's on top */
+}
+
+.edit-drink-modal-content {
+  background-color: var(--black-haze); /* From Figma: frame-155-xfkOEd */
+  border-radius: 16px; /* From Figma: frame-155-xfkOEd */
+  padding: 32px; /* From Figma: frame-155-xfkOEd */
+  width: 570px; /* From Figma: frame-155-xfkOEd */
+  display: flex;
+  flex-direction: column;
+  gap: 32px; /* From Figma: frame-155-xfkOEd gap */
+  align-items: center; /* Centering title and button row */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.edit-drink-modal-title {
+  color: var(--black); /* From Figma: title-7m0Nq5 */
+  font-family: var(--font-family-tilda_sans-extrabold); /* From Figma: title-7m0Nq5 */
+  font-size: var(--font-size-xl); /* From Figma: title-7m0Nq5 */
+  font-weight: 800; /* From Figma: title-7m0Nq5 */
+  line-height: 37.4px; /* From Figma: title-7m0Nq5 */
+  text-align: center;
+  align-self: stretch; /* From Figma: title-7m0Nq5 */
+}
+
+.edit-form-section-container { /* New: Corresponds to frame-164-7m0Nq5 */
+  align-items: flex-start;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 24px; /* From Figma: frame-164-7m0Nq5 gap */
+  width: 100%;
+}
+
+.edit-form-section { /* Corresponds to frame-151-QUsxCt and frame-153-QUsxCt */
+  align-items: flex-start;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px; /* From Figma: frame-151-QUsxCt gap */
+  width: 100%;
+}
+
+.edit-form-section-label-container { /* New: Corresponds to frame-151-qYHIl2 */
+  align-items: center;
+  display: inline-flex; /* Use inline-flex for proper alignment with padding */
+  gap: 10px; /* From Figma: frame-151-qYHIl2 gap */
+  padding: 0px 0px 0px 20px; /* From Figma: frame-151-qYHIl2 padding */
+}
+
+.edit-form-section label { /* Corresponds to title-BkqjB9 and title-Il7Dy3 */
+  color: var(--gray); /* From Figma: tildasans-medium-scarpa-flow-18px */
+  font-family: var(--font-family-tilda_sans-medium); /* From Figma */
+  font-size: var(--font-size-m); /* From Figma */
+  font-weight: 500; /* From Figma */
+  line-height: normal;
+  text-align: left;
+  width: fit-content;
+  /* Removed margin-bottom and padding-left as they are handled by parent or specific cases */
+}
+
+.name-inputs-container { /* Corresponds to frame-162-qYHIl2 */
+  align-self: stretch;
+  display: flex;
+  gap: 8px; /* From Figma: frame-162-qYHIl2 gap */
+  width: 100%;
+}
+
+.drink-name-input { /* Corresponds to input-x7sxMB and input-9KvOgI */
+  background-color: var(--white);
+  border-radius: 10px;
+  display: flex; /* To align text inside */
+  align-items: center; /* To align text inside */
+  flex: 1;
+  height: 54px;
+  padding: 16px 20px;
+  border: none;
+  outline: none;
+  font-family: var(--font-family-tilda_sans-medium);
+  font-size: var(--font-size-m);
+}
+
+.drink-name-input.current {
+  /* Styles for the "current name" input if needed, e.g., read-only appearance */
+  /* For now, it's hidden via inline style in TSX if not used */
+}
+
+.drink-name-input.new {
+  color: var(--black); /* From Figma: title-jxwLku (for current) and title-93xYtt (for new) */
+}
+
+.drink-name-input.new::placeholder {
+  color: var(--licorice); /* From Figma: title-93xYtt */
+  opacity: 1;
+}
+
+.image-edit-container { /* Corresponds to frame-162-Il7Dy3 */
+  align-items: center; /* From Figma */
+  align-self: stretch;
+  display: flex;
+  flex-direction: column; /* From Figma */
+  gap: 8px; /* From Figma */
+  justify-content: center; /* From Figma */
+  width: 100%;
+}
+
+.drink-image-preview { /* Corresponds to rectangle-19-1LJJ98 */
+  width: 160px;
+  height: 160px;
+  border-radius: 8px; /* Approximation, Figma shows 10px on cards, maybe less here */
+  object-fit: cover;
+  background-color: #e0e0e0; /* Placeholder */
+}
+
+.file-input-label { /* Corresponds to input-1LJJ98 */
+  background-color: var(--white);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 12px; /* From Figma */
+  height: 54px;
+  padding: 16px 20px;
+  width: 364px; /* From Figma */
+  cursor: pointer;
+  font-family: var(--font-family-tilda_sans-medium);
+  font-size: var(--font-size-m);
+  color: var(--black); /* From Figma: title-6GNvJ1 */
+}
+
+.file-input-label .icon-placeholder { /* Corresponds to icon-attachment */
+  /* SVG is used in Figma, ensure this matches */
+  font-size: 24px; /* Default, adjust if needed */
+}
+
+.edit-drink-modal-actions { /* Corresponds to frame-163-7m0Nq5 */
+  display: inline-flex; /* From Figma */
+  gap: 12px; /* From Figma */
+  justify-content: center; /* From Figma */
+  margin-top: 8px; /* Adjusted from 32px to better match Figma's overall spacing */
+}
+
+.edit-drink-modal-actions .modal-button { /* Corresponds to btn-admin */
+  align-items: center;
+  border-radius: 10px;
+  display: inline-flex;
+  gap: 12px;
+  height: 54px;
+  justify-content: center;
+  padding: 16px 28px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family-tilda_sans-bold);
+  font-size: var(--font-size-m);
+  font-weight: 700;
+  color: var(--white);
+  transition: opacity 0.3s ease;
+}
+.edit-drink-modal-actions .modal-button:hover {
+  opacity: 0.9;
+}
+
+.edit-drink-modal-actions .modal-button.save { /* Corresponds to btn-admin-by5otq */
+  background-color: var(--red);
+  /* opacity: 0.4; /* This was in Figma, handle with :disabled in TSX */
+}
+
+.edit-drink-modal-actions .modal-button.cancel { /* Corresponds to btn-admin-skSndU */
+  background-color: var(--gray);
+}

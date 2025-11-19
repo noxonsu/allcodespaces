@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+pydantic[email]
+pydantic-settings
+python-dotenv
+passlib[bcrypt]
+python-jose[cryptography]
+python-multipart
+pytest
+pytest-asyncio
+httpx
+qrcode
+Pillow
+# Optional, if bot is part of this project:
+# python-telegram-bot
+# or
+# aiogram
