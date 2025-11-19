@@ -1,11 +1,14 @@
 import logging
 from functools import wraps
 from logging import getLogger, StreamHandler, FileHandler
+from pathlib import Path
 
 
 logger = getLogger(__name__)
+log_dir = Path(__file__).resolve().parent.parent / "logs"
+log_dir.mkdir(parents=True, exist_ok=True)
 logger.addHandler(StreamHandler())
-logger.addHandler(FileHandler("./logs/web_app_logger.log"))
+logger.addHandler(FileHandler(log_dir / "web_app_logger.log"))
 logger.setLevel(logging.INFO)
 
 
