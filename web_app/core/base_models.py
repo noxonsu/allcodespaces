@@ -14,8 +14,8 @@ class BaseModel(models.Model):
     id = models.UUIDField(
         primary_key=True, db_index=True, editable=False, default=uuid4
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("created at"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("updated at"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Создано"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Обновлено"))
 
     class Meta:
         abstract = True
