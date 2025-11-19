@@ -96,14 +96,18 @@ $(document).ready(function () {
             ensureBodyHelp();
             ensureButtonHelp();
             counterWrapper.show();
-            buttonHelp.text('Для «Спонсорство» максимум одна кнопка (строка: Текст | URL).');
+            buttonHelp.text('Для «Спонсорство» обязательна одна кнопка (строка: Текст | URL).');
             bodyField.attr('maxlength', SPONSORSHIP_LIMIT);
+            buttonsField.prop('required', true);
+            bodyField.prop('required', true);
             updateBodyCounter();
         } else {
             counterWrapper.hide();
             ensureButtonHelp();
             buttonHelp.text('Можно до 8 кнопок. Формат каждой строки: Текст | URL');
             bodyField.removeAttr('maxlength');
+            buttonsField.prop('required', false);
+            bodyField.prop('required', false);
         }
     }
 

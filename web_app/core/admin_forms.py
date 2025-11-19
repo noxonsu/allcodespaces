@@ -267,8 +267,12 @@ class MessageModelForm(forms.ModelForm):
                     "body",
                     f"Для формата «Спонсорство» допустимо до {SPONSORSHIP_BODY_LENGTH_LIMIT} символов.",
                 )
-            if len(buttons) > SPONSORSHIP_BUTTON_LIMIT:
+            if not buttons:
+                self.add_error("buttons_json", "Для формата «Спонсорство» обязательна одна кнопка.")
+            elif len(buttons) > SPONSORSHIP_BUTTON_LIMIT:
                 self.add_error("buttons_json", "Для формата «Спонсорство» допустима только одна кнопка.")
+            if not body or not body.strip():
+                self.add_error("body", "Для формата «Спонсорство» текст обязателен.")
 
         if message_format == PlacementFormat.FIXED_SLOT and not buttons:
             self.add_error("buttons_json", "Для формата «Фикс-слот» добавьте хотя бы одну кнопку.")
