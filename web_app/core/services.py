@@ -18,7 +18,7 @@ from typing import Optional
 from django.db.models import Sum, Q
 from django.core.cache import cache
 
-from core.models import Channel, ChannelTransaction
+from core.models import Channel, ChannelTransaction, CampaignChannel, Campaign
 from core.models import LegalEntity
 
 
@@ -206,3 +206,106 @@ class BalanceService:
 
         total_available = max(total_balance - total_frozen, Decimal("0"))
         return ChannelBalance(balance=total_balance, frozen=total_frozen, available=total_available)
+
+
+class CreativeSelectionService:
+    """
+    CHANGE: Added service for selecting suitable creative for publication request
+    WHY: Required by ТЗ 4.1.2 - select creative and initiate publication
+    QUOTE(ТЗ): "выбрать подходящий креатив и инициировать публикацию через существующий движок"
+    REF: issue #46
+
+    Service для выбора подходящего креатива на основе:
+    - Формата размещения
+    - Поддержки формата каналом
+    - Активной кампании с креативом нужного формата
+    - Бюджета кампании
+    """
+
+    @classmethod
+    def select_creative(cls, channel: Channel, format: str, parameters: dict) -> Optional[Campaign]:
+        """
+        Выбрать подходящую кампанию с креативом для публикации
+
+        Args:
+            channel: Канал для публикации
+            format: Формат размещения (sponsorship/fixed_slot/autopilot)
+            parameters: Дополнительные параметры
+
+        Returns:
+            Campaign instance или None если не найдено
+        """
+        from core.models import Campaign, PlacementFormat
+        from django.utils import timezone
+
+        # Проверяем что канал поддерживает этот формат
+        if format not in (channel.supported_formats or []):
+            return None
+
+        # Ищем активные кампании с нужным форматом
+        now = timezone.now().date()
+
+        campaigns = Campaign.objects.filter(
+            status=Campaign.Statuses.ACTIVE,
+            is_archived=False,
+            format=format,
+            start_date__lte=now,
+            finish_date__gte=now,
+        ).select_related('message').order_by('-created_at')
+
+        # Проверяем бюджет и отсутствие публикаций в этом канале
+        for campaign in campaigns:
+            # Проверяем что кампания ещё не публиковалась в этом канале
+            already_published = campaign.campaigns_channel.filter(
+                channel=channel,
+                publish_status__in=[
+                    CampaignChannel.PublishStatusChoices.PUBLISHED,
+                    CampaignChannel.PublishStatusChoices.CONFIRMED,
+                ]
+            ).exists()
+
+            if already_published:
+                continue
+
+            # Проверяем бюджет (упрощённо - просто что бюджет > 0)
+            if campaign.budget <= 0:
+                continue
+
+            # Нашли подходящую кампанию
+            return campaign
+
+        return None
+
+    @classmethod
+    def create_publication(
+        cls,
+        channel: Channel,
+        campaign: Campaign,
+        parameters: dict
+    ) -> CampaignChannel:
+        """
+        Создать связь кампании с каналом для публикации
+
+        Args:
+            channel: Канал для публикации
+            campaign: Кампания с креативом
+            parameters: Дополнительные параметры
+
+        Returns:
+            CampaignChannel instance
+        """
+        from core.models import CampaignChannel
+        from django.utils import timezone
+
+        # Создаём запись для публикации
+        campaign_channel = CampaignChannel.objects.create(
+            channel=channel,
+            campaign=campaign,
+            cpm=Decimal('0'),  # TODO: рассчитать CPM
+            plan_cpm=Decimal('0'),
+            impressions_plan=0,
+            publish_status=CampaignChannel.PublishStatusChoices.CONFIRMED,
+            message_publish_date=timezone.now(),  # Публикуем сразу
+        )
+
+        return campaign_channel

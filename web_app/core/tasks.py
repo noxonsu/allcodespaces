@@ -73,6 +73,7 @@ def check_and_publish_scheduled_messages(*args, **kwargs):
         message_publish_date__lte=now,
         channel_post_id__isnull=True,  # Еще не опубликованы
         channel__is_deleted=False,
+        campaign__is_archived=False,
     ).select_related('campaign', 'channel', 'channel_admin')
 
     count = campaign_channels.count()

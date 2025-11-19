@@ -229,7 +229,7 @@ class PayoutSerializer(serializers.ModelSerializer):
 
 class ChannelPublicationSlotSerializer(serializers.ModelSerializer):
     weekday_display = serializers.CharField(source="get_weekday_display", read_only=True)
-    label = serializers.CharField(source="label", read_only=True)
+    label = serializers.CharField(read_only=True)
 
     class Meta:
         model = ChannelPublicationSlot
@@ -845,3 +845,84 @@ class ChannelTransactionSerializer(serializers.ModelSerializer):
         instance = ChannelTransaction(**attrs)
         instance.clean()
         return attrs
+
+
+class PublicationRequestSerializer(serializers.Serializer):
+    """
+    CHANGE: Added serializer for incoming publication requests from microservice
+    WHY: Required by ТЗ 4.1.2 - validate and process publication requests
+    QUOTE(ТЗ): "реализовать защищённый эндпоинт/очередь, принимающую запрос (канал, формат, параметры)"
+    REF: issue #46
+    """
+    channel_id = serializers.UUIDField(
+        required=False,
+        help_text="UUID канала в системе (опционально, если передаётся tg_id)"
+    )
+    tg_id = serializers.IntegerField(
+        required=False,
+        help_text="Telegram ID канала (опционально, если передаётся channel_id)"
+    )
+    format = serializers.ChoiceField(
+        choices=PlacementFormat.choices,
+        help_text="Формат размещения: sponsorship, fixed_slot или autopilot"
+    )
+    parameters = serializers.JSONField(
+        required=False,
+        default=dict,
+        help_text="Дополнительные параметры для выбора креатива"
+    )
+
+    def validate(self, attrs):
+        """Проверка что передан хотя бы один идентификатор канала"""
+        if not attrs.get("channel_id") and not attrs.get("tg_id"):
+            raise serializers.ValidationError(
+                {"channel": "Необходимо указать channel_id или tg_id"}
+            )
+        return attrs
+
+    def validate_channel(self, channel_id=None, tg_id=None):
+        """Найти и вернуть канал по ID"""
+        from core.models import Channel
+
+        if channel_id:
+            channel = Channel.objects.filter(id=channel_id, is_deleted=False).first()
+        elif tg_id:
+            channel = Channel.objects.filter(tg_id=tg_id, is_deleted=False).first()
+        else:
+            raise serializers.ValidationError("Необходимо указать channel_id или tg_id")
+
+        if not channel:
+            raise serializers.ValidationError("Канал не найден или удалён")
+
+        return channel
+
+
+class PublicationResponseSerializer(serializers.Serializer):
+    """
+    CHANGE: Added serializer for publication response
+    WHY: Required by ТЗ 4.1.2 - return status/error to microservice
+    QUOTE(ТЗ): "возвращать статусы/ошибки, логировать запросы"
+    REF: issue #46
+    """
+    status = serializers.CharField(
+        help_text="Статус запроса: success, error, no_creative"
+    )
+    message = serializers.CharField(
+        required=False,
+        help_text="Сообщение об ошибке или успехе"
+    )
+    campaign_channel_id = serializers.UUIDField(
+        required=False,
+        help_text="ID созданной связи кампании с каналом"
+    )
+    publication_request_id = serializers.UUIDField(
+        help_text="ID запроса на публикацию"
+    )
+    channel = serializers.DictField(
+        required=False,
+        help_text="Данные канала"
+    )
+    creative = serializers.DictField(
+        required=False,
+        help_text="Данные креатива"
+    )

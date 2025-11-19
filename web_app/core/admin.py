@@ -46,6 +46,7 @@ from .models import (
     LegalEntity,
     ChannelTransaction,
     Payout,
+    PublicationRequest,
 )
 from django.contrib.admin import register, ModelAdmin
 
@@ -1850,3 +1851,42 @@ class ChannelAdminAdmin(ModelAdmin):
         return mark_safe(
             f"""<span class='tooltip-admin' title='{"Бот установлен" if instance.is_bot_installed else "Бот не-установлен"}'> {instance.username} </span>"""
         )
+
+
+@admin.register(PublicationRequest)
+class PublicationRequestAdmin(admin.ModelAdmin):
+    """
+    CHANGE: Added admin for PublicationRequest model
+    WHY: Required by ТЗ 4.1.2 - allow viewing publication request logs in admin
+    REF: issue #46
+    """
+    list_display = [
+        "id",
+        "channel",
+        "format",
+        "status",
+        "created_at",
+    ]
+    list_filter = ["status", "format", "created_at"]
+    search_fields = ["channel__name", "channel__username", "error_message"]
+    readonly_fields = [
+        "id",
+        "channel",
+        "format",
+        "status",
+        "campaign_channel",
+        "request_data",
+        "response_data",
+        "error_message",
+        "created_at",
+        "updated_at",
+    ]
+    ordering = ["-created_at"]
+
+    def has_add_permission(self, request):
+        """Запрещаем создание через админку"""
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """Запрещаем удаление логов"""
+        return False

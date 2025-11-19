@@ -19,6 +19,7 @@ from django.utils import timezone
 
 from core.filterset_classes import CampaignChannelFilterSet
 from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken, LegalEntity, Payout
+from web_app.logger import logger
 from core.serializers import (
     ChannelSerializer,
     MessageSerializer,
@@ -198,7 +199,8 @@ class MessageViewSet(ModelViewSet):
 
 class CampaignChannelViewSet(ModelViewSet):
     queryset = CampaignChannel.objects.select_related("channel").filter(
-        channel__is_deleted=False
+        channel__is_deleted=False,
+        campaign__is_archived=False,
     )
     serializer_class = CampaignChannelSerializer
     authentication_classes = []
@@ -449,3 +451,162 @@ class LoginAsUserView(APIView):
 
         # Редирект на главную или профиль
         return HttpResponseRedirect(redirect_to=user_get_redirect_url(token_instance.user))
+
+
+class PublicationRequestViewSet(ModelViewSet):
+    """
+    CHANGE: Added ViewSet for handling publication requests from microservice
+    WHY: Required by ТЗ 4.1.2 - accept requests, select creative, initiate publication
+    QUOTE(ТЗ): "реализовать защищённый эндпоинт/очередь, принимающую запрос (канал, формат, параметры)"
+    REF: issue #46
+    """
+    from core.models import PublicationRequest
+    from core.serializers import PublicationRequestSerializer, PublicationResponseSerializer
+    from core.authentication import MicroserviceBearerTokenAuthentication
+
+    queryset = PublicationRequest.objects.all()
+    serializer_class = PublicationRequestSerializer
+    authentication_classes = [MicroserviceBearerTokenAuthentication]
+    permission_classes = [AllowAny]  # Auth handled by authentication_classes
+
+    @action(detail=False, methods=["POST"], url_path="request-publication")
+    def request_publication(self, request, *args, **kwargs):
+        """
+        Принять запрос на публикацию от микросервиса.
+
+        Логика:
+        1. Валидировать входящий запрос
+        2. Найти канал
+        3. Выбрать подходящий креатив
+        4. Создать публикацию
+        5. Вернуть статус
+        """
+        from core.services import CreativeSelectionService
+        from core.serializers import PublicationRequestSerializer, PublicationResponseSerializer, ChannelSerializer, MessageSerializer
+        from core.models import PublicationRequest
+        import requests
+        from rest_framework.renderers import JSONRenderer
+
+        # Валидация входящих данных
+        serializer = PublicationRequestSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(
+                {"status": "error", "message": "Неверные параметры запроса", "errors": serializer.errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        validated_data = serializer.validated_data
+        channel_id = validated_data.get("channel_id")
+        tg_id = validated_data.get("tg_id")
+        format = validated_data["format"]
+        parameters = validated_data.get("parameters", {})
+
+        # Найти канал
+        try:
+            channel = serializer.validate_channel(channel_id=channel_id, tg_id=tg_id)
+        except Exception as e:
+            pub_request = PublicationRequest.objects.create(
+                channel_id=channel_id if channel_id else None,
+                format=format,
+                status=PublicationRequest.Status.ERROR,
+                request_data=request.data,
+                error_message=str(e),
+            )
+            return Response(
+                {
+                    "status": "error",
+                    "message": str(e),
+                    "publication_request_id": str(pub_request.id)
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Создаём запись о запросе
+        pub_request = PublicationRequest.objects.create(
+            channel=channel,
+            format=format,
+            status=PublicationRequest.Status.PENDING,
+            request_data=request.data,
+        )
+
+        try:
+            # Выбираем подходящий креатив
+            campaign = CreativeSelectionService.select_creative(
+                channel=channel,
+                format=format,
+                parameters=parameters
+            )
+
+            if not campaign:
+                pub_request.status = PublicationRequest.Status.NO_CREATIVE
+                pub_request.error_message = "Подходящий креатив не найден"
+                pub_request.save()
+
+                return Response(
+                    {
+                        "status": "no_creative",
+                        "message": "Подходящий креатив не найден для канала и формата",
+                        "publication_request_id": str(pub_request.id),
+                        "channel": ChannelSerializer(channel).data,
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Создаём публикацию
+            campaign_channel = CreativeSelectionService.create_publication(
+                channel=channel,
+                campaign=campaign,
+                parameters=parameters
+            )
+
+            pub_request.campaign_channel = campaign_channel
+            pub_request.status = PublicationRequest.Status.SUCCESS
+            pub_request.response_data = {
+                "campaign_channel_id": str(campaign_channel.id),
+                "campaign_id": str(campaign.id),
+                "message_id": str(campaign.message.id),
+            }
+            pub_request.save()
+
+            # Отправляем запрос на публикацию в бот
+            try:
+                from core.serializers import CampaignChannelSerializer
+                payload = CampaignChannelSerializer(campaign_channel).data
+                data = JSONRenderer().render(payload)
+                response = requests.post(
+                    f"{app_settings.DOMAIN_URI}/telegram/public-campaign-channel",
+                    data=data,
+                    headers={"content-type": "application/json"},
+                    timeout=30
+                )
+                logger.info(f"Sent publication request to bot: {response.status_code}")
+            except Exception as e:
+                logger.error(f"Failed to send publication request to bot: {e}")
+
+            return Response(
+                {
+                    "status": "success",
+                    "message": "Публикация создана успешно",
+                    "publication_request_id": str(pub_request.id),
+                    "campaign_channel_id": str(campaign_channel.id),
+                    "channel": ChannelSerializer(channel).data,
+                    "creative": MessageSerializer(campaign.message).data,
+                },
+                status=status.HTTP_201_CREATED
+            )
+
+        except Exception as e:
+            pub_request.status = PublicationRequest.Status.ERROR
+            pub_request.error_message = str(e)
+            pub_request.save()
+
+            logger.error(f"Error processing publication request: {e}", exc_info=True)
+
+            return Response(
+                {
+                    "status": "error",
+                    "message": f"Ошибка обработки запроса: {str(e)}",
+                    "publication_request_id": str(pub_request.id),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

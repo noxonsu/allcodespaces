@@ -56,6 +56,9 @@ class CampaignChannelFilterSet(FilterSet):
             if not getattr(campaign_channel, "channel_admin", None):
                 continue
 
+            if campaign_channel.campaign.is_archived:
+                continue
+
             if (
                 getattr(campaign_channel, "campaign", None)
                 and campaign_channel.campaign.status

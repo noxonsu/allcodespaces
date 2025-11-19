@@ -22,10 +22,18 @@ class CampaignQS(QuerySet):
 
 class CampaignChannelQs(QuerySet):
     def active(self):
-        return self.filter(campaign__status="active", channel__is_deleted=False)
+        return self.filter(
+            campaign__status="active",
+            campaign__is_archived=False,
+            channel__is_deleted=False,
+        )
 
     def paused(self):
-        return self.filter(campaign__status="paused", channel__is_deleted=False)
+        return self.filter(
+            campaign__status="paused",
+            campaign__is_archived=False,
+            channel__is_deleted=False,
+        )
 
     @property
     def campaigns_subqs(self):

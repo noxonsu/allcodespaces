@@ -7,6 +7,7 @@ import pytest
 from django.test import TransactionTestCase, RequestFactory
 from django.contrib.admin.sites import AdminSite
 from django.contrib.messages.storage.fallback import FallbackStorage
+from django.contrib.messages import get_messages
 from django.contrib.auth import get_user_model
 
 from .factories import (
@@ -94,6 +95,11 @@ class CampaignDeletionTestCase(TransactionTestCase):
 
         # Campaign should still exist
         self.assertTrue(Campaign.objects.filter(id=campaign.id).exists())
+        messages = [m.message for m in get_messages(request)]
+        self.assertTrue(
+            any("Архивировать" in msg for msg in messages),
+            "Deletion error message should suggest archiving as an alternative.",
+        )
 
     def test_delete_model_allows_deletion_without_publications(self):
         """Test delete_model() allows deletion when campaign has no publications"""
@@ -153,6 +159,11 @@ class CampaignDeletionTestCase(TransactionTestCase):
         self.assertTrue(Campaign.objects.filter(id=campaign1.id).exists())
         # Campaign without publications should be deleted
         self.assertFalse(Campaign.objects.filter(id=campaign2.id).exists())
+        messages = [m.message for m in get_messages(request)]
+        self.assertTrue(
+            any("Архивировать" in msg for msg in messages),
+            "Bulk deletion error message should suggest archiving.",
+        )
 
     def test_delete_queryset_allows_deletion_when_no_publications(self):
         """Test delete_queryset() allows deletion when no campaigns have publications"""
@@ -211,3 +222,29 @@ class CampaignDeletionTestCase(TransactionTestCase):
 
         # Now should be True
         self.assertTrue(campaign.has_publications())
+
+
+class CampaignArchiveActionTests(CampaignDeletionTestCase):
+    def test_archive_action_archives_campaign_and_reports(self):
+        campaign = CampaignFactory(is_archived=False)
+        request = self._get_request()
+        queryset = Campaign.objects.filter(id=campaign.id)
+
+        self.admin.archive_campaigns(request, queryset)
+        campaign.refresh_from_db()
+
+        self.assertTrue(campaign.is_archived)
+        messages = [m.message for m in get_messages(request)]
+        self.assertTrue(any("архивировано" in msg.lower() for msg in messages))
+
+    def test_unarchive_action_marks_campaigns(self):
+        campaign = CampaignFactory(is_archived=True)
+        request = self._get_request()
+        queryset = Campaign.objects.filter(id=campaign.id)
+
+        self.admin.unarchive_campaigns(request, queryset)
+        campaign.refresh_from_db()
+
+        self.assertFalse(campaign.is_archived)
+        messages = [m.message for m in get_messages(request)]
+        self.assertTrue(any("разархив" in msg.lower() for msg in messages))

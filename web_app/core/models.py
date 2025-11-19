@@ -1263,7 +1263,11 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
 
     @classmethod
     def send_approval_request(cls, instance: "CampaignChannel") -> None:
-        if not instance.channel or instance.channel.auto_approve_publications:
+        if (
+            not instance.channel
+            or instance.channel.auto_approve_publications
+            or (instance.campaign and instance.campaign.is_archived)
+        ):
             return
         from core.signals import send_message_to_channel_admin
 
@@ -1340,6 +1344,12 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
             raise ValidationError({'start_date': "это обязательное поле"})
 
         campaign = getattr(self, "campaign", None)
+        if campaign and campaign.is_archived:
+            raise ValidationError(
+                {
+                    "campaign": "Нельзя добавлять или изменять каналы в архивной кампании. Разархивируйте её перед продолжением."
+                }
+            )
         if campaign and self.channel and not self.channel.supports_format(campaign.format):
             raise ValidationError(
                 {
@@ -1853,3 +1863,74 @@ class Payout(BaseModel):
 
     def __str__(self):
         return f"{self.legal_entity} — {self.amount} {self.currency} ({self.get_status_display()})"
+
+
+class PublicationRequest(ExportModelOperationsMixin("publication_request"), BaseModel):
+    """
+    CHANGE: Added PublicationRequest model for logging publication requests from microservice
+    WHY: Required by ТЗ 4.1.2 - log all incoming publication requests from parser microservice
+    QUOTE(ТЗ): "возвращать статусы/ошибки, логировать запросы"
+    REF: issue #46
+    """
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Ожидает обработки"
+        SUCCESS = "success", "Успешно опубликовано"
+        ERROR = "error", "Ошибка"
+        NO_CREATIVE = "no_creative", "Креатив не найден"
+
+    channel = models.ForeignKey(
+        "Channel",
+        on_delete=models.CASCADE,
+        related_name="publication_requests",
+        verbose_name="Канал",
+    )
+    format = models.CharField(
+        max_length=32,
+        choices=PlacementFormat.choices,
+        verbose_name="Формат размещения",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="Статус",
+    )
+    campaign_channel = models.ForeignKey(
+        "CampaignChannel",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="publication_requests",
+        verbose_name="Связь кампании с каналом",
+    )
+    request_data = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Данные запроса",
+        help_text="Исходные параметры запроса от микросервиса",
+    )
+    response_data = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Данные ответа",
+        help_text="Результат обработки или ошибка",
+    )
+    error_message = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Сообщение об ошибке",
+    )
+
+    class Meta:
+        verbose_name = "Запрос на публикацию"
+        verbose_name_plural = "Запросы на публикацию"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["channel", "-created_at"]),
+            models.Index(fields=["status", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.channel.name} — {self.get_format_display()} — {self.get_status_display()}"

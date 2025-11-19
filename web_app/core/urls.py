@@ -9,6 +9,7 @@ from .views import (
     LegalEntityViewSet,
     PayoutViewSet,
     AboutView,
+    PublicationRequestViewSet,
 )
 
 app_name = "core"
@@ -19,6 +20,7 @@ campaign_channel = DefaultRouter()
 channel_admin = DefaultRouter()
 legal_entity_router = DefaultRouter()
 payout_router = DefaultRouter()
+publication_request_router = DefaultRouter()
 
 
 channel_router.register("", ChannelViewSet)
@@ -27,6 +29,7 @@ campaign_channel.register("", CampaignChannelViewSet)
 channel_admin.register("", ChannelAdminViewSet)
 legal_entity_router.register("", LegalEntityViewSet)
 payout_router.register("", PayoutViewSet)
+publication_request_router.register("", PublicationRequestViewSet)
 
 
 api_urls = [
@@ -36,6 +39,7 @@ api_urls = [
     path("channel-admin/", include(channel_admin.urls)),
     path("legal-entity/", include(legal_entity_router.urls)),
     path("payout/", include(payout_router.urls)),
+    path("publication-request/", include(publication_request_router.urls)),
 ]
 
 urlpatterns = [

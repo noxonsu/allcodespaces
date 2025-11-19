@@ -48,6 +48,8 @@ def send_message_to_channel_admin(instance: CampaignChannel) -> None:
         if (
             instance.id
             and instance.channel
+            and instance.campaign
+            and not instance.campaign.is_archived
             and not instance.channel.auto_approve_publications
             and instance.channel_admin
             and instance.channel_admin.is_bot_installed
@@ -106,7 +108,11 @@ def campaignchannel_post_save(
 ):
     if created:
         # Отправляем уведомление владельцу канала если требуется ручное подтверждение
-        if instance.channel and not instance.channel.auto_approve_publications:
+        if (
+            instance.channel
+            and not instance.channel.auto_approve_publications
+            and not instance.campaign.is_archived
+        ):
             send_message_to_channel_admin(instance)
 
 
