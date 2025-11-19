@@ -23,6 +23,7 @@ class MainService:
             "channel_admin_join": "/api/channel-admin/join/",
             "campaign_channel_approve": "/api/campaign-channel/{campaign_channel_id}/",  # toDO:Refactor
             "campaign_channel_reject": "/api/campaign-channel/{campaign_channel_id}/",  # toDO:Refactor
+            "preview_resolve": "/api/message/preview/resolve/",
         }
         self._response_raw = []
 
@@ -97,3 +98,22 @@ class MainService:
         url = self.urls["unpublished_campaign_channel_by_words"]
         self._response_raw = self.client.post(url, json=data)
         return self._response_raw
+
+    def resolve_preview_token(self, token: str):
+        """
+        Resolve preview token and get message data.
+        Returns message data if token is valid, None otherwise.
+
+        CHANGE: Added method to resolve preview tokens for message previews
+        WHY: Issue #52 requires bot to handle preview tokens from /start command
+        REF: #52
+        """
+        url = self.urls["preview_resolve"]
+        try:
+            response = self.client.post(url, json={"token": token})
+            if response.status_code == 200:
+                return response.json()
+            return None
+        except Exception as e:
+            print(f"Error resolving preview token: {e}")
+            return None
