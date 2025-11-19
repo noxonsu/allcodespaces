@@ -20,6 +20,18 @@ from django.utils import timezone
 from core.filterset_classes import CampaignChannelFilterSet
 from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken, LegalEntity, Payout
 from web_app.logger import logger
+from core.metrics import (
+    publication_requests_total,
+    publication_requests_success,
+    publication_requests_failed,
+    publication_requests_no_creative,
+    publication_request_duration_seconds,
+    creative_selection_duration_seconds,
+    bot_publication_attempts,
+    bot_publication_duration_seconds,
+    active_publication_requests,
+)
+import time
 from core.serializers import (
     ChannelSerializer,
     MessageSerializer,
@@ -487,60 +499,88 @@ class PublicationRequestViewSet(ModelViewSet):
         import requests
         from rest_framework.renderers import JSONRenderer
 
-        # Валидация входящих данных
-        serializer = PublicationRequestSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(
-                {"status": "error", "message": "Неверные параметры запроса", "errors": serializer.errors},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # CHANGE: Added metrics tracking for monitoring
+        # WHY: Required by ТЗ 4.1.3 - track request metrics
+        # REF: issue #47
+        start_time = time.time()
+        active_publication_requests.inc()
+        req_format = request.data.get("format", "unknown")
 
-        validated_data = serializer.validated_data
-        channel_id = validated_data.get("channel_id")
-        tg_id = validated_data.get("tg_id")
-        format = validated_data["format"]
-        parameters = validated_data.get("parameters", {})
-
-        # Найти канал
         try:
-            channel = serializer.validate_channel(channel_id=channel_id, tg_id=tg_id)
-        except Exception as e:
+            # Валидация входящих данных
+            serializer = PublicationRequestSerializer(data=request.data)
+            if not serializer.is_valid():
+                publication_requests_total.labels(status="validation_error", format=req_format).inc()
+                publication_requests_failed.labels(error_type="validation_error", format=req_format).inc()
+                duration = time.time() - start_time
+                publication_request_duration_seconds.labels(status="validation_error", format=req_format).observe(duration)
+                return Response(
+                    {"status": "error", "message": "Неверные параметры запроса", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            validated_data = serializer.validated_data
+            channel_id = validated_data.get("channel_id")
+            tg_id = validated_data.get("tg_id")
+            format = validated_data["format"]
+            parameters = validated_data.get("parameters", {})
+
+            # Найти канал
+            try:
+                channel = serializer.validate_channel(channel_id=channel_id, tg_id=tg_id)
+            except Exception as e:
+                publication_requests_total.labels(status="channel_not_found", format=format).inc()
+                publication_requests_failed.labels(error_type="channel_not_found", format=format).inc()
+
+                pub_request = PublicationRequest.objects.create(
+                    channel_id=channel_id if channel_id else None,
+                    format=format,
+                    status=PublicationRequest.Status.ERROR,
+                    request_data=request.data,
+                    error_message=str(e),
+                )
+
+                duration = time.time() - start_time
+                publication_request_duration_seconds.labels(status="channel_not_found", format=format).observe(duration)
+
+                return Response(
+                    {
+                        "status": "error",
+                        "message": str(e),
+                        "publication_request_id": str(pub_request.id)
+                    },
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Создаём запись о запросе
             pub_request = PublicationRequest.objects.create(
-                channel_id=channel_id if channel_id else None,
+                channel=channel,
                 format=format,
-                status=PublicationRequest.Status.ERROR,
+                status=PublicationRequest.Status.PENDING,
                 request_data=request.data,
-                error_message=str(e),
-            )
-            return Response(
-                {
-                    "status": "error",
-                    "message": str(e),
-                    "publication_request_id": str(pub_request.id)
-                },
-                status=status.HTTP_404_NOT_FOUND
             )
 
-        # Создаём запись о запросе
-        pub_request = PublicationRequest.objects.create(
-            channel=channel,
-            format=format,
-            status=PublicationRequest.Status.PENDING,
-            request_data=request.data,
-        )
+            publication_requests_total.labels(status="received", format=format).inc()
 
-        try:
             # Выбираем подходящий креатив
+            creative_start = time.time()
             campaign = CreativeSelectionService.select_creative(
                 channel=channel,
                 format=format,
                 parameters=parameters
             )
+            creative_duration = time.time() - creative_start
+            creative_selection_duration_seconds.labels(format=format).observe(creative_duration)
 
             if not campaign:
                 pub_request.status = PublicationRequest.Status.NO_CREATIVE
                 pub_request.error_message = "Подходящий креатив не найден"
                 pub_request.save()
+
+                publication_requests_no_creative.labels(format=format).inc()
+                publication_requests_total.labels(status="no_creative", format=format).inc()
+                duration = time.time() - start_time
+                publication_request_duration_seconds.labels(status="no_creative", format=format).observe(duration)
 
                 return Response(
                     {
@@ -569,6 +609,7 @@ class PublicationRequestViewSet(ModelViewSet):
             pub_request.save()
 
             # Отправляем запрос на публикацию в бот
+            bot_start = time.time()
             try:
                 from core.serializers import CampaignChannelSerializer
                 payload = CampaignChannelSerializer(campaign_channel).data
@@ -579,9 +620,19 @@ class PublicationRequestViewSet(ModelViewSet):
                     headers={"content-type": "application/json"},
                     timeout=30
                 )
+                bot_duration = time.time() - bot_start
+                bot_publication_duration_seconds.observe(bot_duration)
+                bot_publication_attempts.labels(status="success").inc()
                 logger.info(f"Sent publication request to bot: {response.status_code}")
             except Exception as e:
+                bot_publication_attempts.labels(status="error").inc()
                 logger.error(f"Failed to send publication request to bot: {e}")
+
+            # Track success metrics
+            publication_requests_success.labels(format=format).inc()
+            publication_requests_total.labels(status="success", format=format).inc()
+            duration = time.time() - start_time
+            publication_request_duration_seconds.labels(status="success", format=format).observe(duration)
 
             return Response(
                 {
@@ -600,6 +651,11 @@ class PublicationRequestViewSet(ModelViewSet):
             pub_request.error_message = str(e)
             pub_request.save()
 
+            publication_requests_failed.labels(error_type="processing_error", format=format).inc()
+            publication_requests_total.labels(status="error", format=format).inc()
+            duration = time.time() - start_time
+            publication_request_duration_seconds.labels(status="error", format=format).observe(duration)
+
             logger.error(f"Error processing publication request: {e}", exc_info=True)
 
             return Response(
@@ -610,3 +666,5 @@ class PublicationRequestViewSet(ModelViewSet):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        finally:
+            active_publication_requests.dec()

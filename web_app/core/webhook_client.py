@@ -12,6 +12,8 @@ from urllib3.util.retry import Retry
 
 from web_app.app_settings import app_settings
 from web_app.logger import logger
+from core.metrics import webhook_sent_total, webhook_duration_seconds, webhook_retry_total
+import time
 
 
 class ChannelEventType(str, Enum):
@@ -97,7 +99,10 @@ class ParserMicroserviceClient:
 
         if not self.base_url:
             logger.warning("PARSER_MICROSERVICE_URL not configured")
+            webhook_sent_total.labels(event_type=event_type.value, status="not_configured").inc()
             return None
+
+        start_time = time.time()
 
         try:
             payload = self._build_channel_payload(channel, event_type)
@@ -123,6 +128,10 @@ class ParserMicroserviceClient:
 
             response.raise_for_status()
 
+            duration = time.time() - start_time
+            webhook_duration_seconds.labels(event_type=event_type.value).observe(duration)
+            webhook_sent_total.labels(event_type=event_type.value, status="success").inc()
+
             logger.info(
                 f"Successfully sent {event_type} event for channel {channel.name}: "
                 f"{response.status_code} {response.text[:200]}"
@@ -131,10 +140,16 @@ class ParserMicroserviceClient:
             return response
 
         except requests.exceptions.Timeout as e:
+            duration = time.time() - start_time
+            webhook_duration_seconds.labels(event_type=event_type.value).observe(duration)
+            webhook_sent_total.labels(event_type=event_type.value, status="timeout").inc()
             logger.error(f"Timeout sending {event_type} event for channel {channel.name}: {e}")
             return None
 
         except requests.exceptions.RequestException as e:
+            duration = time.time() - start_time
+            webhook_duration_seconds.labels(event_type=event_type.value).observe(duration)
+            webhook_sent_total.labels(event_type=event_type.value, status="error").inc()
             logger.error(
                 f"Failed to send {event_type} event for channel {channel.name}: {e}",
                 exc_info=True
@@ -142,6 +157,9 @@ class ParserMicroserviceClient:
             return None
 
         except Exception as e:
+            duration = time.time() - start_time
+            webhook_duration_seconds.labels(event_type=event_type.value).observe(duration)
+            webhook_sent_total.labels(event_type=event_type.value, status="unexpected_error").inc()
             logger.error(
                 f"Unexpected error sending {event_type} event for channel {channel.name}: {e}",
                 exc_info=True
