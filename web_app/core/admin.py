@@ -19,7 +19,7 @@ from django.utils.safestring import mark_safe
 from django.utils.html import format_html
 
 from web_app.logger import logger
-from core.services import BalanceService, ChannelBalance
+from core.ledger_service import DoubleEntryLedgerService as BalanceService, ChannelBalance
 from .admin_forms import (
     CampaignAdminForm,
     ChannelAdminForm,

@@ -46,7 +46,7 @@ from core.serializers import (
     ChannelBalanceSerializer,
     PayoutSerializer,
 )
-from core.services import BalanceService
+from core.ledger_service import DoubleEntryLedgerService as BalanceService
 from core.utils import get_template_side_data
 from web_app.app_settings import app_settings
 

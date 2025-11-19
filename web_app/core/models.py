@@ -1602,6 +1602,24 @@ class LegalEntity(ExportModelOperationsMixin("legalentity"), BaseModel):
 
 class ChannelTransaction(ExportModelOperationsMixin("channeltransaction"), BaseModel):
     """
+    ⚠️ DEPRECATED: This model is deprecated and replaced by Account/LedgerEntry (double-entry ledger)
+
+    MIGRATION DATE: 2025-11-19
+    REPLACEMENT: Use core.ledger_service.DoubleEntryLedgerService instead
+
+    This model is kept for backwards compatibility and data migration purposes only.
+    All new code should use the new double-entry ledger system (Account/LedgerEntry models).
+
+    REASONS FOR DEPRECATION:
+    - Bug: freeze operations incorrectly changed total balance
+    - Bug: frozen amount not reset after complete unfreeze
+    - No automatic balance validation (debit = credit)
+
+    Will be removed in: 3 months (2025-02-19)
+
+    ---
+    OLD DOCUMENTATION (for reference only):
+
     CHANGE: Refactored to Event Sourcing (append-only ledger)
     WHY: Eliminate race conditions, simplify balance calculation, provide audit trail
     QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
@@ -1789,7 +1807,7 @@ class Payout(BaseModel):
             errors["period_end"] = "Дата окончания должна быть не раньше даты начала"
 
         if self._state.adding:
-            from core.services import BalanceService
+            from core.ledger_service import DoubleEntryLedgerService as BalanceService
 
             totals = BalanceService.get_legal_entity_balance(self.legal_entity)
             if totals.available < self.amount:
@@ -1813,14 +1831,21 @@ class Payout(BaseModel):
             self._notify_status_change(previous_status)
 
     def _ensure_payout_transactions(self):
-        existing = ChannelTransaction.objects.filter(
+        """
+        CHANGE: Updated to use new double-entry ledger system
+        WHY: Replace old ChannelTransaction with new LedgerEntry system
+        REF: Financial system migration 2025-11-19
+        """
+        from core.models import LedgerEntry
+        from core.ledger_service import DoubleEntryLedgerService as BalanceService
+
+        # Check if payout already processed (in new system)
+        existing = LedgerEntry.objects.filter(
             source_type="payout",
             source_id=self.id,
         )
         if existing.exists():
             return
-
-        from core.services import BalanceService
 
         amount_left = self.amount
         channels = list(self.legal_entity.channels.filter(is_deleted=False))
@@ -1835,14 +1860,15 @@ class Payout(BaseModel):
                 continue
 
             portion = min(available, amount_left)
-            ChannelTransaction.objects.create(
+
+            # Use new double-entry ledger service
+            BalanceService.record_payout(
                 channel=channel,
-                transaction_type=ChannelTransaction.TransactionType.PAYOUT,
-                amount=-portion,
-                currency=self.currency,
+                amount=portion,
+                description=f"Payout {self.id} for legal entity {self.legal_entity_id}",
                 source_type="payout",
                 source_id=self.id,
-                description=f"Payout {self.id} for legal entity {self.legal_entity_id}",
+                currency=self.currency
             )
             amount_left -= portion
 
@@ -1934,3 +1960,249 @@ class PublicationRequest(ExportModelOperationsMixin("publication_request"), Base
 
     def __str__(self):
         return f"{self.channel.name} — {self.get_format_display()} — {self.get_status_display()}"
+
+
+class AccountType(models.TextChoices):
+    """
+    CHANGE: Added AccountType for double-entry ledger system
+    WHY: Replace Event Sourcing with proper double-entry bookkeeping to fix freeze/unfreeze bugs
+    QUOTE(Audit): "Freeze/unfreeze logic is broken - balance changes incorrectly"
+    REF: Financial system audit 2025-11-19
+
+    Типы счетов в системе двойной записи:
+    - CASH: Доступные средства (можно вывести)
+    - FROZEN: Замороженные средства (временно недоступны)
+    - REVENUE: Счёт доходов (external account)
+    - EXPENSE: Счёт расходов (external account)
+    """
+    CASH = "cash", "Касса"
+    FROZEN = "frozen", "Заморожено"
+    REVENUE = "revenue", "Выручка"
+    EXPENSE = "expense", "Расходы"
+
+
+class Account(ExportModelOperationsMixin("account"), BaseModel):
+    """
+    CHANGE: Added Account model for double-entry ledger
+    WHY: Each channel needs separate accounts for cash, frozen, revenue, expense
+    QUOTE(Audit): "Need proper account separation for correct freeze/unfreeze operations"
+    REF: Financial system audit 2025-11-19
+
+    Счета канала для двойной записи.
+    Каждый канал имеет 4 счета: CASH, FROZEN, REVENUE, EXPENSE
+    Баланс канала = CASH + FROZEN (внутренние счета)
+    Available = CASH (доступно для вывода)
+    """
+
+    channel = models.ForeignKey(
+        "Channel",
+        on_delete=models.PROTECT,
+        related_name="accounts",
+        verbose_name="Канал",
+        help_text="Канал, к которому относится счёт"
+    )
+    account_type = models.CharField(
+        max_length=20,
+        choices=AccountType.choices,
+        verbose_name="Тип счёта",
+        help_text="Тип счёта в системе двойной записи"
+    )
+    currency = models.CharField(
+        max_length=3,
+        default="RUB",
+        verbose_name="Валюта",
+        help_text="Код валюты (ISO 4217)"
+    )
+
+    class Meta:
+        verbose_name = "Счёт"
+        verbose_name_plural = "Счета"
+        ordering = ["channel", "account_type"]
+        unique_together = ("channel", "account_type", "currency")
+        indexes = [
+            models.Index(fields=["channel", "account_type"]),
+        ]
+
+    def __str__(self):
+        return f"{self.channel.name} — {self.get_account_type_display()} ({self.currency})"
+
+    @property
+    def balance(self) -> Decimal:
+        """
+        Баланс счёта = Дебет - Кредит
+
+        Для asset accounts (CASH, FROZEN): положительный баланс = дебет > кредит
+        Для liability/equity accounts (REVENUE, EXPENSE): положительный баланс = кредит > дебет
+        """
+        from django.db.models import Sum, Q
+
+        debits = self.entries.filter(entry_type=LedgerEntry.EntryType.DEBIT).aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0')
+
+        credits = self.entries.filter(entry_type=LedgerEntry.EntryType.CREDIT).aggregate(
+            total=Sum('amount')
+        )['total'] or Decimal('0')
+
+        # Asset accounts: balance = debit - credit
+        if self.account_type in [AccountType.CASH, AccountType.FROZEN]:
+            return debits - credits
+        # Revenue/Expense accounts: balance = credit - debit
+        else:
+            return credits - debits
+
+
+class LedgerEntry(ExportModelOperationsMixin("ledgerentry"), BaseModel):
+    """
+    CHANGE: Added LedgerEntry model for double-entry bookkeeping
+    WHY: Replace Event Sourcing append-only log with proper double-entry ledger
+    QUOTE(Audit): "Double-entry provides automatic balance validation and proper freeze/unfreeze"
+    REF: Financial system audit 2025-11-19
+
+    Запись в главной книге (General Ledger).
+
+    Принципы двойной записи:
+    - Каждая транзакция создаёт минимум 2 записи (debit + credit)
+    - Сумма дебетов ВСЕГДА равна сумме кредитов для одного transaction_id
+    - Записи immutable (append-only)
+    - Баланс счёта = SUM(debits) - SUM(credits)
+
+    Примеры:
+    1. Начисление дохода +1000:
+       Debit:  CASH +1000
+       Credit: REVENUE +1000
+
+    2. Заморозка 300:
+       Debit:  FROZEN +300
+       Credit: CASH -300
+
+    3. Разморозка 300:
+       Debit:  CASH +300
+       Credit: FROZEN -300
+
+    4. Выплата 500:
+       Debit:  EXPENSE +500
+       Credit: CASH -500
+    """
+
+    class EntryType(models.TextChoices):
+        DEBIT = "debit", "Дебет"
+        CREDIT = "credit", "Кредит"
+
+    class TransactionType(models.TextChoices):
+        """Типы бизнес-операций (для группировки записей)"""
+        INCOME = "income", "Начисление дохода"
+        FREEZE = "freeze", "Заморозка средств"
+        UNFREEZE = "unfreeze", "Разморозка средств"
+        PAYOUT = "payout", "Выплата"
+        COMMISSION = "commission", "Комиссия"
+        REFUND = "refund", "Возврат"
+        ADJUSTMENT = "adjustment", "Корректировка"
+
+    account = models.ForeignKey(
+        "Account",
+        on_delete=models.PROTECT,
+        related_name="entries",
+        verbose_name="Счёт",
+        help_text="Счёт, по которому проводится запись"
+    )
+    amount = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        verbose_name="Сумма",
+        help_text="Сумма записи (всегда положительная)"
+    )
+    entry_type = models.CharField(
+        max_length=10,
+        choices=EntryType.choices,
+        verbose_name="Тип записи",
+        help_text="Дебет или Кредит"
+    )
+
+    # Группировка парных записей
+    transaction_id = models.UUIDField(
+        db_index=True,
+        verbose_name="ID транзакции",
+        help_text="UUID для группировки парных записей (debit + credit)"
+    )
+    transaction_type = models.CharField(
+        max_length=20,
+        choices=TransactionType.choices,
+        verbose_name="Тип операции",
+        help_text="Тип бизнес-операции"
+    )
+
+    # Источник операции (для связи с бизнес-сущностями)
+    source_type = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Тип источника",
+        help_text="Тип источника: campaign_channel, payout, manual, system"
+    )
+    source_id = models.UUIDField(
+        null=True,
+        blank=True,
+        verbose_name="ID источника",
+        help_text="UUID связанного объекта (CampaignChannel, Payout, etc.)"
+    )
+
+    # Дополнительная информация
+    description = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Описание",
+        help_text="Описание операции для audit trail"
+    )
+    metadata = JSONField(
+        default=dict,
+        blank=True,
+        verbose_name="Метаданные",
+        help_text="Доп. данные (impressions, cpm, и т.д.)"
+    )
+
+    class Meta:
+        verbose_name = "Запись в главной книге"
+        verbose_name_plural = "Записи в главной книге"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["account", "-created_at"]),
+            models.Index(fields=["transaction_id"]),
+            models.Index(fields=["transaction_type", "-created_at"]),
+            models.Index(fields=["source_type", "source_id"]),
+        ]
+
+    def __str__(self):
+        sign = "Дт" if self.entry_type == self.EntryType.DEBIT else "Кт"
+        return f"{sign} {self.account.get_account_type_display()} {self.amount} — {self.get_transaction_type_display()}"
+
+    def clean(self):
+        """Валидация записи"""
+        super().clean()
+
+        # Сумма всегда положительная
+        if self.amount <= 0:
+            raise ValidationError({
+                "amount": "Сумма должна быть положительной (знак определяется типом записи: дебет/кредит)"
+            })
+
+    def save(self, *args, **kwargs):
+        """
+        Enforce append-only: prevent updates after creation
+        """
+        if not self._state.adding:
+            raise ValidationError(
+                "Записи в главной книге нельзя изменять (append-only ledger). "
+                "Создайте корректирующую транзакцию для исправления."
+            )
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        """
+        Prevent deletion: append-only ledger
+        """
+        raise ValidationError(
+            "Записи в главной книге нельзя удалять (append-only ledger). "
+            "Создайте корректирующую транзакцию для отмены."
+        )

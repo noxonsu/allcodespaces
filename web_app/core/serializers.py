@@ -21,7 +21,7 @@ from core.models import (
     ChannelPublicationSlot,
 )
 from core.utils import validate_channel_avtar_url
-from core.services import BalanceService, ChannelBalance
+from core.ledger_service import DoubleEntryLedgerService as BalanceService, ChannelBalance
 
 
 class LegalEntitySerializer(serializers.ModelSerializer):

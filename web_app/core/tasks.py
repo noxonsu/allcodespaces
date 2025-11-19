@@ -5,7 +5,7 @@ from core.utils import BotNotifier
 from web_app.logger import log_func, logger
 from core.external_clients import TGStatClient
 from core.models import CampaignChannel, LegalEntity, Payout
-from core.services import BalanceService
+from core.ledger_service import DoubleEntryLedgerService as BalanceService
 
 
 MIN_PAYOUT_AMOUNT = Decimal("100.00")

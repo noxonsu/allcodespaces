@@ -1,6 +1,25 @@
 from __future__ import annotations
 
 """
+⚠️⚠️⚠️ DEPRECATED MODULE ⚠️⚠️⚠️
+
+This module is DEPRECATED as of 2025-11-19 and replaced by core.ledger_service
+
+REPLACEMENT: Use core.ledger_service.DoubleEntryLedgerService instead of BalanceService
+NEW SYSTEM: Account/LedgerEntry models with proper double-entry bookkeeping
+
+REASONS FOR DEPRECATION:
+- Bug: freeze operations incorrectly changed total balance
+- Bug: frozen amount not reset after complete unfreeze
+- No automatic balance validation (debit != credit)
+- Event Sourcing approach was flawed for freeze/unfreeze operations
+
+MIGRATION: All imports have been updated to use new system
+Will be removed in: 3 months (2025-02-19)
+
+---
+OLD DOCUMENTATION (for reference only):
+
 CHANGE: Refactored BalanceService to Event Sourcing approach
 WHY: Simplify balance calculation, eliminate race conditions
 QUOTE(ТЗ): "Event Sourcing - баланс = SUM(transactions). Нет race — только append"
@@ -12,6 +31,15 @@ Event Sourcing подход:
 - Нет статусов - только типы операций
 - Нет race conditions - только INSERT
 """
+
+import warnings
+
+warnings.warn(
+    "core.services.BalanceService is deprecated. "
+    "Use core.ledger_service.DoubleEntryLedgerService instead.",
+    DeprecationWarning,
+    stacklevel=2
+)
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Optional

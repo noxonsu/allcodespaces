@@ -5,7 +5,7 @@ from rest_framework.renderers import JSONRenderer
 from datetime import time
 
 from web_app.app_settings import app_settings
-from core.models import CampaignChannel, ChannelAdmin, Channel, ChannelPublicationSlot, ChannelTransaction
+from core.models import CampaignChannel, ChannelAdmin, Channel, ChannelPublicationSlot, ChannelTransaction, LedgerEntry
 from web_app.logger import logger
 from .models_qs import change_channeladmin_group
 from .serializers import CampaignChannelSerializer
@@ -180,7 +180,7 @@ def invalidate_channel_balance_cache(sender, instance, **kwargs):
     QUOTE(ТЗ): "обеспечить кэширование/обновление при изменении операций"
     REF: issue #22
     """
-    from core.services import BalanceService
+    from core.ledger_service import DoubleEntryLedgerService as BalanceService
 
     if instance.channel:
         BalanceService.invalidate_cache(instance.channel)
@@ -229,3 +229,18 @@ def notify_microservice_on_channel_change(sender, instance: Channel, created: bo
     except Exception as e:
         # Log error but don't fail the transaction
         logger.error(f"Failed to notify microservice about channel {instance.name}: {e}", exc_info=True)
+
+
+@receiver(post_save, sender=LedgerEntry)
+@receiver(post_delete, sender=LedgerEntry)
+def invalidate_ledger_balance_cache(sender, instance, **kwargs):
+    """
+    CHANGE: Added signal to invalidate balance cache for new ledger system
+    WHY: Ensure balance cache is updated when ledger entries change
+    REF: Financial system migration 2025-11-19
+    """
+    from core.ledger_service import DoubleEntryLedgerService as BalanceService
+
+    if instance.account and instance.account.channel:
+        BalanceService.invalidate_cache(instance.account.channel)
+        logger.debug(f"Invalidated balance cache for channel {instance.account.channel.name}")
