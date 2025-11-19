@@ -36,7 +36,7 @@ jobs:
             -e DB_NAME=telewin_app_db \
             -e DB_USERNAME=telewin_user_client \
             -e DB_PASS=telewin_user_client_password \
-            web-app bash -c "pip install --upgrade pip && pip install uv && uv pip install --system --all-extras -r pyproject.toml && python3 -m pytest tests/ -v"
+            web-app bash -c "pip install --upgrade pip && pip install uv && uv pip install --system -r pyproject.toml && uv pip install --system --group dev && python3 -m pytest tests/ -v"
 
       - name: Cleanup docker compose
         if: always()
