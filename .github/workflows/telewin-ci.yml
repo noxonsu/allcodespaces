@@ -33,10 +33,10 @@ jobs:
             -e DB_ENGINE=sqlite3 \
             -e DB_HOST= \
             -e DB_PORT= \
-            -e DB_NAME=/app/test_db.sqlite3 \
+            -e DB_NAME=:memory: \
             -e DB_USERNAME= \
             -e DB_PASS= \
-            web-app bash -c "pip install --upgrade pip && pip install uv && uv pip install --system --all-extras -r pyproject.toml && python3 manage.py test"
+            web-app bash -c "pip install --upgrade pip && pip install uv && uv pip install --system --all-extras -r pyproject.toml && python3 -m pytest tests/ -v"
 
       - name: Cleanup docker compose
         if: always()
