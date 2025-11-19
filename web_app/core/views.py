@@ -18,7 +18,7 @@ from rest_framework.viewsets import ModelViewSet
 from django.utils import timezone
 
 from core.filterset_classes import CampaignChannelFilterSet
-from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken, LegalEntity, Payout
+from core.models import Channel, Message, CampaignChannel, ChannelAdmin, MessagePreviewToken, UserLoginToken, LegalEntity, Payout, Campaign
 from web_app.logger import logger
 from core.metrics import (
     publication_requests_total,
@@ -668,3 +668,60 @@ class PublicationRequestViewSet(ModelViewSet):
             )
         finally:
             active_publication_requests.dec()
+
+
+class CampaignViewSet(ModelViewSet):
+    """
+    ViewSet for Campaign management and media plan generation.
+
+    CHANGE: Added ViewSet for campaign operations
+    WHY: Issue #48 requires endpoint for media plan generation
+    REF: #48
+    """
+    queryset = Campaign.objects.filter(is_archived=False)
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post']
+
+    def get_serializer_class(self):
+        # Will be implemented in issue #49
+        from rest_framework import serializers
+        return serializers.Serializer
+
+    @action(detail=False, methods=["POST"], url_path="generate-media-plan")
+    def generate_media_plan(self, request, *args, **kwargs):
+        """
+        Generate media plan for selected campaigns.
+
+        CHANGE: Added endpoint for media plan generation
+        WHY: Issue #48 requires API endpoint to receive selected campaigns
+        REF: #48
+        """
+        campaign_ids = request.data.get('campaign_ids', [])
+
+        if not campaign_ids:
+            return Response(
+                {"status": "error", "message": "Не указаны ID кампаний"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        campaigns = Campaign.objects.filter(id__in=campaign_ids, is_archived=False)
+
+        if not campaigns.exists():
+            return Response(
+                {"status": "error", "message": "Кампании не найдены"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Store campaign IDs for media plan generation (issue #49)
+        logger.info(f"Media plan requested for {campaigns.count()} campaigns: {campaign_ids}")
+
+        return Response(
+            {
+                "status": "success",
+                "message": f"Выбрано кампаний: {campaigns.count()}",
+                "campaign_count": campaigns.count(),
+                "campaign_ids": list(campaigns.values_list('id', flat=True)),
+                "note": "Генерация медиаплана будет реализована в issue #49"
+            },
+            status=status.HTTP_200_OK
+        )

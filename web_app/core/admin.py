@@ -751,7 +751,7 @@ class CampaignAdmin(admin.ModelAdmin):
         css = {"all": ["core/css/campaign/change_form.css"]}
         js = ['core/js/campaign/change_form.js']
 
-    actions = ["archive_campaigns", "unarchive_campaigns"]
+    actions = ["archive_campaigns", "unarchive_campaigns", "generate_media_plan"]
     list_max_show_all = 50
     list_per_page = 20
     readonly_fields = [
@@ -1022,6 +1022,28 @@ class CampaignAdmin(admin.ModelAdmin):
                 request,
                 f"Успешно разархивировано кампаний: {count}"
             )
+
+    def generate_media_plan(self, request, queryset):
+        """
+        CHANGE: Action to generate media plan for selected campaigns
+        WHY: Issue #48 - возможность выбора кампаний и генерации медиаплана
+        REF: #48
+        """
+        if queryset.count() == 0:
+            messages.error(request, "Не выбрано ни одной кампании")
+            return
+
+        campaign_ids = list(queryset.values_list('id', flat=True))
+
+        # Store selected campaign IDs in session for next step (issue #49)
+        request.session['media_plan_campaign_ids'] = [str(id) for id in campaign_ids]
+
+        messages.success(
+            request,
+            f"Выбрано кампаний: {queryset.count()}. Медиаплан будет сгенерирован (функционал в разработке - issue #49)"
+        )
+
+    generate_media_plan.short_description = "Сформировать медиаплан"
 
 
 class MessagePreviewTokenInline(admin.TabularInline):
