@@ -30,12 +30,12 @@ jobs:
         run: |
           timeout 300 docker compose -f web_app/docker-compose.yml run --rm \
             --entrypoint "" \
-            -e DB_ENGINE=sqlite3 \
-            -e DB_HOST= \
-            -e DB_PORT= \
-            -e DB_NAME=:memory: \
-            -e DB_USERNAME= \
-            -e DB_PASS= \
+            -e DB_ENGINE=postgresql \
+            -e DB_HOST=web-db_con \
+            -e DB_PORT=5432 \
+            -e DB_NAME=telewin_app_db \
+            -e DB_USERNAME=telewin_user_client \
+            -e DB_PASS=telewin_user_client_password \
             web-app bash -c "pip install --upgrade pip && pip install uv && uv pip install --system --all-extras -r pyproject.toml && python3 -m pytest tests/ -v"
 
       - name: Cleanup docker compose
