@@ -6,3 +6,25 @@ label[for="id_message"], a#change_id_message, a#add_id_message{
     display:none;
 }
 
+/* CHANGE: Стили для радиокнопок поля format */
+/* WHY: Исправление issue #33 - радиокнопки были скрыты стилями Jazzmin */
+/* REF: #33 */
+.field-format input[type="radio"] {
+    width: auto !important;
+    height: auto !important;
+    margin-right: 5px !important;
+    opacity: 1 !important;
+    position: relative !important;
+}
+
+.field-format label {
+    display: inline-block !important;
+    margin-right: 20px !important;
+    margin-bottom: 10px !important;
+    font-weight: normal !important;
+}
+
+.field-format > div {
+    display: block !important;
+}
+

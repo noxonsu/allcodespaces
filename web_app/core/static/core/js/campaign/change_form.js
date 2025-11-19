@@ -1,5 +1,16 @@
 $(document).ready(function () {
-    // Поле slot_publication_at больше не используется
-    // Формат Фикс-слот работает только через выбор слотов на уровне каналов
-    console.log('Campaign change form loaded. Format field is now always visible.');
+    // CHANGE: Удаление disabled атрибута с радиокнопок format для новых кампаний
+    // WHY: Исправление issue #33 - атрибут disabled блокировал выбор формата
+    // REF: #33
+    const campaignId = new URLSearchParams(window.location.search).get('object_id') ||
+                       window.location.pathname.match(/\/(\d+)\/change\//)?.[1];
+
+    // Если это страница создания новой кампании (нет ID)
+    if (!campaignId && window.location.pathname.includes('/add/')) {
+        // Убираем disabled со всех радиокнопок format
+        $('.field-format input[type="radio"]').removeAttr('disabled').prop('disabled', false);
+        console.log('Campaign add form: enabled format radio buttons');
+    } else {
+        console.log('Campaign change form: format field remains disabled for existing campaign');
+    }
 });

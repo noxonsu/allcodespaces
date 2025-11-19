@@ -14,6 +14,7 @@ from core.models import (
     ChannelPublicationSlot,
     PlacementFormat,
     SPONSORSHIP_BODY_LENGTH_LIMIT,
+    SPONSORSHIP_BUTTON_LIMIT,
     default_supported_formats,
 )
 from core.utils import bulk_notify_channeladmin, budget_cpm_from_qs
@@ -65,12 +66,16 @@ class ChannelForm(forms.ModelForm):
 
 
 class CampaignAdminForm(forms.ModelForm):
+    # CHANGE: Заменил Select на RadioSelect для поля format
+    # WHY: Исправление issue #33 - селектор был заблокирован, радиокнопки обеспечивают лучший UX
+    # QUOTE(ТЗ): "поменяй селектор 'Формат размещения' на радиобатоны"
+    # REF: #33
     format = forms.ChoiceField(
         choices=PlacementFormat.choices,
         required=True,
         initial=PlacementFormat.FIXED_SLOT,
         label="Формат размещения",
-        widget=forms.Select(attrs={"class": "form-control"}),
+        widget=forms.RadioSelect(),
     )
 
     def __init__(self, *args, **kwargs):
@@ -95,14 +100,17 @@ class CampaignAdminForm(forms.ModelForm):
         # Для существующих кампаний блокируем изменение формата
         if is_existing_campaign:
             self.fields["format"].disabled = True
-            self.fields["format"].widget.attrs['disabled'] = True
+            self.fields["format"].widget.attrs['disabled'] = 'disabled'
         else:
             # Для новых кампаний поле должно быть активным
             self.fields["format"].disabled = False
             self.fields["format"].required = True
             self.fields["format"].initial = PlacementFormat.FIXED_SLOT
-            # Явно убираем disabled атрибут
-            self.fields["format"].widget.attrs.pop('disabled', None)
+            # Явно убираем disabled атрибут и пересоздаем виджет без disabled
+            self.fields["format"].widget = forms.RadioSelect(
+                attrs={},
+                choices=PlacementFormat.choices
+            )
 
     def clean_client(self):
         is_new = (
