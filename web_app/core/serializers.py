@@ -18,6 +18,7 @@ from core.models import (
     LegalEntity,
     ChannelTransaction,
     Payout,
+    ChannelPublicationSlot,
 )
 from core.utils import validate_channel_avtar_url
 from core.services import BalanceService, ChannelBalance
@@ -210,7 +211,30 @@ class PayoutSerializer(serializers.ModelSerializer):
             if totals.available < amount:
                 raise serializers.ValidationError({"amount": "Сумма выплаты превышает доступный баланс юрлица"})
 
+        supported_formats = attrs.get("supported_formats")
+        if supported_formats is None and self.instance:
+            supported_formats = self.instance.supported_formats
+
+        autopilot_interval = attrs.get("autopilot_min_interval")
+        if autopilot_interval is None and self.instance:
+            autopilot_interval = self.instance.autopilot_min_interval
+
+        if supported_formats and PlacementFormat.AUTOPILOT in supported_formats and not autopilot_interval:
+            raise serializers.ValidationError(
+                {"autopilot_min_interval": "Для каналов с форматом «Автопилот» укажите минимальный интервал."}
+            )
+
         return attrs
+
+
+class ChannelPublicationSlotSerializer(serializers.ModelSerializer):
+    weekday_display = serializers.CharField(source="get_weekday_display", read_only=True)
+    label = serializers.CharField(source="label", read_only=True)
+
+    class Meta:
+        model = ChannelPublicationSlot
+        fields = ["id", "weekday", "weekday_display", "start_time", "end_time", "label"]
+        read_only_fields = fields
 
 
 class ChannelSerializer(serializers.ModelSerializer):
@@ -233,6 +257,7 @@ class ChannelSerializer(serializers.ModelSerializer):
     balance = serializers.SerializerMethodField()
     frozen = serializers.SerializerMethodField()
     available = serializers.SerializerMethodField()
+    publication_slots = ChannelPublicationSlotSerializer(many=True, read_only=True)
 
     class Meta:
         model = Channel
@@ -507,7 +532,7 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
     channel = ChannelSerializer()
     campaign = CampaignSerializer()
     channel_admin = ChannelAdminSerializer()
-    publication_slot = serializers.SerializerMethodField()
+    publication_slot = ChannelPublicationSlotSerializer(read_only=True)
 
     class Meta:
         model = CampaignChannel
@@ -547,19 +572,6 @@ class CampaignChannelSerializer(serializers.ModelSerializer):
             )
 
         return super().validate(attrs)
-
-    def get_publication_slot(self, obj):
-        slot = getattr(obj, "publication_slot", None)
-        if not slot:
-            return None
-        return {
-            "id": str(slot.id),
-            "weekday": slot.get_weekday_display(),
-            "start_time": slot.start_time.strftime("%H:%M"),
-            "end_time": slot.end_time.strftime("%H:%M"),
-            "label": slot.label,
-        }
-
 
 class CampaignChannelClickSerializer(serializers.Serializer):
     target = serializers.URLField(required=False, allow_blank=True, allow_null=True)

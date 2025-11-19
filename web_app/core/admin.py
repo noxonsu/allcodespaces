@@ -193,7 +193,8 @@ class ChannelModelAdmin(admin.ModelAdmin):
         "is_bot_installed_html",
         "is_deleted",
         "status_html",
-        "require_manual_approval",
+        "auto_approve_publications",
+        "autopilot_min_interval",
         "balance_amount",
         "frozen_amount",
         "available_amount",
@@ -210,6 +211,7 @@ class ChannelModelAdmin(admin.ModelAdmin):
         ("status", CustomChoiceFilter),
         ("is_bot_installed", CustomBooleanFilter),
         ("legal_entity", CustomRelatedFilterListFilter),
+        ("auto_approve_publications", CustomBooleanFilter),
     ]
     list_display_links = ['name_str']
     empty_value_display = "-"
@@ -228,7 +230,8 @@ class ChannelModelAdmin(admin.ModelAdmin):
                     "legal_entity",
                     "cpm",
                     "supported_formats",
-                    "require_manual_approval",
+                    "auto_approve_publications",
+                    "autopilot_min_interval",
                     "btn_link_statistics",
                 ),
             },
@@ -746,7 +749,7 @@ class CampaignAdmin(admin.ModelAdmin):
         css = {"all": ["core/css/campaign/change_form.css"]}
         js = ['core/js/campaign/change_form.js']
 
-    actions = None
+    actions = ["archive_campaigns", "unarchive_campaigns"]
     list_max_show_all = 50
     list_per_page = 20
     readonly_fields = [
@@ -778,6 +781,7 @@ class CampaignAdmin(admin.ModelAdmin):
         ("client", CustomAllValuesFieldListFilter),
         ("status", CustomChoiceFilter),
         ("format", CustomChoiceFilter),
+        ("is_archived", CustomBooleanFilter),
         ("start_date",CustomDateFieldListFilter),
         ("finish_date",CustomDateFieldListFilter),
     ]
@@ -797,6 +801,7 @@ class CampaignAdmin(admin.ModelAdmin):
                     "white_list",
                     "black_list",
                     "status",
+                    "is_archived",
                     # "avg_cpm",
                     # "total_planed_views",
                     # "link_to_statistics",
@@ -880,6 +885,61 @@ class CampaignAdmin(admin.ModelAdmin):
             )
             extra_context["is_draft"] = True
         return super().changeform_view(request, object_id, extra_context=extra_context)
+
+    def get_queryset(self, request):
+        """
+        CHANGE: Hide archived campaigns by default
+        WHY: Issue #43 - архивные кампании скрыты из дефолтных списков
+        REF: #43
+        """
+        qs = super().get_queryset(request)
+        # Показываем архивные только если пользователь явно выбрал фильтр
+        if not request.GET.get('is_archived__exact'):
+            qs = qs.filter(is_archived=False)
+        return qs
+
+    @admin.action(description="Архивировать выбранные кампании")
+    def archive_campaigns(self, request, queryset):
+        """
+        CHANGE: Action to archive campaigns
+        WHY: Issue #43 - альтернатива удалению
+        REF: #43
+        """
+        campaigns_with_publications = []
+        campaigns_to_archive = []
+
+        for campaign in queryset:
+            if campaign.is_archived:
+                continue
+            if campaign.has_publications():
+                # Кампании с публикациями можно архивировать
+                campaigns_to_archive.append(campaign)
+            else:
+                campaigns_to_archive.append(campaign)
+
+        if campaigns_to_archive:
+            count = len(campaigns_to_archive)
+            for campaign in campaigns_to_archive:
+                campaign.is_archived = True
+                campaign.save()
+            messages.success(
+                request,
+                f"Успешно архивировано кампаний: {count}"
+            )
+
+    @admin.action(description="Разархивировать выбранные кампании")
+    def unarchive_campaigns(self, request, queryset):
+        """
+        CHANGE: Action to unarchive campaigns
+        WHY: Issue #43 - возможность восстановления из архива
+        REF: #43
+        """
+        count = queryset.filter(is_archived=True).update(is_archived=False)
+        if count:
+            messages.success(
+                request,
+                f"Успешно разархивировано кампаний: {count}"
+            )
 
 
 @register(Message)

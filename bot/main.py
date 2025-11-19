@@ -91,7 +91,11 @@ async def main():
         # НЕ перезаписываем channel.tg_id - он должен остаться tg_id канала, а не админа!
 
         # Проверяем требует ли канал ручного подтверждения
-        require_manual_approval = getattr(campaign_channel.channel, 'require_manual_approval', False)
+        auto_approve = getattr(campaign_channel.channel, "auto_approve_publications", None)
+        if auto_approve is None:
+            # Обратная совместимость со старым атрибутом
+            auto_approve = not getattr(campaign_channel.channel, "require_manual_approval", True)
+        require_manual_approval = not bool(auto_approve)
 
         publish_at = campaign_channel.message_publish_date
         if isinstance(publish_at, str):

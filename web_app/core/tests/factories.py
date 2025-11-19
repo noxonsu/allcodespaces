@@ -70,6 +70,8 @@ class ChannelFactory(DjangoModelFactory):
     daily_reach = factory.Faker("pyfloat", min_value=1)
     is_deleted = False
     supported_formats = factory.LazyFunction(default_supported_formats)
+    auto_approve_publications = False
+    autopilot_min_interval = 60
 
 
 class GroupFactory(DjangoModelFactory):

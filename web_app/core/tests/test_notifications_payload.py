@@ -19,7 +19,7 @@ from core.tests.factories import (
 class NotificationPayloadTests(TestCase):
     def setUp(self):
         self.channel_admin = ChannelAdminFactory(is_bot_installed=True)
-        self.channel = ChannelFactory(require_manual_approval=True, is_deleted=False)
+        self.channel = ChannelFactory(auto_approve_publications=False, is_deleted=False)
         self.channel_admin.channels.add(self.channel)
         self.slot = ChannelPublicationSlotFactory(
             channel=self.channel,

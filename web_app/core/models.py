@@ -7,7 +7,7 @@ from django_prometheus.models import ExportModelOperationsMixin
 
 from .utils import RolePermissions
 from decimal import Decimal
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 try:
     from typing import Self  # type: ignore
 except ImportError:
@@ -494,10 +494,17 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         default=default_supported_formats,
         verbose_name="Поддерживаемые форматы",
     )
-    require_manual_approval = models.BooleanField(
+    auto_approve_publications = models.BooleanField(
         default=False,
-        verbose_name="Требует ручного подтверждения",
-        help_text="Если включено, владелец канала должен вручную подтверждать каждую публикацию"
+        verbose_name="Автоутверждение публикаций",
+        help_text="Если включено, заявки публикуются автоматически без ручного подтверждения",
+    )
+    autopilot_min_interval = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        verbose_name="Мин. интервал для «Автопилота», мин",
+        help_text="Минимальный интервал между публикациями для кампаний формата «Автопилот». "
+        "Обязателен, если канал поддерживает формат «Автопилот».",
     )
     legal_entity = models.ForeignKey(
         "LegalEntity",
@@ -532,6 +539,39 @@ class Channel(ExportModelOperationsMixin("channel"), BaseModel):
         if not formats:
             return True
         return format_code in formats
+
+    def clean(self):
+        super().clean()
+        formats = self.supported_formats or []
+        if PlacementFormat.AUTOPILOT in formats and not self.autopilot_min_interval:
+            raise ValidationError(
+                {"autopilot_min_interval": "Укажите минимальный интервал для кампаний формата «Автопилот»."}
+            )
+
+    @property
+    def requires_manual_approval(self) -> bool:
+        return not self.auto_approve_publications
+
+    @property
+    def autopilot_interval_delta(self) -> timedelta | None:
+        if self.autopilot_min_interval:
+            return timedelta(minutes=self.autopilot_min_interval)
+        return None
+
+    def allows_publication_datetime(self, scheduled_at: datetime | None) -> bool:
+        if not scheduled_at:
+            return True
+        return self.publication_slots.filter(
+            weekday=scheduled_at.weekday(),
+            start_time__lte=scheduled_at.time(),
+            end_time__gt=scheduled_at.time(),
+        ).exists()
+
+    def get_weekday_slot_labels(self, weekday: int) -> list[str]:
+        return [
+            slot.label
+            for slot in self.publication_slots.filter(weekday=weekday).order_by("start_time")
+        ]
 
     class Meta:
         verbose_name_plural = "Каналы"
@@ -608,6 +648,15 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
         max_length=6,
         verbose_name=_("Статус"),
         default=Statuses.DRAFT,
+    )
+    # CHANGE: Добавлено поле is_archived для архивирования кампаний
+    # WHY: Исправление issue #43 - безопасная альтернатива удалению
+    # QUOTE(ТЗ): "добавить флаг/статус 'archived' для кампаний"
+    # REF: #43
+    is_archived = models.BooleanField(
+        default=False,
+        verbose_name="Архивирована",
+        help_text="Архивные кампании скрыты из списка по умолчанию",
     )
     budget = models.DecimalField(
         verbose_name=_("Бюджет (руб.)"),
@@ -962,7 +1011,7 @@ class Campaign(ExportModelOperationsMixin("campaign"), BaseModel):
                 CampaignChannel.PublishStatusChoices.PLANNED,
                 CampaignChannel.PublishStatusChoices.REJECTED,
             ],
-            channel__require_manual_approval=True,
+            channel__auto_approve_publications=False,
             channel__is_deleted=False,
             channel_admin__isnull=False,
             channel_admin__is_bot_installed=True,
@@ -1024,6 +1073,12 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         PUBLISHED = "published", _("опубликовано")
         DELETED = "deleted", _("удалённо")  # to delete
         REJECTED = "rejected", _("Отклонено")
+
+    ACTIVE_PUBLISH_STATUSES = {
+        PublishStatusChoices.PLANNED,
+        PublishStatusChoices.CONFIRMED,
+        PublishStatusChoices.PUBLISHED,
+    }
 
     channel = models.ForeignKey(
         "Channel",
@@ -1149,10 +1204,66 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
         self.clean_add_to_campaign()
         self.clean_negative_fields()
         self.clean_publication_slot()
+        self._validate_autopilot_interval()
+
+    def _scheduled_datetime(self) -> datetime | None:
+        campaign = getattr(self, "campaign", None)
+        slot = getattr(self, "publication_slot", None)
+        if not campaign:
+            return None
+        if campaign.slot_publication_at:
+            return campaign.slot_publication_at
+        if slot and campaign.start_date:
+            tz = timezone.get_current_timezone()
+            return timezone.make_aware(datetime.combine(campaign.start_date, slot.start_time), tz)
+        if campaign.start_date:
+            tz = timezone.get_current_timezone()
+            return timezone.make_aware(datetime.combine(campaign.start_date, time.min), tz)
+        return None
+
+    def _validate_autopilot_interval(self):
+        campaign = getattr(self, "campaign", None)
+        channel = getattr(self, "channel", None)
+        if not campaign or not channel or campaign.format != PlacementFormat.AUTOPILOT:
+            return
+        interval = channel.autopilot_interval_delta
+        scheduled_dt = self._scheduled_datetime()
+        if not interval or not scheduled_dt:
+            return
+        lower = scheduled_dt - interval
+        upper = scheduled_dt + interval
+        conflict_qs = (
+            CampaignChannel.objects.filter(
+                channel=channel,
+                campaign__format=PlacementFormat.AUTOPILOT,
+                publish_status__in=self.ACTIVE_PUBLISH_STATUSES,
+            )
+            .exclude(pk=self.pk)
+            .filter(
+                message_publish_date__isnull=False,
+                message_publish_date__gte=lower,
+                message_publish_date__lte=upper,
+            )
+            .order_by("-message_publish_date")
+        )
+        conflict = conflict_qs.first()
+        if conflict:
+            suggested = conflict.message_publish_date + interval
+            if suggested <= scheduled_dt:
+                suggested = scheduled_dt + interval
+            suggested_local = timezone.localtime(suggested)
+            raise ValidationError(
+                {
+                    "message_publish_date": (
+                        f"Для канала установлен интервал {channel.autopilot_min_interval} мин."
+                        f" Ближайшее доступное окно: {suggested_local.strftime('%d.%m.%Y %H:%M')}."
+                    )
+                }
+            )
 
     @classmethod
     def send_approval_request(cls, instance: "CampaignChannel") -> None:
-        if not instance.channel or not instance.channel.require_manual_approval:
+        if not instance.channel or instance.channel.auto_approve_publications:
             return
         from core.signals import send_message_to_channel_admin
 
@@ -1180,6 +1291,43 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
             if channel and slot.channel_id != channel.id:
                 raise ValidationError(
                     {"publication_slot": "Слот принадлежит другому каналу"}
+                )
+            scheduled_dt = self._scheduled_datetime()
+            campaign_slot_dt = getattr(campaign, "slot_publication_at", None)
+            if not campaign_slot_dt:
+                raise ValidationError(
+                    {"publication_slot": "Для кампании не указаны дата и время публикации."}
+                )
+            slot_time = campaign_slot_dt.time()
+            if slot.weekday != campaign_slot_dt.weekday() or not (
+                slot.start_time <= slot_time < slot.end_time
+            ):
+                raise ValidationError(
+                    {
+                        "publication_slot": "Выбранный слот не соответствует времени кампании."
+                    }
+                )
+            if (
+                channel
+                and scheduled_dt
+                and CampaignChannel.objects.filter(
+                    channel=channel,
+                    publish_status__in=self.ACTIVE_PUBLISH_STATUSES,
+                    message_publish_date=scheduled_dt,
+                )
+                .exclude(pk=self.pk)
+                .exists()
+            ):
+                available = channel.get_weekday_slot_labels(slot.weekday) if channel else []
+                options = ", ".join(available[:5])
+                hint = f" Доступные варианты: {options}" if options else ""
+                raise ValidationError(
+                    {
+                        "publication_slot": (
+                            f"Слот {slot.label} уже занят {campaign_slot_dt.strftime('%d.%m.%Y %H:%M')}."
+                            + hint
+                        )
+                    }
                 )
         elif campaign and campaign.format != PlacementFormat.FIXED_SLOT:
             self.publication_slot = None
@@ -1209,19 +1357,7 @@ class CampaignChannel(ExportModelOperationsMixin("campaignchannel"), BaseModel):
             )
 
     def _sync_message_publish_date(self):
-        campaign = getattr(self, "campaign", None)
-        slot = getattr(self, "publication_slot", None)
-
-        # Для Фикс-слота используем время из слота
-        if campaign and campaign.format == PlacementFormat.FIXED_SLOT and slot:
-            tz = timezone.get_current_timezone()
-            # Берем дату старта кампании и время из слота
-            scheduled = timezone.make_aware(
-                datetime.combine(campaign.start_date, slot.start_time), tz
-            )
-            self.message_publish_date = scheduled
-        elif campaign and campaign.format != PlacementFormat.FIXED_SLOT:
-            self.message_publish_date = None
+        self.message_publish_date = self._scheduled_datetime()
 
     def save(self, *args, **kwargs):
         self._sync_message_publish_date()

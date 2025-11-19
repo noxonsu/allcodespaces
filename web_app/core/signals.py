@@ -48,6 +48,7 @@ def send_message_to_channel_admin(instance: CampaignChannel) -> None:
         if (
             instance.id
             and instance.channel
+            and not instance.channel.auto_approve_publications
             and instance.channel_admin
             and instance.channel_admin.is_bot_installed
             and instance.channel_admin.channels.filter(id=instance.channel.id).exists()
@@ -86,7 +87,7 @@ def campaignchannel_pre_save(
     state_adding = instance._state.adding
     if state_adding and instance.channel:
         # Устанавливаем начальный статус в зависимости от настроек канала
-        if not instance.channel.require_manual_approval:
+        if instance.channel.auto_approve_publications:
             # Автоматическое подтверждение
             instance.publish_status = CampaignChannel.PublishStatusChoices.CONFIRMED
             logger.info(f"Auto-set CONFIRMED status for campaign channel (channel requires no manual approval)")
@@ -105,7 +106,7 @@ def campaignchannel_post_save(
 ):
     if created:
         # Отправляем уведомление владельцу канала если требуется ручное подтверждение
-        if instance.channel and instance.channel.require_manual_approval:
+        if instance.channel and not instance.channel.auto_approve_publications:
             send_message_to_channel_admin(instance)
 
 

@@ -4,6 +4,8 @@ Tests for bot placement functionality with publication slots
 import json
 from datetime import time, datetime, timedelta
 from decimal import Decimal
+
+from django.core.exceptions import ValidationError
 from django.test import TestCase, Client
 from django.urls import reverse
 from django.utils import timezone
@@ -41,6 +43,7 @@ class BotPlacementTestCase(TestCase):
             status=Channel.ChannelStatus.CONFIRMED,
             cpm=100,
             supported_formats=[PlacementFormat.FIXED_SLOT, PlacementFormat.AUTOPILOT],
+            autopilot_min_interval=60,
         )
 
         # Add admin to channel
@@ -126,6 +129,17 @@ class BotPlacementTestCase(TestCase):
         self.assertIsNotNone(data["publication_slot"])
         self.assertEqual(data["publication_slot"]["id"], str(slot.id))
         self.assertIn("weekday", data["publication_slot"])
+
+    def test_channel_serializer_includes_supported_formats_and_slots(self):
+        """Channel API returns supported formats and publication slots"""
+        from core.serializers import ChannelSerializer
+
+        serializer = ChannelSerializer(self.channel)
+        payload = serializer.data
+        self.assertIn("supported_formats", payload)
+        self.assertIn(PlacementFormat.FIXED_SLOT, payload["supported_formats"])
+        self.assertIn("publication_slots", payload)
+        self.assertGreater(len(payload["publication_slots"]), 0)
         self.assertIn("start_time", data["publication_slot"])
         self.assertIn("end_time", data["publication_slot"])
         self.assertIn("label", data["publication_slot"])
@@ -182,8 +196,6 @@ class BotPlacementTestCase(TestCase):
 
     def test_campaign_channel_slot_must_match_campaign_time(self):
         """Test that publication slot must match campaign publication time"""
-        from django.core.exceptions import ValidationError
-
         # Get a slot for 14:00-15:00 (doesn't match campaign time of 10:00)
         wrong_slot = ChannelPublicationSlot.objects.filter(
             channel=self.channel,
@@ -203,6 +215,92 @@ class BotPlacementTestCase(TestCase):
                 impressions_plan=10000,
             )
             campaign_channel.full_clean()
+
+    def test_cannot_double_book_same_slot_and_time(self):
+        """Fixed slot cannot be booked twice for the same time"""
+        slot = self.slots[0]
+        CampaignChannel.objects.create(
+            campaign=self.campaign,
+            channel=self.channel,
+            channel_admin=self.channel_admin,
+            publication_slot=slot,
+            cpm=Decimal("100.00"),
+            plan_cpm=Decimal("100.00"),
+            impressions_plan=10000,
+        )
+
+        with self.assertRaises(ValidationError):
+            duplicate = CampaignChannel(
+                campaign=self.campaign,
+                channel=self.channel,
+                channel_admin=self.channel_admin,
+                publication_slot=slot,
+                cpm=Decimal("90.00"),
+                plan_cpm=Decimal("90.00"),
+                impressions_plan=5000,
+            )
+            duplicate.full_clean()
+
+    def test_autopilot_interval_enforced(self):
+        """Autopilot channels respect min interval"""
+        autopilot_channel = Channel.objects.create(
+            name="Auto Channel",
+            tg_id="555",
+            is_bot_installed=True,
+            status=Channel.ChannelStatus.CONFIRMED,
+            supported_formats=[PlacementFormat.AUTOPILOT],
+            autopilot_min_interval=120,
+        )
+        autopilot_channel.admins.add(self.channel_admin)
+
+        autopilot_message = Message.objects.create(
+            name="Auto Msg",
+            body="Auto body",
+            format=PlacementFormat.AUTOPILOT,
+        )
+        base_time = timezone.now() + timedelta(hours=1)
+        first_campaign = Campaign.objects.create(
+            name="Auto One",
+            message=autopilot_message,
+            format=PlacementFormat.AUTOPILOT,
+            budget=Decimal("1000.00"),
+            start_date=base_time.date(),
+            finish_date=base_time.date(),
+            slot_publication_at=base_time,
+            client="Client",
+            brand="Brand",
+        )
+        CampaignChannel.objects.create(
+            campaign=first_campaign,
+            channel=autopilot_channel,
+            channel_admin=self.channel_admin,
+            cpm=Decimal("100.00"),
+            plan_cpm=Decimal("100.00"),
+            impressions_plan=1000,
+        )
+
+        next_campaign = Campaign.objects.create(
+            name="Auto Two",
+            message=autopilot_message,
+            format=PlacementFormat.AUTOPILOT,
+            budget=Decimal("1000.00"),
+            start_date=base_time.date(),
+            finish_date=base_time.date(),
+            slot_publication_at=base_time + timedelta(minutes=30),
+            client="Client",
+            brand="Brand",
+        )
+
+        with self.assertRaises(ValidationError):
+            candidate = CampaignChannel(
+                campaign=next_campaign,
+                channel=autopilot_channel,
+                channel_admin=self.channel_admin,
+                cpm=Decimal("100.00"),
+                plan_cpm=Decimal("100.00"),
+                impressions_plan=1000,
+            )
+            candidate.full_clean()
 
     def test_default_slots_created_on_channel_creation(self):
         """Test that default slots (8:00-21:00) are created when channel is created"""

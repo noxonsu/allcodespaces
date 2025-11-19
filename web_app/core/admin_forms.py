@@ -28,6 +28,20 @@ class ChannelForm(forms.ModelForm):
         widget=forms.SelectMultiple(attrs={"class": "form-control wide"}),
         label="Поддерживаемые форматы",
     )
+    autopilot_min_interval = forms.IntegerField(
+        required=False,
+        min_value=5,
+        widget=forms.NumberInput(
+            attrs={
+                "class": "form-control",
+                "min": 5,
+                "step": 5,
+                "placeholder": "Например, 60",
+            }
+        ),
+        label="Мин. интервал для «Автопилота» (мин)",
+        help_text="Канал с форматом «Автопилот» должен указать интервал между публикациями.",
+    )
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -36,6 +50,13 @@ class ChannelForm(forms.ModelForm):
             self.initial.setdefault("supported_formats", instance.supported_formats)
         elif "supported_formats" not in self.initial:
             self.initial["supported_formats"] = default_supported_formats()
+        if (
+            "autopilot_min_interval" not in self.initial
+            and instance
+            and instance.autopilot_min_interval
+        ):
+            self.initial["autopilot_min_interval"] = instance.autopilot_min_interval
+
     class Media:
         css = {
             "all": [
@@ -59,6 +80,17 @@ class ChannelForm(forms.ModelForm):
         if not formats:
             return default_supported_formats()
         return formats
+
+    def clean(self):
+        cleaned_data = super().clean()
+        formats = cleaned_data.get("supported_formats") or []
+        interval = cleaned_data.get("autopilot_min_interval")
+        if PlacementFormat.AUTOPILOT in formats and not interval:
+            self.add_error(
+                "autopilot_min_interval",
+                "Укажите минимальный интервал между публикациями «Автопилота».",
+            )
+        return cleaned_data
 
     class Meta:
         model = Channel
