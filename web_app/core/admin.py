@@ -14,7 +14,7 @@ from django.core.exceptions import ValidationError
 from django.db.models import Sum, QuerySet, Q
 from django.forms import Select
 from django.http import JsonResponse, FileResponse, HttpResponseRedirect, HttpResponse
-from django.urls import path
+from django.urls import path, reverse
 from django.utils.safestring import mark_safe
 
 from web_app.logger import logger
@@ -871,6 +871,72 @@ class CampaignAdmin(admin.ModelAdmin):
             f'<a class="btn btn-info" href="/admin/core/campaignchannel/?campaign__id__exact={str(obj.id)}">Ссылка на страницу Статистика по РК </a>'
         )
 
+    def _remove_changelist_delete_obj(self, actions_dict):
+        del actions_dict["delete_selected"]
+
+    def get_actions(self, request):
+        response = super().get_actions(request)
+        self._remove_changelist_delete_obj(response)
+        return response
+
+    def delete_model(self, request, obj):
+        """
+        CHANGE: Override delete_model to prevent deletion of campaigns with publications
+        WHY: Protect published campaigns from accidental deletion
+        REF: issue #42
+        """
+        from django.contrib import messages
+        from django.core.exceptions import ValidationError
+
+        if obj.has_publications():
+            messages.error(
+                request,
+                f"Невозможно удалить кампанию '{obj.name}': имеются опубликованные посты. "
+                "Сначала необходимо удалить все публикации или используйте действие «Архивировать».",
+            )
+            return
+
+        try:
+            super().delete_model(request, obj)
+        except ValidationError as exc:
+            messages.error(
+                request,
+                f"Невозможно удалить кампанию '{obj.name}': {exc.messages[0]} "
+                "Попробуйте действие «Архивировать».",
+            )
+
+    def delete_queryset(self, request, queryset):
+        """
+        CHANGE: Override delete_queryset to prevent deletion of campaigns with publications
+        WHY: Protect published campaigns from accidental bulk deletion
+        REF: issue #42
+        """
+        from django.contrib import messages
+
+        campaigns_with_publications = []
+        campaigns_to_delete = []
+
+        for campaign in queryset:
+            if campaign.has_publications():
+                campaigns_with_publications.append(campaign.name)
+            else:
+                campaigns_to_delete.append(campaign)
+
+        if campaigns_with_publications:
+            messages.error(
+                request,
+                f"Невозможно удалить кампании с публикациями: {', '.join(campaigns_with_publications)}. "
+                "Сначала необходимо удалить все публикации или используйте действие «Архивировать».",
+            )
+
+        if campaigns_to_delete:
+            for campaign in campaigns_to_delete:
+                campaign.delete()
+            messages.success(
+                request,
+                f"Успешно удалено кампаний: {len(campaigns_to_delete)}",
+            )
+
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):
         """To hide the save and continue btn, the history btn is disabled in the template change_form_object_tools.html"""
         extra_context = {} if not extra_context else extra_context
@@ -884,6 +950,13 @@ class CampaignAdmin(admin.ModelAdmin):
                 " Переведите кампанию в активный статус, чтобы планировать публикации.",
             )
             extra_context["is_draft"] = True
+        if obj and obj.is_archived:
+            messages.info(
+                request,
+                "Кампания находится в архиве. Добавление новых каналов и публикаций заблокировано. "
+                "Используйте действие «Разархивировать», чтобы возобновить работу.",
+            )
+            extra_context["is_archived"] = True
         return super().changeform_view(request, object_id, extra_context=extra_context)
 
     def get_queryset(self, request):
@@ -907,9 +980,11 @@ class CampaignAdmin(admin.ModelAdmin):
         """
         campaigns_with_publications = []
         campaigns_to_archive = []
+        already_archived = []
 
         for campaign in queryset:
             if campaign.is_archived:
+                already_archived.append(campaign.name)
                 continue
             if campaign.has_publications():
                 # Кампании с публикациями можно архивировать
@@ -924,7 +999,12 @@ class CampaignAdmin(admin.ModelAdmin):
                 campaign.save()
             messages.success(
                 request,
-                f"Успешно архивировано кампаний: {count}"
+                f"Успешно архивировано кампаний: {count}. Они исчезнут из списка по умолчанию, но доступны через фильтр «Архивирована»."
+            )
+        elif already_archived:
+            messages.info(
+                request,
+                "Выбранные кампании уже находятся в архиве."
             )
 
     @admin.action(description="Разархивировать выбранные кампании")
@@ -1008,65 +1088,6 @@ class MessageAdmin(admin.ModelAdmin):
             </div>'''
             return mark_safe(text)
         return "-"
-
-    def _remove_changelist_delete_obj(self, actions_dict):
-        del actions_dict["delete_selected"]
-
-    def get_actions(self, request):
-        response = super().get_actions(request)
-        self._remove_changelist_delete_obj(response)
-        return response
-
-    def delete_model(self, request, obj):
-        """
-        CHANGE: Override delete_model to prevent deletion of campaigns with publications
-        WHY: Protect published campaigns from accidental deletion
-        REF: issue #42
-        """
-        from django.contrib import messages
-
-        if obj.has_publications():
-            messages.error(
-                request,
-                f"Невозможно удалить кампанию '{obj.name}': имеются опубликованные посты. "
-                "Сначала необходимо удалить все публикации."
-            )
-            return
-
-        super().delete_model(request, obj)
-
-    def delete_queryset(self, request, queryset):
-        """
-        CHANGE: Override delete_queryset to prevent deletion of campaigns with publications
-        WHY: Protect published campaigns from accidental bulk deletion
-        REF: issue #42
-        """
-        from django.contrib import messages
-
-        campaigns_with_publications = []
-        campaigns_to_delete = []
-
-        for campaign in queryset:
-            if campaign.has_publications():
-                campaigns_with_publications.append(campaign.name)
-            else:
-                campaigns_to_delete.append(campaign)
-
-        if campaigns_with_publications:
-            messages.error(
-                request,
-                f"Невозможно удалить кампании с публикациями: {', '.join(campaigns_with_publications)}. "
-                "Сначала необходимо удалить все публикации."
-            )
-
-        if campaigns_to_delete:
-            for campaign in campaigns_to_delete:
-                campaign.delete()
-            messages.success(
-                request,
-                f"Успешно удалено кампаний: {len(campaigns_to_delete)}"
-            )
-
 
 @register(MessagePreviewToken)
 class MessagePreviewTokenAdmin(admin.ModelAdmin):
@@ -1566,12 +1587,13 @@ class LegalEntityAdmin(admin.ModelAdmin):
 
     @admin.display(description="Фильтр по каналам")
     def channels_filter_link(self, obj: LegalEntity):
-        url = f"/core/channel/?legal_entity__id__exact={obj.id}"
+        url = reverse("admin:core_channel_changelist")
+        url = f"{url}?legal_entity__id__exact={obj.id}"
         return mark_safe(f'<a class="btn btn-info" href="{url}">Список каналов</a>')
 
     @admin.display(description="Экспорт каналов")
     def export_channels_link(self, obj: LegalEntity):
-        url = f"./{obj.id}/export-channels/"
+        url = reverse("admin:core_legalentity_export_channels", args=[obj.id])
         return mark_safe(f'<a class="btn btn-success" href="{url}">Экспорт в CSV</a>')
 
     def get_urls(self):
